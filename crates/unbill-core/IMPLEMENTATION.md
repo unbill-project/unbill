@@ -26,6 +26,3 @@
 - Settlement properties: total owed equals total paid; transaction count is at most n−1.
 - Storage round-trips: save → reload → assert identical bytes; compact → reload → assert identical.
 
-## Open questions
-
-- Lazy vs eager ledger loading at startup — load all on boot (simple, memory-hungry for many ledgers) or load on first access (more complex, required at scale).

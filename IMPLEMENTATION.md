@@ -58,6 +58,8 @@ Under that root:
 
 Every mutation calls `doc.save()` and atomically overwrites `ledger.bin` (write to `*.tmp`, rename over target). Ledger data is small enough that a full rewrite on each change is cheaper than the complexity of incremental append + compaction.
 
+All ledgers are loaded eagerly at `UnbillService::open`. Ledger counts and sizes are small enough that this is never a problem.
+
 ### LedgerStore trait
 
 Six async methods: `save_ledger_meta`, `list_ledgers`, `load_ledger_bytes`, `save_ledger_bytes`, `delete_ledger`, `load_device_meta`, `save_device_meta`. Two implementations: `FsStore` (production) and `InMemoryStore` (tests).

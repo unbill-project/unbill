@@ -33,16 +33,9 @@ impl LedgerDoc {
         Ok(Self { doc, changes: tx })
     }
 
-    /// Load a ledger document from saved bytes (snapshot + optional incrementals).
-    pub fn from_bytes(snapshot: &[u8], incrementals: &[Vec<u8>]) -> anyhow::Result<Self> {
-        let mut doc = if snapshot.is_empty() {
-            automerge::AutoCommit::new()
-        } else {
-            automerge::AutoCommit::load(snapshot)?
-        };
-        for chunk in incrementals {
-            doc.load_incremental(chunk)?;
-        }
+    /// Load a ledger document from stored bytes.
+    pub fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        let doc = automerge::AutoCommit::load(bytes)?;
         let (tx, _) = broadcast::channel(64);
         Ok(Self { doc, changes: tx })
     }
