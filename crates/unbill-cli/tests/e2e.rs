@@ -70,14 +70,33 @@ impl Env {
 // Helpers
 // ---------------------------------------------------------------------------
 
+const ALICE: &str = "00000000000000000000000001";
+const BOB: &str = "00000000000000000000000002";
+const CAROL: &str = "00000000000000000000000003";
+
 fn create_ledger(env: &Env) -> String {
     let v = env.json(&["ledger", "create", "Household", "USD"]);
     v["ledger_id"].as_str().unwrap().to_owned()
 }
 
-const ALICE: &str = "00000000000000000000000001";
-const BOB: &str = "00000000000000000000000002";
-const CAROL: &str = "00000000000000000000000003";
+fn add_member(env: &Env, ledger_id: &str, user_id: &str, name: &str) {
+    env.ok(&[
+        "member", "add",
+        "--ledger-id", ledger_id,
+        "--user-id", user_id,
+        "--name", name,
+        "--added-by", ALICE,
+    ]);
+}
+
+/// Create a ledger and register ALICE, BOB, and CAROL as members.
+fn create_ledger_with_members(env: &Env) -> String {
+    let lid = create_ledger(env);
+    add_member(env, &lid, ALICE, "Alice");
+    add_member(env, &lid, BOB, "Bob");
+    add_member(env, &lid, CAROL, "Carol");
+    lid
+}
 
 fn add_bill(
     env: &Env,
@@ -181,11 +200,11 @@ fn test_created_ledger_appears_in_list() {
 #[test]
 fn test_ledger_show_reports_bill_and_member_counts() {
     let env = Env::new();
-    let lid = create_ledger(&env);
+    let lid = create_ledger_with_members(&env);
     add_bill(&env, &lid, ALICE, "30", "Dinner", &[ALICE, BOB]);
     let v = env.json(&["ledger", "show", &lid]);
     assert_eq!(v["bill_count"].as_u64().unwrap(), 1);
-    assert_eq!(v["member_count"].as_u64().unwrap(), 0);
+    assert_eq!(v["member_count"].as_u64().unwrap(), 3);
 }
 
 #[test]
@@ -214,7 +233,7 @@ fn test_invalid_currency_is_rejected() {
 #[test]
 fn test_add_bill_returns_id_and_appears_in_list() {
     let env = Env::new();
-    let lid = create_ledger(&env);
+    let lid = create_ledger_with_members(&env);
     let bid = add_bill(&env, &lid, ALICE, "45.50", "Groceries", &[ALICE, BOB]);
     assert_eq!(bid.len(), 26);
 
@@ -231,7 +250,7 @@ fn test_add_bill_returns_id_and_appears_in_list() {
 #[test]
 fn test_amend_bill_updates_amount_and_marks_amended() {
     let env = Env::new();
-    let lid = create_ledger(&env);
+    let lid = create_ledger_with_members(&env);
     let bid = add_bill(&env, &lid, ALICE, "10", "Lunch", &[ALICE, BOB]);
 
     env.ok(&[
@@ -259,7 +278,7 @@ fn test_amend_bill_updates_amount_and_marks_amended() {
 #[test]
 fn test_delete_bill_sets_deleted_flag() {
     let env = Env::new();
-    let lid = create_ledger(&env);
+    let lid = create_ledger_with_members(&env);
     let bid = add_bill(&env, &lid, ALICE, "20", "Coffee", &[ALICE]);
 
     env.ok(&["bill", "delete", "--ledger-id", &lid, "--bill-id", &bid]);
@@ -273,7 +292,7 @@ fn test_delete_bill_sets_deleted_flag() {
 #[test]
 fn test_restore_bill_clears_deleted_flag() {
     let env = Env::new();
-    let lid = create_ledger(&env);
+    let lid = create_ledger_with_members(&env);
     let bid = add_bill(&env, &lid, ALICE, "20", "Coffee", &[ALICE]);
 
     env.ok(&["bill", "delete", "--ledger-id", &lid, "--bill-id", &bid]);
@@ -288,7 +307,7 @@ fn test_restore_bill_clears_deleted_flag() {
 #[test]
 fn test_amend_with_no_fields_is_rejected() {
     let env = Env::new();
-    let lid = create_ledger(&env);
+    let lid = create_ledger_with_members(&env);
     let bid = add_bill(&env, &lid, ALICE, "10", "X", &[ALICE]);
 
     let stderr = env.fail(&[
@@ -322,7 +341,7 @@ fn test_settlement_empty_when_no_bills() {
 #[test]
 fn test_settlement_correct_after_one_bill() {
     let env = Env::new();
-    let lid = create_ledger(&env);
+    let lid = create_ledger_with_members(&env);
     // Alice pays $90, split equally with Bob — Bob owes Alice $45.
     add_bill(&env, &lid, ALICE, "90", "Dinner", &[ALICE, BOB]);
 
@@ -337,7 +356,7 @@ fn test_settlement_correct_after_one_bill() {
 #[test]
 fn test_settlement_deleted_bills_are_excluded() {
     let env = Env::new();
-    let lid = create_ledger(&env);
+    let lid = create_ledger_with_members(&env);
     let bid = add_bill(&env, &lid, ALICE, "90", "Dinner", &[ALICE, BOB]);
     env.ok(&["bill", "delete", "--ledger-id", &lid, "--bill-id", &bid]);
 
@@ -348,7 +367,7 @@ fn test_settlement_deleted_bills_are_excluded() {
 #[test]
 fn test_settlement_net_of_multiple_bills() {
     let env = Env::new();
-    let lid = create_ledger(&env);
+    let lid = create_ledger_with_members(&env);
     // Alice pays $60 for Alice+Bob: Bob owes $30.
     add_bill(&env, &lid, ALICE, "60", "Rent", &[ALICE, BOB]);
     // Bob pays $30 for Alice+Bob: Alice owes $15. Net: Bob owes $15 to Alice.
@@ -367,7 +386,7 @@ fn test_settlement_net_of_multiple_bills() {
 #[test]
 fn test_data_persists_across_process_restarts() {
     let env = Env::new();
-    let lid = create_ledger(&env);
+    let lid = create_ledger_with_members(&env);
     let bid = add_bill(&env, &lid, ALICE, "50", "Pizza", &[ALICE, BOB, CAROL]);
 
     // New process, same data dir.
@@ -381,7 +400,7 @@ fn test_data_persists_across_process_restarts() {
 #[test]
 fn test_amendments_persist_across_process_restarts() {
     let env = Env::new();
-    let lid = create_ledger(&env);
+    let lid = create_ledger_with_members(&env);
     let bid = add_bill(&env, &lid, ALICE, "10", "Coffee", &[ALICE, BOB]);
     env.ok(&[
         "bill",
@@ -407,6 +426,60 @@ fn test_amendments_persist_across_process_restarts() {
     assert!(bills.as_array().unwrap()[0]["was_amended"]
         .as_bool()
         .unwrap());
+}
+
+// ---------------------------------------------------------------------------
+// Error cases
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Members
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_member_add_appears_in_list() {
+    let env = Env::new();
+    let lid = create_ledger(&env);
+    add_member(&env, &lid, ALICE, "Alice");
+    let members = env.json(&["member", "list", "--ledger-id", &lid]);
+    let arr = members.as_array().unwrap();
+    assert_eq!(arr.len(), 1);
+    assert_eq!(arr[0]["user_id"].as_str().unwrap(), ALICE);
+    assert_eq!(arr[0]["display_name"].as_str().unwrap(), "Alice");
+}
+
+#[test]
+fn test_member_remove_hides_member() {
+    let env = Env::new();
+    let lid = create_ledger(&env);
+    add_member(&env, &lid, ALICE, "Alice");
+    add_member(&env, &lid, BOB, "Bob");
+    env.ok(&["member", "remove", "--ledger-id", &lid, "--user-id", BOB]);
+    let members = env.json(&["member", "list", "--ledger-id", &lid]);
+    let arr = members.as_array().unwrap();
+    assert_eq!(arr.len(), 1);
+    assert_eq!(arr[0]["user_id"].as_str().unwrap(), ALICE);
+}
+
+#[test]
+fn test_add_bill_rejects_non_member() {
+    let env = Env::new();
+    let lid = create_ledger(&env);
+    add_member(&env, &lid, ALICE, "Alice");
+    // BOB is not a member — bill should fail.
+    let stderr = env.fail(&[
+        "bill", "add",
+        "--ledger-id", &lid,
+        "--payer", ALICE,
+        "--amount", "10",
+        "--description", "Test",
+        "--participant", ALICE,
+        "--participant", BOB,
+    ]);
+    assert!(
+        stderr.contains("not a member"),
+        "expected 'not a member' error, got: {stderr}"
+    );
 }
 
 // ---------------------------------------------------------------------------

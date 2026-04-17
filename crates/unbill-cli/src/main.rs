@@ -152,6 +152,25 @@ pub enum MemberCmd {
         #[arg(long)]
         ledger_id: String,
     },
+    /// Add a member directly by user ID and display name.
+    Add {
+        #[arg(long)]
+        ledger_id: String,
+        #[arg(long)]
+        user_id: String,
+        #[arg(long)]
+        name: String,
+        /// User ID of the person performing this action.
+        #[arg(long)]
+        added_by: String,
+    },
+    /// Remove a member from a ledger.
+    Remove {
+        #[arg(long)]
+        ledger_id: String,
+        #[arg(long)]
+        user_id: String,
+    },
     /// Invite a new member. (Available from M4.)
     Invite { ledger_id: String },
     /// Join a ledger via an invite URL. (Available from M4.)
@@ -264,6 +283,15 @@ async fn run() -> anyhow::Result<()> {
         },
         Command::Member { sub } => match sub {
             MemberCmd::List { ledger_id } => commands::member_list(&svc, &ledger_id, json).await,
+            MemberCmd::Add {
+                ledger_id,
+                user_id,
+                name,
+                added_by,
+            } => commands::member_add(&svc, &ledger_id, &user_id, name, &added_by).await,
+            MemberCmd::Remove { ledger_id, user_id } => {
+                commands::member_remove(&svc, &ledger_id, &user_id).await
+            }
             MemberCmd::Invite { .. } | MemberCmd::Join { .. } => {
                 bail!("member invite/join is available from M4")
             }

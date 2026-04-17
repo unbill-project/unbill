@@ -36,6 +36,14 @@ pub struct Device {
     pub added_at: Timestamp,
 }
 
+/// Input type for directly adding a member to a ledger.
+#[derive(Clone, Debug)]
+pub struct NewMember {
+    pub user_id: Ulid,
+    pub display_name: String,
+    pub added_by: Ulid,
+}
+
 /// A pending join invitation. Held in `UnbillService` memory only — never
 /// persisted or synced. Consumed (removed from the map) on first use or expiry.
 #[derive(Clone, Debug)]

@@ -8,6 +8,9 @@ pub enum UnbillError {
     #[error("bill not found: {0}")]
     BillNotFound(String),
 
+    #[error("user {0} is not a member of this ledger")]
+    UserNotMember(String),
+
     #[error("member not found: {0}")]
     MemberNotFound(String),
 

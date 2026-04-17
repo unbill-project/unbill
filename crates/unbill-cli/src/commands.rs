@@ -3,7 +3,7 @@
 // operation, and prints the result. Nothing here touches storage directly.
 
 use anyhow::{anyhow, bail};
-use unbill_core::model::{BillAmendment, NewBill, Share, Ulid};
+use unbill_core::model::{BillAmendment, NewBill, NewMember, Share, Ulid};
 use unbill_core::service::UnbillService;
 
 use crate::output::{
@@ -265,6 +265,34 @@ pub async fn bill_restore(
 // ---------------------------------------------------------------------------
 // Members
 // ---------------------------------------------------------------------------
+
+pub async fn member_add(
+    svc: &UnbillService,
+    ledger_id: &str,
+    user_id: &str,
+    name: String,
+    added_by: &str,
+) -> anyhow::Result<()> {
+    svc.add_member(
+        ledger_id,
+        NewMember {
+            user_id: parse_ulid(user_id)?,
+            display_name: name,
+            added_by: parse_ulid(added_by)?,
+        },
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn member_remove(
+    svc: &UnbillService,
+    ledger_id: &str,
+    user_id: &str,
+) -> anyhow::Result<()> {
+    svc.remove_member(ledger_id, user_id).await?;
+    Ok(())
+}
 
 pub async fn member_list(svc: &UnbillService, ledger_id: &str, json: bool) -> anyhow::Result<()> {
     let members = svc.list_members(ledger_id).await?;

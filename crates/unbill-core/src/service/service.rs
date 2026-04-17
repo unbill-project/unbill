@@ -10,8 +10,8 @@ use tokio::sync::{broadcast, Mutex};
 use crate::doc::LedgerDoc;
 use crate::error::{Result, UnbillError};
 use crate::model::{
-    BillAmendment, Currency, EffectiveBill, Invitation, LedgerMeta, Member, NewBill, NodeId,
-    Timestamp, Ulid,
+    BillAmendment, Currency, EffectiveBill, Invitation, LedgerMeta, Member, NewBill, NewMember,
+    NodeId, Timestamp, Ulid,
 };
 use crate::settlement;
 use crate::storage::LedgerStore;
@@ -180,6 +180,31 @@ impl UnbillService {
     // Members
     // -----------------------------------------------------------------------
 
+    pub async fn add_member(&self, ledger_id: &str, input: NewMember) -> Result<()> {
+        let doc_mutex = self.get_doc(ledger_id)?;
+        let mut doc = doc_mutex.lock().await;
+        doc.add_member(input, Timestamp::now())?;
+        let bytes = doc.save();
+        drop(doc);
+
+        self.store.save_ledger_bytes(ledger_id, &bytes).await?;
+        self.touch_meta(ledger_id).await?;
+        Ok(())
+    }
+
+    pub async fn remove_member(&self, ledger_id: &str, user_id: &str) -> Result<()> {
+        let user_ulid = parse_ulid(user_id)?;
+        let doc_mutex = self.get_doc(ledger_id)?;
+        let mut doc = doc_mutex.lock().await;
+        doc.remove_member(&user_ulid)?;
+        let bytes = doc.save();
+        drop(doc);
+
+        self.store.save_ledger_bytes(ledger_id, &bytes).await?;
+        self.touch_meta(ledger_id).await?;
+        Ok(())
+    }
+
     pub async fn list_members(&self, ledger_id: &str) -> Result<Vec<Member>> {
         let doc_mutex = self.get_doc(ledger_id)?;
         let doc = doc_mutex.lock().await;
@@ -281,26 +306,33 @@ mod tests {
         "USD"
     }
 
-    fn two_way_bill(payer: &str, amount_cents: i64, ledger_id: &str) -> (String, NewBill) {
-        // Returns (ledger_id clone, NewBill). Payer user_id and participant determined by caller.
-        let _ = ledger_id; // used only to keep the signature meaningful in context
-        let payer_id = Ulid::from_u128(1);
+    fn two_way_bill(desc: &str, amount_cents: i64, ledger_id: &str) -> (String, NewBill) {
+        let _ = ledger_id;
         let bill = NewBill {
-            payer_user_id: payer_id,
+            payer_user_id: Ulid::from_u128(1),
             amount_cents,
-            description: payer.to_owned(),
+            description: desc.to_owned(),
             shares: vec![
-                Share {
-                    user_id: Ulid::from_u128(1),
-                    shares: 1,
-                },
-                Share {
-                    user_id: Ulid::from_u128(2),
-                    shares: 1,
-                },
+                Share { user_id: Ulid::from_u128(1), shares: 1 },
+                Share { user_id: Ulid::from_u128(2), shares: 1 },
             ],
         };
         (ledger_id.to_owned(), bill)
+    }
+
+    async fn seed_members(svc: &UnbillService, ledger_id: &str) {
+        for (n, name) in [(1u128, "Alice"), (2, "Bob")] {
+            svc.add_member(
+                ledger_id,
+                NewMember {
+                    user_id: Ulid::from_u128(n),
+                    display_name: name.into(),
+                    added_by: Ulid::from_u128(1),
+                },
+            )
+            .await
+            .unwrap();
+        }
     }
 
     // --- create / list / delete ledger ---
@@ -353,6 +385,7 @@ mod tests {
             .create_ledger("Test".into(), usd().into())
             .await
             .unwrap();
+        seed_members(&svc, &lid).await;
         let (_, bill) = two_way_bill("Dinner", 6000, &lid);
         let bill_id = svc.add_bill(&lid, bill).await.unwrap();
 
@@ -369,6 +402,7 @@ mod tests {
             .create_ledger("Test".into(), usd().into())
             .await
             .unwrap();
+        seed_members(&svc, &lid).await;
         let (_, bill) = two_way_bill("Lunch", 3000, &lid);
         let bill_id = svc.add_bill(&lid, bill).await.unwrap();
 
@@ -398,6 +432,7 @@ mod tests {
             .create_ledger("Test".into(), usd().into())
             .await
             .unwrap();
+        seed_members(&svc, &lid).await;
         let (_, bill) = two_way_bill("Coffee", 500, &lid);
         let bill_id = svc.add_bill(&lid, bill).await.unwrap();
 
@@ -432,6 +467,7 @@ mod tests {
                 .create_ledger("Persistent".into(), usd().into())
                 .await
                 .unwrap();
+            seed_members(&svc, &lid).await;
             let (_, bill) = two_way_bill("Rent", 120000, &lid);
             svc.add_bill(&lid, bill).await.unwrap();
             lid
