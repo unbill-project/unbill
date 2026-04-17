@@ -12,7 +12,7 @@ The primary entry point is `UnbillService`. Frontends create one instance at sta
 
 **Bills:** add a bill (payer, amount, description, share weights); amend an existing bill; tombstone-delete; restore; list as effective (projected) bills.
 
-**Members:** invite a new member (returns a join URL containing a one-time token); accept an invitation URL; list current members.
+**Members:** add a member directly by user ID and display name; remove a member (tombstone); list current (non-removed) members. The full invite/join flow (out-of-band token, join URL) is deferred to M4.
 
 **Settlement:** compute the minimum set of transactions that clears all debts in a ledger.
 
@@ -30,12 +30,16 @@ Key model types: `Ulid`, `Timestamp`, `Currency`, `NodeId`, `InviteToken`, `Ledg
 - Device node IDs and bill creator fields are valid Ed25519 public keys.
 - Member IDs are stable across devices. Adding a device appends to the member's device list; it does not change their ID.
 - `InviteToken` is 32 bytes from `OsRng`, hex-encoded. Never written to disk.
+- The payer and every share participant in a bill must be active (non-removed) members of the ledger at the time the bill is added. Attempting to add a bill referencing a non-member returns `UserNotMember`.
 
 ## Failure modes
 
 | Error | Meaning |
 |-------|---------|
 | `LedgerNotFound` | Querying a ledger ID that does not exist |
+| `BillNotFound` | Amending, deleting, or restoring a bill ID that does not exist |
+| `MemberNotFound` | Removing a user ID that is not an active member |
+| `UserNotMember` | Adding a bill whose payer or participant is not an active member |
 | `InvalidInvitation` | Join token is expired, already used, or unrecognized |
 | `NotAuthorized` | Peer attempted to sync a ledger they are not a member of |
 | `Storage(Io)` | File I/O failure in `FsStore` |

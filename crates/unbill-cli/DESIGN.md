@@ -7,7 +7,7 @@ A thin clap-driven command-line frontend for `UnbillService`. Useful for dogfood
 - `init` — initialize the device: generate a key, set display name.
 - `ledger create | list | show | export | import | delete` — ledger lifecycle.
 - `bill add | list | amend | delete | restore` — bill management.
-- `member list | invite | join` — group membership.
+- `member list | add | remove` — group membership. `invite` and `join` are available from M4.
 - `sync daemon | once | status` — P2P sync control.
 - `settlement show` — display who owes whom.
 

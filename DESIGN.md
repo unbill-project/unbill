@@ -34,7 +34,7 @@ A person splitting expenses with a small group — roommates, a couple, a travel
 A shared expense context — "our household," "the Iceland trip." Contains members, bills, and amendment history. Each ledger is independent; a user may have many.
 
 ### Member
-A user belonging to a ledger, identified by a stable ID across all their devices. Membership is write-once; members are tombstoned, never removed from the document.
+A user belonging to a ledger, identified by a stable ID across all their devices. Members are tombstoned, never removed from the document. A user must be an active (non-tombstoned) member before they can appear as a payer or participant on any bill.
 
 ### Bill
 An expense: who paid, how much, and how the cost is split. Bills are append-only. The current view is a projection of all amendments applied in deterministic order.
@@ -70,11 +70,10 @@ A short-lived in-memory token allowing a new member to join. Never persisted or 
 
 ## Open questions
 
-1. Lazy vs eager ledger loading at startup.
-2. Multi-device onboarding for the same user (key transfer UX).
-3. Mobile notification strategy (iOS backgrounding constraints).
-4. Backup and restore for the "phone lost" scenario.
-5. App name — "unbill" is a placeholder.
+1. Multi-device onboarding for the same user (key transfer UX).
+2. Mobile notification strategy (iOS backgrounding constraints).
+3. Backup and restore for the "phone lost" scenario.
+4. App name — "unbill" is a placeholder.
 
 ## Glossary
 
