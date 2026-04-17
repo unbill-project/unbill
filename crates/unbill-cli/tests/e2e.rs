@@ -333,8 +333,9 @@ fn test_amend_with_no_fields_is_rejected() {
 #[test]
 fn test_settlement_empty_when_no_bills() {
     let env = Env::new();
-    let lid = create_ledger(&env);
-    let v = env.json(&["settlement", &lid]);
+    let lid = create_ledger_with_members(&env);
+    // Alice is a member but there are no bills — no transactions.
+    let v = env.json(&["settlement", ALICE]);
     assert!(v["transactions"].as_array().unwrap().is_empty());
 }
 
@@ -345,7 +346,7 @@ fn test_settlement_correct_after_one_bill() {
     // Alice pays $90, split equally with Bob — Bob owes Alice $45.
     add_bill(&env, &lid, ALICE, "90", "Dinner", &[ALICE, BOB]);
 
-    let v = env.json(&["settlement", &lid]);
+    let v = env.json(&["settlement", ALICE]);
     let txns = v["transactions"].as_array().unwrap();
     assert_eq!(txns.len(), 1);
     assert_eq!(txns[0]["from_user_id"].as_str().unwrap(), BOB);
@@ -360,7 +361,7 @@ fn test_settlement_deleted_bills_are_excluded() {
     let bid = add_bill(&env, &lid, ALICE, "90", "Dinner", &[ALICE, BOB]);
     env.ok(&["bill", "delete", "--ledger-id", &lid, "--bill-id", &bid]);
 
-    let v = env.json(&["settlement", &lid]);
+    let v = env.json(&["settlement", ALICE]);
     assert!(v["transactions"].as_array().unwrap().is_empty());
 }
 
@@ -373,10 +374,30 @@ fn test_settlement_net_of_multiple_bills() {
     // Bob pays $30 for Alice+Bob: Alice owes $15. Net: Bob owes $15 to Alice.
     add_bill(&env, &lid, BOB, "30", "Utilities", &[ALICE, BOB]);
 
-    let v = env.json(&["settlement", &lid]);
+    let v = env.json(&["settlement", ALICE]);
     let txns = v["transactions"].as_array().unwrap();
     assert_eq!(txns.len(), 1);
     assert_eq!(txns[0]["amount_cents"].as_i64().unwrap(), 1500);
+}
+
+#[test]
+fn test_settlement_aggregates_across_ledgers() {
+    let env = Env::new();
+
+    // Ledger 1: Alice pays $60, Alice+Bob split → Bob owes Alice $30.
+    let lid1 = create_ledger_with_members(&env);
+    add_bill(&env, &lid1, ALICE, "60", "Rent", &[ALICE, BOB]);
+
+    // Ledger 2: Bob pays $20, Alice+Bob split → Alice owes Bob $10. Net: Bob owes Alice $20.
+    let lid2 = create_ledger_with_members(&env);
+    add_bill(&env, &lid2, BOB, "20", "Utilities", &[ALICE, BOB]);
+
+    let v = env.json(&["settlement", ALICE]);
+    let txns = v["transactions"].as_array().unwrap();
+    assert_eq!(txns.len(), 1);
+    assert_eq!(txns[0]["from_user_id"].as_str().unwrap(), BOB);
+    assert_eq!(txns[0]["to_user_id"].as_str().unwrap(), ALICE);
+    assert_eq!(txns[0]["amount_cents"].as_i64().unwrap(), 2000);
 }
 
 // ---------------------------------------------------------------------------

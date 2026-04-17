@@ -16,7 +16,7 @@ The primary entry point is `UnbillService`. Frontends create one instance at sta
 
 **Devices:** devices are associated with the ledger, not with individual members. Any device in a ledger's device list may record bills on behalf of any member. Device management (add/remove) is exposed in M4 alongside the invite/join flow.
 
-**Settlement:** compute the minimum set of transactions that clears all debts in a ledger.
+**Settlement:** given a user ID, compute the minimum set of transactions that clears all of that user's debts and credits across every ledger they participate in.
 
 **Events:** subscribe to a broadcast channel receiving ledger updates, peer connection changes, and sync errors.
 

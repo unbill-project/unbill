@@ -1,6 +1,8 @@
 // Settlement algorithm: who owes whom after applying all bills.
 // See DESIGN.md §8 for the minimum-cash-flow greedy algorithm.
 
+use std::collections::HashMap;
+
 use crate::model::{EffectiveBill, Member, Ulid};
 
 /// A single suggested settlement transaction.
@@ -11,21 +13,25 @@ pub struct Transaction {
     pub amount_cents: i64,
 }
 
-/// The result of computing settlement for a ledger.
+/// The result of computing settlement.
 #[derive(Clone, Debug, Default)]
 pub struct Settlement {
     pub transactions: Vec<Transaction>,
 }
 
-/// Compute minimum-cash-flow settlement from a list of effective bills and members.
-pub fn compute(members: &[Member], bills: &[EffectiveBill]) -> Settlement {
-    // Step 1: net balance per user (positive = owed money, negative = owes money).
-    let mut balances: std::collections::HashMap<Ulid, i64> = members
-        .iter()
-        .filter(|m| !m.removed)
-        .map(|m| (m.user_id, 0i64))
-        .collect();
-
+/// Accumulate net balances (positive = owed money, negative = owes money) from
+/// one set of members + bills into an existing balance map.
+///
+/// Calling this for multiple ledgers and passing the same map each time produces
+/// cross-ledger aggregated balances.
+pub fn accumulate_balances(
+    members: &[Member],
+    bills: &[EffectiveBill],
+    balances: &mut HashMap<Ulid, i64>,
+) {
+    for m in members.iter().filter(|m| !m.removed) {
+        balances.entry(m.user_id).or_insert(0);
+    }
     for bill in bills {
         if bill.is_deleted {
             continue;
@@ -36,8 +42,10 @@ pub fn compute(members: &[Member], bills: &[EffectiveBill]) -> Settlement {
             *balances.entry(user_id).or_default() -= amount;
         }
     }
+}
 
-    // Step 2: greedy minimum cash flow.
+/// Compute minimum-cash-flow settlement from a pre-built balance map.
+pub fn compute_from_balances(balances: HashMap<Ulid, i64>) -> Settlement {
     let mut creditors: Vec<(Ulid, i64)> = balances
         .iter()
         .filter(|(_, &b)| b > 0)
@@ -49,8 +57,8 @@ pub fn compute(members: &[Member], bills: &[EffectiveBill]) -> Settlement {
         .map(|(id, &b)| (*id, -b))
         .collect();
 
-    creditors.sort_by(|a, b| b.1.cmp(&a.1));
-    debtors.sort_by(|a, b| b.1.cmp(&a.1));
+    creditors.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    debtors.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
 
     let mut transactions = Vec::new();
     let mut ci = 0;
@@ -113,6 +121,13 @@ pub fn split_amounts(bill: &EffectiveBill) -> Vec<(Ulid, i64)> {
 mod tests {
     use super::*;
     use crate::model::{EffectiveBill, Member, Share, Timestamp, Ulid};
+
+    /// Convenience: compute settlement from a single set of members + bills.
+    fn compute(members: &[Member], bills: &[EffectiveBill]) -> Settlement {
+        let mut balances = HashMap::new();
+        accumulate_balances(members, bills, &mut balances);
+        compute_from_balances(balances)
+    }
 
     fn uid(n: u128) -> Ulid {
         Ulid::from_u128(n)

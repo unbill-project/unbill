@@ -9,7 +9,7 @@ A thin clap-driven command-line frontend for `UnbillService`. Useful for dogfood
 - `bill add | list | amend | delete | restore` — bill management.
 - `member list | add | remove` — group membership. `invite` and `join` are available from M4.
 - `sync daemon | once | status` — P2P sync control.
-- `settlement show` — display who owes whom.
+- `settlement <user_id>` — display who owes whom for a user, aggregated across all their ledgers.
 
 Ledger and bill IDs are ULID strings on the command line. Most commands accept `--json` for machine-readable output, used in end-to-end tests.
 

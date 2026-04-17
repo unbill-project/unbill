@@ -215,12 +215,37 @@ impl UnbillService {
     // Settlement
     // -----------------------------------------------------------------------
 
-    pub async fn compute_settlement(&self, ledger_id: &str) -> Result<settlement::Settlement> {
-        let doc_mutex = self.get_doc(ledger_id)?;
-        let doc = doc_mutex.lock().await;
-        let members = doc.list_members()?;
-        let bills = doc.list_bills()?;
-        Ok(settlement::compute(&members, &bills))
+    /// Compute net settlement for a user across all ledgers they participate in.
+    ///
+    /// Balances are accumulated from every ledger where the user appears as a
+    /// member or in a bill, then minimum-cash-flow is applied to the combined
+    /// map. The result is filtered to transactions that involve the given user.
+    pub async fn compute_settlement_for_user(
+        &self,
+        user_id: &str,
+    ) -> Result<settlement::Settlement> {
+        let user_ulid = parse_ulid(user_id)?;
+        let mut balances: std::collections::HashMap<crate::model::Ulid, i64> =
+            std::collections::HashMap::new();
+
+        for entry in self.ledgers.iter() {
+            let doc = entry.value().lock().await;
+            let members = doc.list_members()?;
+            // Only aggregate ledgers where this user is an active member.
+            if members.iter().any(|m| m.user_id == user_ulid) {
+                let bills = doc.list_bills()?;
+                settlement::accumulate_balances(&members, &bills, &mut balances);
+            }
+        }
+
+        let full = settlement::compute_from_balances(balances);
+        // Keep only transactions involving this user.
+        let transactions = full
+            .transactions
+            .into_iter()
+            .filter(|t| t.from_user_id == user_ulid || t.to_user_id == user_ulid)
+            .collect();
+        Ok(settlement::Settlement { transactions })
     }
 
     // -----------------------------------------------------------------------
@@ -452,8 +477,43 @@ mod tests {
             .create_ledger("Empty".into(), usd().into())
             .await
             .unwrap();
-        let s = svc.compute_settlement(&lid).await.unwrap();
+        seed_members(&svc, &lid).await;
+        let alice = Ulid::from_u128(1).to_string();
+        let s = svc.compute_settlement_for_user(&alice).await.unwrap();
         assert!(s.transactions.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_compute_settlement_cross_ledger() {
+        let svc = open().await;
+
+        // Ledger 1: Alice pays $60, Alice+Bob split → Bob owes Alice $30.
+        let lid1 = svc.create_ledger("L1".into(), usd().into()).await.unwrap();
+        seed_members(&svc, &lid1).await;
+        let (_, bill1) = two_way_bill("Rent", 6000, &lid1);
+        svc.add_bill(&lid1, bill1).await.unwrap();
+
+        // Ledger 2: Bob pays $20, Alice+Bob split → Alice owes Bob $10.
+        let lid2 = svc.create_ledger("L2".into(), usd().into()).await.unwrap();
+        seed_members(&svc, &lid2).await;
+        let bob_pays = NewBill {
+            payer_user_id: Ulid::from_u128(2),
+            amount_cents: 2000,
+            description: "Utilities".into(),
+            shares: vec![
+                Share { user_id: Ulid::from_u128(1), shares: 1 },
+                Share { user_id: Ulid::from_u128(2), shares: 1 },
+            ],
+        };
+        svc.add_bill(&lid2, bob_pays).await.unwrap();
+
+        // Net: Bob owes Alice $30 - $10 = $20.
+        let alice = Ulid::from_u128(1).to_string();
+        let s = svc.compute_settlement_for_user(&alice).await.unwrap();
+        assert_eq!(s.transactions.len(), 1);
+        assert_eq!(s.transactions[0].amount_cents, 2000);
+        assert_eq!(s.transactions[0].from_user_id, Ulid::from_u128(2));
+        assert_eq!(s.transactions[0].to_user_id, Ulid::from_u128(1));
     }
 
     // --- persistence round-trip ---

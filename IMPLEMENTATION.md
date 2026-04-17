@@ -95,7 +95,9 @@ No per-peer sync state is persisted. On reconnect, both sides exchange current h
 
 ## Settlement algorithm
 
-Net balance per user = total paid − total owed. Balances across all users sum to zero.
+Settlement is computed per user, not per ledger. Given a user ID, balances are accumulated across every ledger where that user is an active member, then minimum cash flow is applied to the combined balance map, and only transactions involving the user are returned.
+
+Net balance per user = total paid − total owed across all ledgers. Balances across all users sum to zero.
 
 Minimum cash flow via greedy: pair the largest debtor with the largest creditor, transfer the lesser of their absolute balances, remove the satisfied party, repeat. Produces at most n−1 transactions for n participants.
 

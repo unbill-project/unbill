@@ -55,8 +55,8 @@ pub enum Command {
         #[command(subcommand)]
         sub: SyncCmd,
     },
-    /// Show settlement summary for a ledger.
-    Settlement { ledger_id: String },
+    /// Show net settlement for a user across all ledgers.
+    Settlement { user_id: String },
 }
 
 #[derive(clap::Subcommand)]
@@ -297,6 +297,6 @@ async fn run() -> anyhow::Result<()> {
             }
         },
         Command::Sync { .. } => bail!("sync is available from M4"),
-        Command::Settlement { ledger_id } => commands::settlement(&svc, &ledger_id, json).await,
+        Command::Settlement { user_id } => commands::settlement(&svc, &user_id, json).await,
     }
 }

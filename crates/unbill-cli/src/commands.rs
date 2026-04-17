@@ -314,8 +314,8 @@ pub async fn member_list(svc: &UnbillService, ledger_id: &str, json: bool) -> an
 // Settlement
 // ---------------------------------------------------------------------------
 
-pub async fn settlement(svc: &UnbillService, ledger_id: &str, json: bool) -> anyhow::Result<()> {
-    let s = svc.compute_settlement(ledger_id).await?;
+pub async fn settlement(svc: &UnbillService, user_id: &str, json: bool) -> anyhow::Result<()> {
+    let s = svc.compute_settlement_for_user(user_id).await?;
     if json {
         print_json(&settlement_out(&s))?;
     } else {
