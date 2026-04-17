@@ -2,6 +2,7 @@ use autosurgeon::{Hydrate, Reconcile};
 
 use super::currency::Currency;
 use super::id::Ulid;
+use super::node_id::NodeId;
 use super::timestamp::Timestamp;
 
 #[derive(Clone, Debug, Reconcile, Hydrate)]
@@ -28,9 +29,8 @@ pub struct Member {
 
 #[derive(Clone, Debug, Reconcile, Hydrate)]
 pub struct Device {
-    /// The iroh NodeId (a 32-byte Ed25519 public key encoded as a string).
-    /// This is NOT a ULID — it is assigned by the iroh networking layer.
-    pub node_id: String,
+    /// The iroh NodeId (a 32-byte Ed25519 public key).
+    pub node_id: NodeId,
     pub label: String,
     pub added_at: Timestamp,
 }

@@ -120,6 +120,7 @@ mod tests {
     use super::*;
     use crate::model::bill::{Bill, Share};
     use crate::model::id::Ulid;
+    use crate::model::node_id::NodeId;
     use crate::model::timestamp::Timestamp;
 
     // Deterministic test IDs. Use small integers to keep tests readable.
@@ -143,7 +144,7 @@ mod tests {
             description: "Dinner".into(),
             shares: vec![share(uid(1)), share(uid(2))], // alice, bob
             created_at: ts(1000),
-            created_by_device: "device-a".into(),
+            created_by_device: NodeId::from_seed(1),
             deleted: false,
             amendments: vec![],
         }
