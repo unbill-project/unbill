@@ -1,6 +1,6 @@
 # Rust
+# Cargo.lock is committed: this workspace contains a binary crate (unbill-cli).
 /target/
-Cargo.lock
 
 # Node / pnpm
 node_modules/
