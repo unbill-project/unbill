@@ -1,6 +1,7 @@
 use autosurgeon::{Hydrate, Reconcile};
 
 use super::bill::{Bill, Share};
+use super::timestamp::Timestamp;
 
 #[derive(Clone, Debug, Reconcile, Hydrate)]
 pub struct Amendment {
@@ -10,7 +11,7 @@ pub struct Amendment {
     /// Replaces the entire shares list. Changing participants means changing shares.
     pub new_shares: Option<Vec<Share>>,
     pub author_user_id: String,
-    pub created_at: i64,
+    pub created_at: Timestamp,
     pub reason: Option<String>,
 }
 
@@ -39,7 +40,7 @@ pub struct EffectiveBill {
     pub shares: Vec<Share>,
     pub was_amended: bool,
     pub is_deleted: bool,
-    pub last_modified_at: i64,
+    pub last_modified_at: Timestamp,
     pub history: Vec<AmendmentSummary>,
 }
 
@@ -54,11 +55,12 @@ impl EffectiveBill {
         let mut amount_cents = bill.amount_cents;
         let mut description = bill.description.clone();
         let mut shares = bill.shares.clone();
-        let mut is_deleted = bill.deleted;
+        let is_deleted = bill.deleted;
         let mut last_modified_at = bill.created_at;
         let mut was_amended = false;
 
         // Sort amendments: primary key = created_at asc, secondary = id lexical asc.
+        // Timestamp implements Ord, so direct comparison works.
         let mut sorted_amendments = bill.amendments.clone();
         sorted_amendments.sort_by(|a, b| {
             a.created_at
@@ -80,7 +82,7 @@ impl EffectiveBill {
                 shares = v.clone();
             }
             if amend.created_at > last_modified_at {
-                last_modified_at = amend.created_at;
+                last_modified_at = amend.created_at; // Timestamp: Ord
             }
             history.push(AmendmentSummary {
                 id: amend.id.clone(),
@@ -108,7 +110,7 @@ impl EffectiveBill {
 pub struct AmendmentSummary {
     pub id: String,
     pub author_user_id: String,
-    pub created_at: i64,
+    pub created_at: Timestamp,
     pub reason: Option<String>,
 }
 
@@ -116,6 +118,7 @@ pub struct AmendmentSummary {
 mod tests {
     use super::*;
     use crate::model::bill::{Bill, Share};
+    use crate::model::timestamp::Timestamp;
 
     fn share(user_id: &str) -> Share {
         Share {
@@ -131,7 +134,7 @@ mod tests {
             amount_cents: 3000,
             description: "Dinner".into(),
             shares: vec![share("alice"), share("bob")],
-            created_at: 1000,
+            created_at: Timestamp::from_millis(1000),
             created_by_device: "device-a".into(),
             deleted: false,
             amendments: vec![],
@@ -145,7 +148,7 @@ mod tests {
             new_description: None,
             new_shares: None,
             author_user_id: "alice".into(),
-            created_at: ts,
+            created_at: Timestamp::from_millis(ts),
             reason: None,
         }
     }
@@ -159,7 +162,7 @@ mod tests {
         assert!(!eff.was_amended);
         assert!(!eff.is_deleted);
         assert!(eff.history.is_empty());
-        assert_eq!(eff.last_modified_at, 1000);
+        assert_eq!(eff.last_modified_at, Timestamp::from_millis(1000));
     }
 
     #[test]
@@ -174,7 +177,7 @@ mod tests {
         assert_eq!(eff.amount_cents, 4500);
         assert_eq!(eff.description, "Dinner + drinks");
         assert!(eff.was_amended);
-        assert_eq!(eff.last_modified_at, 2000);
+        assert_eq!(eff.last_modified_at, Timestamp::from_millis(2000));
         assert_eq!(eff.history.len(), 1);
     }
 
@@ -249,7 +252,7 @@ mod tests {
         bill.amendments.push(amend("a1", 5000));
         bill.amendments.push(amend("a2", 3000));
         let eff = EffectiveBill::from(&bill);
-        assert_eq!(eff.last_modified_at, 5000);
+        assert_eq!(eff.last_modified_at, Timestamp::from_millis(5000));
     }
 
     #[test]

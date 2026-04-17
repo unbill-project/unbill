@@ -1,7 +1,7 @@
 // Settlement algorithm: who owes whom after applying all bills.
 // See DESIGN.md §8 for the minimum-cash-flow greedy algorithm.
 
-use crate::model::{EffectiveBill, Member, Share};
+use crate::model::{EffectiveBill, Member};
 
 /// A single suggested settlement transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -112,14 +112,14 @@ pub fn split_amounts(bill: &EffectiveBill) -> Vec<(String, i64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{EffectiveBill, Member, Share};
+    use crate::model::{EffectiveBill, Member, Share, Timestamp};
 
     fn member(id: &str) -> Member {
         Member {
             user_id: id.to_string(),
             display_name: id.to_string(),
             devices: vec![],
-            added_at: 0,
+            added_at: Timestamp::from_millis(0),
             added_by: String::new(),
             removed: false,
         }
@@ -146,7 +146,7 @@ mod tests {
                 .collect(),
             was_amended: false,
             is_deleted: false,
-            last_modified_at: 0,
+            last_modified_at: Timestamp::from_millis(0),
             history: vec![],
         }
     }
@@ -196,7 +196,7 @@ mod tests {
             ],
             was_amended: false,
             is_deleted: false,
-            last_modified_at: 0,
+            last_modified_at: Timestamp::from_millis(0),
             history: vec![],
         };
         let amounts = split_amounts(&bill);
@@ -254,7 +254,6 @@ mod tests {
     #[test]
     fn test_settlement_at_most_n_minus_one_transactions() {
         let members: Vec<Member> = (0..5).map(|i| member(&format!("u{i}"))).collect();
-        let participants: Vec<&str> = (0..5).map(|_| "").collect();
         let bill = equal_bill("b1", "u0", 5000, &["u0", "u1", "u2", "u3", "u4"]);
         let s = compute(&members, &[bill]);
         assert!(

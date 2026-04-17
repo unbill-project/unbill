@@ -1,6 +1,7 @@
 use autosurgeon::{Hydrate, Reconcile};
 
 use super::amendment::Amendment;
+use super::timestamp::Timestamp;
 
 #[derive(Clone, Debug, Reconcile, Hydrate)]
 pub struct Bill {
@@ -13,7 +14,7 @@ pub struct Bill {
     /// Participants are always derivable from this field; there is no separate
     /// `participant_user_ids` list.
     pub shares: Vec<Share>,
-    pub created_at: i64,
+    pub created_at: Timestamp,
     pub created_by_device: String,
     pub deleted: bool,
     pub amendments: Vec<Amendment>,
