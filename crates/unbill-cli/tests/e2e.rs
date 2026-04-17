@@ -134,6 +134,27 @@ fn test_device_id_is_stable_across_calls() {
 }
 
 // ---------------------------------------------------------------------------
+// Device
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_device_show_returns_id_and_data_dir() {
+    let env = Env::new();
+    let v = env.json(&["device", "show"]);
+    assert_eq!(v["device_id"].as_str().unwrap().len(), 64);
+    assert!(v["data_dir"].as_str().unwrap().contains("unbill") ||
+            v["data_dir"].as_str().unwrap().len() > 0);
+}
+
+#[test]
+fn test_device_show_id_matches_init() {
+    let env = Env::new();
+    let init_id = env.json(&["init"])["device_id"].as_str().unwrap().to_owned();
+    let show_id = env.json(&["device", "show"])["device_id"].as_str().unwrap().to_owned();
+    assert_eq!(init_id, show_id);
+}
+
+// ---------------------------------------------------------------------------
 // Ledger lifecycle
 // ---------------------------------------------------------------------------
 

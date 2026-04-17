@@ -30,6 +30,11 @@ pub struct Cli {
 pub enum Command {
     /// Initialize this device (generates a key if one does not exist).
     Init,
+    /// Show information about this device.
+    Device {
+        #[command(subcommand)]
+        sub: DeviceCmd,
+    },
     /// Manage ledgers.
     Ledger {
         #[command(subcommand)]
@@ -52,6 +57,12 @@ pub enum Command {
     },
     /// Show settlement summary for a ledger.
     Settlement { ledger_id: String },
+}
+
+#[derive(clap::Subcommand)]
+pub enum DeviceCmd {
+    /// Print this device's ID and data directory.
+    Show,
 }
 
 #[derive(clap::Subcommand)]
@@ -183,11 +194,14 @@ async fn run() -> anyhow::Result<()> {
             .join("unbill")
     };
 
-    let store = Arc::new(FsStore::new(data_dir));
+    let store = Arc::new(FsStore::new(data_dir.clone()));
     let svc = UnbillService::open(store).await?;
 
     match cli.command {
         Command::Init => commands::init(&svc, json).await,
+        Command::Device { sub } => match sub {
+            DeviceCmd::Show => commands::device_show(&svc, &data_dir, json).await,
+        },
         Command::Ledger { sub } => match sub {
             LedgerCmd::Create { name, currency } => {
                 commands::ledger_create(&svc, name, currency, json).await

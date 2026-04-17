@@ -30,6 +30,26 @@ pub async fn init(svc: &UnbillService, json: bool) -> anyhow::Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// Device
+// ---------------------------------------------------------------------------
+
+pub async fn device_show(
+    svc: &UnbillService,
+    data_dir: &std::path::Path,
+    json: bool,
+) -> anyhow::Result<()> {
+    let id = svc.device_id().to_string();
+    let dir = data_dir.display().to_string();
+    if json {
+        print_json(&serde_json::json!({ "device_id": id, "data_dir": dir }))?;
+    } else {
+        println!("device ID: {id}");
+        println!("data dir:  {dir}");
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Ledger
 // ---------------------------------------------------------------------------
 
