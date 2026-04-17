@@ -193,6 +193,10 @@ impl UnbillService {
     // Events
     // -----------------------------------------------------------------------
 
+    pub fn device_id(&self) -> NodeId {
+        self.device_id
+    }
+
     pub fn subscribe(&self) -> broadcast::Receiver<ServiceEvent> {
         self.events.subscribe()
     }

@@ -25,5 +25,4 @@ Ledger and bill IDs are ULID strings on the command line. Most commands accept `
 
 ## Open questions
 
-- Default column set for `bill list` table output (human-readable mode).
 - `sync daemon`: run in the foreground (current plan) or support backgrounding via fork?
