@@ -12,4 +12,4 @@
 
 ## Testing strategy
 
-Shell-script end-to-end tests under `tests/e2e/`. Each test creates temporary data directories for two simulated devices, runs realistic CLI scenarios, and asserts final state via `--json` output. No unit tests in the CLI itself — logic lives in `unbill-core`.
+Rust integration tests in `tests/e2e.rs`. Each test creates a `tempfile::TempDir`, sets `UNBILL_DATA_DIR` to point at it, and drives the real binary via `std::process::Command`. Assertions use `--json` output parsed with `serde_json`. No unit tests in the CLI itself — logic lives in `unbill-core`.

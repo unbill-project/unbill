@@ -6643,6 +6643,7 @@ dependencies = [
  "dirs 5.0.1",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tracing",
  "tracing-subscriber",

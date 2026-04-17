@@ -145,9 +145,13 @@ async fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let json = cli.json;
 
-    let data_dir = dirs::data_dir()
-        .context("could not resolve data directory")?
-        .join("unbill");
+    let data_dir = if let Ok(p) = std::env::var("UNBILL_DATA_DIR") {
+        std::path::PathBuf::from(p)
+    } else {
+        dirs::data_dir()
+            .context("could not resolve data directory")?
+            .join("unbill")
+    };
 
     let store = Arc::new(FsStore::new(data_dir));
     let svc = UnbillService::open(store).await?;
