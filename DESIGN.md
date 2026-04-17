@@ -66,8 +66,7 @@ A short-lived in-memory token allowing a new member to join. Never persisted or 
 - **M0** Workspace skeleton, build passes, design docs in place.
 - **M1** Core data model and LedgerDoc, in-memory only.
 - **M2** Flat-file persistence, UnbillService startup, CLI basics.
-- **M3** Offline file sync (export/import ledger bundles).
-- **M4** P2P sync via Iroh, member invite/join flow.
+- **M3** P2P sync via Iroh, device invite/join flow.
 - **M5** Desktop GUI (Tauri + React).
 - **M6+** Amendment conflict UX, mobile, multi-currency, formal verification.
 

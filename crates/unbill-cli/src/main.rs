@@ -76,15 +76,6 @@ pub enum LedgerCmd {
     Show {
         ledger_id: String,
     },
-    /// Export a ledger to a file. (Available from M3.)
-    Export {
-        ledger_id: String,
-        output: String,
-    },
-    /// Import a ledger from a file. (Available from M3.)
-    Import {
-        file: String,
-    },
     Delete {
         ledger_id: String,
     },
@@ -228,9 +219,6 @@ async fn run() -> anyhow::Result<()> {
             LedgerCmd::List => commands::ledger_list(&svc, json).await,
             LedgerCmd::Show { ledger_id } => commands::ledger_show(&svc, &ledger_id, json).await,
             LedgerCmd::Delete { ledger_id } => commands::ledger_delete(&svc, &ledger_id).await,
-            LedgerCmd::Export { .. } | LedgerCmd::Import { .. } => {
-                bail!("ledger export/import is available from M3")
-            }
         },
         Command::Bill { sub } => match sub {
             BillCmd::Add {
