@@ -1,17 +1,15 @@
 // Flat-file LedgerStore backed by `tokio::fs`.
-// See DESIGN.md §5 for the directory layout and snapshot/incremental strategy.
+// See IMPLEMENTATION.md §Persistence for the directory layout and write model.
 
 use std::path::PathBuf;
 
 use async_trait::async_trait;
-use automerge::ChangeHash;
 use serde::{Deserialize, Serialize};
-use tokio::io::AsyncWriteExt as _;
 
 use crate::error::StorageError;
 use crate::model::{Currency, LedgerMeta, Timestamp, Ulid};
 
-use super::traits::{LedgerStore, LoadedBytes, Result};
+use super::traits::{LedgerStore, Result};
 
 pub struct FsStore {
     root: PathBuf,
@@ -119,53 +117,18 @@ impl LedgerStore for FsStore {
         Ok(metas)
     }
 
-    async fn load_ledger_bytes(&self, ledger_id: &str) -> Result<LoadedBytes> {
-        let dir = self.ledger_dir(ledger_id);
-
-        let snapshot = read_or_empty(dir.join("snapshot.bin")).await?;
-
-        let changes_raw = read_or_empty(dir.join("changes.bin")).await?;
-        let incrementals = if changes_raw.is_empty() {
-            vec![]
-        } else {
-            vec![changes_raw]
-        };
-
-        Ok(LoadedBytes { snapshot, incrementals })
+    async fn load_ledger_bytes(&self, ledger_id: &str) -> Result<Vec<u8>> {
+        match tokio::fs::read(self.ledger_dir(ledger_id).join("ledger.bin")).await {
+            Ok(b) => Ok(b),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(vec![]),
+            Err(e) => Err(e.into()),
+        }
     }
 
-    async fn append_incremental(&self, ledger_id: &str, bytes: &[u8]) -> Result<()> {
-        let path = self.ledger_dir(ledger_id).join("changes.bin");
-        let mut file = tokio::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .await?;
-        file.write_all(bytes).await?;
-        file.flush().await?;
-        Ok(())
-    }
-
-    async fn compact(
-        &self,
-        ledger_id: &str,
-        new_snapshot: &[u8],
-        _heads: &[ChangeHash],
-    ) -> Result<()> {
+    async fn save_ledger_bytes(&self, ledger_id: &str, bytes: &[u8]) -> Result<()> {
         let dir = self.ledger_dir(ledger_id);
-
-        // Crash-safe: write to .tmp then rename over the real file.
-        atomic_write(dir.join("snapshot.bin"), new_snapshot).await?;
-
-        // Truncate changes.bin — idempotent if the rename already completed.
-        tokio::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(dir.join("changes.bin"))
-            .await?;
-
-        Ok(())
+        tokio::fs::create_dir_all(&dir).await?;
+        atomic_write(dir.join("ledger.bin"), bytes).await
     }
 
     async fn delete_ledger(&self, ledger_id: &str) -> Result<()> {
@@ -200,16 +163,6 @@ async fn atomic_write(path: PathBuf, bytes: &[u8]) -> Result<()> {
     tokio::fs::write(&tmp, bytes).await?;
     tokio::fs::rename(&tmp, &path).await?;
     Ok(())
-}
-
-/// Read `path` returning its contents, or an empty `Vec` if the file does not
-/// exist.
-async fn read_or_empty(path: PathBuf) -> Result<Vec<u8>> {
-    match tokio::fs::read(&path).await {
-        Ok(b) => Ok(b),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(vec![]),
-        Err(e) => Err(e.into()),
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -250,24 +203,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_append_incremental_and_load() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = FsStore::new(dir.path().to_path_buf());
-
-        let meta = make_meta("Test");
-        store.save_ledger_meta(&meta).await.unwrap();
-
-        let id = meta.ledger_id.to_string();
-        store.append_incremental(&id, b"chunk1").await.unwrap();
-        store.append_incremental(&id, b"chunk2").await.unwrap();
-
-        let loaded = store.load_ledger_bytes(&id).await.unwrap();
-        assert!(loaded.snapshot.is_empty());
-        assert_eq!(loaded.incrementals, vec![b"chunk1chunk2".to_vec()]);
-    }
-
-    #[tokio::test]
-    async fn test_compact_clears_changes() {
+    async fn test_save_and_load_ledger_bytes_round_trip() {
         let dir = tempfile::tempdir().unwrap();
         let store = FsStore::new(dir.path().to_path_buf());
 
@@ -275,12 +211,14 @@ mod tests {
         store.save_ledger_meta(&meta).await.unwrap();
         let id = meta.ledger_id.to_string();
 
-        store.append_incremental(&id, b"some changes").await.unwrap();
-        store.compact(&id, b"full snapshot", &[]).await.unwrap();
+        assert!(store.load_ledger_bytes(&id).await.unwrap().is_empty());
 
-        let loaded = store.load_ledger_bytes(&id).await.unwrap();
-        assert_eq!(loaded.snapshot, b"full snapshot");
-        assert!(loaded.incrementals.is_empty());
+        store.save_ledger_bytes(&id, b"snapshot data").await.unwrap();
+        assert_eq!(store.load_ledger_bytes(&id).await.unwrap(), b"snapshot data");
+
+        // Overwrite
+        store.save_ledger_bytes(&id, b"updated snapshot").await.unwrap();
+        assert_eq!(store.load_ledger_bytes(&id).await.unwrap(), b"updated snapshot");
     }
 
     #[tokio::test]

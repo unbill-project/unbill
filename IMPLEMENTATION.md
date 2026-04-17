@@ -51,19 +51,16 @@ One root per device, resolved via the `dirs` crate:
 Under that root:
 - `device_key.bin` — Iroh SecretKey (32 raw bytes).
 - `device_meta.json` — display name, locale, etc.
-- `ledgers/<ledger_id>/snapshot.bin` — latest full Automerge snapshot.
-- `ledgers/<ledger_id>/changes.bin` — incremental changes appended since last snapshot.
+- `ledgers/<ledger_id>/ledger.bin` — full Automerge snapshot, rewritten on every mutation.
 - `ledgers/<ledger_id>/meta.json` — denormalized metadata for fast listing without loading Automerge bytes.
 
-### Snapshot + incremental write model
+### Write model
 
-Every write appends the incremental result to `changes.bin`. Loading reads `snapshot.bin` then applies `changes.bin`. Compaction triggers when `changes.bin` exceeds 512 KB or on manual command.
-
-Compaction is crash-safe: write to `*.tmp`, atomically rename over the target, then truncate `changes.bin`. If the process dies after rename but before truncation, re-applying the snapshotted changes on the next load is safe — Automerge change application is idempotent.
+Every mutation calls `doc.save()` and atomically overwrites `ledger.bin` (write to `*.tmp`, rename over target). Ledger data is small enough that a full rewrite on each change is cheaper than the complexity of incremental append + compaction.
 
 ### LedgerStore trait
 
-Seven async methods: `save_ledger_meta`, `list_ledgers`, `load_ledger_bytes`, `append_incremental`, `compact`, `delete_ledger`, `load_device_meta`, `save_device_meta`. Two implementations: `FsStore` (production) and `InMemoryStore` (tests).
+Six async methods: `save_ledger_meta`, `list_ledgers`, `load_ledger_bytes`, `save_ledger_bytes`, `delete_ledger`, `load_device_meta`, `save_device_meta`. Two implementations: `FsStore` (production) and `InMemoryStore` (tests).
 
 ## Networking
 

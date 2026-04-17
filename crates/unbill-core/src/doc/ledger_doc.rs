@@ -47,15 +47,9 @@ impl LedgerDoc {
         Ok(Self { doc, changes: tx })
     }
 
-    /// Full snapshot bytes (for compaction / initial save).
+    /// Serialize the full document to bytes for storage.
     pub fn save(&mut self) -> Vec<u8> {
         self.doc.save()
-    }
-
-    /// Incremental bytes for changes since the last call to `save` or
-    /// `save_incremental`. Returns empty if there are no new changes.
-    pub fn save_incremental(&mut self) -> Vec<u8> {
-        self.doc.save_incremental()
     }
 
     // --- read operations ---

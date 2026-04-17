@@ -6,4 +6,4 @@ mod traits;
 
 pub use fs::FsStore;
 pub use memory::InMemoryStore;
-pub use traits::{LedgerStore, LoadedBytes};
+pub use traits::LedgerStore;
