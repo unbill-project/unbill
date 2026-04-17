@@ -35,6 +35,9 @@ ciborium = "0.2"
 # IDs
 ulid = "1"
 
+# Domain types
+iso_currency = "0.5"
+
 # Error handling
 anyhow = "1"
 thiserror = "2"

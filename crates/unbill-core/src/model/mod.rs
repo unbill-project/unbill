@@ -2,12 +2,14 @@
 
 mod amendment;
 mod bill;
+mod currency;
 mod id;
 mod member;
 mod timestamp;
 
 pub use amendment::{Amendment, AmendmentSummary, BillAmendment, EffectiveBill};
 pub use bill::{Bill, NewBill, Share};
+pub use currency::Currency;
 pub use id::Ulid;
 pub use member::{Device, Invitation, Ledger, LedgerMeta, Member};
 pub use timestamp::Timestamp;

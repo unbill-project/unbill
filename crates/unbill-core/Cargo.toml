@@ -16,6 +16,7 @@ serde.workspace = true
 serde_json.workspace = true
 ciborium.workspace = true
 ulid.workspace = true
+iso_currency.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 tracing.workspace = true

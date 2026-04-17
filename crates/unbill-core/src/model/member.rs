@@ -1,5 +1,6 @@
 use autosurgeon::{Hydrate, Reconcile};
 
+use super::currency::Currency;
 use super::id::Ulid;
 use super::timestamp::Timestamp;
 
@@ -8,7 +9,7 @@ pub struct Ledger {
     pub ledger_id: Ulid,
     pub schema_version: u32,
     pub name: String,
-    pub currency: String,
+    pub currency: Currency,
     pub created_at: Timestamp,
     pub members: Vec<Member>,
     pub bills: Vec<super::bill::Bill>,
@@ -50,7 +51,7 @@ pub struct Invitation {
 pub struct LedgerMeta {
     pub ledger_id: Ulid,
     pub name: String,
-    pub currency: String,
+    pub currency: Currency,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
 }
