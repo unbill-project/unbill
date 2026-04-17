@@ -118,7 +118,10 @@ mod tests {
     use crate::model::bill::{Bill, Share};
 
     fn share(user_id: &str) -> Share {
-        Share { user_id: user_id.into(), shares: 1 }
+        Share {
+            user_id: user_id.into(),
+            shares: 1,
+        }
     }
 
     fn base_bill() -> Bill {
@@ -203,7 +206,10 @@ mod tests {
         });
         // "aaa" < "zzz" so "aaa" applied first, "zzz" overwrites.
         let eff = EffectiveBill::from(&bill);
-        assert_eq!(eff.amount_cents, 100, "lexically later id should win on tie");
+        assert_eq!(
+            eff.amount_cents, 100,
+            "lexically later id should win on tie"
+        );
     }
 
     #[test]
@@ -251,9 +257,18 @@ mod tests {
         let mut bill = base_bill(); // alice + bob, 1 share each
         bill.amendments.push(Amendment {
             new_shares: Some(vec![
-                Share { user_id: "alice".into(), shares: 2 },
-                Share { user_id: "bob".into(), shares: 1 },
-                Share { user_id: "carol".into(), shares: 1 },
+                Share {
+                    user_id: "alice".into(),
+                    shares: 2,
+                },
+                Share {
+                    user_id: "bob".into(),
+                    shares: 1,
+                },
+                Share {
+                    user_id: "carol".into(),
+                    shares: 1,
+                },
             ]),
             ..amend("a1", 2000)
         });

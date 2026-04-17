@@ -126,7 +126,12 @@ mod tests {
     }
 
     /// Equal split: give every participant 1 share.
-    fn equal_bill(id: &str, payer: &str, amount_cents: i64, participants: &[&str]) -> EffectiveBill {
+    fn equal_bill(
+        id: &str,
+        payer: &str,
+        amount_cents: i64,
+        participants: &[&str],
+    ) -> EffectiveBill {
         EffectiveBill {
             id: id.to_string(),
             payer_user_id: payer.to_string(),
@@ -134,7 +139,10 @@ mod tests {
             description: String::new(),
             shares: participants
                 .iter()
-                .map(|u| Share { user_id: u.to_string(), shares: 1 })
+                .map(|u| Share {
+                    user_id: u.to_string(),
+                    shares: 1,
+                })
                 .collect(),
             was_amended: false,
             is_deleted: false,
@@ -177,8 +185,14 @@ mod tests {
             amount_cents: 300,
             description: String::new(),
             shares: vec![
-                Share { user_id: "alice".into(), shares: 2 },
-                Share { user_id: "bob".into(), shares: 1 },
+                Share {
+                    user_id: "alice".into(),
+                    shares: 2,
+                },
+                Share {
+                    user_id: "bob".into(),
+                    shares: 1,
+                },
             ],
             was_amended: false,
             is_deleted: false,
