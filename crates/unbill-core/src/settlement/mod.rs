@@ -122,7 +122,6 @@ mod tests {
         Member {
             user_id: id,
             display_name: String::new(),
-            devices: vec![],
             added_at: Timestamp::from_millis(0),
             added_by: uid(0),
             removed: false,

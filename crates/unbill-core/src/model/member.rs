@@ -15,6 +15,9 @@ pub struct Ledger {
     pub created_at: Timestamp,
     pub members: Vec<Member>,
     pub bills: Vec<super::bill::Bill>,
+    /// Devices authorized to sync this ledger. Any authorized device may record
+    /// bills on behalf of any member — there is no per-member device binding.
+    pub devices: Vec<Device>,
     // Invitations are NOT part of the CRDT. They live in UnbillService memory. See DESIGN.md §6.3.
 }
 
@@ -22,7 +25,6 @@ pub struct Ledger {
 pub struct Member {
     pub user_id: Ulid,
     pub display_name: String,
-    pub devices: Vec<Device>,
     pub added_at: Timestamp,
     pub added_by: Ulid,
     pub removed: bool,

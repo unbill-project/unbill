@@ -31,10 +31,13 @@ A person splitting expenses with a small group — roommates, a couple, a travel
 ## Data model
 
 ### Ledger
-A shared expense context — "our household," "the Iceland trip." Contains members, bills, and amendment history. Each ledger is independent; a user may have many.
+A shared expense context — "our household," "the Iceland trip." Contains members, authorized devices, bills, and amendment history. Each ledger is independent; a user may have many.
 
 ### Member
-A user belonging to a ledger, identified by a stable ID across all their devices. Members are tombstoned, never removed from the document. A user must be an active (non-tombstoned) member before they can appear as a payer or participant on any bill.
+A named participant in a ledger, identified by a stable user ID. Members have no device binding — any authorized device may record bills on behalf of any member. Members are tombstoned, never removed from the document. A user must be an active (non-tombstoned) member before they can appear as a payer or participant on any bill.
+
+### Device
+A physical device authorized to sync a ledger, identified by its Ed25519 `NodeId`. Devices are associated with the ledger, not with individual members. Any device in a ledger's device list may submit bills for any member — the trust model is "everyone in the group trusts everyone else's device."
 
 ### Bill
 An expense: who paid, how much, and how the cost is split. Bills are append-only. The current view is a projection of all amendments applied in deterministic order.
@@ -52,9 +55,9 @@ A short-lived in-memory token allowing a new member to join. Never persisted or 
 
 ## Security and privacy
 
-**Defended:** Passive eavesdroppers (QUIC+TLS 1.3 via Iroh). Device impersonation (Ed25519 key verification at handshake). Cross-group leakage (authorization check on every incoming connection).
+**Defended:** Passive eavesdroppers (QUIC+TLS 1.3 via Iroh). Device impersonation (Ed25519 key verification at handshake). Cross-group leakage (only devices in the ledger's device list are accepted).
 
-**Not defended in v1:** Malicious insiders, device compromise, membership revocation (a kicked member retains prior history), relay metadata exposure.
+**Not defended in v1:** Malicious insiders, device compromise, device revocation (a removed device retains prior history if it holds a local copy), relay metadata exposure.
 
 **Telemetry:** None. Outbound connections are limited to Iroh peer discovery, Iroh relay fallback, and direct peer sync. No analytics, no error reporting, no update checks by default.
 
@@ -70,10 +73,9 @@ A short-lived in-memory token allowing a new member to join. Never persisted or 
 
 ## Open questions
 
-1. Multi-device onboarding for the same user (key transfer UX).
-2. Mobile notification strategy (iOS backgrounding constraints).
-3. Backup and restore for the "phone lost" scenario.
-4. App name — "unbill" is a placeholder.
+1. Mobile notification strategy (iOS backgrounding constraints).
+2. Backup and restore for the "phone lost" scenario.
+3. App name — "unbill" is a placeholder.
 
 ## Glossary
 

@@ -39,6 +39,7 @@ pub(super) fn init_ledger(
         created_at,
         members: vec![],
         bills: vec![],
+        devices: vec![],
     };
     reconcile(doc, &ledger).map_err(|e| UnbillError::Other(e.into()))
 }
@@ -184,7 +185,6 @@ pub(super) fn add_member(
     ledger.members.push(Member {
         user_id: input.user_id,
         display_name: input.display_name,
-        devices: vec![],
         added_at: now,
         added_by: input.added_by,
         removed: false,
@@ -252,7 +252,6 @@ mod tests {
             ledger.members.push(Member {
                 user_id,
                 display_name: user_id.to_string(),
-                devices: vec![],
                 added_at: ts(0),
                 added_by: uid(0),
                 removed: false,
@@ -380,7 +379,6 @@ mod tests {
         ledger.members.push(Member {
             user_id: bob,
             display_name: "Bob".into(),
-            devices: vec![],
             added_at: ts(0),
             added_by: alice,
             removed: true,
@@ -487,7 +485,6 @@ mod tests {
         ledger.members.push(Member {
             user_id: uid(1),
             display_name: "Alice".into(),
-            devices: vec![],
             added_at: ts(0),
             added_by: uid(1),
             removed: false,
@@ -495,7 +492,6 @@ mod tests {
         ledger.members.push(Member {
             user_id: uid(2),
             display_name: "Bob".into(),
-            devices: vec![],
             added_at: ts(0),
             added_by: uid(1),
             removed: true,

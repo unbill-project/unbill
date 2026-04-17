@@ -12,7 +12,9 @@ The primary entry point is `UnbillService`. Frontends create one instance at sta
 
 **Bills:** add a bill (payer, amount, description, share weights); amend an existing bill; tombstone-delete; restore; list as effective (projected) bills.
 
-**Members:** add a member directly by user ID and display name; remove a member (tombstone); list current (non-removed) members. The full invite/join flow (out-of-band token, join URL) is deferred to M4.
+**Members:** add a member directly by user ID and display name; remove a member (tombstone); list current (non-removed) members. Members are named participants only — they carry no device binding. The full invite/join flow (out-of-band token, join URL) is deferred to M4.
+
+**Devices:** devices are associated with the ledger, not with individual members. Any device in a ledger's device list may record bills on behalf of any member. Device management (add/remove) is exposed in M4 alongside the invite/join flow.
 
 **Settlement:** compute the minimum set of transactions that clears all debts in a ledger.
 
@@ -28,7 +30,7 @@ Key model types: `Ulid`, `Timestamp`, `Currency`, `NodeId`, `InviteToken`, `Ledg
 - `amount_cents` is non-negative. Refunds are modeled as separate bills with reversed payer/participant roles.
 - A ledger's currency is a valid ISO 4217 code and is fixed at creation.
 - Device node IDs and bill creator fields are valid Ed25519 public keys.
-- Member IDs are stable across devices. Adding a device appends to the member's device list; it does not change their ID.
+- Member IDs are stable. A member is identified solely by their `user_id`; no device is bound to a specific member.
 - `InviteToken` is 32 bytes from `OsRng`, hex-encoded. Never written to disk.
 - The payer and every share participant in a bill must be active (non-removed) members of the ledger at the time the bill is added. Attempting to add a bill referencing a non-member returns `UserNotMember`.
 

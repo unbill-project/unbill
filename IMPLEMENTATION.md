@@ -78,7 +78,7 @@ Iroh provides QUIC + TLS 1.3 P2P transport with built-in NAT traversal and relay
 
 ### Authorization
 
-Incoming connections are accepted only if the peer's NodeId appears in the ledger's active member device list.
+Incoming connections are accepted only if the peer's NodeId appears in the ledger's device list. Devices are authorized at the ledger level — there is no per-member device binding.
 
 ### Connection lifecycle
 
@@ -86,11 +86,12 @@ Per (ledger_id, peer_node_id): Disconnected → Connecting → Handshaking → I
 
 No per-peer sync state is persisted. On reconnect, both sides exchange current heads and send only missing changes — one extra round-trip, imperceptible at human scale.
 
-### Invitation flow
+### Invitation flow (M4)
 
-1. Existing member generates an `InviteToken` via `OsRng`, held only in `UnbillService` memory.
+1. Any existing authorized device generates an `InviteToken` via `OsRng`, held only in `UnbillService` memory.
 2. Token is delivered out-of-band (QR code, message) as part of a join URL containing the inviting device's `NodeId`.
-3. New member connects to the inviting device, presents the token. The token is validated, consumed, and the new member is appended to the CRDT. Full ledger state flows during the immediately following sync.
+3. The joining device connects, presents the token. The token is validated and consumed. The joining device's `NodeId` is appended to the ledger's device list (not to any member record). Full ledger state flows during the immediately following sync.
+4. Members (named participants) are managed separately from devices. A joining user may already have a member record, or may create one after joining.
 
 ## Settlement algorithm
 
