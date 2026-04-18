@@ -74,6 +74,13 @@ pub async fn identity_list(svc: &UnbillService, json: bool) -> anyhow::Result<()
     Ok(())
 }
 
+pub async fn identity_remove(svc: &UnbillService, user_id: &str) -> anyhow::Result<()> {
+    let uid = parse_ulid(user_id)?;
+    svc.remove_identity(uid).await?;
+    println!("removed identity {user_id}");
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Device
 // ---------------------------------------------------------------------------

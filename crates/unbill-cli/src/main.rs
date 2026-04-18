@@ -77,6 +77,8 @@ pub enum IdentityCmd {
         #[arg(long)]
         user_id: String,
     },
+    /// Remove an identity from this device's local storage.
+    Remove { user_id: String },
 }
 
 #[derive(clap::Subcommand)]
@@ -225,6 +227,7 @@ async fn run() -> anyhow::Result<()> {
             IdentityCmd::Import { url } => commands::identity_import(&svc, url).await,
             IdentityCmd::List => commands::identity_list(&svc, json).await,
             IdentityCmd::Share { user_id } => commands::identity_share(&svc, &user_id, json).await,
+            IdentityCmd::Remove { user_id } => commands::identity_remove(&svc, &user_id).await,
         },
         Command::Device { sub } => match sub {
             DeviceCmd::Show => commands::device_show(&svc, &data_dir, json).await,

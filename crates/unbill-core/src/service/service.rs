@@ -385,6 +385,19 @@ impl UnbillService {
         Ok(identity)
     }
 
+    /// Remove an identity from this device's local storage (does not affect the ledger).
+    pub async fn remove_identity(&self, user_id: Ulid) -> Result<()> {
+        let mut identities = load_identities(&*self.store).await?;
+        let before = identities.len();
+        identities.retain(|i| i.user_id != user_id);
+        if identities.len() == before {
+            return Err(UnbillError::Other(anyhow::anyhow!(
+                "identity {user_id} not found"
+            )));
+        }
+        save_identities(&*self.store, &identities).await
+    }
+
     /// Import an existing identity onto this device.
     pub async fn import_identity(&self, user_id: Ulid, display_name: String) -> Result<Identity> {
         let identity = Identity {
