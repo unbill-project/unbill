@@ -65,14 +65,17 @@ impl UnbillService {
             ledgers.insert(id, Arc::new(Mutex::new(doc)));
         }
 
+        let pending_invitations = load_pending_invitations(&*store).await?;
+        let pending_identity_tokens = load_pending_identity_tokens(&*store).await?;
+
         let (events, _) = broadcast::channel(256);
         Ok(Arc::new(Self {
             store,
             device_id,
             secret_key,
             ledgers,
-            pending_invitations: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            pending_identity_tokens: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            pending_invitations: Arc::new(std::sync::Mutex::new(pending_invitations)),
+            pending_identity_tokens: Arc::new(std::sync::Mutex::new(pending_identity_tokens)),
             events,
         }))
     }
@@ -257,10 +260,11 @@ impl UnbillService {
             created_at: now,
             expires_at: Timestamp::from_millis(now.as_millis() + 24 * 3600 * 1000),
         };
-        self.pending_invitations
-            .lock()
-            .unwrap()
-            .insert(token.to_string(), invitation);
+        {
+            let mut map = self.pending_invitations.lock().unwrap();
+            map.insert(token.to_string(), invitation);
+            save_pending_invitations(&*self.store, &map).await?;
+        }
         Ok(format!(
             "unbill://join/{}/{}/{}",
             ledger_id, self.device_id, token
@@ -281,10 +285,11 @@ impl UnbillService {
         let mut token_bytes = [0u8; 32];
         rand::rngs::OsRng.fill_bytes(&mut token_bytes);
         let token_hex: String = token_bytes.iter().map(|b| format!("{b:02x}")).collect();
-        self.pending_identity_tokens
-            .lock()
-            .unwrap()
-            .insert(token_hex.clone(), (user_ulid, display_name));
+        {
+            let mut map = self.pending_identity_tokens.lock().unwrap();
+            map.insert(token_hex.clone(), (user_ulid, display_name));
+            save_pending_identity_tokens(&*self.store, &map).await?;
+        }
         Ok(format!(
             "unbill://identity/{}/{}",
             self.device_id, token_hex
@@ -341,7 +346,7 @@ impl UnbillService {
         let ep = UnbillEndpoint::bind(self.secret_key.clone())
             .await
             .map_err(UnbillError::Other)?;
-        ep.wait_for_ready().await.map_err(UnbillError::Other)?;
+        ep.wait_for_ready().await;
         println!("listening on: {}", ep.node_id());
         let result = ep.accept_loop_inner(Arc::clone(self)).await;
         ep.close().await;
@@ -436,6 +441,8 @@ pub struct Identity {
 // ---------------------------------------------------------------------------
 
 const IDENTITIES_KEY: &str = "identities.json";
+const PENDING_INVITATIONS_KEY: &str = "pending_invitations.json";
+const PENDING_IDENTITY_TOKENS_KEY: &str = "pending_identity_tokens.json";
 
 async fn load_identities(store: &dyn LedgerStore) -> Result<Vec<Identity>> {
     match store.load_device_meta(IDENTITIES_KEY).await? {
@@ -449,6 +456,50 @@ async fn save_identities(store: &dyn LedgerStore, identities: &[Identity]) -> Re
     let bytes = serde_json::to_vec(identities)
         .map_err(|e| UnbillError::Other(anyhow::anyhow!("serialize identities: {e}")))?;
     store.save_device_meta(IDENTITIES_KEY, &bytes).await?;
+    Ok(())
+}
+
+async fn load_pending_invitations(
+    store: &dyn LedgerStore,
+) -> Result<HashMap<String, Invitation>> {
+    match store.load_device_meta(PENDING_INVITATIONS_KEY).await? {
+        None => Ok(HashMap::new()),
+        Some(bytes) => serde_json::from_slice(&bytes)
+            .map_err(|e| UnbillError::Other(anyhow::anyhow!("pending_invitations.json: {e}"))),
+    }
+}
+
+async fn save_pending_invitations(
+    store: &dyn LedgerStore,
+    map: &HashMap<String, Invitation>,
+) -> Result<()> {
+    let bytes = serde_json::to_vec(map)
+        .map_err(|e| UnbillError::Other(anyhow::anyhow!("serialize pending_invitations: {e}")))?;
+    store.save_device_meta(PENDING_INVITATIONS_KEY, &bytes).await?;
+    Ok(())
+}
+
+async fn load_pending_identity_tokens(
+    store: &dyn LedgerStore,
+) -> Result<HashMap<String, (Ulid, String)>> {
+    match store.load_device_meta(PENDING_IDENTITY_TOKENS_KEY).await? {
+        None => Ok(HashMap::new()),
+        Some(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
+            UnbillError::Other(anyhow::anyhow!("pending_identity_tokens.json: {e}"))
+        }),
+    }
+}
+
+async fn save_pending_identity_tokens(
+    store: &dyn LedgerStore,
+    map: &HashMap<String, (Ulid, String)>,
+) -> Result<()> {
+    let bytes = serde_json::to_vec(map).map_err(|e| {
+        UnbillError::Other(anyhow::anyhow!("serialize pending_identity_tokens: {e}"))
+    })?;
+    store
+        .save_device_meta(PENDING_IDENTITY_TOKENS_KEY, &bytes)
+        .await?;
     Ok(())
 }
 

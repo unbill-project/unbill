@@ -57,7 +57,7 @@ pub struct NewDevice {
 ///
 /// The invitation authorizes a new device (NodeId) to join the ledger. It
 /// carries no member identity — member management is a separate operation.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Invitation {
     pub token: InviteToken,
     pub ledger_id: Ulid,

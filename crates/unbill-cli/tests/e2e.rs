@@ -5,7 +5,6 @@
 
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Output, Stdio};
-use std::time::Duration;
 use tempfile::TempDir;
 
 // ---------------------------------------------------------------------------
@@ -89,10 +88,8 @@ impl Daemon {
     fn spawn(env: &Env) -> Self {
         let mut child = Command::new(env!("CARGO_BIN_EXE_unbill"))
             .env("UNBILL_DATA_DIR", env.dir.path())
-            .env("RUST_LOG", "iroh=debug")
             .args(["sync", "daemon"])
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
             .spawn()
             .expect("failed to spawn daemon");
         let stdout = child.stdout.take().unwrap();
@@ -106,8 +103,6 @@ impl Daemon {
             .unwrap_or_else(|| panic!("unexpected daemon output: {line:?}"))
             .trim()
             .to_string();
-        // Give discovery (mDNS / pkarr) time to advertise before any peer dials.
-        std::thread::sleep(Duration::from_secs(10));
         Daemon { child, node_id }
     }
 }

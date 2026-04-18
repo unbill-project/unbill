@@ -1,8 +1,9 @@
 // Iroh endpoint lifecycle and connection dispatch.
 //
-// `UnbillEndpoint` wraps `iroh::Endpoint`, opens it with the device secret key,
+// `UnbillEndpoint` wraps `iroh::Endpoint`, opens it with the device secret key
+// using the N0 preset (pkarr publishing + DNS lookup + default relay servers),
 // and exposes the two runtime modes:
-//   - `sync_once_inner` — dial one peer and sync.
+//   - `sync_once_inner`   — dial one peer and sync.
 //   - `accept_loop_inner` — wait for incoming connections; dispatch by ALPN.
 
 use std::sync::Arc;
@@ -23,17 +24,15 @@ pub struct UnbillEndpoint {
 
 impl UnbillEndpoint {
     /// Bind a new Iroh endpoint using the given device secret key.
-    /// All three protocol ALPN tokens are registered.
+    /// Uses the N0 preset: pkarr publishing + DNS address lookup + relay servers.
     pub async fn bind(secret_key: iroh::SecretKey) -> anyhow::Result<Self> {
-        let inner = iroh::Endpoint::builder()
+        let inner = iroh::Endpoint::builder(iroh::endpoint::presets::N0)
             .secret_key(secret_key)
             .alpns(vec![
                 ALPN_SYNC.to_vec(),
                 ALPN_JOIN.to_vec(),
                 ALPN_IDENTITY.to_vec(),
             ])
-            .discovery_n0()
-            .discovery_local_network()
             .bind()
             .await?;
         Ok(Self { inner })
@@ -41,20 +40,14 @@ impl UnbillEndpoint {
 
     /// This device's `NodeId` as known to the network.
     pub fn node_id(&self) -> NodeId {
-        NodeId::from_node_id(self.inner.node_id())
+        NodeId::from_node_id(self.inner.id())
     }
 
-    /// Wait until the endpoint is reachable — either direct socket addresses
-    /// are known (LAN/same-machine) or a relay URL is established (internet).
-    /// Returns only after peers can actually connect to us.
-    pub async fn wait_for_ready(&self) -> anyhow::Result<()> {
-        use iroh::Watcher as _;
-        self.inner
-            .node_addr()
-            .initialized()
-            .await
-            .map_err(|e| anyhow::anyhow!("endpoint never became ready: {e}"))?;
-        Ok(())
+    /// Wait until the endpoint has a relay connection — the relay is the
+    /// reliable path that enables connectivity before direct addresses are
+    /// established via hole-punching.
+    pub async fn wait_for_ready(&self) {
+        self.inner.online().await;
     }
 
     /// Close the endpoint gracefully.
@@ -71,8 +64,9 @@ impl UnbillEndpoint {
         peer: NodeId,
         svc: &UnbillService,
     ) -> anyhow::Result<()> {
-        let conn = self.inner.connect(peer.as_node_id(), ALPN_SYNC).await?;
-        let peer_node_id = NodeId::from_node_id(conn.remote_node_id()?);
+        let addr = iroh::EndpointAddr::new(peer.as_node_id());
+        let conn = self.inner.connect(addr, ALPN_SYNC).await?;
+        let peer_node_id = NodeId::from_node_id(conn.remote_id());
         let (send, recv) = conn.open_bi().await?;
         run_sync_session(
             true,
@@ -98,7 +92,8 @@ impl UnbillEndpoint {
         request: JoinRequest,
         svc: &UnbillService,
     ) -> anyhow::Result<()> {
-        let conn = self.inner.connect(host.as_node_id(), ALPN_JOIN).await?;
+        let addr = iroh::EndpointAddr::new(host.as_node_id());
+        let conn = self.inner.connect(addr, ALPN_JOIN).await?;
         let (send, recv) = conn.open_bi().await?;
         run_join_requester(request, &svc.ledgers, &svc.store, &svc.events, recv, send).await?;
         conn.close(0u32.into(), b"done");
@@ -115,7 +110,8 @@ impl UnbillEndpoint {
         token: String,
         svc: &UnbillService,
     ) -> anyhow::Result<()> {
-        let conn = self.inner.connect(host.as_node_id(), ALPN_IDENTITY).await?;
+        let addr = iroh::EndpointAddr::new(host.as_node_id());
+        let conn = self.inner.connect(addr, ALPN_IDENTITY).await?;
         let (send, recv) = conn.open_bi().await?;
         run_identity_requester(token, &svc.store, recv, send).await?;
         conn.close(0u32.into(), b"done");
@@ -161,13 +157,7 @@ impl UnbillEndpoint {
                 }
             };
 
-            let peer = match conn.remote_node_id() {
-                Ok(id) => NodeId::from_node_id(id),
-                Err(e) => {
-                    warn!("could not read peer node ID: {e}");
-                    continue;
-                }
-            };
+            let peer = NodeId::from_node_id(conn.remote_id());
 
             let svc = Arc::clone(&svc);
 
@@ -229,6 +219,9 @@ async fn dispatch(
             );
         }
     }
-    conn.close(0u32.into(), b"done");
+    // Wait for the initiator to close the connection.  The initiator calls
+    // conn.close() only after it has finished reading, which guarantees all
+    // stream data was delivered before we exit.
+    conn.closed().await;
     Ok(())
 }

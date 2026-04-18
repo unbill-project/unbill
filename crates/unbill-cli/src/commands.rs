@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use anyhow::{anyhow, bail};
+use anyhow::anyhow;
 use unbill_core::model::{NewBill, NewMember, NodeId, Share, Ulid};
 use unbill_core::service::UnbillService;
 

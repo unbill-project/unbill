@@ -5,7 +5,7 @@ use std::str::FromStr;
 ///
 /// Held in `UnbillService` memory only. Never persisted or synced.
 /// See DESIGN.md §6.3 for the invitation flow.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct InviteToken(String);
 
 impl InviteToken {
