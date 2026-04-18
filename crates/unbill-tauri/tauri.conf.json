@@ -16,7 +16,10 @@
         "title": "unbill",
         "width": 1024,
         "height": 768,
-        "resizable": true
+        "resizable": true,
+        "decorations": false,
+        "transparent": true,
+        "shadow": true
       }
     ]
   },

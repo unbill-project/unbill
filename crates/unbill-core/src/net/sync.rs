@@ -306,8 +306,17 @@ mod tests {
         let store_a: Arc<dyn LedgerStore> = make_store();
         let store_b: Arc<dyn LedgerStore> = make_store();
 
-        let mut doc_a = LedgerDoc::new(Ulid::new(), "Test".to_string(), usd(), Timestamp::now()).unwrap();
-        doc_a.add_device(NewDevice { node_id: node_b, label: "B".to_string() }, Timestamp::now()).unwrap();
+        let mut doc_a =
+            LedgerDoc::new(Ulid::new(), "Test".to_string(), usd(), Timestamp::now()).unwrap();
+        doc_a
+            .add_device(
+                NewDevice {
+                    node_id: node_b,
+                    label: "B".to_string(),
+                },
+                Timestamp::now(),
+            )
+            .unwrap();
         save_doc(&*store_a, &mut doc_a).await;
 
         sync_pair(store_a, store_b, node_a, node_b).await;
@@ -322,13 +331,32 @@ mod tests {
         // Build a base ledger that both A and B start with.
         let mut base =
             LedgerDoc::new(Ulid::new(), "Trip".to_string(), usd(), Timestamp::now()).unwrap();
-        base.add_device(NewDevice { node_id: node_a, label: "A".to_string() }, Timestamp::now()).unwrap();
-        base.add_device(NewDevice { node_id: node_b, label: "B".to_string() }, Timestamp::now()).unwrap();
+        base.add_device(
+            NewDevice {
+                node_id: node_a,
+                label: "A".to_string(),
+            },
+            Timestamp::now(),
+        )
+        .unwrap();
+        base.add_device(
+            NewDevice {
+                node_id: node_b,
+                label: "B".to_string(),
+            },
+            Timestamp::now(),
+        )
+        .unwrap();
         let payer = Ulid::from_u128(99);
         base.add_member(
-            crate::model::NewMember { user_id: payer, display_name: "Payer".to_string(), added_by: payer },
+            crate::model::NewMember {
+                user_id: payer,
+                display_name: "Payer".to_string(),
+                added_by: payer,
+            },
             Timestamp::now(),
-        ).unwrap();
+        )
+        .unwrap();
         let base_bytes = base.save();
         let ledger_id = base.get_ledger().unwrap().ledger_id.to_string();
 
@@ -336,27 +364,37 @@ mod tests {
         let mut doc_a = LedgerDoc::from_bytes(&base_bytes).unwrap();
         let mut doc_b = LedgerDoc::from_bytes(&base_bytes).unwrap();
 
-        doc_a.add_bill(
-            NewBill {
-                payer_user_id: payer,
-                amount_cents: 1000,
-                description: "from A".to_string(),
-                shares: vec![Share { user_id: payer, shares: 1 }],
-            },
-            node_a,
-            Timestamp::now(),
-        ).unwrap();
+        doc_a
+            .add_bill(
+                NewBill {
+                    payer_user_id: payer,
+                    amount_cents: 1000,
+                    description: "from A".to_string(),
+                    shares: vec![Share {
+                        user_id: payer,
+                        shares: 1,
+                    }],
+                },
+                node_a,
+                Timestamp::now(),
+            )
+            .unwrap();
 
-        doc_b.add_bill(
-            NewBill {
-                payer_user_id: payer,
-                amount_cents: 2000,
-                description: "from B".to_string(),
-                shares: vec![Share { user_id: payer, shares: 1 }],
-            },
-            node_b,
-            Timestamp::now(),
-        ).unwrap();
+        doc_b
+            .add_bill(
+                NewBill {
+                    payer_user_id: payer,
+                    amount_cents: 2000,
+                    description: "from B".to_string(),
+                    shares: vec![Share {
+                        user_id: payer,
+                        shares: 1,
+                    }],
+                },
+                node_b,
+                Timestamp::now(),
+            )
+            .unwrap();
 
         let store_a: Arc<dyn LedgerStore> = make_store();
         let store_b: Arc<dyn LedgerStore> = make_store();
