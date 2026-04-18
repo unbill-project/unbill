@@ -169,19 +169,19 @@ The requester is now authorized to sync. To appear as a named participant in bil
 
 ## Identity protocol (`unbill/identity/v1`)
 
-A user identity — a stable `user_id` (ULID) and `display_name` — is stored as device-local metadata alongside the device key. When setting up a second device, the user can import their existing identity from their first device rather than creating a new one.
+A device stores a list of user identities. Each identity is a stable `user_id` (ULID) paired with a `display_name`. A device may hold identities for multiple people (e.g. a shared device) or multiple identities for the same person across different contexts. Identities are stored as device-local metadata alongside the device key.
 
-This protocol transfers identity only. It does not touch any ledger document.
+When setting up a new device, a user can import one of their existing identities from another device rather than creating a fresh one. This protocol transfers a single identity. It does not touch any ledger document.
 
 ### Identity invite URL
 
-The existing device generates a 32-byte cryptographically random token, stores it in memory, and constructs an invite URL:
+The existing device generates a 32-byte cryptographically random token associated with a specific `user_id`, stores it in memory, and constructs an invite URL:
 
 ```
 unbill://identity/<existing_node_id_hex>/<token_hex>
 ```
 
-The URL is shared out of band. The token is valid until first use or expiry (default: 24 hours).
+The URL is shared out of band. The token is valid until first use or expiry (default: 24 hours). Each token is bound to exactly one identity — a device with multiple identities generates a separate URL per identity.
 
 ### Message sequence
 
