@@ -6,6 +6,11 @@
 }:
 {
   # https://devenv.sh/languages/
+  languages.javascript = {
+    enable = true;
+    pnpm.enable = true;
+  };
+
   languages.rust = {
     enable = true;
     components = [
