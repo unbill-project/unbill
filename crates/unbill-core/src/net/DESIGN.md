@@ -1,0 +1,198 @@
+# net — P2P Networking
+
+The net layer connects unbill devices directly, without any central server. It is responsible for two things: **ongoing document sync** between authorized devices that share a ledger, and the **one-time join handshake** that bootstraps a new device into a ledger it has not seen before.
+
+All network I/O goes through Iroh, which provides QUIC transport with TLS 1.3 and Ed25519 identity. Each device is permanently identified by its `NodeId` — the public half of its Ed25519 key. Iroh handles relay fallback and hole-punching transparently.
+
+## Two protocols
+
+### `unbill/sync/v1` — document sync
+
+Used between devices that both already hold a copy of a ledger. Identified by ALPN token `unbill/sync/v1`.
+
+### `unbill/join/v1` — invite and join
+
+Used exactly once when a new device joins a ledger for the first time. Identified by ALPN token `unbill/join/v1`.
+
+## Peer discovery
+
+No separate discovery mechanism is needed. The `devices` list embedded in each ledger's Automerge document contains the `NodeId` of every device authorized to sync that ledger. To sync, a device dials each entry by `NodeId`. Iroh resolves `NodeId` to an IP address using its relay network and peer discovery; the application never handles addresses directly.
+
+## Authorization
+
+A device is authorized to sync a ledger if and only if its `NodeId` appears in `ledger.devices` at the time of connection. The responder reads the ledger document, checks the list, and rejects any initiator not found there. Because Iroh's TLS layer verifies `NodeId` during the handshake, a device cannot claim a `NodeId` it does not own.
+
+Devices that are removed from `ledger.devices` lose sync access on their next connection attempt. They retain whatever local state they held before removal; there is no revocation of already-held data.
+
+## Sync protocol (`unbill/sync/v1`)
+
+### Framing
+
+Messages are CBOR-encoded structs, each preceded by a 4-byte big-endian length prefix. The entire exchange runs over a single bidirectional Iroh stream per connection.
+
+### Message sequence
+
+```
+Initiator                              Responder
+  ── Hello ────────────────────────>
+  <─ HelloAck ──────────────────────
+  ── SyncMsg(ledger=L, ...) ────────>   (Automerge sync messages,
+  <─ SyncMsg(ledger=L, ...) ──────────   one per ledger, interleaved)
+  ── SyncDone(ledger=L) ────────────>
+  <─ SyncDone(ledger=L) ──────────────
+  [stream closed when both sides done]
+```
+
+**`Hello`** — sent by the initiator immediately after the stream is opened.
+
+```
+Hello {
+    ledger_ids: Vec<String>,   // ULIDs of ledgers this device holds
+}
+```
+
+The initiator's `NodeId` is not sent in the message — the responder reads it from the Iroh connection, where it is verified by TLS.
+
+**`HelloAck`** — sent by the responder after authorization checks.
+
+```
+HelloAck {
+    accepted: Vec<String>,   // ledger IDs where the initiator is authorized
+    rejected: Vec<String>,   // ledger IDs not shared or not authorized
+}
+```
+
+The responder only accepts a ledger if it holds a local copy and the TLS-authenticated `NodeId` of the initiator is in `ledger.devices`. Rejected ledgers are dropped silently.
+
+**`SyncMsg`** — carries a single Automerge sync message for one ledger.
+
+```
+SyncMsg {
+    ledger_id: String,
+    payload: Vec<u8>,   // opaque Automerge sync::Message bytes
+}
+```
+
+Both sides drive the Automerge sync loop independently for each accepted ledger: call `generate_sync_message`, send if non-`None`, call `receive_sync_message` on incoming payloads, repeat. The loop terminates per ledger when a side's `generate_sync_message` returns `None`.
+
+**`SyncDone`** — signals that this side has no more sync messages for a given ledger.
+
+```
+SyncDone { ledger_id: String }
+```
+
+The stream is closed once both sides have sent `SyncDone` for every accepted ledger.
+
+### SyncState management
+
+Automerge requires a per-(ledger, peer) `SyncState` to track what each peer has already seen. A fresh `SyncState` is created for every new connection. For the `sync daemon` mode (see below), `SyncState` is kept alive for the duration of the persistent connection and discarded when the connection drops.
+
+### What triggers sync
+
+After merging incoming changes into the local document, the net layer saves the updated bytes to `LedgerStore` and emits a `LedgerUpdated` event on the service's broadcast channel.
+
+## Join protocol (`unbill/join/v1`)
+
+The join flow is about **device authorization only**. It adds a new `NodeId` to `ledger.devices` so that device can participate in future syncs. It does not add a member. Adding oneself as a named participant (member) is a separate operation performed via `member add` after the device has successfully joined and synced the ledger.
+
+### Invite URL
+
+The inviting device generates a 32-byte cryptographically random `InviteToken`, stores it in `pending_invitations` (keyed by token hex), and constructs an invite URL:
+
+```
+unbill://join/<ledger_id>/<inviter_node_id_hex>/<token_hex>
+```
+
+- `ledger_id`: 26-character ULID of the ledger
+- `inviter_node_id_hex`: 64-character hex of the inviting device's `NodeId`
+- `token_hex`: 64-character hex of the 32-byte `InviteToken`
+
+The URL is shared out of band (QR code, copy/paste, messaging app). The token is valid until first use or expiry (default: 24 hours).
+
+### Message sequence
+
+```
+Requester (new device)                 Host (inviting device)
+  ── JoinRequest ──────────────────>
+  <─ JoinResponse / JoinError ──────
+```
+
+**`JoinRequest`** — sent by the joining device.
+
+```
+JoinRequest {
+    token: String,       // token_hex from the invite URL
+    ledger_id: String,   // which ledger to join (from the invite URL)
+    label: String,       // human-readable name for this device (e.g. "Alice's phone")
+}
+```
+
+The joining device's `NodeId` is not sent in the message — the host reads it from the Iroh connection, where it is verified by TLS. No member identity (user ID, display name) is part of this request.
+
+**`JoinResponse`** — sent by the host on success.
+
+```
+JoinResponse {
+    ledger_bytes: Vec<u8>,   // full Automerge document snapshot
+}
+```
+
+**`JoinError`** — sent by the host on failure.
+
+```
+JoinError { reason: String }
+```
+
+### Host-side join processing
+
+1. Look up the token in `pending_invitations`. Reject with `JoinError` if not found, already used, or expired.
+2. Verify the `ledger_id` in the request matches the invitation's `ledger_id`.
+3. Read the requester's `NodeId` from the TLS-authenticated Iroh connection.
+4. Add that `NodeId` (with the provided `label`) to `ledger.devices` in the Automerge document.
+5. Save the updated document to `LedgerStore`.
+6. Emit `LedgerUpdated` on the service event channel.
+7. Remove the token from `pending_invitations` (consume it).
+8. Send `JoinResponse` with the full document bytes.
+
+### Requester-side join processing
+
+1. Receive `JoinResponse`.
+2. Load the ledger document from the received bytes via `LedgerDoc::from_bytes`.
+3. Save to `LedgerStore` and insert into the service's in-memory ledger map.
+4. Emit `LedgerUpdated`.
+
+The requester is now authorized to sync. To appear as a named participant in bills, a group member must separately add them via `member add` (any authorized device can do this).
+
+## Sync modes
+
+Sync is always user-initiated. There is no background polling or automatic triggering.
+
+### `sync once <peer_node_id>`
+
+Dial the specified peer by `NodeId`. Run the full sync exchange for all ledgers shared with that peer. Close the connection when both sides have sent `SyncDone` for every accepted ledger. If the peer is unreachable, exit non-zero with a clear error message.
+
+### `sync daemon`
+
+Open the Iroh endpoint and wait for incoming connections. When a peer dials in, run the full sync exchange for all shared ledgers, then close the connection. The daemon stays running and accepts additional connections until the user stops it. It makes no outbound connections on its own.
+
+`sync daemon` is the counterpart to `sync once`: one device runs the daemon to receive, the other runs `sync once` to initiate. Both end the connection after sync completes.
+
+The daemon exposes `sync status` by returning whether the endpoint is open and the last sync time per ledger.
+
+## Failure modes
+
+| Condition | Behavior |
+|-----------|----------|
+| Peer unreachable (`sync once`) | Exit non-zero with error message. |
+| `NotAuthorized` | Responder sends `HelloAck` with the ledger in `rejected`. Initiator skips it. |
+| Token expired or unknown | Host sends `JoinError`. Requester surfaces the message to the user. |
+| Token already consumed | Same as expired. |
+| Host offline at join time | Connection fails. Known limitation: the inviting device must be online when the invitee joins. |
+| Malformed message | Connection closed immediately. |
+| Iroh relay unreachable | Iroh retries internally. If all transports fail, treated as peer unreachable. |
+
+## Testing
+
+The sync and join protocol logic is tested with in-process channel pairs that stand in for Iroh streams. No real Iroh endpoints are started. Two `LedgerDoc` instances diverge independently, then run the sync message loop over the in-process channels; the test asserts that both docs reach identical state.
+
+The join flow is tested with a mock host that consumes `JoinRequest` messages and returns pre-built `JoinResponse` payloads, verifying that the requester correctly loads and persists the received ledger document.

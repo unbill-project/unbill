@@ -48,11 +48,15 @@ pub struct NewMember {
 
 /// A pending join invitation. Held in `UnbillService` memory only — never
 /// persisted or synced. Consumed (removed from the map) on first use or expiry.
+///
+/// The invitation authorizes a new device (NodeId) to join the ledger. It
+/// carries no member identity — member management is a separate operation.
 #[derive(Clone, Debug)]
 pub struct Invitation {
     pub token: InviteToken,
     pub ledger_id: Ulid,
-    pub created_by_user_id: Ulid,
+    /// The device that issued this invitation.
+    pub created_by_device: NodeId,
     pub created_at: Timestamp,
     pub expires_at: Timestamp,
 }
