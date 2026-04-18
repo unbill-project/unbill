@@ -248,7 +248,9 @@ async fn run() -> anyhow::Result<()> {
             }
             IdentityCmd::Import { url } => bail!("identity import is available from M3: {url}"),
             IdentityCmd::List => commands::identity_list(&svc, json).await,
-            IdentityCmd::Share { .. } => bail!("identity share is available from M3"),
+            IdentityCmd::Share { user_id } => {
+                commands::identity_share(&svc, &user_id, json).await
+            }
         },
         Command::Device { sub } => match sub {
             DeviceCmd::Show => commands::device_show(&svc, &data_dir, json).await,
@@ -263,7 +265,9 @@ async fn run() -> anyhow::Result<()> {
             LedgerCmd::List => commands::ledger_list(&svc, json).await,
             LedgerCmd::Show { ledger_id } => commands::ledger_show(&svc, &ledger_id, json).await,
             LedgerCmd::Delete { ledger_id } => commands::ledger_delete(&svc, &ledger_id).await,
-            LedgerCmd::Invite { .. } => bail!("ledger invite is available from M3"),
+            LedgerCmd::Invite { ledger_id } => {
+                commands::ledger_invite(&svc, &ledger_id, json).await
+            }
             LedgerCmd::Join { .. } => bail!("ledger join is available from M3"),
         },
         Command::Bill { sub } => match sub {
@@ -327,7 +331,13 @@ async fn run() -> anyhow::Result<()> {
                 commands::member_remove(&svc, &ledger_id, &user_id).await
             }
         },
-        Command::Sync { .. } => bail!("sync is available from M3"),
+        Command::Sync { sub } => match sub {
+            SyncCmd::Once { peer_node_id } => {
+                commands::sync_once(&svc, &peer_node_id).await
+            }
+            SyncCmd::Daemon => commands::sync_daemon(&svc).await,
+            SyncCmd::Status => bail!("sync status is available from M3"),
+        },
         Command::Settlement { user_id } => commands::settlement(&svc, &user_id, json).await,
     }
 }

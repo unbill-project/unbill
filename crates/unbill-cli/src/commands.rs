@@ -2,6 +2,8 @@
 // Each function takes the service and any parsed arguments, performs the
 // operation, and prints the result. Nothing here touches storage directly.
 
+use std::sync::Arc;
+
 use anyhow::{anyhow, bail};
 use unbill_core::model::{BillAmendment, NewBill, NewMember, NodeId, Share, Ulid};
 use unbill_core::service::UnbillService;
@@ -362,6 +364,59 @@ pub async fn member_list(svc: &UnbillService, ledger_id: &str, json: bool) -> an
             println!("{:26}  {}", m.user_id, m.display_name);
         }
     }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Ledger invite / join
+// ---------------------------------------------------------------------------
+
+pub async fn ledger_invite(
+    svc: &Arc<UnbillService>,
+    ledger_id: &str,
+    json: bool,
+) -> anyhow::Result<()> {
+    let url = svc.create_invitation(ledger_id).await?;
+    if json {
+        print_json(&serde_json::json!({ "url": url }))?;
+    } else {
+        println!("{url}");
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Identity share
+// ---------------------------------------------------------------------------
+
+pub async fn identity_share(
+    svc: &Arc<UnbillService>,
+    user_id: &str,
+    json: bool,
+) -> anyhow::Result<()> {
+    let url = svc.create_identity_share(user_id).await?;
+    if json {
+        print_json(&serde_json::json!({ "url": url }))?;
+    } else {
+        println!("{url}");
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Sync
+// ---------------------------------------------------------------------------
+
+pub async fn sync_once(svc: &Arc<UnbillService>, peer_node_id: &str) -> anyhow::Result<()> {
+    let peer = peer_node_id
+        .parse::<NodeId>()
+        .map_err(|e| anyhow!("invalid node ID {peer_node_id:?}: {e}"))?;
+    svc.sync_once(peer).await?;
+    Ok(())
+}
+
+pub async fn sync_daemon(svc: &Arc<UnbillService>) -> anyhow::Result<()> {
+    svc.accept_loop().await?;
     Ok(())
 }
 
