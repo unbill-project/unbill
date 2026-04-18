@@ -314,6 +314,15 @@ pub async fn member_list(svc: &UnbillService, ledger_id: &str, json: bool) -> an
 // Ledger invite / join
 // ---------------------------------------------------------------------------
 
+pub async fn ledger_join(
+    svc: &Arc<UnbillService>,
+    url: String,
+    label: String,
+) -> anyhow::Result<()> {
+    svc.join_ledger(&url, label).await?;
+    Ok(())
+}
+
 pub async fn ledger_invite(
     svc: &Arc<UnbillService>,
     ledger_id: &str,
@@ -331,6 +340,11 @@ pub async fn ledger_invite(
 // ---------------------------------------------------------------------------
 // Identity share
 // ---------------------------------------------------------------------------
+
+pub async fn identity_import(svc: &Arc<UnbillService>, url: String) -> anyhow::Result<()> {
+    svc.fetch_identity(&url).await?;
+    Ok(())
+}
 
 pub async fn identity_share(
     svc: &Arc<UnbillService>,

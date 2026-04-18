@@ -291,6 +291,36 @@ impl UnbillService {
         ))
     }
 
+    /// Accept a join invite URL and join the ledger hosted by the inviting device.
+    ///
+    /// URL format: `unbill://join/<ledger_id>/<host_node_id>/<token_hex>`
+    /// `label` is a human-readable name for this device recorded in the ledger.
+    pub async fn join_ledger(self: &Arc<Self>, url: &str, label: String) -> Result<()> {
+        use crate::net::{JoinRequest, UnbillEndpoint};
+        let (ledger_id, host, token) = parse_join_url(url)?;
+        let request = JoinRequest { token, ledger_id, label };
+        let ep = UnbillEndpoint::bind(self.secret_key.clone())
+            .await
+            .map_err(UnbillError::Other)?;
+        let result = ep.join_ledger_inner(host, request, self).await;
+        ep.close().await;
+        result.map_err(UnbillError::Other)
+    }
+
+    /// Fetch an identity from another device using an `unbill://identity/...` URL.
+    ///
+    /// URL format: `unbill://identity/<host_node_id>/<token_hex>`
+    pub async fn fetch_identity(self: &Arc<Self>, url: &str) -> Result<()> {
+        use crate::net::UnbillEndpoint;
+        let (host, token) = parse_identity_url(url)?;
+        let ep = UnbillEndpoint::bind(self.secret_key.clone())
+            .await
+            .map_err(UnbillError::Other)?;
+        let result = ep.import_identity_inner(host, token, self).await;
+        ep.close().await;
+        result.map_err(UnbillError::Other)
+    }
+
     /// Dial `peer` and run the full sync exchange for all shared ledgers.
     pub async fn sync_once(self: &Arc<Self>, peer: NodeId) -> Result<()> {
         use crate::net::UnbillEndpoint;
@@ -439,6 +469,43 @@ async fn load_or_create_device_key(store: &dyn LedgerStore) -> Result<(NodeId, i
 
 fn parse_ulid(s: &str) -> Result<Ulid> {
     Ulid::from_string(s).map_err(|e| UnbillError::Other(anyhow::anyhow!("invalid ULID {s:?}: {e}")))
+}
+
+/// Parse `unbill://join/<ledger_id>/<host_node_id>/<token_hex>`.
+fn parse_join_url(url: &str) -> Result<(String, NodeId, String)> {
+    let path = url
+        .strip_prefix("unbill://join/")
+        .ok_or_else(|| UnbillError::Other(anyhow::anyhow!("invalid join URL: {url:?}")))?;
+    let parts: Vec<&str> = path.splitn(3, '/').collect();
+    if parts.len() != 3 {
+        return Err(UnbillError::Other(anyhow::anyhow!(
+            "invalid join URL (expected ledger_id/host_node_id/token): {url:?}"
+        )));
+    }
+    let ledger_id = parts[0].to_string();
+    let host = parts[1]
+        .parse::<NodeId>()
+        .map_err(|e| UnbillError::Other(anyhow::anyhow!("invalid host node ID in URL: {e}")))?;
+    let token = parts[2].to_string();
+    Ok((ledger_id, host, token))
+}
+
+/// Parse `unbill://identity/<host_node_id>/<token_hex>`.
+fn parse_identity_url(url: &str) -> Result<(NodeId, String)> {
+    let path = url
+        .strip_prefix("unbill://identity/")
+        .ok_or_else(|| UnbillError::Other(anyhow::anyhow!("invalid identity URL: {url:?}")))?;
+    let parts: Vec<&str> = path.splitn(2, '/').collect();
+    if parts.len() != 2 {
+        return Err(UnbillError::Other(anyhow::anyhow!(
+            "invalid identity URL (expected host_node_id/token): {url:?}"
+        )));
+    }
+    let host = parts[0]
+        .parse::<NodeId>()
+        .map_err(|e| UnbillError::Other(anyhow::anyhow!("invalid host node ID in URL: {e}")))?;
+    let token = parts[1].to_string();
+    Ok((host, token))
 }
 
 // ---------------------------------------------------------------------------

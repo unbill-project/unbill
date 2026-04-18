@@ -6,12 +6,12 @@ A thin clap-driven command-line frontend for `UnbillService`. Useful for dogfood
 
 - `init` — initialize this device: generate a device key. Must be run once before any other command.
 - `identity new <display_name>` — add a fresh user identity (new user ID + display name) to this device. A device may hold many identities.
-- `identity import <url>` — import an existing user identity from another device via an `unbill://identity/...` URL and add it to this device's identity list. The other device must be online.
+- `identity import <url>` — fetch an existing user identity from another device via an `unbill://identity/...` URL and add it to this device's identity list. The other device must be online and have issued the URL via `identity share`.
 - `identity list` — list all identities stored on this device (user ID + display name for each).
 - `identity share --user-id <user_id>` — generate an `unbill://identity/...` URL for a specific identity so another device can import it via `identity import`.
 - `device show` — print this device's node ID and data directory.
 
-- `ledger create | list | show | delete | invite | join` — ledger lifecycle. `ledger create` registers the creator's own device in `ledger.devices`. `ledger invite` generates an `unbill://join/...` URL authorizing a new device to access the ledger; `ledger join <url>` accepts one.
+- `ledger create | list | show | delete | invite | join` — ledger lifecycle. `ledger create` registers the creator's own device in `ledger.devices`. `ledger invite` generates an `unbill://join/...` URL authorizing a new device to access the ledger; `ledger join <url> [--label <name>]` dials the host and joins.
 - `bill add | list | amend` — bill management. `bill amend` records a new version of an existing bill (same bill ID, all fields required); the latest version becomes the effective bill.
 - `member list | add` — managing named participants in a ledger. Members may not be removed.
 - `sync daemon | once | status` — P2P sync control. `sync once <peer_node_id>` dials a specific peer and syncs; `sync daemon` opens the endpoint and waits for incoming connections.

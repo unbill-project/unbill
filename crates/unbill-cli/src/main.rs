@@ -107,6 +107,9 @@ pub enum LedgerCmd {
     /// Join a ledger using an unbill://join/... URL.
     Join {
         url: String,
+        /// Human-readable label for this device recorded in the ledger.
+        #[arg(long, default_value = "new device")]
+        label: String,
     },
 }
 
@@ -219,7 +222,7 @@ async fn run() -> anyhow::Result<()> {
             IdentityCmd::New { display_name } => {
                 commands::identity_new(&svc, display_name, json).await
             }
-            IdentityCmd::Import { url } => bail!("identity import is available from M3: {url}"),
+            IdentityCmd::Import { url } => commands::identity_import(&svc, url).await,
             IdentityCmd::List => commands::identity_list(&svc, json).await,
             IdentityCmd::Share { user_id } => commands::identity_share(&svc, &user_id, json).await,
         },
@@ -236,7 +239,9 @@ async fn run() -> anyhow::Result<()> {
             LedgerCmd::Invite { ledger_id } => {
                 commands::ledger_invite(&svc, &ledger_id, json).await
             }
-            LedgerCmd::Join { .. } => bail!("ledger join is available from M3"),
+            LedgerCmd::Join { url, label } => {
+                commands::ledger_join(&svc, url, label).await
+            }
         },
         Command::Bill { sub } => match sub {
             BillCmd::Add {

@@ -12,9 +12,9 @@ use tracing::{info, warn};
 use crate::model::NodeId;
 use crate::service::UnbillService;
 
-use super::identity::run_identity_host;
-use super::join::run_join_host;
-use super::protocol::{ALPN_IDENTITY, ALPN_JOIN, ALPN_SYNC};
+use super::identity::{run_identity_host, run_identity_requester};
+use super::join::{run_join_host, run_join_requester};
+use super::protocol::{JoinRequest, ALPN_IDENTITY, ALPN_JOIN, ALPN_SYNC};
 use super::sync::run_sync_session;
 
 pub struct UnbillEndpoint {
@@ -69,6 +69,40 @@ impl UnbillEndpoint {
             send,
         )
         .await?;
+        conn.close(0u32.into(), b"done");
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Initiator: join a ledger
+    // -----------------------------------------------------------------------
+
+    pub(crate) async fn join_ledger_inner(
+        &self,
+        host: NodeId,
+        request: JoinRequest,
+        svc: &UnbillService,
+    ) -> anyhow::Result<()> {
+        let conn = self.inner.connect(host.as_node_id(), ALPN_JOIN).await?;
+        let (send, recv) = conn.open_bi().await?;
+        run_join_requester(request, &svc.ledgers, &svc.store, &svc.events, recv, send).await?;
+        conn.close(0u32.into(), b"done");
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Initiator: import identity
+    // -----------------------------------------------------------------------
+
+    pub(crate) async fn import_identity_inner(
+        &self,
+        host: NodeId,
+        token: String,
+        svc: &UnbillService,
+    ) -> anyhow::Result<()> {
+        let conn = self.inner.connect(host.as_node_id(), ALPN_IDENTITY).await?;
+        let (send, recv) = conn.open_bi().await?;
+        run_identity_requester(token, &svc.store, recv, send).await?;
         conn.close(0u32.into(), b"done");
         Ok(())
     }
