@@ -31,7 +31,7 @@ Key model types: `Ulid`, `Timestamp`, `Currency`, `NodeId`, `InviteToken`, `Ledg
 - Device node IDs and bill creator fields are valid Ed25519 public keys.
 - Member IDs are stable. A member is identified solely by their `user_id`; no device is bound to a specific member.
 - `InviteToken` is 32 bytes from `OsRng`, hex-encoded. Stored in `LedgerStore` and consumed on first use.
-- Ledger documents are the only store-backed data kept in memory. They are live `LedgerDoc` (Automerge) instances that are actively mutated and require coordination across concurrent callers; the store is their durable backing. All other store-backed data (pending invitations, pending identity tokens, identities) is loaded on demand and never cached — every read goes directly to the store.
+- No store-backed data is cached in memory. Every operation (ledger read, bill write, settlement, sync session) loads what it needs directly from `LedgerStore` and discards it when done. There is no in-memory shadow of store contents.
 - The payer and every share participant in a bill must be members of the ledger at the time the bill is added. Attempting to add a bill referencing a non-member returns `UserNotMember`.
 
 ## Failure modes

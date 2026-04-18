@@ -64,7 +64,7 @@ HelloAck {
 }
 ```
 
-The responder only accepts a ledger if it holds a local copy and the TLS-authenticated `NodeId` of the initiator is in `ledger.devices`. Rejected ledgers are dropped silently.
+The responder only accepts a ledger if it can load a copy from `LedgerStore` and the TLS-authenticated `NodeId` of the initiator is in `ledger.devices`. Rejected ledgers are dropped silently.
 
 **`SyncMsg`** — carries a single Automerge sync message for one ledger.
 
@@ -84,6 +84,10 @@ SyncDone { ledger_id: String }
 ```
 
 The stream is closed once both sides have sent `SyncDone` for every accepted ledger.
+
+### Session-local ledger memory
+
+At the start of a session, the accepted ledger documents are loaded from `LedgerStore` into a session-local map. This map exists only for the duration of the connection; nothing is retained after the session closes. Ledger documents that received remote changes are saved back to `LedgerStore` before the session exits.
 
 ### SyncState management
 
@@ -160,7 +164,7 @@ JoinError { reason: String }
 
 1. Receive `JoinResponse`.
 2. Load the ledger document from the received bytes via `LedgerDoc::from_bytes`.
-3. Save to `LedgerStore` and insert into the service's in-memory ledger map.
+3. Save meta and bytes to `LedgerStore`.
 4. Emit `LedgerUpdated`.
 
 The requester is now authorized to sync. To appear as a named participant in bills, a group member must separately add them via `member add` (any authorized device can do this).
