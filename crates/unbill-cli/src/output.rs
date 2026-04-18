@@ -144,9 +144,8 @@ pub fn print_json<T: serde::Serialize>(v: &T) -> anyhow::Result<()> {
 }
 
 pub fn truncate(s: &str, max: usize) -> &str {
-    if s.len() <= max {
-        s
-    } else {
-        &s[..max]
+    match s.char_indices().nth(max) {
+        None => s,
+        Some((byte_pos, _)) => &s[..byte_pos],
     }
 }
