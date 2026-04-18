@@ -3,4 +3,4 @@
 
 mod service;
 
-pub use service::{ServiceEvent, UnbillService};
+pub use service::{Identity, ServiceEvent, UnbillService};

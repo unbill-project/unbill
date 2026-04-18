@@ -3,7 +3,7 @@
 // operation, and prints the result. Nothing here touches storage directly.
 
 use anyhow::{anyhow, bail};
-use unbill_core::model::{BillAmendment, NewBill, NewMember, Share, Ulid};
+use unbill_core::model::{BillAmendment, NewBill, NewMember, NodeId, Share, Ulid};
 use unbill_core::service::UnbillService;
 
 use crate::output::{
@@ -16,7 +16,7 @@ fn parse_ulid(s: &str) -> anyhow::Result<Ulid> {
 }
 
 // ---------------------------------------------------------------------------
-// Device
+// Init / Identity
 // ---------------------------------------------------------------------------
 
 pub async fn init(svc: &UnbillService, json: bool) -> anyhow::Result<()> {
@@ -25,6 +25,49 @@ pub async fn init(svc: &UnbillService, json: bool) -> anyhow::Result<()> {
         print_json(&serde_json::json!({ "device_id": id }))?;
     } else {
         println!("device ID: {id}");
+    }
+    Ok(())
+}
+
+pub async fn identity_new(
+    svc: &UnbillService,
+    display_name: String,
+    json: bool,
+) -> anyhow::Result<()> {
+    let identity = svc.add_identity(display_name).await?;
+    if json {
+        print_json(&serde_json::json!({
+            "user_id": identity.user_id.to_string(),
+            "display_name": identity.display_name,
+        }))?;
+    } else {
+        println!("user ID:  {}", identity.user_id);
+        println!("name:     {}", identity.display_name);
+    }
+    Ok(())
+}
+
+pub async fn identity_list(svc: &UnbillService, json: bool) -> anyhow::Result<()> {
+    let identities = svc.list_identities().await?;
+    if json {
+        let out: Vec<_> = identities
+            .iter()
+            .map(|i| {
+                serde_json::json!({
+                    "user_id": i.user_id.to_string(),
+                    "display_name": i.display_name,
+                })
+            })
+            .collect();
+        print_json(&out)?;
+    } else {
+        if identities.is_empty() {
+            println!("no identities");
+            return Ok(());
+        }
+        for i in &identities {
+            println!("{:26}  {}", i.user_id, i.display_name);
+        }
     }
     Ok(())
 }
@@ -46,6 +89,18 @@ pub async fn device_show(
         println!("device ID: {id}");
         println!("data dir:  {dir}");
     }
+    Ok(())
+}
+
+pub async fn device_remove(
+    svc: &UnbillService,
+    ledger_id: &str,
+    node_id: &str,
+) -> anyhow::Result<()> {
+    let node_id = node_id
+        .parse::<NodeId>()
+        .map_err(|e| anyhow!("invalid node ID {node_id:?}: {e}"))?;
+    svc.remove_device(ledger_id, &node_id).await?;
     Ok(())
 }
 

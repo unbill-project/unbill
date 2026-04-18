@@ -514,8 +514,8 @@ fn test_bill_list_on_unknown_ledger_fails() {
 }
 
 #[test]
-fn test_m4_commands_are_not_yet_available() {
+fn test_m3_commands_are_not_yet_available() {
     let env = Env::new();
     let stderr = env.fail(&["sync", "status"]);
-    assert!(stderr.contains("M4"), "expected M4 message, got: {stderr}");
+    assert!(stderr.contains("M3"), "expected M3 message, got: {stderr}");
 }

@@ -41,6 +41,22 @@ impl fmt::Display for Ulid {
     }
 }
 
+// --- serde integration ---
+// Serialized as the canonical 26-character ULID string.
+
+impl serde::Serialize for Ulid {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Ulid {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        Self::from_string(&s).map_err(serde::de::Error::custom)
+    }
+}
+
 // --- autosurgeon integration ---
 // Stored as a String in the Automerge document.
 

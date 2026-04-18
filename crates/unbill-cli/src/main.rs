@@ -30,6 +30,11 @@ pub struct Cli {
 pub enum Command {
     /// Initialize this device (generates a key if one does not exist).
     Init,
+    /// Manage user identities on this device.
+    Identity {
+        #[command(subcommand)]
+        sub: IdentityCmd,
+    },
     /// Show information about this device.
     Device {
         #[command(subcommand)]
@@ -50,7 +55,7 @@ pub enum Command {
         #[command(subcommand)]
         sub: MemberCmd,
     },
-    /// Sync with peers. (Available from M4.)
+    /// Sync with peers.
     Sync {
         #[command(subcommand)]
         sub: SyncCmd,
@@ -60,9 +65,31 @@ pub enum Command {
 }
 
 #[derive(clap::Subcommand)]
+pub enum IdentityCmd {
+    /// Add a fresh user identity (new user ID + display name) to this device.
+    New { display_name: String },
+    /// Import an existing identity from another device via an unbill://identity/... URL.
+    Import { url: String },
+    /// List all identities stored on this device.
+    List,
+    /// Generate an unbill://identity/... URL to share a specific identity with another device.
+    Share {
+        #[arg(long)]
+        user_id: String,
+    },
+}
+
+#[derive(clap::Subcommand)]
 pub enum DeviceCmd {
     /// Print this device's ID and data directory.
     Show,
+    /// Remove an authorized device from a ledger.
+    Remove {
+        #[arg(long)]
+        ledger_id: String,
+        #[arg(long)]
+        node_id: String,
+    },
 }
 
 #[derive(clap::Subcommand)]
@@ -79,6 +106,13 @@ pub enum LedgerCmd {
     Delete {
         ledger_id: String,
     },
+    /// Generate an unbill://join/... URL authorizing a new device to access this ledger.
+    Invite {
+        #[arg(long)]
+        ledger_id: String,
+    },
+    /// Join a ledger using an unbill://join/... URL.
+    Join { url: String },
 }
 
 #[derive(clap::Subcommand)]
@@ -162,16 +196,15 @@ pub enum MemberCmd {
         #[arg(long)]
         user_id: String,
     },
-    /// Invite a new member. (Available from M4.)
-    Invite { ledger_id: String },
-    /// Join a ledger via an invite URL. (Available from M4.)
-    Join { url: String },
 }
 
 #[derive(clap::Subcommand)]
 pub enum SyncCmd {
+    /// Open the endpoint and wait for incoming sync connections.
     Daemon,
-    Once { ledger_id: String },
+    /// Dial a specific peer by NodeId and sync all shared ledgers.
+    Once { peer_node_id: String },
+    /// Show sync status.
     Status,
 }
 
@@ -209,8 +242,19 @@ async fn run() -> anyhow::Result<()> {
 
     match cli.command {
         Command::Init => commands::init(&svc, json).await,
+        Command::Identity { sub } => match sub {
+            IdentityCmd::New { display_name } => {
+                commands::identity_new(&svc, display_name, json).await
+            }
+            IdentityCmd::Import { url } => bail!("identity import is available from M3: {url}"),
+            IdentityCmd::List => commands::identity_list(&svc, json).await,
+            IdentityCmd::Share { .. } => bail!("identity share is available from M3"),
+        },
         Command::Device { sub } => match sub {
             DeviceCmd::Show => commands::device_show(&svc, &data_dir, json).await,
+            DeviceCmd::Remove { ledger_id, node_id } => {
+                commands::device_remove(&svc, &ledger_id, &node_id).await
+            }
         },
         Command::Ledger { sub } => match sub {
             LedgerCmd::Create { name, currency } => {
@@ -219,6 +263,8 @@ async fn run() -> anyhow::Result<()> {
             LedgerCmd::List => commands::ledger_list(&svc, json).await,
             LedgerCmd::Show { ledger_id } => commands::ledger_show(&svc, &ledger_id, json).await,
             LedgerCmd::Delete { ledger_id } => commands::ledger_delete(&svc, &ledger_id).await,
+            LedgerCmd::Invite { .. } => bail!("ledger invite is available from M3"),
+            LedgerCmd::Join { .. } => bail!("ledger join is available from M3"),
         },
         Command::Bill { sub } => match sub {
             BillCmd::Add {
@@ -280,11 +326,8 @@ async fn run() -> anyhow::Result<()> {
             MemberCmd::Remove { ledger_id, user_id } => {
                 commands::member_remove(&svc, &ledger_id, &user_id).await
             }
-            MemberCmd::Invite { .. } | MemberCmd::Join { .. } => {
-                bail!("member invite/join is available from M4")
-            }
         },
-        Command::Sync { .. } => bail!("sync is available from M4"),
+        Command::Sync { .. } => bail!("sync is available from M3"),
         Command::Settlement { user_id } => commands::settlement(&svc, &user_id, json).await,
     }
 }

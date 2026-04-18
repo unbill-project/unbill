@@ -14,6 +14,6 @@ pub use bill::{Bill, NewBill, Share};
 pub use currency::Currency;
 pub use id::Ulid;
 pub use invite_token::{InvalidInviteToken, InviteToken};
-pub use member::{Device, Invitation, Ledger, LedgerMeta, Member, NewMember};
+pub use member::{Device, Invitation, Ledger, LedgerMeta, Member, NewDevice, NewMember};
 pub use node_id::NodeId;
 pub use timestamp::Timestamp;

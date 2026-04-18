@@ -10,8 +10,8 @@ use tokio::sync::{broadcast, Mutex};
 use crate::doc::LedgerDoc;
 use crate::error::{Result, UnbillError};
 use crate::model::{
-    BillAmendment, Currency, EffectiveBill, Invitation, LedgerMeta, Member, NewBill, NewMember,
-    NodeId, Timestamp, Ulid,
+    BillAmendment, Currency, Device, EffectiveBill, Invitation, LedgerMeta, Member, NewBill,
+    NewDevice, NewMember, NodeId, Timestamp, Ulid,
 };
 use crate::settlement;
 use crate::storage::LedgerStore;
@@ -212,6 +212,40 @@ impl UnbillService {
     }
 
     // -----------------------------------------------------------------------
+    // Devices
+    // -----------------------------------------------------------------------
+
+    pub async fn add_device(&self, ledger_id: &str, input: NewDevice) -> Result<()> {
+        let doc_mutex = self.get_doc(ledger_id)?;
+        let mut doc = doc_mutex.lock().await;
+        doc.add_device(input, Timestamp::now())?;
+        let bytes = doc.save();
+        drop(doc);
+
+        self.store.save_ledger_bytes(ledger_id, &bytes).await?;
+        self.touch_meta(ledger_id).await?;
+        Ok(())
+    }
+
+    pub async fn remove_device(&self, ledger_id: &str, node_id: &NodeId) -> Result<()> {
+        let doc_mutex = self.get_doc(ledger_id)?;
+        let mut doc = doc_mutex.lock().await;
+        doc.remove_device(node_id)?;
+        let bytes = doc.save();
+        drop(doc);
+
+        self.store.save_ledger_bytes(ledger_id, &bytes).await?;
+        self.touch_meta(ledger_id).await?;
+        Ok(())
+    }
+
+    pub async fn list_devices(&self, ledger_id: &str) -> Result<Vec<Device>> {
+        let doc_mutex = self.get_doc(ledger_id)?;
+        let doc = doc_mutex.lock().await;
+        doc.list_devices()
+    }
+
+    // -----------------------------------------------------------------------
     // Settlement
     // -----------------------------------------------------------------------
 
@@ -261,6 +295,35 @@ impl UnbillService {
     }
 
     // -----------------------------------------------------------------------
+    // Identity
+    // -----------------------------------------------------------------------
+
+    /// Return all user identities stored on this device.
+    pub async fn list_identities(&self) -> Result<Vec<Identity>> {
+        load_identities(&*self.store).await
+    }
+
+    /// Add a new identity (fresh user ID + display name) to this device.
+    pub async fn add_identity(&self, display_name: String) -> Result<Identity> {
+        let identity = Identity { user_id: Ulid::new(), display_name };
+        let mut identities = load_identities(&*self.store).await?;
+        identities.push(identity.clone());
+        save_identities(&*self.store, &identities).await?;
+        Ok(identity)
+    }
+
+    /// Import an existing identity onto this device.
+    pub async fn import_identity(&self, user_id: Ulid, display_name: String) -> Result<Identity> {
+        let identity = Identity { user_id, display_name };
+        let mut identities = load_identities(&*self.store).await?;
+        if !identities.iter().any(|i| i.user_id == identity.user_id) {
+            identities.push(identity.clone());
+            save_identities(&*self.store, &identities).await?;
+        }
+        Ok(identity)
+    }
+
+    // -----------------------------------------------------------------------
     // Internals
     // -----------------------------------------------------------------------
 
@@ -286,8 +349,36 @@ impl UnbillService {
 }
 
 // ---------------------------------------------------------------------------
+// Identity type
+// ---------------------------------------------------------------------------
+
+/// A user identity stored on this device.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct Identity {
+    pub user_id: Ulid,
+    pub display_name: String,
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+const IDENTITIES_KEY: &str = "identities.json";
+
+async fn load_identities(store: &dyn LedgerStore) -> Result<Vec<Identity>> {
+    match store.load_device_meta(IDENTITIES_KEY).await? {
+        None => Ok(vec![]),
+        Some(bytes) => serde_json::from_slice(&bytes)
+            .map_err(|e| UnbillError::Other(anyhow::anyhow!("identities.json: {e}"))),
+    }
+}
+
+async fn save_identities(store: &dyn LedgerStore, identities: &[Identity]) -> Result<()> {
+    let bytes = serde_json::to_vec(identities)
+        .map_err(|e| UnbillError::Other(anyhow::anyhow!("serialize identities: {e}")))?;
+    store.save_device_meta(IDENTITIES_KEY, &bytes).await?;
+    Ok(())
+}
 
 async fn load_or_create_device_key(store: &dyn LedgerStore) -> Result<NodeId> {
     if let Some(bytes) = store.load_device_meta("device_key.bin").await? {
@@ -545,5 +636,47 @@ mod tests {
         let svc1 = UnbillService::open(Arc::clone(&store)).await.unwrap();
         let svc2 = UnbillService::open(Arc::clone(&store)).await.unwrap();
         assert_eq!(svc1.device_id, svc2.device_id);
+    }
+
+    // --- identities ---
+
+    #[tokio::test]
+    async fn test_add_identity_appears_in_list() {
+        let svc = open().await;
+        let identity = svc.add_identity("Alice".into()).await.unwrap();
+        let list = svc.list_identities().await.unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].user_id, identity.user_id);
+        assert_eq!(list[0].display_name, "Alice");
+    }
+
+    #[tokio::test]
+    async fn test_multiple_identities_stored() {
+        let svc = open().await;
+        svc.add_identity("Alice".into()).await.unwrap();
+        svc.add_identity("Bob".into()).await.unwrap();
+        let list = svc.list_identities().await.unwrap();
+        assert_eq!(list.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_import_identity_deduplicates() {
+        let svc = open().await;
+        let id = svc.add_identity("Alice".into()).await.unwrap();
+        svc.import_identity(id.user_id, "Alice".into()).await.unwrap();
+        assert_eq!(svc.list_identities().await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_identities_survive_restart() {
+        let store = mem_store();
+        let user_id = {
+            let svc = UnbillService::open(Arc::clone(&store)).await.unwrap();
+            svc.add_identity("Alice".into()).await.unwrap().user_id
+        };
+        let svc2 = UnbillService::open(Arc::clone(&store)).await.unwrap();
+        let list = svc2.list_identities().await.unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].user_id, user_id);
     }
 }
