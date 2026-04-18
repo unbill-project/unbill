@@ -81,11 +81,16 @@ fn create_ledger(env: &Env) -> String {
 
 fn add_member(env: &Env, ledger_id: &str, user_id: &str, name: &str) {
     env.ok(&[
-        "member", "add",
-        "--ledger-id", ledger_id,
-        "--user-id", user_id,
-        "--name", name,
-        "--added-by", ALICE,
+        "member",
+        "add",
+        "--ledger-id",
+        ledger_id,
+        "--user-id",
+        user_id,
+        "--name",
+        name,
+        "--added-by",
+        ALICE,
     ]);
 }
 
@@ -161,15 +166,23 @@ fn test_device_show_returns_id_and_data_dir() {
     let env = Env::new();
     let v = env.json(&["device", "show"]);
     assert_eq!(v["device_id"].as_str().unwrap().len(), 64);
-    assert!(v["data_dir"].as_str().unwrap().contains("unbill") ||
-            v["data_dir"].as_str().unwrap().len() > 0);
+    assert!(
+        v["data_dir"].as_str().unwrap().contains("unbill")
+            || v["data_dir"].as_str().unwrap().len() > 0
+    );
 }
 
 #[test]
 fn test_device_show_id_matches_init() {
     let env = Env::new();
-    let init_id = env.json(&["init"])["device_id"].as_str().unwrap().to_owned();
-    let show_id = env.json(&["device", "show"])["device_id"].as_str().unwrap().to_owned();
+    let init_id = env.json(&["init"])["device_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let show_id = env.json(&["device", "show"])["device_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
     assert_eq!(init_id, show_id);
 }
 
@@ -489,13 +502,20 @@ fn test_add_bill_rejects_non_member() {
     add_member(&env, &lid, ALICE, "Alice");
     // BOB is not a member — bill should fail.
     let stderr = env.fail(&[
-        "bill", "add",
-        "--ledger-id", &lid,
-        "--payer", ALICE,
-        "--amount", "10",
-        "--description", "Test",
-        "--participant", ALICE,
-        "--participant", BOB,
+        "bill",
+        "add",
+        "--ledger-id",
+        &lid,
+        "--payer",
+        ALICE,
+        "--amount",
+        "10",
+        "--description",
+        "Test",
+        "--participant",
+        ALICE,
+        "--participant",
+        BOB,
     ]);
     assert!(
         stderr.contains("not a member"),

@@ -77,10 +77,7 @@ impl UnbillEndpoint {
     // Responder: accept loop
     // -----------------------------------------------------------------------
 
-    pub(crate) async fn accept_loop_inner(
-        &self,
-        svc: Arc<UnbillService>,
-    ) -> anyhow::Result<()> {
+    pub(crate) async fn accept_loop_inner(&self, svc: Arc<UnbillService>) -> anyhow::Result<()> {
         loop {
             let incoming = match self.inner.accept().await {
                 None => {

@@ -15,7 +15,7 @@ use crate::service::Identity;
 use crate::storage::LedgerStore;
 
 use super::protocol::{
-    IdentityError, IdentityReply, IdentityRequest, IdentityResponse, read_msg, write_msg,
+    read_msg, write_msg, IdentityError, IdentityReply, IdentityRequest, IdentityResponse,
 };
 
 /// Shared map of pending identity tokens: token hex → `(user_id, display_name)`.
@@ -97,12 +97,12 @@ where
                 display_name: resp.display_name,
             };
 
-            let mut identities: Vec<Identity> =
-                match store.load_device_meta(IDENTITIES_KEY).await? {
-                    None => vec![],
-                    Some(bytes) => serde_json::from_slice(&bytes)
-                        .map_err(|e| anyhow::anyhow!("identities.json: {e}"))?,
-                };
+            let mut identities: Vec<Identity> = match store.load_device_meta(IDENTITIES_KEY).await?
+            {
+                None => vec![],
+                Some(bytes) => serde_json::from_slice(&bytes)
+                    .map_err(|e| anyhow::anyhow!("identities.json: {e}"))?,
+            };
 
             if !identities.iter().any(|i| i.user_id == identity.user_id) {
                 identities.push(identity.clone());
@@ -159,10 +159,11 @@ mod tests {
         let requester_store2 = Arc::clone(&requester_store);
         let token2 = token.clone();
 
-        let task_host =
-            tokio::spawn(
-                async move { run_identity_host(&tokens2, host_read, host_write).await.unwrap() },
-            );
+        let task_host = tokio::spawn(async move {
+            run_identity_host(&tokens2, host_read, host_write)
+                .await
+                .unwrap()
+        });
         let received: Identity = tokio::spawn(async move {
             run_identity_requester(token2, &requester_store2, req_read, req_write)
                 .await
@@ -205,7 +206,9 @@ mod tests {
         let requester_store2 = Arc::clone(&requester_store);
 
         let task_host = tokio::spawn(async move {
-            run_identity_host(&tokens2, host_read, host_write).await.unwrap();
+            run_identity_host(&tokens2, host_read, host_write)
+                .await
+                .unwrap();
         });
         let result = tokio::spawn(async move {
             run_identity_requester(bad_token, &requester_store2, req_read, req_write).await

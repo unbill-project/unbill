@@ -327,9 +327,7 @@ impl UnbillService {
         let identity = identities
             .iter()
             .find(|i| i.user_id == user_ulid)
-            .ok_or_else(|| {
-                UnbillError::Other(anyhow::anyhow!("identity not found: {user_id}"))
-            })?;
+            .ok_or_else(|| UnbillError::Other(anyhow::anyhow!("identity not found: {user_id}")))?;
         let display_name = identity.display_name.clone();
         let mut token_bytes = [0u8; 32];
         rand::rngs::OsRng.fill_bytes(&mut token_bytes);
@@ -393,7 +391,10 @@ impl UnbillService {
 
     /// Add a new identity (fresh user ID + display name) to this device.
     pub async fn add_identity(&self, display_name: String) -> Result<Identity> {
-        let identity = Identity { user_id: Ulid::new(), display_name };
+        let identity = Identity {
+            user_id: Ulid::new(),
+            display_name,
+        };
         let mut identities = load_identities(&*self.store).await?;
         identities.push(identity.clone());
         save_identities(&*self.store, &identities).await?;
@@ -402,7 +403,10 @@ impl UnbillService {
 
     /// Import an existing identity onto this device.
     pub async fn import_identity(&self, user_id: Ulid, display_name: String) -> Result<Identity> {
-        let identity = Identity { user_id, display_name };
+        let identity = Identity {
+            user_id,
+            display_name,
+        };
         let mut identities = load_identities(&*self.store).await?;
         if !identities.iter().any(|i| i.user_id == identity.user_id) {
             identities.push(identity.clone());
@@ -517,8 +521,14 @@ mod tests {
             amount_cents,
             description: desc.to_owned(),
             shares: vec![
-                Share { user_id: Ulid::from_u128(1), shares: 1 },
-                Share { user_id: Ulid::from_u128(2), shares: 1 },
+                Share {
+                    user_id: Ulid::from_u128(1),
+                    shares: 1,
+                },
+                Share {
+                    user_id: Ulid::from_u128(2),
+                    shares: 1,
+                },
             ],
         };
         (ledger_id.to_owned(), bill)
@@ -680,8 +690,14 @@ mod tests {
             amount_cents: 2000,
             description: "Utilities".into(),
             shares: vec![
-                Share { user_id: Ulid::from_u128(1), shares: 1 },
-                Share { user_id: Ulid::from_u128(2), shares: 1 },
+                Share {
+                    user_id: Ulid::from_u128(1),
+                    shares: 1,
+                },
+                Share {
+                    user_id: Ulid::from_u128(2),
+                    shares: 1,
+                },
             ],
         };
         svc.add_bill(&lid2, bob_pays).await.unwrap();
@@ -751,7 +767,9 @@ mod tests {
     async fn test_import_identity_deduplicates() {
         let svc = open().await;
         let id = svc.add_identity("Alice".into()).await.unwrap();
-        svc.import_identity(id.user_id, "Alice".into()).await.unwrap();
+        svc.import_identity(id.user_id, "Alice".into())
+            .await
+            .unwrap();
         assert_eq!(svc.list_identities().await.unwrap().len(), 1);
     }
 

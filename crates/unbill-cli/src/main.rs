@@ -112,7 +112,9 @@ pub enum LedgerCmd {
         ledger_id: String,
     },
     /// Join a ledger using an unbill://join/... URL.
-    Join { url: String },
+    Join {
+        url: String,
+    },
 }
 
 #[derive(clap::Subcommand)]
@@ -248,9 +250,7 @@ async fn run() -> anyhow::Result<()> {
             }
             IdentityCmd::Import { url } => bail!("identity import is available from M3: {url}"),
             IdentityCmd::List => commands::identity_list(&svc, json).await,
-            IdentityCmd::Share { user_id } => {
-                commands::identity_share(&svc, &user_id, json).await
-            }
+            IdentityCmd::Share { user_id } => commands::identity_share(&svc, &user_id, json).await,
         },
         Command::Device { sub } => match sub {
             DeviceCmd::Show => commands::device_show(&svc, &data_dir, json).await,
@@ -332,9 +332,7 @@ async fn run() -> anyhow::Result<()> {
             }
         },
         Command::Sync { sub } => match sub {
-            SyncCmd::Once { peer_node_id } => {
-                commands::sync_once(&svc, &peer_node_id).await
-            }
+            SyncCmd::Once { peer_node_id } => commands::sync_once(&svc, &peer_node_id).await,
             SyncCmd::Daemon => commands::sync_daemon(&svc).await,
             SyncCmd::Status => bail!("sync status is available from M3"),
         },

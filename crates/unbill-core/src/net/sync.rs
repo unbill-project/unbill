@@ -16,9 +16,7 @@ use crate::model::NodeId;
 use crate::service::ServiceEvent;
 use crate::storage::LedgerStore;
 
-use super::protocol::{
-    HelloAck, Hello, SyncDone, SyncFrame, SyncMsg, read_msg, write_msg,
-};
+use super::protocol::{read_msg, write_msg, Hello, HelloAck, SyncDone, SyncFrame, SyncMsg};
 
 struct LedgerSyncState {
     sync_state: automerge::sync::State,
@@ -168,9 +166,9 @@ where
         let frame: SyncFrame = read_msg(&mut reader).await?;
         match frame {
             SyncFrame::Msg(m) => {
-                let state = states
-                    .get_mut(&m.ledger_id)
-                    .ok_or_else(|| anyhow::anyhow!("sync msg for unknown ledger: {}", m.ledger_id))?;
+                let state = states.get_mut(&m.ledger_id).ok_or_else(|| {
+                    anyhow::anyhow!("sync msg for unknown ledger: {}", m.ledger_id)
+                })?;
                 let msg = automerge::sync::Message::decode(&m.payload)
                     .map_err(|e| anyhow::anyhow!("bad sync message bytes: {e}"))?;
                 let doc_lock = ledgers
@@ -243,16 +241,9 @@ mod tests {
     }
 
     /// Create a simple ledger doc with one device authorized.
-    fn ledger_with_device(
-        device: NodeId,
-    ) -> LedgerDoc {
-        let mut doc = LedgerDoc::new(
-            Ulid::new(),
-            "Test".to_string(),
-            usd(),
-            Timestamp::now(),
-        )
-        .unwrap();
+    fn ledger_with_device(device: NodeId) -> LedgerDoc {
+        let mut doc =
+            LedgerDoc::new(Ulid::new(), "Test".to_string(), usd(), Timestamp::now()).unwrap();
         doc.add_device(
             crate::model::NewDevice {
                 node_id: device,
@@ -327,12 +318,24 @@ mod tests {
         let node_b = NodeId::from_seed(2);
 
         // Build a base ledger that both A and B start with.
-        let mut base = LedgerDoc::new(Ulid::new(), "Trip".to_string(), usd(), Timestamp::now())
-            .unwrap();
-        base.add_device(NewDevice { node_id: node_a, label: "A".to_string() }, Timestamp::now())
-            .unwrap();
-        base.add_device(NewDevice { node_id: node_b, label: "B".to_string() }, Timestamp::now())
-            .unwrap();
+        let mut base =
+            LedgerDoc::new(Ulid::new(), "Trip".to_string(), usd(), Timestamp::now()).unwrap();
+        base.add_device(
+            NewDevice {
+                node_id: node_a,
+                label: "A".to_string(),
+            },
+            Timestamp::now(),
+        )
+        .unwrap();
+        base.add_device(
+            NewDevice {
+                node_id: node_b,
+                label: "B".to_string(),
+            },
+            Timestamp::now(),
+        )
+        .unwrap();
         let ledger_id = base.get_ledger().unwrap().ledger_id.to_string();
         let payer = Ulid::from_u128(99);
         base.add_member(
@@ -357,7 +360,10 @@ mod tests {
                     payer_user_id: payer,
                     amount_cents: 1000,
                     description: "from A".to_string(),
-                    shares: vec![Share { user_id: payer, shares: 1 }],
+                    shares: vec![Share {
+                        user_id: payer,
+                        shares: 1,
+                    }],
                 },
                 node_a,
                 Timestamp::now(),
@@ -371,7 +377,10 @@ mod tests {
                     payer_user_id: payer,
                     amount_cents: 2000,
                     description: "from B".to_string(),
-                    shares: vec![Share { user_id: payer, shares: 1 }],
+                    shares: vec![Share {
+                        user_id: payer,
+                        shares: 1,
+                    }],
                 },
                 node_b,
                 Timestamp::now(),
@@ -408,21 +417,16 @@ mod tests {
         let node_b = NodeId::from_seed(2);
 
         // A's ledger does NOT authorize B.
-        let doc_a = LedgerDoc::new(
-            Ulid::new(),
-            "Private".to_string(),
-            usd(),
-            Timestamp::now(),
-        )
-        .unwrap();
+        let doc_a =
+            LedgerDoc::new(Ulid::new(), "Private".to_string(), usd(), Timestamp::now()).unwrap();
         let id = doc_a.get_ledger().unwrap().ledger_id.to_string();
 
         let ledgers_a: DashMap<String, Arc<Mutex<LedgerDoc>>> = DashMap::new();
         ledgers_a.insert(id.clone(), Arc::new(Mutex::new(doc_a)));
 
         // B has the same ledger ID (maybe imported some other way).
-        let doc_b = LedgerDoc::new(Ulid::new(), "Same id?".to_string(), usd(), Timestamp::now())
-            .unwrap();
+        let doc_b =
+            LedgerDoc::new(Ulid::new(), "Same id?".to_string(), usd(), Timestamp::now()).unwrap();
         let ledgers_b: DashMap<String, Arc<Mutex<LedgerDoc>>> = DashMap::new();
         ledgers_b.insert(id.clone(), Arc::new(Mutex::new(doc_b)));
 

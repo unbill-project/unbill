@@ -72,8 +72,8 @@ pub(super) fn add_bill(
         .map(|m| m.user_id)
         .collect();
 
-    let all_users = std::iter::once(&input.payer_user_id)
-        .chain(input.shares.iter().map(|s| &s.user_id));
+    let all_users =
+        std::iter::once(&input.payer_user_id).chain(input.shares.iter().map(|s| &s.user_id));
     for user_id in all_users {
         if !member_ids.contains(user_id) {
             return Err(UnbillError::UserNotMember(user_id.to_string()));
@@ -159,11 +159,7 @@ pub(super) fn list_bills(doc: &AutoCommit) -> Result<Vec<EffectiveBill>> {
 ///
 /// Returns `UserNotMember` variant reused as "already a member" is not an
 /// error — if the user_id already exists (and is not removed), this is a no-op.
-pub(super) fn add_member(
-    doc: &mut AutoCommit,
-    input: NewMember,
-    now: Timestamp,
-) -> Result<()> {
+pub(super) fn add_member(doc: &mut AutoCommit, input: NewMember, now: Timestamp) -> Result<()> {
     let mut ledger = get_ledger(doc)?;
     // If already an active member, no-op.
     if ledger
@@ -218,11 +214,7 @@ pub(super) fn list_members(doc: &AutoCommit) -> Result<Vec<Member>> {
 ///
 /// If the NodeId is already active, this is a no-op. If previously removed,
 /// re-activates it (updating the label).
-pub(super) fn add_device(
-    doc: &mut AutoCommit,
-    input: NewDevice,
-    now: Timestamp,
-) -> Result<()> {
+pub(super) fn add_device(doc: &mut AutoCommit, input: NewDevice, now: Timestamp) -> Result<()> {
     let mut ledger = get_ledger(doc)?;
     if ledger
         .devices
@@ -442,7 +434,12 @@ mod tests {
         });
         reconcile(&mut doc, &ledger).unwrap();
 
-        let result = add_bill(&mut doc, simple_bill(alice, &[alice, bob], 1000), device(), ts(1));
+        let result = add_bill(
+            &mut doc,
+            simple_bill(alice, &[alice, bob], 1000),
+            device(),
+            ts(1),
+        );
         assert!(
             matches!(result, Err(UnbillError::UserNotMember(_))),
             "expected UserNotMember for removed member, got {result:?}"
@@ -590,7 +587,10 @@ mod tests {
     }
 
     fn new_device(seed: u8) -> NewDevice {
-        NewDevice { node_id: dev(seed), label: format!("device-{seed}") }
+        NewDevice {
+            node_id: dev(seed),
+            label: format!("device-{seed}"),
+        }
     }
 
     #[test]
@@ -631,8 +631,15 @@ mod tests {
         let mut doc = fresh_doc();
         add_device(&mut doc, new_device(1), ts(0)).unwrap();
         remove_device(&mut doc, &dev(1)).unwrap();
-        add_device(&mut doc, NewDevice { node_id: dev(1), label: "new-label".into() }, ts(2))
-            .unwrap();
+        add_device(
+            &mut doc,
+            NewDevice {
+                node_id: dev(1),
+                label: "new-label".into(),
+            },
+            ts(2),
+        )
+        .unwrap();
         let devices = list_devices(&doc).unwrap();
         assert_eq!(devices.len(), 1);
         assert_eq!(devices[0].label, "new-label");

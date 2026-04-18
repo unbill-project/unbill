@@ -150,8 +150,8 @@ where
 {
     let mut buf = Vec::new();
     ciborium::into_writer(msg, &mut buf).map_err(|e| anyhow::anyhow!("CBOR encode: {e}"))?;
-    let len = u32::try_from(buf.len())
-        .map_err(|_| anyhow::anyhow!("message too large to frame"))?;
+    let len =
+        u32::try_from(buf.len()).map_err(|_| anyhow::anyhow!("message too large to frame"))?;
     if len > MAX_MSG_LEN {
         anyhow::bail!("outgoing message too large: {len} bytes");
     }
