@@ -18,6 +18,7 @@ pub const ALPN_JOIN: &[u8] = b"unbill/join/v1";
 /// ALPN token for the identity-transfer protocol.
 pub const ALPN_IDENTITY: &[u8] = b"unbill/identity/v1";
 
+#[allow(dead_code)]
 pub const PROTOCOL_VERSION: u32 = 1;
 
 // ---------------------------------------------------------------------------
