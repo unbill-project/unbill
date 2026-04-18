@@ -125,4 +125,37 @@ impl LedgerDoc {
     pub fn list_devices(&self) -> Result<Vec<Device>> {
         ops::list_devices(&self.doc)
     }
+
+    // --- automerge sync ---
+
+    pub fn generate_sync_message(
+        &mut self,
+        sync_state: &mut automerge::sync::State,
+    ) -> Option<automerge::sync::Message> {
+        use automerge::sync::SyncDoc as _;
+        self.doc.sync().generate_sync_message(sync_state)
+    }
+
+    pub fn receive_sync_message(
+        &mut self,
+        sync_state: &mut automerge::sync::State,
+        msg: automerge::sync::Message,
+    ) -> Result<()> {
+        use automerge::sync::SyncDoc as _;
+        self.doc
+            .sync()
+            .receive_sync_message(sync_state, msg)
+            .map_err(|e| crate::error::UnbillError::Other(e.into()))?;
+        let _ = self.changes.send(ChangeEvent::RemoteApplied);
+        Ok(())
+    }
+
+    /// Returns `true` if `node_id` appears in `ledger.devices` with `removed = false`.
+    pub fn is_device_authorized(&self, node_id: &NodeId) -> Result<bool> {
+        let ledger = ops::get_ledger(&self.doc)?;
+        Ok(ledger
+            .devices
+            .iter()
+            .any(|d| &d.node_id == node_id && !d.removed))
+    }
 }
