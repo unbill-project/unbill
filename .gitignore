@@ -9,6 +9,7 @@ apps/*/dist/
 
 # Tauri
 crates/unbill-tauri/target/
+crates/unbill-tauri/gen/
 
 # Editor
 .vscode/
@@ -26,5 +27,6 @@ Thumbs.db
 *.db-wal
 device_key.bin
 
+# devenv
 .devenv.flake.nix
 .devenv
