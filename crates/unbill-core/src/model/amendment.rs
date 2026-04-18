@@ -31,13 +31,11 @@ impl EffectiveBill {
     /// Panics if `entries` is empty.
     pub fn project(mut entries: Vec<Bill>) -> Self {
         entries.sort_by(|a, b| {
-            a.created_at
-                .cmp(&b.created_at)
-                .then_with(|| {
-                    a.created_by_device
-                        .to_string()
-                        .cmp(&b.created_by_device.to_string())
-                })
+            a.created_at.cmp(&b.created_at).then_with(|| {
+                a.created_by_device
+                    .to_string()
+                    .cmp(&b.created_by_device.to_string())
+            })
         });
         let was_amended = entries.len() > 1;
         let first = entries.first().unwrap();

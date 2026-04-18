@@ -65,11 +65,8 @@ pub(super) fn add_bill(
 ) -> Result<Ulid> {
     let mut ledger = get_ledger(doc)?;
 
-    let member_ids: std::collections::HashSet<Ulid> = ledger
-        .members
-        .iter()
-        .map(|m| m.user_id)
-        .collect();
+    let member_ids: std::collections::HashSet<Ulid> =
+        ledger.members.iter().map(|m| m.user_id).collect();
 
     let all_users =
         std::iter::once(&input.payer_user_id).chain(input.shares.iter().map(|s| &s.user_id));
@@ -108,11 +105,8 @@ pub(super) fn amend_bill(
         return Err(UnbillError::BillNotFound(bill_id.to_string()));
     }
 
-    let member_ids: std::collections::HashSet<Ulid> = ledger
-        .members
-        .iter()
-        .map(|m| m.user_id)
-        .collect();
+    let member_ids: std::collections::HashSet<Ulid> =
+        ledger.members.iter().map(|m| m.user_id).collect();
 
     let all_users =
         std::iter::once(&input.payer_user_id).chain(input.shares.iter().map(|s| &s.user_id));
@@ -142,8 +136,7 @@ pub(super) fn amend_bill(
 pub(super) fn list_bills(doc: &AutoCommit) -> Result<Vec<EffectiveBill>> {
     let ledger = get_ledger(doc)?;
     let mut order: Vec<Ulid> = Vec::new();
-    let mut groups: std::collections::HashMap<Ulid, Vec<Bill>> =
-        std::collections::HashMap::new();
+    let mut groups: std::collections::HashMap<Ulid, Vec<Bill>> = std::collections::HashMap::new();
     for bill in ledger.bills {
         if !groups.contains_key(&bill.id) {
             order.push(bill.id);
@@ -365,7 +358,6 @@ mod tests {
         );
     }
 
-
     // --- amend_bill ---
 
     #[test]
@@ -388,7 +380,11 @@ mod tests {
         )
         .unwrap();
         let bills = list_bills(&doc).unwrap();
-        assert_eq!(bills.len(), 1, "amendment should not add a new logical bill");
+        assert_eq!(
+            bills.len(),
+            1,
+            "amendment should not add a new logical bill"
+        );
         assert_eq!(bills[0].amount_cents, 2000);
         assert!(bills[0].was_amended);
     }
@@ -413,13 +409,21 @@ mod tests {
         let mut doc = fresh_doc();
         add_member(
             &mut doc,
-            NewMember { user_id: uid(1), display_name: "Alice".into(), added_by: uid(1) },
+            NewMember {
+                user_id: uid(1),
+                display_name: "Alice".into(),
+                added_by: uid(1),
+            },
             ts(0),
         )
         .unwrap();
         add_member(
             &mut doc,
-            NewMember { user_id: uid(2), display_name: "Bob".into(), added_by: uid(1) },
+            NewMember {
+                user_id: uid(2),
+                display_name: "Bob".into(),
+                added_by: uid(1),
+            },
             ts(1),
         )
         .unwrap();
@@ -480,5 +484,4 @@ mod tests {
         add_device(&mut doc, new_device(1), ts(1)).unwrap();
         assert_eq!(list_devices(&doc).unwrap().len(), 1);
     }
-
 }

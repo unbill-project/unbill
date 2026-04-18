@@ -135,12 +135,7 @@ impl UnbillService {
         Ok(bill_id.to_string())
     }
 
-    pub async fn amend_bill(
-        &self,
-        ledger_id: &str,
-        bill_id: &str,
-        input: NewBill,
-    ) -> Result<()> {
+    pub async fn amend_bill(&self, ledger_id: &str, bill_id: &str, input: NewBill) -> Result<()> {
         let bill_ulid = parse_ulid(bill_id)?;
         let doc_mutex = self.get_doc(ledger_id)?;
         let mut doc = doc_mutex.lock().await;
@@ -303,7 +298,11 @@ impl UnbillService {
     pub async fn join_ledger(self: &Arc<Self>, url: &str, label: String) -> Result<()> {
         use crate::net::{JoinRequest, UnbillEndpoint};
         let (ledger_id, host, token) = parse_join_url(url)?;
-        let request = JoinRequest { token, ledger_id, label };
+        let request = JoinRequest {
+            token,
+            ledger_id,
+            label,
+        };
         let ep = UnbillEndpoint::bind(self.secret_key.clone())
             .await
             .map_err(UnbillError::Other)?;
@@ -459,9 +458,7 @@ async fn save_identities(store: &dyn LedgerStore, identities: &[Identity]) -> Re
     Ok(())
 }
 
-async fn load_pending_invitations(
-    store: &dyn LedgerStore,
-) -> Result<HashMap<String, Invitation>> {
+async fn load_pending_invitations(store: &dyn LedgerStore) -> Result<HashMap<String, Invitation>> {
     match store.load_device_meta(PENDING_INVITATIONS_KEY).await? {
         None => Ok(HashMap::new()),
         Some(bytes) => serde_json::from_slice(&bytes)
@@ -475,7 +472,9 @@ async fn save_pending_invitations(
 ) -> Result<()> {
     let bytes = serde_json::to_vec(map)
         .map_err(|e| UnbillError::Other(anyhow::anyhow!("serialize pending_invitations: {e}")))?;
-    store.save_device_meta(PENDING_INVITATIONS_KEY, &bytes).await?;
+    store
+        .save_device_meta(PENDING_INVITATIONS_KEY, &bytes)
+        .await?;
     Ok(())
 }
 
@@ -484,9 +483,8 @@ async fn load_pending_identity_tokens(
 ) -> Result<HashMap<String, (Ulid, String)>> {
     match store.load_device_meta(PENDING_IDENTITY_TOKENS_KEY).await? {
         None => Ok(HashMap::new()),
-        Some(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
-            UnbillError::Other(anyhow::anyhow!("pending_identity_tokens.json: {e}"))
-        }),
+        Some(bytes) => serde_json::from_slice(&bytes)
+            .map_err(|e| UnbillError::Other(anyhow::anyhow!("pending_identity_tokens.json: {e}"))),
     }
 }
 
@@ -696,8 +694,14 @@ mod tests {
                 amount_cents: 4000,
                 description: "Lunch".into(),
                 shares: vec![
-                    Share { user_id: Ulid::from_u128(1), shares: 1 },
-                    Share { user_id: Ulid::from_u128(2), shares: 1 },
+                    Share {
+                        user_id: Ulid::from_u128(1),
+                        shares: 1,
+                    },
+                    Share {
+                        user_id: Ulid::from_u128(2),
+                        shares: 1,
+                    },
                 ],
             },
         )

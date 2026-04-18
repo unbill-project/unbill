@@ -296,5 +296,4 @@ mod tests {
         let s = compute(&members, &bills);
         assert!(s.transactions.is_empty());
     }
-
 }

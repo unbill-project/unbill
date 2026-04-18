@@ -321,9 +321,7 @@ mod tests {
         let joiner_doc = joiner_doc.lock().await;
         let devices = joiner_doc.list_devices().unwrap();
         assert!(
-            devices
-                .iter()
-                .any(|d| d.node_id == joiner_node),
+            devices.iter().any(|d| d.node_id == joiner_node),
             "joiner's device should be in the ledger"
         );
 

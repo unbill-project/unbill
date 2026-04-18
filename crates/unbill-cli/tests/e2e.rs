@@ -479,7 +479,6 @@ fn test_member_add_appears_in_list() {
     assert_eq!(arr[0]["display_name"].as_str().unwrap(), "Alice");
 }
 
-
 #[test]
 fn test_add_bill_rejects_non_member() {
     let env = Env::new();

@@ -7,7 +7,9 @@ use autosurgeon::{HydrateError, Prop, ReadDoc, Reconciler};
 /// A thin newtype over `i64` that makes datetime fields explicit in the type
 /// system and prevents accidentally passing arbitrary integers where a time
 /// value is expected.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub struct Timestamp(i64);
 
 impl Timestamp {

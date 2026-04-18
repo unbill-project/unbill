@@ -239,9 +239,7 @@ async fn run() -> anyhow::Result<()> {
             LedgerCmd::Invite { ledger_id } => {
                 commands::ledger_invite(&svc, &ledger_id, json).await
             }
-            LedgerCmd::Join { url, label } => {
-                commands::ledger_join(&svc, url, label).await
-            }
+            LedgerCmd::Join { url, label } => commands::ledger_join(&svc, url, label).await,
         },
         Command::Bill { sub } => match sub {
             BillCmd::Add {
