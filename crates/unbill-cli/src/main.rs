@@ -85,6 +85,11 @@ pub enum IdentityCmd {
 pub enum DeviceCmd {
     /// Print this device's ID and data directory.
     Show,
+    /// List all devices authorized on a ledger.
+    List {
+        #[arg(long)]
+        ledger_id: String,
+    },
 }
 
 #[derive(clap::Subcommand)]
@@ -231,6 +236,7 @@ async fn run() -> anyhow::Result<()> {
         },
         Command::Device { sub } => match sub {
             DeviceCmd::Show => commands::device_show(&svc, &data_dir, json).await,
+            DeviceCmd::List { ledger_id } => commands::device_list(&svc, &ledger_id, json).await,
         },
         Command::Ledger { sub } => match sub {
             LedgerCmd::Create { name, currency } => {

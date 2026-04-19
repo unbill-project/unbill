@@ -101,6 +101,27 @@ pub async fn device_show(
     Ok(())
 }
 
+pub async fn device_list(svc: &UnbillService, ledger_id: &str, json: bool) -> anyhow::Result<()> {
+    let devices = svc.list_devices(ledger_id).await?;
+    if json {
+        let out: Vec<_> = devices
+            .iter()
+            .map(|d| serde_json::json!({ "node_id": d.node_id.to_string(), "label": d.label }))
+            .collect();
+        print_json(&out)?;
+    } else {
+        if devices.is_empty() {
+            println!("no devices");
+            return Ok(());
+        }
+        println!("{:<64}  LABEL", "NODE_ID");
+        for d in &devices {
+            println!("{:<64}  {}", d.node_id, d.label);
+        }
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Ledger
 // ---------------------------------------------------------------------------
