@@ -70,6 +70,13 @@ impl UnbillService {
         let now = Timestamp::now();
 
         let mut doc = LedgerDoc::new(ledger_id, name.clone(), currency, now)?;
+        doc.add_device(
+            NewDevice {
+                node_id: self.device_id,
+                label: "creator".to_string(),
+            },
+            now,
+        )?;
         let bytes = doc.save();
 
         let meta = LedgerMeta {
