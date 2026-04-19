@@ -138,12 +138,13 @@ pub enum BillCmd {
         #[arg(long)]
         ledger_id: String,
     },
-    /// Amend a bill by recording a new version with the same bill ID.
+    /// Create a new bill that supersedes one or more existing bills.
     Amend {
         #[arg(long)]
         ledger_id: String,
-        #[arg(long)]
-        bill_id: String,
+        /// Bill ID(s) being superseded. Repeat for each.
+        #[arg(long = "prev")]
+        prev: Vec<String>,
         #[arg(long)]
         payer: String,
         #[arg(long)]
@@ -266,7 +267,7 @@ async fn run() -> anyhow::Result<()> {
             BillCmd::List { ledger_id } => commands::bill_list(&svc, &ledger_id, json).await,
             BillCmd::Amend {
                 ledger_id,
-                bill_id,
+                prev,
                 payer,
                 amount,
                 description,
@@ -275,7 +276,7 @@ async fn run() -> anyhow::Result<()> {
                 commands::bill_amend(
                     &svc,
                     &ledger_id,
-                    &bill_id,
+                    prev,
                     &payer,
                     &amount,
                     description,

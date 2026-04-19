@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::model::{EffectiveBill, Member, Ulid};
+use crate::model::{Bill, EffectiveBills, Member, Ulid};
 
 /// A single suggested settlement transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -26,13 +26,13 @@ pub struct Settlement {
 /// cross-ledger aggregated balances.
 pub fn accumulate_balances(
     members: &[Member],
-    bills: &[EffectiveBill],
+    bills: &EffectiveBills,
     balances: &mut HashMap<Ulid, i64>,
 ) {
     for m in members.iter() {
         balances.entry(m.user_id).or_insert(0);
     }
-    for bill in bills {
+    for bill in bills.iter() {
         let share_cents = split_amounts(bill);
         *balances.entry(bill.payer_user_id).or_default() += bill.amount_cents;
         for (user_id, amount) in share_cents {
@@ -88,7 +88,7 @@ pub fn compute_from_balances(balances: HashMap<Ulid, i64>) -> Settlement {
 
 /// Compute the per-participant cent amounts for a bill from its share weights.
 /// Rounding remainder (from integer division) is assigned to the earliest participants.
-pub fn split_amounts(bill: &EffectiveBill) -> Vec<(Ulid, i64)> {
+pub fn split_amounts(bill: &Bill) -> Vec<(Ulid, i64)> {
     let total_shares: u32 = bill.shares.iter().map(|s| s.shares).sum();
     if total_shares == 0 {
         return bill.shares.iter().map(|s| (s.user_id, 0)).collect();
@@ -117,13 +117,17 @@ pub fn split_amounts(bill: &EffectiveBill) -> Vec<(Ulid, i64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{EffectiveBill, Member, Share, Timestamp, Ulid};
+    use crate::model::{Bill, EffectiveBills, Member, NodeId, Share, Timestamp, Ulid};
 
     /// Convenience: compute settlement from a single set of members + bills.
-    fn compute(members: &[Member], bills: &[EffectiveBill]) -> Settlement {
+    fn compute(members: &[Member], bills: &EffectiveBills) -> Settlement {
         let mut balances = HashMap::new();
         accumulate_balances(members, bills, &mut balances);
         compute_from_balances(balances)
+    }
+
+    fn device() -> NodeId {
+        NodeId::from_seed(1)
     }
 
     fn uid(n: u128) -> Ulid {
@@ -145,8 +149,8 @@ mod tests {
         payer: Ulid,
         amount_cents: i64,
         participants: &[Ulid],
-    ) -> EffectiveBill {
-        EffectiveBill {
+    ) -> Bill {
+        Bill {
             id: uid(id),
             payer_user_id: payer,
             amount_cents,
@@ -158,8 +162,9 @@ mod tests {
                     shares: 1,
                 })
                 .collect(),
-            was_amended: false,
-            last_modified_at: Timestamp::from_millis(0),
+            prev: vec![],
+            created_at: Timestamp::from_millis(0),
+            created_by_device: device(),
         }
     }
 
@@ -202,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_split_proportional_shares() {
-        let bill = EffectiveBill {
+        let bill = Bill {
             id: uid(1),
             payer_user_id: alice(),
             amount_cents: 300,
@@ -217,8 +222,9 @@ mod tests {
                     shares: 1,
                 },
             ],
-            was_amended: false,
-            last_modified_at: Timestamp::from_millis(0),
+            prev: vec![],
+            created_at: Timestamp::from_millis(0),
+            created_by_device: device(),
         };
         let amounts = split_amounts(&bill);
         let a = amounts.iter().find(|(id, _)| *id == alice()).unwrap().1;
@@ -232,7 +238,7 @@ mod tests {
 
     fn net_transfer_balances(
         members: &[Member],
-        bills: &[EffectiveBill],
+        bills: &EffectiveBills,
     ) -> std::collections::HashMap<Ulid, i64> {
         let s = compute(members, bills);
         let mut bal: std::collections::HashMap<Ulid, i64> =
@@ -248,7 +254,7 @@ mod tests {
     fn test_settlement_balances_to_zero() {
         // Alice paid $90 for all three; each owes $30. Net: alice +60, bob -30, carol -30.
         let members = vec![member(alice()), member(bob()), member(carol())];
-        let bills = vec![equal_bill(1, alice(), 9000, &[alice(), bob(), carol()])];
+        let bills = EffectiveBills(vec![equal_bill(1, alice(), 9000, &[alice(), bob(), carol()])]);
         let s = compute(&members, &bills);
         let total_to_alice: i64 = s
             .transactions
@@ -263,10 +269,10 @@ mod tests {
     #[test]
     fn test_settlement_net_sum_zero() {
         let members = vec![member(alice()), member(bob()), member(carol())];
-        let bills = vec![
+        let bills = EffectiveBills(vec![
             equal_bill(1, alice(), 6000, &[alice(), bob(), carol()]),
             equal_bill(2, bob(), 3000, &[alice(), bob()]),
-        ];
+        ]);
         let net = net_transfer_balances(&members, &bills);
         let sum: i64 = net.values().sum();
         assert_eq!(sum, 0);
@@ -277,7 +283,7 @@ mod tests {
         let uids: Vec<Ulid> = (0..5u128).map(uid).collect();
         let members: Vec<Member> = uids.iter().map(|&id| member(id)).collect();
         let bill = equal_bill(1, uids[0], 5000, &uids);
-        let s = compute(&members, &[bill]);
+        let s = compute(&members, &EffectiveBills(vec![bill]));
         assert!(
             s.transactions.len() <= members.len() - 1,
             "got {} transactions for {} members",
@@ -289,10 +295,10 @@ mod tests {
     #[test]
     fn test_settlement_already_settled() {
         let members = vec![member(alice()), member(bob())];
-        let bills = vec![
+        let bills = EffectiveBills(vec![
             equal_bill(1, alice(), 3000, &[alice(), bob()]),
             equal_bill(2, bob(), 3000, &[alice(), bob()]),
-        ];
+        ]);
         let s = compute(&members, &bills);
         assert!(s.transactions.is_empty());
     }

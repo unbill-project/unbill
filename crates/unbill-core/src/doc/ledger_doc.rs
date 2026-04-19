@@ -4,7 +4,7 @@ use tokio::sync::broadcast;
 
 use crate::error::Result;
 use crate::model::{
-    Currency, Device, EffectiveBill, Ledger, Member, NewBill, NewDevice, NewMember, NodeId,
+    Currency, Device, EffectiveBills, Ledger, Member, NewBill, NewDevice, NewMember, NodeId,
     Timestamp, Ulid,
 };
 
@@ -54,7 +54,7 @@ impl LedgerDoc {
         ops::get_ledger(&self.doc)
     }
 
-    pub fn list_bills(&self) -> Result<Vec<EffectiveBill>> {
+    pub fn list_bills(&self) -> Result<EffectiveBills> {
         ops::list_bills(&self.doc)
     }
 
@@ -73,18 +73,6 @@ impl LedgerDoc {
         let id = ops::add_bill(&mut self.doc, input, created_by_device, now)?;
         let _ = self.changes.send(ChangeEvent::LocalWrite);
         Ok(id)
-    }
-
-    pub fn amend_bill(
-        &mut self,
-        bill_id: &Ulid,
-        input: NewBill,
-        created_by_device: NodeId,
-        now: Timestamp,
-    ) -> Result<()> {
-        ops::amend_bill(&mut self.doc, bill_id, input, created_by_device, now)?;
-        let _ = self.changes.send(ChangeEvent::LocalWrite);
-        Ok(())
     }
 
     pub fn add_member(&mut self, input: NewMember, now: Timestamp) -> Result<()> {

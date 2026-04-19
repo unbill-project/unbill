@@ -4,7 +4,7 @@
 // Domain types themselves do not derive Serialize — this module owns that
 // concern so the core library stays independent of serialization.
 
-use unbill_core::model::{EffectiveBill, LedgerMeta, Member};
+use unbill_core::model::{Bill, LedgerMeta, Member};
 use unbill_core::settlement::Settlement;
 
 // ---------------------------------------------------------------------------
@@ -26,8 +26,8 @@ pub struct BillOut {
     pub description: String,
     pub amount_cents: i64,
     pub payer_user_id: String,
-    pub was_amended: bool,
-    pub last_modified_at_ms: i64,
+    pub prev: Vec<String>,
+    pub created_at_ms: i64,
     pub shares: Vec<ShareOut>,
 }
 
@@ -69,14 +69,14 @@ pub fn ledger_out(m: &LedgerMeta) -> LedgerOut {
     }
 }
 
-pub fn bill_out(b: &EffectiveBill) -> BillOut {
+pub fn bill_out(b: &Bill) -> BillOut {
     BillOut {
         id: b.id.to_string(),
         description: b.description.clone(),
         amount_cents: b.amount_cents,
         payer_user_id: b.payer_user_id.to_string(),
-        was_amended: b.was_amended,
-        last_modified_at_ms: b.last_modified_at.as_millis(),
+        prev: b.prev.iter().map(|id| id.to_string()).collect(),
+        created_at_ms: b.created_at.as_millis(),
         shares: b
             .shares
             .iter()

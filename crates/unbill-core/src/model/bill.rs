@@ -15,6 +15,9 @@ pub struct Bill {
     /// Participants are always derivable from this field; there is no separate
     /// `participant_user_ids` list.
     pub shares: Vec<Share>,
+    /// IDs of bills superseded by this one. Empty for original bills.
+    /// A bill whose ID appears in any other bill's `prev` is no longer effective.
+    pub prev: Vec<Ulid>,
     pub created_at: Timestamp,
     /// The iroh NodeId of the device that created this bill entry.
     pub created_by_device: NodeId,
@@ -33,4 +36,6 @@ pub struct NewBill {
     pub amount_cents: i64,
     pub description: String,
     pub shares: Vec<Share>,
+    /// IDs of bills superseded by this one. Empty for original (non-amendment) bills.
+    pub prev: Vec<Ulid>,
 }

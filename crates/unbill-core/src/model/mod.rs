@@ -9,7 +9,7 @@ mod member;
 mod node_id;
 mod timestamp;
 
-pub use amendment::EffectiveBill;
+pub use amendment::EffectiveBills;
 pub use bill::{Bill, NewBill, Share};
 pub use currency::Currency;
 pub use id::Ulid;

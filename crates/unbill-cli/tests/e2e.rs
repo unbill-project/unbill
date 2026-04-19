@@ -304,21 +304,21 @@ fn test_add_bill_returns_id_and_appears_in_list() {
     assert_eq!(arr[0]["id"].as_str().unwrap(), bid);
     assert_eq!(arr[0]["amount_cents"].as_i64().unwrap(), 4550);
     assert_eq!(arr[0]["description"].as_str().unwrap(), "Groceries");
-    assert!(!arr[0]["was_amended"].as_bool().unwrap());
+    assert!(arr[0]["prev"].as_array().unwrap().is_empty());
 }
 
 #[test]
-fn test_amend_bill_updates_amount_and_marks_amended() {
+fn test_amend_bill_supersedes_original() {
     let env = Env::new();
     let lid = create_ledger_with_members(&env);
     let bid = add_bill(&env, &lid, ALICE, "10", "Lunch", &[ALICE, BOB]);
 
-    env.ok(&[
+    let amended = env.json(&[
         "bill",
         "amend",
         "--ledger-id",
         &lid,
-        "--bill-id",
+        "--prev",
         &bid,
         "--payer",
         ALICE,
@@ -331,14 +331,17 @@ fn test_amend_bill_updates_amount_and_marks_amended() {
         "--participant",
         BOB,
     ]);
+    let new_bid = amended["bill_id"].as_str().unwrap();
+    assert_ne!(new_bid, bid, "amendment must have a new ID");
 
     let bills = env.json(&["bill", "list", "--ledger-id", &lid]);
     let arr = bills.as_array().unwrap();
-    assert_eq!(arr.len(), 1, "amendment must not add a new logical bill");
+    assert_eq!(arr.len(), 1, "only the amendment should be effective");
     let b = &arr[0];
+    assert_eq!(b["id"].as_str().unwrap(), new_bid);
     assert_eq!(b["amount_cents"].as_i64().unwrap(), 1250);
     assert_eq!(b["description"].as_str().unwrap(), "Lunch + coffee");
-    assert!(b["was_amended"].as_bool().unwrap());
+    assert_eq!(b["prev"].as_array().unwrap()[0].as_str().unwrap(), bid);
 }
 
 // ---------------------------------------------------------------------------
@@ -432,7 +435,7 @@ fn test_amendments_persist_across_process_restarts() {
         "amend",
         "--ledger-id",
         &lid,
-        "--bill-id",
+        "--prev",
         &bid,
         "--payer",
         ALICE,
@@ -448,15 +451,10 @@ fn test_amendments_persist_across_process_restarts() {
 
     // New process reads the amended value.
     let bills = env.json(&["bill", "list", "--ledger-id", &lid]);
-    assert_eq!(
-        bills.as_array().unwrap()[0]["amount_cents"]
-            .as_i64()
-            .unwrap(),
-        1500
-    );
-    assert!(bills.as_array().unwrap()[0]["was_amended"]
-        .as_bool()
-        .unwrap());
+    let arr = bills.as_array().unwrap();
+    assert_eq!(arr.len(), 1, "only the amendment should be effective");
+    assert_eq!(arr[0]["amount_cents"].as_i64().unwrap(), 1500);
+    assert_eq!(arr[0]["prev"].as_array().unwrap()[0].as_str().unwrap(), bid);
 }
 
 // ---------------------------------------------------------------------------

@@ -374,6 +374,7 @@ mod tests {
                         user_id: payer,
                         shares: 1,
                     }],
+                    prev: vec![],
                 },
                 node_a,
                 Timestamp::now(),
@@ -390,6 +391,7 @@ mod tests {
                         user_id: payer,
                         shares: 1,
                     }],
+                    prev: vec![],
                 },
                 node_b,
                 Timestamp::now(),
@@ -412,8 +414,8 @@ mod tests {
         let bills_a = doc_a_final.list_bills().unwrap();
         let bills_b = doc_b_final.list_bills().unwrap();
 
-        assert_eq!(bills_a.len(), 2, "A should have both bills after sync");
-        assert_eq!(bills_b.len(), 2, "B should have both bills after sync");
+        assert_eq!(bills_a.0.len(), 2, "A should have both bills after sync");
+        assert_eq!(bills_b.0.len(), 2, "B should have both bills after sync");
 
         let mut descs_a: Vec<_> = bills_a.iter().map(|b| b.description.clone()).collect();
         let mut descs_b: Vec<_> = bills_b.iter().map(|b| b.description.clone()).collect();

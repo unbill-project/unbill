@@ -22,7 +22,7 @@ A person splitting expenses with a small group — roommates, a couple, a travel
 1. **Offline-first.** Every operation works without network. Sync is opportunistic.
 2. **Data lives with users.** No server required. If the author disappears, existing installs keep working forever.
 3. **CRDTs over consensus.** State is a deterministic function of observed operations. We never ask which device has "the truth."
-4. **Append-only at the data layer.** Members, devices, and bills are never removed. Bills are edited by appending a new entry with the same bill ID; the latest entry wins. The ledger is an event log; the UI renders a projection.
+4. **Append-only at the data layer.** Members, devices, and bills are never removed. Amending a bill creates a new bill with a fresh ID and a `prev` list naming the bill(s) it supersedes; superseded bills are excluded from the effective view. The ledger is an event log; the UI renders a projection.
 5. **One layer per concern.** Persistence, networking, business logic, and UI are separate and do not leak into each other.
 6. **Abstract only where a real alternative exists.** The storage backend is a trait; the CRDT engine is not.
 7. **Conservative about CRDT content.** Device preferences, UI state, and caches stay out of the synced document.
@@ -40,7 +40,7 @@ A named participant in a ledger, identified by a stable user ID. Members have no
 A physical device authorized to sync a ledger, identified by its Ed25519 `NodeId`. Devices are associated with the ledger, not with individual members. Any device in a ledger's device list may submit bills for any member — the trust model is "everyone in the group trusts everyone else's device." Devices are append-only; once authorized they are never removed from the list.
 
 ### Bill
-An expense entry: who paid, how much, and how the cost is split. Multiple entries may share the same logical bill ID — the entry with the latest timestamp wins and defines the effective bill. Amending a bill means appending a new entry with the same ID. Bills are never deleted.
+An expense entry: who paid, how much, and how the cost is split. Every bill has a unique ID. Bills carry a `prev` list of IDs of the bills they supersede — empty for original bills. A bill is **effective** if no other bill's `prev` references its ID. Amending a bill means creating a new bill whose `prev` points to the bill(s) being replaced. `prev` may reference multiple bills, enabling merges. Bills are never deleted.
 
 ### Split model
 All bills use relative share weights. Equal split is everyone gets weight 1. Different weights express proportional or exact-amount splits. One model covers all cases — no separate split modes.
@@ -75,7 +75,7 @@ A short-lived in-memory token allowing a new member to join. Never persisted or 
 
 - **CRDT** — Conflict-free Replicated Data Type. A data structure that can be updated independently on any device and merged without conflict resolution logic.
 
-- **Amendment** — A new bill entry that shares the same logical bill ID as an existing entry. The latest-timestamp entry wins and becomes the effective bill.
+- **Amendment** — A new bill with a fresh ID whose `prev` list names the bill(s) it supersedes. A superseded bill is excluded from the effective view. `prev` may name multiple bills, allowing several bills to be merged into one.
 - **NodeId** — A device's identity: an Ed25519 public key derived from a per-device secret.
 - **Op / operation** — A single unit of change in a CRDT. Append-only; never deleted.
 - **Head** — The latest operation(s) in a CRDT document. A document's state is uniquely identified by its set of heads.

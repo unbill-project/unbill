@@ -147,14 +147,14 @@ pub async fn ledger_show(svc: &UnbillService, ledger_id: &str, json: bool) -> an
     if json {
         print_json(&serde_json::json!({
             "ledger": ledger_out(meta),
-            "bill_count": bills.len(),
+            "bill_count": bills.0.len(),
             "member_count": members.len(),
         }))?;
     } else {
         println!("ID:       {}", meta.ledger_id);
         println!("Name:     {}", meta.name);
         println!("Currency: {}", meta.currency.code());
-        println!("Bills:    {}", bills.len());
+        println!("Bills:    {}", bills.0.len());
         println!("Members:  {}", members.len());
     }
     Ok(())
@@ -205,6 +205,7 @@ pub async fn bill_add(
                 amount_cents,
                 description,
                 shares,
+                prev: vec![],
             },
         )
         .await?;
@@ -222,22 +223,17 @@ pub async fn bill_list(svc: &UnbillService, ledger_id: &str, json: bool) -> anyh
     if json {
         print_json(&bills.iter().map(bill_out).collect::<Vec<_>>())?;
     } else {
-        if bills.is_empty() {
+        if bills.0.is_empty() {
             println!("no bills");
             return Ok(());
         }
-        println!(
-            "{:<26}  {:>10}  {:<32}  FLAGS",
-            "ID", "AMOUNT", "DESCRIPTION"
-        );
-        for b in &bills {
-            let flags = if b.was_amended { "amended" } else { "" };
+        println!("{:<26}  {:>10}  {}", "ID", "AMOUNT", "DESCRIPTION");
+        for b in bills.iter() {
             println!(
-                "{:<26}  {:>10}  {:<32}  {}",
+                "{:<26}  {:>10}  {}",
                 b.id,
                 fmt_amount(b.amount_cents),
                 truncate(&b.description, 32),
-                flags
             );
         }
     }
@@ -248,13 +244,17 @@ pub async fn bill_list(svc: &UnbillService, ledger_id: &str, json: bool) -> anyh
 pub async fn bill_amend(
     svc: &UnbillService,
     ledger_id: &str,
-    bill_id: &str,
+    prev: Vec<String>,
     payer: &str,
     amount: &str,
     description: String,
     participants: Vec<String>,
-    _json: bool,
+    json: bool,
 ) -> anyhow::Result<()> {
+    let prev_ids = prev
+        .iter()
+        .map(|p| parse_ulid(p))
+        .collect::<anyhow::Result<Vec<_>>>()?;
     let amount_cents = parse_amount(amount)?;
     let shares = participants
         .iter()
@@ -265,17 +265,23 @@ pub async fn bill_amend(
             })
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
-    svc.amend_bill(
-        ledger_id,
-        bill_id,
-        NewBill {
-            payer_user_id: parse_ulid(payer)?,
-            amount_cents,
-            description,
-            shares,
-        },
-    )
-    .await?;
+    let bill_id = svc
+        .add_bill(
+            ledger_id,
+            NewBill {
+                payer_user_id: parse_ulid(payer)?,
+                amount_cents,
+                description,
+                shares,
+                prev: prev_ids,
+            },
+        )
+        .await?;
+    if json {
+        print_json(&serde_json::json!({ "bill_id": bill_id }))?;
+    } else {
+        println!("{bill_id}");
+    }
     Ok(())
 }
 

@@ -9,7 +9,7 @@ use tokio::sync::broadcast;
 use crate::doc::LedgerDoc;
 use crate::error::{Result, UnbillError};
 use crate::model::{
-    Currency, Device, EffectiveBill, Invitation, InviteToken, LedgerMeta, Member, NewBill,
+    Currency, Device, EffectiveBills, Invitation, InviteToken, LedgerMeta, Member, NewBill,
     NewDevice, NewMember, NodeId, Timestamp, Ulid,
 };
 use crate::settlement;
@@ -108,17 +108,7 @@ impl UnbillService {
         Ok(bill_id.to_string())
     }
 
-    pub async fn amend_bill(&self, ledger_id: &str, bill_id: &str, input: NewBill) -> Result<()> {
-        let bill_ulid = parse_ulid(bill_id)?;
-        let mut doc = self.load_doc(ledger_id).await?;
-        doc.amend_bill(&bill_ulid, input, self.device_id, Timestamp::now())?;
-        let bytes = doc.save();
-        self.store.save_ledger_bytes(ledger_id, &bytes).await?;
-        self.touch_meta(ledger_id).await?;
-        Ok(())
-    }
-
-    pub async fn list_bills(&self, ledger_id: &str) -> Result<Vec<EffectiveBill>> {
+    pub async fn list_bills(&self, ledger_id: &str) -> Result<EffectiveBills> {
         self.load_doc(ledger_id).await?.list_bills()
     }
 
@@ -572,6 +562,7 @@ mod tests {
                     shares: 1,
                 },
             ],
+            prev: vec![],
         };
         (ledger_id.to_owned(), bill)
     }
@@ -646,13 +637,13 @@ mod tests {
         let bill_id = svc.add_bill(&lid, bill).await.unwrap();
 
         let bills = svc.list_bills(&lid).await.unwrap();
-        assert_eq!(bills.len(), 1);
-        assert_eq!(bills[0].id.to_string(), bill_id);
-        assert_eq!(bills[0].amount_cents, 6000);
+        assert_eq!(bills.0.len(), 1);
+        assert_eq!(bills.0[0].id.to_string(), bill_id);
+        assert_eq!(bills.0[0].amount_cents, 6000);
     }
 
     #[tokio::test]
-    async fn test_amend_bill_updates_amount() {
+    async fn test_amend_bill_supersedes_original() {
         let svc = open().await;
         let lid = svc
             .create_ledger("Test".into(), usd().into())
@@ -660,33 +651,35 @@ mod tests {
             .unwrap();
         seed_members(&svc, &lid).await;
         let (_, bill) = two_way_bill("Lunch", 3000, &lid);
-        let bill_id = svc.add_bill(&lid, bill).await.unwrap();
+        let original_id = svc.add_bill(&lid, bill).await.unwrap();
 
-        svc.amend_bill(
-            &lid,
-            &bill_id,
-            NewBill {
-                payer_user_id: Ulid::from_u128(1),
-                amount_cents: 4000,
-                description: "Lunch".into(),
-                shares: vec![
-                    Share {
-                        user_id: Ulid::from_u128(1),
-                        shares: 1,
-                    },
-                    Share {
-                        user_id: Ulid::from_u128(2),
-                        shares: 1,
-                    },
-                ],
-            },
-        )
-        .await
-        .unwrap();
+        let amendment_id = svc
+            .add_bill(
+                &lid,
+                NewBill {
+                    payer_user_id: Ulid::from_u128(1),
+                    amount_cents: 4000,
+                    description: "Lunch".into(),
+                    shares: vec![
+                        Share {
+                            user_id: Ulid::from_u128(1),
+                            shares: 1,
+                        },
+                        Share {
+                            user_id: Ulid::from_u128(2),
+                            shares: 1,
+                        },
+                    ],
+                    prev: vec![Ulid::from_string(&original_id).unwrap()],
+                },
+            )
+            .await
+            .unwrap();
 
         let bills = svc.list_bills(&lid).await.unwrap();
-        assert_eq!(bills[0].amount_cents, 4000);
-        assert!(bills[0].was_amended);
+        assert_eq!(bills.0.len(), 1, "original should be superseded");
+        assert_eq!(bills.0[0].id.to_string(), amendment_id);
+        assert_eq!(bills.0[0].amount_cents, 4000);
     }
 
     // --- settlement ---
@@ -731,6 +724,7 @@ mod tests {
                     shares: 1,
                 },
             ],
+            prev: vec![],
         };
         svc.add_bill(&lid2, bob_pays).await.unwrap();
 
@@ -762,8 +756,8 @@ mod tests {
         // Re-open with the same store (simulates a restart).
         let svc2 = UnbillService::open(Arc::clone(&store)).await.unwrap();
         let bills = svc2.list_bills(&lid).await.unwrap();
-        assert_eq!(bills.len(), 1);
-        assert_eq!(bills[0].amount_cents, 120000);
+        assert_eq!(bills.0.len(), 1);
+        assert_eq!(bills.0[0].amount_cents, 120000);
     }
 
     #[tokio::test]

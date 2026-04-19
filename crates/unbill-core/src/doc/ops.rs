@@ -8,7 +8,7 @@ use autosurgeon::{hydrate, reconcile};
 
 use crate::error::UnbillError;
 use crate::model::{
-    Bill, Currency, Device, EffectiveBill, Ledger, Member, NewBill, NewDevice, NewMember, NodeId,
+    Bill, Currency, Device, EffectiveBills, Ledger, Member, NewBill, NewDevice, NewMember, NodeId,
     Timestamp, Ulid,
 };
 
@@ -76,6 +76,12 @@ pub(super) fn add_bill(
         }
     }
 
+    for prev_id in &input.prev {
+        if !ledger.bills.iter().any(|b| &b.id == prev_id) {
+            return Err(UnbillError::BillNotFound(prev_id.to_string()));
+        }
+    }
+
     let bill_id = Ulid::new();
     ledger.bills.push(Bill {
         id: bill_id,
@@ -83,6 +89,7 @@ pub(super) fn add_bill(
         amount_cents: input.amount_cents,
         description: input.description,
         shares: input.shares,
+        prev: input.prev,
         created_at: now,
         created_by_device,
     });
@@ -90,63 +97,15 @@ pub(super) fn add_bill(
     Ok(bill_id)
 }
 
-/// Append a new `Bill` entry with the same `bill_id`, replacing all fields.
-/// The latest entry (by `created_at`) becomes the effective bill.
-pub(super) fn amend_bill(
-    doc: &mut AutoCommit,
-    bill_id: &Ulid,
-    input: NewBill,
-    created_by_device: NodeId,
-    now: Timestamp,
-) -> Result<()> {
-    let mut ledger = get_ledger(doc)?;
-
-    if !ledger.bills.iter().any(|b| &b.id == bill_id) {
-        return Err(UnbillError::BillNotFound(bill_id.to_string()));
-    }
-
-    let member_ids: std::collections::HashSet<Ulid> =
-        ledger.members.iter().map(|m| m.user_id).collect();
-
-    let all_users =
-        std::iter::once(&input.payer_user_id).chain(input.shares.iter().map(|s| &s.user_id));
-    for user_id in all_users {
-        if !member_ids.contains(user_id) {
-            return Err(UnbillError::UserNotMember(user_id.to_string()));
-        }
-    }
-
-    ledger.bills.push(Bill {
-        id: *bill_id,
-        payer_user_id: input.payer_user_id,
-        amount_cents: input.amount_cents,
-        description: input.description,
-        shares: input.shares,
-        created_at: now,
-        created_by_device,
-    });
-    reconcile(doc, &ledger).map_err(|e| UnbillError::Other(e.into()))
-}
-
-/// Project all bills to their effective view.
-///
-/// Bills are grouped by their logical `id`; within each group the entry with
-/// the latest `created_at` (ties broken by device string) wins.  Groups appear
-/// in the order their first entry was inserted.
-pub(super) fn list_bills(doc: &AutoCommit) -> Result<Vec<EffectiveBill>> {
+/// Return only effective bills — those whose ID is not referenced in any other
+/// bill's `prev`. The order matches insertion order.
+pub(super) fn list_bills(doc: &AutoCommit) -> Result<EffectiveBills> {
     let ledger = get_ledger(doc)?;
-    let mut order: Vec<Ulid> = Vec::new();
-    let mut groups: std::collections::HashMap<Ulid, Vec<Bill>> = std::collections::HashMap::new();
-    for bill in ledger.bills {
-        if !groups.contains_key(&bill.id) {
-            order.push(bill.id);
-        }
-        groups.entry(bill.id).or_default().push(bill);
-    }
-    Ok(order
-        .into_iter()
-        .map(|id| EffectiveBill::project(groups.remove(&id).unwrap()))
-        .collect())
+    let superseded: std::collections::HashSet<Ulid> =
+        ledger.bills.iter().flat_map(|b| b.prev.iter().copied()).collect();
+    Ok(EffectiveBills(
+        ledger.bills.into_iter().filter(|b| !superseded.contains(&b.id)).collect(),
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -264,6 +223,7 @@ mod tests {
                     shares: 1,
                 })
                 .collect(),
+            prev: vec![],
         }
     }
 
@@ -295,10 +255,9 @@ mod tests {
         )
         .unwrap();
         let bills = list_bills(&doc).unwrap();
-        assert_eq!(bills.len(), 1);
-        assert_eq!(bills[0].id, bill_id);
-        assert_eq!(bills[0].amount_cents, 3000);
-        assert!(!bills[0].was_amended);
+        assert_eq!(bills.0.len(), 1);
+        assert_eq!(bills.0[0].id, bill_id);
+        assert_eq!(bills.0[0].amount_cents, 3000);
     }
 
     #[test]
@@ -320,8 +279,8 @@ mod tests {
         )
         .unwrap();
         let bills = list_bills(&doc).unwrap();
-        assert_eq!(bills[0].id, id1);
-        assert_eq!(bills[1].id, id2);
+        assert_eq!(bills.0[0].id, id1);
+        assert_eq!(bills.0[1].id, id2);
     }
 
     #[test]
@@ -358,44 +317,44 @@ mod tests {
         );
     }
 
-    // --- amend_bill ---
+    // --- amendment via prev ---
 
     #[test]
-    fn test_amend_bill_updates_effective_view() {
+    fn test_amendment_supersedes_original() {
         let alice = uid(1);
         let mut doc = doc_with_members(&[alice]);
-        let bill_id = add_bill(
+        let original_id = add_bill(
             &mut doc,
             simple_bill(alice, &[alice], 1000),
             device(),
             ts(1),
         )
         .unwrap();
-        amend_bill(
+        add_bill(
             &mut doc,
-            &bill_id,
-            simple_bill(alice, &[alice], 2000),
+            NewBill {
+                prev: vec![original_id],
+                ..simple_bill(alice, &[alice], 2000)
+            },
             device(),
             ts(2),
         )
         .unwrap();
         let bills = list_bills(&doc).unwrap();
-        assert_eq!(
-            bills.len(),
-            1,
-            "amendment should not add a new logical bill"
-        );
-        assert_eq!(bills[0].amount_cents, 2000);
-        assert!(bills[0].was_amended);
+        assert_eq!(bills.0.len(), 1, "original should be superseded");
+        assert_eq!(bills.0[0].amount_cents, 2000);
     }
 
     #[test]
-    fn test_amend_unknown_bill_returns_error() {
-        let mut doc = fresh_doc();
-        let result = amend_bill(
+    fn test_amendment_with_unknown_prev_returns_error() {
+        let alice = uid(1);
+        let mut doc = doc_with_members(&[alice]);
+        let result = add_bill(
             &mut doc,
-            &uid(999),
-            simple_bill(uid(1), &[uid(1)], 1000),
+            NewBill {
+                prev: vec![uid(999)],
+                ..simple_bill(alice, &[alice], 1000)
+            },
             device(),
             ts(0),
         );
@@ -449,9 +408,9 @@ mod tests {
         let bytes = doc.save();
         let reloaded = AutoCommit::load(&bytes).unwrap();
         let bills = list_bills(&reloaded).unwrap();
-        assert_eq!(bills.len(), 1);
-        assert_eq!(bills[0].id, bill_id);
-        assert_eq!(bills[0].amount_cents, 6000);
+        assert_eq!(bills.0.len(), 1);
+        assert_eq!(bills.0[0].id, bill_id);
+        assert_eq!(bills.0[0].amount_cents, 6000);
     }
 
     // --- devices ---
