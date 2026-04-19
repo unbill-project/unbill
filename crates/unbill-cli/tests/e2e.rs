@@ -539,7 +539,7 @@ fn test_join_flow() {
     let lid = create_ledger(&host);
     add_member(&host, &lid, ALICE, "Alice");
 
-    let invite = host.json(&["ledger", "invite", "--ledger-id", &lid]);
+    let invite = host.json(&["ledger", "invite", &lid]);
     let url = invite["url"].as_str().unwrap().to_owned();
 
     let daemon = Daemon::spawn(&host);
@@ -561,7 +561,7 @@ fn test_sync_once_propagates_bills() {
 
     // Set up: joiner joins host's ledger.
     let lid = create_ledger_with_members(&host);
-    let invite = host.json(&["ledger", "invite", "--ledger-id", &lid]);
+    let invite = host.json(&["ledger", "invite", &lid]);
     let url = invite["url"].as_str().unwrap().to_owned();
     let daemon = Daemon::spawn(&host);
     joiner.ok(&["ledger", "join", &url, "--label", "joiner"]);
@@ -591,7 +591,7 @@ fn test_identity_import_flow() {
     let host = Env::new();
     let joiner = Env::new();
 
-    let identity = host.json(&["identity", "new", "Alice"]);
+    let identity = host.json(&["identity", "create", "Alice"]);
     let user_id = identity["user_id"].as_str().unwrap().to_owned();
 
     let share = host.json(&["identity", "share", "--user-id", &user_id]);

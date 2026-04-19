@@ -66,8 +66,8 @@ pub enum Command {
 
 #[derive(clap::Subcommand)]
 pub enum IdentityCmd {
-    /// Add a fresh user identity (new user ID + display name) to this device.
-    New { display_name: String },
+    /// Create a fresh user identity (new user ID + display name) on this device.
+    Create { display_name: String },
     /// Import an existing identity from another device via an unbill://identity/... URL.
     Import { url: String },
     /// List all identities stored on this device.
@@ -77,8 +77,8 @@ pub enum IdentityCmd {
         #[arg(long)]
         user_id: String,
     },
-    /// Remove an identity from this device's local storage.
-    Remove { user_id: String },
+    /// Delete an identity from this device's local storage.
+    Delete { user_id: String },
 }
 
 #[derive(clap::Subcommand)]
@@ -103,7 +103,6 @@ pub enum LedgerCmd {
     },
     /// Generate an unbill://join/... URL authorizing a new device to access this ledger.
     Invite {
-        #[arg(long)]
         ledger_id: String,
     },
     /// Join a ledger using an unbill://join/... URL.
@@ -221,13 +220,13 @@ async fn run() -> anyhow::Result<()> {
     match cli.command {
         Command::Init => commands::init(&svc, json).await,
         Command::Identity { sub } => match sub {
-            IdentityCmd::New { display_name } => {
+            IdentityCmd::Create { display_name } => {
                 commands::identity_new(&svc, display_name, json).await
             }
             IdentityCmd::Import { url } => commands::identity_import(&svc, url).await,
             IdentityCmd::List => commands::identity_list(&svc, json).await,
             IdentityCmd::Share { user_id } => commands::identity_share(&svc, &user_id, json).await,
-            IdentityCmd::Remove { user_id } => commands::identity_remove(&svc, &user_id).await,
+            IdentityCmd::Delete { user_id } => commands::identity_remove(&svc, &user_id).await,
         },
         Command::Device { sub } => match sub {
             DeviceCmd::Show => commands::device_show(&svc, &data_dir, json).await,
