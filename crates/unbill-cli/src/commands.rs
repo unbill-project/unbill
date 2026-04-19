@@ -227,7 +227,7 @@ pub async fn bill_list(svc: &UnbillService, ledger_id: &str, json: bool) -> anyh
             println!("no bills");
             return Ok(());
         }
-        println!("{:<26}  {:>10}  {}", "ID", "AMOUNT", "DESCRIPTION");
+        println!("{:<26}  {:>10}  DESCRIPTION", "ID", "AMOUNT");
         for b in bills.iter() {
             println!(
                 "{:<26}  {:>10}  {}",
