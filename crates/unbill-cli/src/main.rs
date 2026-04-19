@@ -102,7 +102,9 @@ pub enum LedgerCmd {
         ledger_id: String,
     },
     /// Generate an unbill://join/... URL authorizing a new device to access this ledger.
-    Invite { ledger_id: String },
+    Invite {
+        ledger_id: String,
+    },
     /// Join a ledger using an unbill://join/... URL.
     Join {
         url: String,
