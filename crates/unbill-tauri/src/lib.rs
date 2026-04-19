@@ -3,8 +3,6 @@
 // to the frontend via app.emit("unbill:event", ...).
 // Implementation begins at M5. See DESIGN.md §11.2.
 
-use tauri::Manager;
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()

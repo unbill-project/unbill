@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use rand::RngCore as _;
+use rand::TryRng as _;
 use tokio::sync::broadcast;
 
 use crate::doc::LedgerDoc;
@@ -237,7 +237,9 @@ impl UnbillService {
             .ok_or_else(|| UnbillError::Other(anyhow::anyhow!("identity not found: {user_id}")))?;
         let display_name = identity.display_name.clone();
         let mut token_bytes = [0u8; 32];
-        rand::rngs::OsRng.fill_bytes(&mut token_bytes);
+        rand::rngs::SysRng
+            .try_fill_bytes(&mut token_bytes)
+            .expect("system RNG should generate identity share tokens");
         let token_hex: String = token_bytes.iter().map(|b| format!("{b:02x}")).collect();
         {
             let mut map = load_pending_identity_tokens(&*self.store).await?;
@@ -486,7 +488,9 @@ async fn load_or_create_device_key(store: &dyn LedgerStore) -> Result<(NodeId, i
         Ok((NodeId::from_node_id(secret.public()), secret))
     } else {
         let mut arr = [0u8; 32];
-        rand::rngs::OsRng.fill_bytes(&mut arr);
+        rand::rngs::SysRng
+            .try_fill_bytes(&mut arr)
+            .expect("system RNG should generate device keys");
         let secret = iroh::SecretKey::from(arr);
         store.save_device_meta("device_key.bin", &arr).await?;
         Ok((NodeId::from_node_id(secret.public()), secret))

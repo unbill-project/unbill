@@ -4,9 +4,13 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "pnpm --filter unbill-desktop dev",
+    "dev:leptos": "trunk serve --config apps/unbill-desktop-leptos/Trunk.toml",
     "build": "pnpm --filter unbill-desktop build",
+    "build:leptos": "trunk build --config apps/unbill-desktop-leptos/Trunk.toml --release",
     "lint": "pnpm --filter unbill-desktop lint",
-    "typecheck": "pnpm --filter unbill-desktop typecheck"
+    "typecheck": "pnpm --filter unbill-desktop typecheck",
+    "tauri:dev:leptos": "cargo tauri dev --manifest-path crates/unbill-tauri/Cargo.toml -c crates/unbill-tauri/tauri.leptos.conf.json",
+    "tauri:build:leptos": "cargo tauri build --manifest-path crates/unbill-tauri/Cargo.toml -c crates/unbill-tauri/tauri.leptos.conf.json"
   },
   "engines": {
     "node": ">=20",
