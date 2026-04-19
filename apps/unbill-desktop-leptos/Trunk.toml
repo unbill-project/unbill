@@ -1,0 +1,11 @@
+[build]
+target = "./index.html"
+dist = "./dist"
+
+[watch]
+ignore = ["../../crates/unbill-tauri"]
+
+[serve]
+port = 1420
+open = false
+ws_protocol = "ws"

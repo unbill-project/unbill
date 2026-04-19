@@ -1,0 +1,18 @@
+{
+  "build": {
+    "beforeDevCommand": {
+      "cwd": "../../apps/unbill-desktop-leptos",
+      "script": "trunk serve --config Trunk.toml",
+      "wait": false
+    },
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": {
+      "cwd": "../../apps/unbill-desktop-leptos",
+      "script": "trunk build --config Trunk.toml --release"
+    },
+    "frontendDist": "../../apps/unbill-desktop-leptos/dist"
+  },
+  "app": {
+    "withGlobalTauri": true
+  }
+}

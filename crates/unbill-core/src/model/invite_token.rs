@@ -11,9 +11,11 @@ pub struct InviteToken(String);
 impl InviteToken {
     /// Generate a new token from 32 OS-random bytes.
     pub fn generate() -> Self {
-        use rand::RngCore;
+        use rand::TryRng as _;
         let mut bytes = [0u8; 32];
-        rand::rngs::OsRng.fill_bytes(&mut bytes);
+        rand::rngs::SysRng
+            .try_fill_bytes(&mut bytes)
+            .expect("system RNG should generate invitation tokens");
         Self(bytes.iter().map(|b| format!("{b:02x}")).collect())
     }
 

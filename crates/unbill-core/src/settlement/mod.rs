@@ -45,12 +45,12 @@ pub fn accumulate_balances(
 pub fn compute_from_balances(balances: HashMap<Ulid, i64>) -> Settlement {
     let mut creditors: Vec<(Ulid, i64)> = balances
         .iter()
-        .filter(|(_, &b)| b > 0)
+        .filter(|&(_, &b)| b > 0)
         .map(|(id, &b)| (*id, b))
         .collect();
     let mut debtors: Vec<(Ulid, i64)> = balances
         .iter()
-        .filter(|(_, &b)| b < 0)
+        .filter(|&(_, &b)| b < 0)
         .map(|(id, &b)| (*id, -b))
         .collect();
 
