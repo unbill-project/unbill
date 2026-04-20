@@ -51,10 +51,10 @@ pub enum Command {
         #[command(subcommand)]
         sub: BillCmd,
     },
-    /// Manage members.
-    Member {
+    /// Manage users in a ledger.
+    User {
         #[command(subcommand)]
-        sub: MemberCmd,
+        sub: UserCmd,
     },
     /// Sync with peers.
     Sync {
@@ -158,12 +158,12 @@ pub enum BillCmd {
 }
 
 #[derive(clap::Subcommand)]
-pub enum MemberCmd {
+pub enum UserCmd {
     List {
         #[arg(long)]
         ledger_id: String,
     },
-    /// Add a member directly by user ID and display name.
+    /// Add a user directly by user ID and display name.
     Add {
         #[arg(long)]
         ledger_id: String,
@@ -280,14 +280,14 @@ async fn run() -> anyhow::Result<()> {
                 .await
             }
         },
-        Command::Member { sub } => match sub {
-            MemberCmd::List { ledger_id } => commands::member_list(&svc, &ledger_id, json).await,
-            MemberCmd::Add {
+        Command::User { sub } => match sub {
+            UserCmd::List { ledger_id } => commands::user_list(&svc, &ledger_id, json).await,
+            UserCmd::Add {
                 ledger_id,
                 user_id,
                 name,
                 added_by,
-            } => commands::member_add(&svc, &ledger_id, &user_id, name, &added_by).await,
+            } => commands::user_add(&svc, &ledger_id, &user_id, name, &added_by).await,
         },
         Command::Sync { sub } => match sub {
             SyncCmd::Once { peer_node_id } => commands::sync_once(&svc, &peer_node_id).await,

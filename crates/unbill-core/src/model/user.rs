@@ -13,16 +13,16 @@ pub struct Ledger {
     pub name: String,
     pub currency: Currency,
     pub created_at: Timestamp,
-    pub members: Vec<Member>,
+    pub users: Vec<User>,
     pub bills: Vec<super::bill::Bill>,
     /// Devices authorized to sync this ledger. Any authorized device may record
-    /// bills on behalf of any member — there is no per-member device binding.
+    /// bills on behalf of any user — there is no per-user device binding.
     pub devices: Vec<Device>,
     // Invitations are NOT part of the CRDT. They live in UnbillService memory. See DESIGN.md §6.3.
 }
 
 #[derive(Clone, Debug, Reconcile, Hydrate)]
-pub struct Member {
+pub struct User {
     pub user_id: Ulid,
     pub display_name: String,
     pub added_at: Timestamp,
@@ -37,9 +37,9 @@ pub struct Device {
     pub added_at: Timestamp,
 }
 
-/// Input type for directly adding a member to a ledger.
+/// Input type for directly adding a user to a ledger.
 #[derive(Clone, Debug)]
-pub struct NewMember {
+pub struct NewUser {
     pub user_id: Ulid,
     pub display_name: String,
     pub added_by: Ulid,
@@ -56,7 +56,7 @@ pub struct NewDevice {
 /// persisted or synced. Consumed (removed from the map) on first use or expiry.
 ///
 /// The invitation authorizes a new device (NodeId) to join the ledger. It
-/// carries no member identity — member management is a separate operation.
+/// carries no user identity — user management is a separate operation.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Invitation {
     pub token: InviteToken,

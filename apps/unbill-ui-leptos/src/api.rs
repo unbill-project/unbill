@@ -32,7 +32,7 @@ pub struct LedgerSummary {
     pub currency: String,
     pub created_at_ms: i64,
     pub updated_at_ms: i64,
-    pub member_count: usize,
+    pub user_count: usize,
     pub latest_bill_at_ms: Option<i64>,
 }
 
@@ -40,7 +40,7 @@ pub struct LedgerSummary {
 #[serde(rename_all = "camelCase")]
 pub struct LedgerDetail {
     pub summary: LedgerSummary,
-    pub members: Vec<Member>,
+    pub users: Vec<User>,
     pub bills: Vec<Bill>,
 }
 
@@ -61,7 +61,7 @@ pub struct SyncDevice {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct Member {
+pub struct User {
     pub user_id: String,
     pub display_name: String,
     pub added_at_ms: i64,
@@ -104,7 +104,7 @@ pub struct AddIdentityInput {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AddMemberInput {
+pub struct AddUserInput {
     pub ledger_id: String,
     pub display_name: String,
 }
@@ -154,8 +154,8 @@ pub async fn add_identity(input: AddIdentityInput) -> Result<Identity, String> {
     invoke("add_identity", &serde_json::json!({ "input": input })).await
 }
 
-pub async fn add_member(input: AddMemberInput) -> Result<Member, String> {
-    invoke("add_member", &serde_json::json!({ "input": input })).await
+pub async fn add_user(input: AddUserInput) -> Result<User, String> {
+    invoke("add_user", &serde_json::json!({ "input": input })).await
 }
 
 pub async fn create_invitation(ledger_id: &str) -> Result<String, String> {

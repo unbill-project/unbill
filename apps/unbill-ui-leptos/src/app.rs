@@ -1,9 +1,9 @@
 use crate::api::{
-    self, AddIdentityInput, AddMemberInput, AppBootstrap, Bill, BillShareInput, JoinLedgerInput,
-    LedgerDetail, LedgerSummary, Member, SaveBillInput,
+    self, AddIdentityInput, AddUserInput, AppBootstrap, Bill, BillShareInput, JoinLedgerInput,
+    LedgerDetail, LedgerSummary, SaveBillInput, User,
 };
 use crate::pages::{
-    AddIdentitySheet, AddMemberSheet, BillEditorPage, CreateLedgerSheet, DeviceSettingsPage,
+    AddIdentitySheet, AddUserSheet, BillEditorPage, CreateLedgerSheet, DeviceSettingsPage,
     EmptyColumn, JoinLedgerSheet, LedgerPage, LedgerSettingsPage, LedgersPage, StatusStrip,
 };
 use leptos::prelude::*;
@@ -22,7 +22,7 @@ pub(crate) enum OverlayKind {
     CreateLedger,
     AddIdentity,
     JoinLedger { url: String },
-    AddMember,
+    AddUser,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -176,13 +176,13 @@ pub fn App() -> impl IntoView {
         let ledger_detail = ledger_detail;
         move || {
             if let Some(detail) = ledger_detail.get() {
-                if detail.members.is_empty() {
+                if detail.users.is_empty() {
                     error_message.set(Some(
-                        "Add at least one ledger member before creating a bill.".to_owned(),
+                        "Add at least one user to the ledger before creating a bill.".to_owned(),
                     ));
                     return;
                 }
-                bill_editor.set(Some(new_bill_seed(&detail.members)));
+                bill_editor.set(Some(new_bill_seed(&detail.users)));
                 error_message.set(None);
             }
         }
@@ -194,7 +194,7 @@ pub fn App() -> impl IntoView {
         move |bill_id: String| {
             if let Some(detail) = ledger_detail.get() {
                 if let Some(bill) = detail.bills.iter().find(|item| item.id == bill_id) {
-                    bill_editor.set(Some(amend_bill_seed(bill, &detail.members)));
+                    bill_editor.set(Some(amend_bill_seed(bill, &detail.users)));
                 }
             }
         }
@@ -470,9 +470,9 @@ pub fn App() -> impl IntoView {
                 }
                     .into_any()
             }
-            OverlayKind::AddMember => {
+            OverlayKind::AddUser => {
                 view! {
-                    <AddMemberSheet
+                    <AddUserSheet
                         on_cancel=Callback::new(move |_| overlay.set(None))
                         on_submit=Callback::new({
                             let overlay = overlay;
@@ -493,12 +493,12 @@ pub fn App() -> impl IntoView {
                                         let load_selected_ledger = load_selected_ledger.clone();
                                         let reload_bootstrap = reload_bootstrap.clone();
                                         async move {
-                                            match api::add_member(AddMemberInput { ledger_id: ledger_id.clone(), display_name }).await {
+                                            match api::add_user(AddUserInput { ledger_id: ledger_id.clone(), display_name }).await {
                                                 Ok(_) => {
                                                     overlay.set(None);
                                                     load_selected_ledger(ledger_id);
                                                     reload_bootstrap();
-                                                    status_message.set(Some("Member added to ledger.".to_owned()));
+                                                    status_message.set(Some("User added to ledger.".to_owned()));
                                                     error_message.set(None);
                                                 }
                                                 Err(error) => error_message.set(Some(error)),
@@ -530,9 +530,9 @@ pub fn App() -> impl IntoView {
                             .get()
                             .map(|detail| detail.summary.currency)
                             .unwrap_or_else(|| "USD".to_owned())
-                        members=ledger_detail
+                        users=ledger_detail
                             .get()
-                            .map(|detail| detail.members)
+                            .map(|detail| detail.users)
                             .unwrap_or_default()
                         seed=seed
                         on_back=Callback::new(move |_| bill_editor.set(None))
@@ -551,7 +551,7 @@ pub fn App() -> impl IntoView {
                             detail=detail
                             invitation_url=invitation_url.get()
                             on_back=Callback::new(move |_| ledger_settings_open.set(false))
-                            on_add_member=Callback::new(move |_| overlay.set(Some(OverlayKind::AddMember)))
+                            on_add_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddUser)))
                             on_create_invitation=Callback::new(move |_| create_invitation())
                             on_copy_invitation=Callback::new(move |_| copy_invitation_url())
                         />
@@ -656,7 +656,7 @@ pub fn App() -> impl IntoView {
             view! {
                 <EmptyColumn
                     title="Select a ledger".to_owned()
-                    detail="Choose a ledger to load bills and member state.".to_owned()
+                    detail="Choose a ledger to load bills and user state.".to_owned()
                 />
             }
             .into_any()
@@ -674,9 +674,9 @@ pub fn App() -> impl IntoView {
                         .get()
                         .map(|detail| detail.summary.currency)
                         .unwrap_or_else(|| "USD".to_owned())
-                    members=ledger_detail
+                    users=ledger_detail
                         .get()
-                        .map(|detail| detail.members)
+                        .map(|detail| detail.users)
                         .unwrap_or_default()
                     seed=seed
                     on_back=Callback::new(move |_| bill_editor.set(None))
@@ -691,7 +691,7 @@ pub fn App() -> impl IntoView {
                         detail=detail
                         invitation_url=invitation_url.get()
                         on_back=Callback::new(move |_| ledger_settings_open.set(false))
-                        on_add_member=Callback::new(move |_| overlay.set(Some(OverlayKind::AddMember)))
+                        on_add_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddUser)))
                         on_create_invitation=Callback::new(move |_| create_invitation())
                         on_copy_invitation=Callback::new(move |_| copy_invitation_url())
                     />
@@ -797,18 +797,18 @@ fn sort_ledgers(ledgers: &mut [LedgerSummary]) {
     );
 }
 
-fn new_bill_seed(members: &[Member]) -> BillEditorSeed {
+fn new_bill_seed(users: &[User]) -> BillEditorSeed {
     BillEditorSeed {
         prev_bill_id: None,
         description: String::new(),
-        payer_user_id: members.first().map(|member| member.user_id.clone()),
+        payer_user_id: users.first().map(|user| user.user_id.clone()),
         amount_text: String::new(),
         share_mode: ShareMode::Equal,
-        participants: members
+        participants: users
             .iter()
-            .map(|member| ParticipantDraft {
-                user_id: member.user_id.clone(),
-                display_name: member.display_name.clone(),
+            .map(|user| ParticipantDraft {
+                user_id: user.user_id.clone(),
+                display_name: user.display_name.clone(),
                 included: true,
                 shares: 1,
             })
@@ -816,7 +816,7 @@ fn new_bill_seed(members: &[Member]) -> BillEditorSeed {
     }
 }
 
-fn amend_bill_seed(bill: &Bill, members: &[Member]) -> BillEditorSeed {
+fn amend_bill_seed(bill: &Bill, users: &[User]) -> BillEditorSeed {
     let shares_by_user = bill
         .shares
         .iter()
@@ -838,13 +838,13 @@ fn amend_bill_seed(bill: &Bill, members: &[Member]) -> BillEditorSeed {
             bill.amount_cents.abs() % 100
         ),
         share_mode,
-        participants: members
+        participants: users
             .iter()
-            .map(|member| ParticipantDraft {
-                user_id: member.user_id.clone(),
-                display_name: member.display_name.clone(),
-                included: shares_by_user.contains_key(&member.user_id),
-                shares: shares_by_user.get(&member.user_id).copied().unwrap_or(1),
+            .map(|user| ParticipantDraft {
+                user_id: user.user_id.clone(),
+                display_name: user.display_name.clone(),
+                included: shares_by_user.contains_key(&user.user_id),
+                shares: shares_by_user.get(&user.user_id).copied().unwrap_or(1),
             })
             .collect(),
     }

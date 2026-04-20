@@ -4,8 +4,8 @@ use tokio::sync::broadcast;
 
 use crate::error::Result;
 use crate::model::{
-    Currency, Device, EffectiveBills, Ledger, Member, NewBill, NewDevice, NewMember, NodeId,
-    Timestamp, Ulid,
+    Currency, Device, EffectiveBills, Ledger, NewBill, NewDevice, NewUser, NodeId, Timestamp, Ulid,
+    User,
 };
 
 use super::ops;
@@ -58,8 +58,8 @@ impl LedgerDoc {
         ops::list_bills(&self.doc)
     }
 
-    pub fn list_members(&self) -> Result<Vec<Member>> {
-        ops::list_members(&self.doc)
+    pub fn list_users(&self) -> Result<Vec<User>> {
+        ops::list_users(&self.doc)
     }
 
     // --- write operations ---
@@ -75,8 +75,8 @@ impl LedgerDoc {
         Ok(id)
     }
 
-    pub fn add_member(&mut self, input: NewMember, now: Timestamp) -> Result<()> {
-        ops::add_member(&mut self.doc, input, now)?;
+    pub fn add_user(&mut self, input: NewUser, now: Timestamp) -> Result<()> {
+        ops::add_user(&mut self.doc, input, now)?;
         let _ = self.changes.send(ChangeEvent::LocalWrite);
         Ok(())
     }
