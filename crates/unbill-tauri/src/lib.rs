@@ -39,6 +39,15 @@ struct LedgerDetailDto {
     summary: LedgerSummaryDto,
     users: Vec<UserDto>,
     bills: Vec<BillDto>,
+    settlement: Vec<TransactionDto>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TransactionDto {
+    from_name: String,
+    to_name: String,
+    amount_cents: i64,
 }
 
 #[derive(Clone, Serialize)]
@@ -375,18 +384,40 @@ async fn load_ledger_detail_inner(
         .with_context(|| format!("ledger {ledger_id} not found"))?;
 
     let summary = summarize_ledger(service, meta).await?;
-    let users = service
-        .list_users(ledger_id)
-        .await?
+    let users = service.list_users(ledger_id).await?;
+    let bills = service.list_bills(ledger_id).await?;
+
+    let user_name_lookup: std::collections::HashMap<Ulid, String> = users
+        .iter()
+        .map(|u| (u.user_id, u.display_name.clone()))
+        .collect();
+
+    let mut balances = std::collections::HashMap::new();
+    unbill_core::settlement::accumulate_balances(&users, &bills, &mut balances);
+    let settlement = unbill_core::settlement::compute_from_balances(balances)
+        .transactions
         .into_iter()
-        .map(UserDto::from)
-        .collect::<Vec<_>>();
-    let bills = map_bills(service, ledger_id).await?;
+        .map(|t| TransactionDto {
+            from_name: user_name_lookup
+                .get(&t.from_user_id)
+                .cloned()
+                .unwrap_or_else(|| t.from_user_id.to_string()),
+            to_name: user_name_lookup
+                .get(&t.to_user_id)
+                .cloned()
+                .unwrap_or_else(|| t.to_user_id.to_string()),
+            amount_cents: t.amount_cents,
+        })
+        .collect();
+
+    let user_dtos = users.into_iter().map(UserDto::from).collect::<Vec<_>>();
+    let bill_dtos = map_bills_from(bills, &user_name_lookup);
 
     Ok(LedgerDetailDto {
         summary,
-        users,
-        bills,
+        users: user_dtos,
+        bills: bill_dtos,
+        settlement,
     })
 }
 
@@ -410,14 +441,10 @@ async fn summarize_ledger(
     })
 }
 
-async fn map_bills(service: &Arc<UnbillService>, ledger_id: &str) -> Result<Vec<BillDto>> {
-    let users = service.list_users(ledger_id).await?;
-    let user_lookup = users
-        .iter()
-        .map(|user| (user.user_id, user.display_name.clone()))
-        .collect::<std::collections::HashMap<_, _>>();
-    let bills = service.list_bills(ledger_id).await?;
-
+fn map_bills_from(
+    bills: unbill_core::model::EffectiveBills,
+    user_lookup: &std::collections::HashMap<Ulid, String>,
+) -> Vec<BillDto> {
     let mut items = bills
         .into_vec()
         .into_iter()
@@ -435,7 +462,7 @@ async fn map_bills(service: &Arc<UnbillService>, ledger_id: &str) -> Result<Vec<
                 amount_cents: bill.amount_cents,
                 description: bill.description,
                 created_at_ms: bill.created_at.as_millis(),
-                payers: bill.payers.into_iter().map(&to_share_dto).collect(),
+                payers: bill.payers.into_iter().map(|s| to_share_dto(s)).collect(),
                 payees: bill.payees.into_iter().map(to_share_dto).collect(),
                 prev: bill.prev.into_iter().map(|prev| prev.to_string()).collect(),
             }
@@ -443,7 +470,7 @@ async fn map_bills(service: &Arc<UnbillService>, ledger_id: &str) -> Result<Vec<
         .collect::<Vec<_>>();
 
     items.sort_by_key(|item| std::cmp::Reverse(item.created_at_ms));
-    Ok(items)
+    items
 }
 
 fn parse_ulid(value: &str) -> Result<Ulid> {

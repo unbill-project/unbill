@@ -42,6 +42,15 @@ pub struct LedgerDetail {
     pub summary: LedgerSummary,
     pub users: Vec<User>,
     pub bills: Vec<Bill>,
+    pub settlement: Vec<Transaction>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Transaction {
+    pub from_name: String,
+    pub to_name: String,
+    pub amount_cents: i64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
