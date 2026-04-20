@@ -107,6 +107,7 @@ pub fn LedgerPage(
     on_new_bill: Callback<()>,
 ) -> impl IntoView {
     let currency = detail.summary.currency.clone();
+    let settlement_currency = currency.clone();
 
     view! {
         <ScreenFrame
@@ -116,6 +117,35 @@ pub fn LedgerPage(
             trailing={view! { <TopBarButton label="More".to_owned() on_press=Callback::new(move |_| on_more.run(())) /> }.into_any()}
             footer={view! { <ActionButton label="New Bill".to_owned() full_width=true on_press=Callback::new(move |_| on_new_bill.run(())) /> }.into_any()}
         >
+            <SectionCard
+                kicker="Settlement".to_owned()
+                title="Suggested transfers".to_owned()
+                description="Minimum transfers to clear all balances in this ledger.".to_owned()
+            >
+                {if detail.settlement.is_empty() {
+                    view! { <div class="empty-copy">"All settled up."</div> }.into_any()
+                } else {
+                    view! {
+                        <div class="stack-gap">
+                            {detail
+                                .settlement
+                                .iter()
+                                .map(|t| {
+                                    view! {
+                                        <ListRow
+                                            title=t.from_name.clone()
+                                            meta=format!("→ {}", t.to_name)
+                                            detail=api::format_money(t.amount_cents, &settlement_currency)
+                                        />
+                                    }
+                                })
+                                .collect_view()}
+                        </div>
+                    }
+                    .into_any()
+                }}
+            </SectionCard>
+
             <SectionCard
                 kicker="Ledger".to_owned()
                 title="Bills".to_owned()
