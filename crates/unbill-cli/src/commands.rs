@@ -5,12 +5,11 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use unbill_core::model::{NewBill, NewMember, NodeId, Share, Ulid};
+use unbill_core::model::{NewBill, NewUser, NodeId, Share, Ulid};
 use unbill_core::service::UnbillService;
 
 use crate::output::{
-    bill_out, fmt_amount, ledger_out, member_out, parse_amount, print_json, settlement_out,
-    truncate,
+    bill_out, fmt_amount, ledger_out, parse_amount, print_json, settlement_out, truncate, user_out,
 };
 
 fn parse_ulid(s: &str) -> anyhow::Result<Ulid> {
@@ -142,20 +141,20 @@ pub async fn ledger_show(svc: &UnbillService, ledger_id: &str, json: bool) -> an
         .find(|m| m.ledger_id.to_string() == ledger_id)
         .ok_or_else(|| anyhow!("ledger not found: {ledger_id}"))?;
     let bills = svc.list_bills(ledger_id).await?;
-    let members = svc.list_members(ledger_id).await?;
+    let users = svc.list_users(ledger_id).await?;
 
     if json {
         print_json(&serde_json::json!({
             "ledger": ledger_out(meta),
             "bill_count": bills.0.len(),
-            "member_count": members.len(),
+            "user_count": users.len(),
         }))?;
     } else {
         println!("ID:       {}", meta.ledger_id);
         println!("Name:     {}", meta.name);
         println!("Currency: {}", meta.currency.code());
         println!("Bills:    {}", bills.0.len());
-        println!("Members:  {}", members.len());
+        println!("Users:    {}", users.len());
     }
     Ok(())
 }
@@ -286,19 +285,19 @@ pub async fn bill_amend(
 }
 
 // ---------------------------------------------------------------------------
-// Members
+// Users
 // ---------------------------------------------------------------------------
 
-pub async fn member_add(
+pub async fn user_add(
     svc: &UnbillService,
     ledger_id: &str,
     user_id: &str,
     name: String,
     added_by: &str,
 ) -> anyhow::Result<()> {
-    svc.add_member(
+    svc.add_user(
         ledger_id,
-        NewMember {
+        NewUser {
             user_id: parse_ulid(user_id)?,
             display_name: name,
             added_by: parse_ulid(added_by)?,
@@ -308,17 +307,17 @@ pub async fn member_add(
     Ok(())
 }
 
-pub async fn member_list(svc: &UnbillService, ledger_id: &str, json: bool) -> anyhow::Result<()> {
-    let members = svc.list_members(ledger_id).await?;
+pub async fn user_list(svc: &UnbillService, ledger_id: &str, json: bool) -> anyhow::Result<()> {
+    let users = svc.list_users(ledger_id).await?;
     if json {
-        print_json(&members.iter().map(member_out).collect::<Vec<_>>())?;
+        print_json(&users.iter().map(user_out).collect::<Vec<_>>())?;
     } else {
-        if members.is_empty() {
-            println!("no members");
+        if users.is_empty() {
+            println!("no users");
             return Ok(());
         }
-        for m in &members {
-            println!("{:26}  {}", m.user_id, m.display_name);
+        for user in &users {
+            println!("{:26}  {}", user.user_id, user.display_name);
         }
     }
     Ok(())

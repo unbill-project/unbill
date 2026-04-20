@@ -9,8 +9,8 @@ use tokio::sync::broadcast;
 use crate::doc::LedgerDoc;
 use crate::error::{Result, UnbillError};
 use crate::model::{
-    Currency, Device, EffectiveBills, Invitation, InviteToken, LedgerMeta, Member, NewBill,
-    NewDevice, NewMember, NodeId, Timestamp, Ulid,
+    Currency, Device, EffectiveBills, Invitation, InviteToken, LedgerMeta, NewBill, NewDevice,
+    NewUser, NodeId, Timestamp, Ulid, User,
 };
 use crate::settlement;
 use crate::storage::LedgerStore;
@@ -113,20 +113,20 @@ impl UnbillService {
     }
 
     // -----------------------------------------------------------------------
-    // Members
+    // Users
     // -----------------------------------------------------------------------
 
-    pub async fn add_member(&self, ledger_id: &str, input: NewMember) -> Result<()> {
+    pub async fn add_user(&self, ledger_id: &str, input: NewUser) -> Result<()> {
         let mut doc = self.load_doc(ledger_id).await?;
-        doc.add_member(input, Timestamp::now())?;
+        doc.add_user(input, Timestamp::now())?;
         let bytes = doc.save();
         self.store.save_ledger_bytes(ledger_id, &bytes).await?;
         self.touch_meta(ledger_id).await?;
         Ok(())
     }
 
-    pub async fn list_members(&self, ledger_id: &str) -> Result<Vec<Member>> {
-        self.load_doc(ledger_id).await?.list_members()
+    pub async fn list_users(&self, ledger_id: &str) -> Result<Vec<User>> {
+        self.load_doc(ledger_id).await?.list_users()
     }
 
     // -----------------------------------------------------------------------
@@ -153,7 +153,7 @@ impl UnbillService {
     /// Compute net settlement for a user across all ledgers they participate in.
     ///
     /// Balances are accumulated from every ledger where the user appears as a
-    /// member or in a bill, then minimum-cash-flow is applied to the combined
+    /// user or in a bill, then minimum-cash-flow is applied to the combined
     /// map. The result is filtered to transactions that involve the given user.
     pub async fn compute_settlement_for_user(
         &self,
@@ -166,11 +166,11 @@ impl UnbillService {
         for meta in self.store.list_ledgers().await? {
             let id = meta.ledger_id.to_string();
             let doc = self.load_doc(&id).await?;
-            let members = doc.list_members()?;
-            // Only aggregate ledgers where this user is an active member.
-            if members.iter().any(|m| m.user_id == user_ulid) {
+            let users = doc.list_users()?;
+            // Only aggregate ledgers where this user is active.
+            if users.iter().any(|user| user.user_id == user_ulid) {
                 let bills = doc.list_bills()?;
-                settlement::accumulate_balances(&members, &bills, &mut balances);
+                settlement::accumulate_balances(&users, &bills, &mut balances);
             }
         }
 
@@ -571,11 +571,11 @@ mod tests {
         (ledger_id.to_owned(), bill)
     }
 
-    async fn seed_members(svc: &UnbillService, ledger_id: &str) {
+    async fn seed_users(svc: &UnbillService, ledger_id: &str) {
         for (n, name) in [(1u128, "Alice"), (2, "Bob")] {
-            svc.add_member(
+            svc.add_user(
                 ledger_id,
-                NewMember {
+                NewUser {
                     user_id: Ulid::from_u128(n),
                     display_name: name.into(),
                     added_by: Ulid::from_u128(1),
@@ -636,7 +636,7 @@ mod tests {
             .create_ledger("Test".into(), usd().into())
             .await
             .unwrap();
-        seed_members(&svc, &lid).await;
+        seed_users(&svc, &lid).await;
         let (_, bill) = two_way_bill("Dinner", 6000, &lid);
         let bill_id = svc.add_bill(&lid, bill).await.unwrap();
 
@@ -653,7 +653,7 @@ mod tests {
             .create_ledger("Test".into(), usd().into())
             .await
             .unwrap();
-        seed_members(&svc, &lid).await;
+        seed_users(&svc, &lid).await;
         let (_, bill) = two_way_bill("Lunch", 3000, &lid);
         let original_id = svc.add_bill(&lid, bill).await.unwrap();
 
@@ -695,7 +695,7 @@ mod tests {
             .create_ledger("Empty".into(), usd().into())
             .await
             .unwrap();
-        seed_members(&svc, &lid).await;
+        seed_users(&svc, &lid).await;
         let alice = Ulid::from_u128(1).to_string();
         let s = svc.compute_settlement_for_user(&alice).await.unwrap();
         assert!(s.transactions.is_empty());
@@ -707,13 +707,13 @@ mod tests {
 
         // Ledger 1: Alice pays $60, Alice+Bob split → Bob owes Alice $30.
         let lid1 = svc.create_ledger("L1".into(), usd().into()).await.unwrap();
-        seed_members(&svc, &lid1).await;
+        seed_users(&svc, &lid1).await;
         let (_, bill1) = two_way_bill("Rent", 6000, &lid1);
         svc.add_bill(&lid1, bill1).await.unwrap();
 
         // Ledger 2: Bob pays $20, Alice+Bob split → Alice owes Bob $10.
         let lid2 = svc.create_ledger("L2".into(), usd().into()).await.unwrap();
-        seed_members(&svc, &lid2).await;
+        seed_users(&svc, &lid2).await;
         let bob_pays = NewBill {
             payer_user_id: Ulid::from_u128(2),
             amount_cents: 2000,
@@ -752,7 +752,7 @@ mod tests {
                 .create_ledger("Persistent".into(), usd().into())
                 .await
                 .unwrap();
-            seed_members(&svc, &lid).await;
+            seed_users(&svc, &lid).await;
             let (_, bill) = two_way_bill("Rent", 120000, &lid);
             svc.add_bill(&lid, bill).await.unwrap();
             lid

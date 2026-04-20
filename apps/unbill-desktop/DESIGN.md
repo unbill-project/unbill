@@ -5,7 +5,7 @@ The React frontend served inside the Tauri webview. Responsible for all user-vis
 ## Views
 
 - **Ledger list** — shows all ledgers; the app's entry point.
-- **Ledger view** — bills, members, and settlement summary for a selected ledger.
+- **Ledger view** — bills, users, and settlement summary for a selected ledger.
 - **Add bill form** — payer, amount, description, and share-weight picker (equal or custom weights).
 - **Settlement view** — who owes whom and the minimum set of transactions.
 

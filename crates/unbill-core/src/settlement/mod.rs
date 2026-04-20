@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::model::{Bill, EffectiveBills, Member, Ulid};
+use crate::model::{Bill, EffectiveBills, Ulid, User};
 
 /// A single suggested settlement transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -20,17 +20,17 @@ pub struct Settlement {
 }
 
 /// Accumulate net balances (positive = owed money, negative = owes money) from
-/// one set of members + bills into an existing balance map.
+/// one set of users + bills into an existing balance map.
 ///
 /// Calling this for multiple ledgers and passing the same map each time produces
 /// cross-ledger aggregated balances.
 pub fn accumulate_balances(
-    members: &[Member],
+    users: &[User],
     bills: &EffectiveBills,
     balances: &mut HashMap<Ulid, i64>,
 ) {
-    for m in members.iter() {
-        balances.entry(m.user_id).or_insert(0);
+    for user in users.iter() {
+        balances.entry(user.user_id).or_insert(0);
     }
     for bill in bills.iter() {
         let share_cents = split_amounts(bill);
@@ -117,12 +117,12 @@ pub fn split_amounts(bill: &Bill) -> Vec<(Ulid, i64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Bill, EffectiveBills, Member, NodeId, Share, Timestamp, Ulid};
+    use crate::model::{Bill, EffectiveBills, NodeId, Share, Timestamp, Ulid, User};
 
-    /// Convenience: compute settlement from a single set of members + bills.
-    fn compute(members: &[Member], bills: &EffectiveBills) -> Settlement {
+    /// Convenience: compute settlement from a single set of users + bills.
+    fn compute(users: &[User], bills: &EffectiveBills) -> Settlement {
         let mut balances = HashMap::new();
-        accumulate_balances(members, bills, &mut balances);
+        accumulate_balances(users, bills, &mut balances);
         compute_from_balances(balances)
     }
 
@@ -134,8 +134,8 @@ mod tests {
         Ulid::from_u128(n)
     }
 
-    fn member(id: Ulid) -> Member {
-        Member {
+    fn user(id: Ulid) -> User {
+        User {
             user_id: id,
             display_name: String::new(),
             added_at: Timestamp::from_millis(0),
@@ -232,12 +232,12 @@ mod tests {
     // --- compute (settlement) ---
 
     fn net_transfer_balances(
-        members: &[Member],
+        users: &[User],
         bills: &EffectiveBills,
     ) -> std::collections::HashMap<Ulid, i64> {
-        let s = compute(members, bills);
+        let s = compute(users, bills);
         let mut bal: std::collections::HashMap<Ulid, i64> =
-            members.iter().map(|m| (m.user_id, 0)).collect();
+            users.iter().map(|user| (user.user_id, 0)).collect();
         for t in &s.transactions {
             *bal.entry(t.from_user_id).or_default() -= t.amount_cents;
             *bal.entry(t.to_user_id).or_default() += t.amount_cents;
@@ -248,14 +248,14 @@ mod tests {
     #[test]
     fn test_settlement_balances_to_zero() {
         // Alice paid $90 for all three; each owes $30. Net: alice +60, bob -30, carol -30.
-        let members = vec![member(alice()), member(bob()), member(carol())];
+        let users = vec![user(alice()), user(bob()), user(carol())];
         let bills = EffectiveBills(vec![equal_bill(
             1,
             alice(),
             9000,
             &[alice(), bob(), carol()],
         )]);
-        let s = compute(&members, &bills);
+        let s = compute(&users, &bills);
         let total_to_alice: i64 = s
             .transactions
             .iter()
@@ -268,12 +268,12 @@ mod tests {
 
     #[test]
     fn test_settlement_net_sum_zero() {
-        let members = vec![member(alice()), member(bob()), member(carol())];
+        let users = vec![user(alice()), user(bob()), user(carol())];
         let bills = EffectiveBills(vec![
             equal_bill(1, alice(), 6000, &[alice(), bob(), carol()]),
             equal_bill(2, bob(), 3000, &[alice(), bob()]),
         ]);
-        let net = net_transfer_balances(&members, &bills);
+        let net = net_transfer_balances(&users, &bills);
         let sum: i64 = net.values().sum();
         assert_eq!(sum, 0);
     }
@@ -281,25 +281,25 @@ mod tests {
     #[test]
     fn test_settlement_at_most_n_minus_one_transactions() {
         let uids: Vec<Ulid> = (0..5u128).map(uid).collect();
-        let members: Vec<Member> = uids.iter().map(|&id| member(id)).collect();
+        let users: Vec<User> = uids.iter().map(|&id| user(id)).collect();
         let bill = equal_bill(1, uids[0], 5000, &uids);
-        let s = compute(&members, &EffectiveBills(vec![bill]));
+        let s = compute(&users, &EffectiveBills(vec![bill]));
         assert!(
-            s.transactions.len() <= members.len() - 1,
-            "got {} transactions for {} members",
+            s.transactions.len() <= users.len() - 1,
+            "got {} transactions for {} users",
             s.transactions.len(),
-            members.len()
+            users.len()
         );
     }
 
     #[test]
     fn test_settlement_already_settled() {
-        let members = vec![member(alice()), member(bob())];
+        let users = vec![user(alice()), user(bob())];
         let bills = EffectiveBills(vec![
             equal_bill(1, alice(), 3000, &[alice(), bob()]),
             equal_bill(2, bob(), 3000, &[alice(), bob()]),
         ]);
-        let s = compute(&members, &bills);
+        let s = compute(&users, &bills);
         assert!(s.transactions.is_empty());
     }
 }

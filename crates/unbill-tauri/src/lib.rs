@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, State};
-use unbill_core::model::{NewBill, NewMember, NodeId, Share, Ulid};
+use unbill_core::model::{NewBill, NewUser, NodeId, Share, Ulid};
 use unbill_core::path::UNBILL_PATH;
 use unbill_core::service::{Identity, UnbillService};
 use unbill_core::storage::FsStore;
@@ -29,7 +29,7 @@ struct LedgerSummaryDto {
     currency: String,
     created_at_ms: i64,
     updated_at_ms: i64,
-    member_count: usize,
+    user_count: usize,
     latest_bill_at_ms: Option<i64>,
 }
 
@@ -37,7 +37,7 @@ struct LedgerSummaryDto {
 #[serde(rename_all = "camelCase")]
 struct LedgerDetailDto {
     summary: LedgerSummaryDto,
-    members: Vec<MemberDto>,
+    users: Vec<UserDto>,
     bills: Vec<BillDto>,
 }
 
@@ -50,7 +50,7 @@ struct IdentityDto {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct MemberDto {
+struct UserDto {
     user_id: String,
     display_name: String,
     added_at_ms: i64,
@@ -101,7 +101,7 @@ struct AddIdentityInput {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct AddMemberInput {
+struct AddUserInput {
     ledger_id: String,
     display_name: String,
 }
@@ -194,27 +194,27 @@ async fn add_identity(
 }
 
 #[tauri::command]
-async fn add_member(
-    input: AddMemberInput,
+async fn add_user(
+    input: AddUserInput,
     state: State<'_, AppState>,
-) -> std::result::Result<MemberDto, String> {
-    let existing_members = state
+) -> std::result::Result<UserDto, String> {
+    let existing_users = state
         .service
-        .list_members(&input.ledger_id)
+        .list_users(&input.ledger_id)
         .await
         .map_err(stringify_error)?;
 
     let user_id = Ulid::new();
-    let added_by = existing_members
+    let added_by = existing_users
         .first()
-        .map(|member| member.user_id)
+        .map(|user| user.user_id)
         .unwrap_or(user_id);
 
     state
         .service
-        .add_member(
+        .add_user(
             &input.ledger_id,
-            NewMember {
+            NewUser {
                 user_id,
                 display_name: input.display_name,
                 added_by,
@@ -223,17 +223,17 @@ async fn add_member(
         .await
         .map_err(stringify_error)?;
 
-    let added_member = state
+    let added_user = state
         .service
-        .list_members(&input.ledger_id)
+        .list_users(&input.ledger_id)
         .await
         .map_err(stringify_error)?
         .into_iter()
-        .find(|member| member.user_id == user_id)
-        .context("new member missing after add")
+        .find(|user| user.user_id == user_id)
+        .context("new user missing after add")
         .map_err(stringify_error)?;
 
-    Ok(MemberDto::from(added_member))
+    Ok(UserDto::from(added_user))
 }
 
 #[tauri::command]
@@ -376,17 +376,17 @@ async fn load_ledger_detail_inner(
         .with_context(|| format!("ledger {ledger_id} not found"))?;
 
     let summary = summarize_ledger(service, meta).await?;
-    let members = service
-        .list_members(ledger_id)
+    let users = service
+        .list_users(ledger_id)
         .await?
         .into_iter()
-        .map(MemberDto::from)
+        .map(UserDto::from)
         .collect::<Vec<_>>();
     let bills = map_bills(service, ledger_id).await?;
 
     Ok(LedgerDetailDto {
         summary,
-        members,
+        users,
         bills,
     })
 }
@@ -396,7 +396,7 @@ async fn summarize_ledger(
     meta: unbill_core::model::LedgerMeta,
 ) -> Result<LedgerSummaryDto> {
     let ledger_id = meta.ledger_id.to_string();
-    let members = service.list_members(&ledger_id).await?;
+    let users = service.list_users(&ledger_id).await?;
     let bills = service.list_bills(&ledger_id).await?;
     let latest_bill_at_ms = bills.iter().map(|bill| bill.created_at.as_millis()).max();
 
@@ -406,16 +406,16 @@ async fn summarize_ledger(
         currency: meta.currency.code().to_owned(),
         created_at_ms: meta.created_at.as_millis(),
         updated_at_ms: meta.updated_at.as_millis(),
-        member_count: members.len(),
+        user_count: users.len(),
         latest_bill_at_ms,
     })
 }
 
 async fn map_bills(service: &Arc<UnbillService>, ledger_id: &str) -> Result<Vec<BillDto>> {
-    let members = service.list_members(ledger_id).await?;
-    let member_lookup = members
+    let users = service.list_users(ledger_id).await?;
+    let user_lookup = users
         .iter()
-        .map(|member| (member.user_id, member.display_name.clone()))
+        .map(|user| (user.user_id, user.display_name.clone()))
         .collect::<std::collections::HashMap<_, _>>();
     let bills = service.list_bills(ledger_id).await?;
 
@@ -425,7 +425,7 @@ async fn map_bills(service: &Arc<UnbillService>, ledger_id: &str) -> Result<Vec<
         .map(|bill| BillDto {
             id: bill.id.to_string(),
             payer_user_id: bill.payer_user_id.to_string(),
-            payer_name: member_lookup
+            payer_name: user_lookup
                 .get(&bill.payer_user_id)
                 .cloned()
                 .unwrap_or_else(|| bill.payer_user_id.to_string()),
@@ -436,7 +436,7 @@ async fn map_bills(service: &Arc<UnbillService>, ledger_id: &str) -> Result<Vec<
                 .shares
                 .into_iter()
                 .map(|share| ShareDto {
-                    display_name: member_lookup
+                    display_name: user_lookup
                         .get(&share.user_id)
                         .cloned()
                         .unwrap_or_else(|| share.user_id.to_string()),
@@ -469,8 +469,8 @@ impl From<Identity> for IdentityDto {
     }
 }
 
-impl From<unbill_core::model::Member> for MemberDto {
-    fn from(value: unbill_core::model::Member) -> Self {
+impl From<unbill_core::model::User> for UserDto {
+    fn from(value: unbill_core::model::User) -> Self {
         Self {
             user_id: value.user_id.to_string(),
             display_name: value.display_name,
@@ -510,7 +510,7 @@ pub fn run() {
             create_ledger,
             load_ledger_detail,
             add_identity,
-            add_member,
+            add_user,
             create_invitation,
             join_ledger,
             save_bill,

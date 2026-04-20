@@ -348,8 +348,8 @@ mod tests {
         )
         .unwrap();
         let payer = Ulid::from_u128(99);
-        base.add_member(
-            crate::model::NewMember {
+        base.add_user(
+            crate::model::NewUser {
                 user_id: payer,
                 display_name: "Payer".to_string(),
                 added_by: payer,

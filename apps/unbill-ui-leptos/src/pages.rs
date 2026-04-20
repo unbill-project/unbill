@@ -1,4 +1,4 @@
-use crate::api::{self, Identity, LedgerDetail, LedgerSummary, Member, SyncDevice};
+use crate::api::{self, Identity, LedgerDetail, LedgerSummary, SyncDevice, User};
 use crate::app::{
     BillEditorSeed, BillSaveRequest, ShareMode, derived_share_preview, parse_amount_text,
     participant_lookup_shares,
@@ -85,7 +85,7 @@ pub fn LedgersPage(
                             view! {
                                 <ListRow
                                     title=ledger.name
-                                    meta=format!("{} members · {}", ledger.member_count, ledger.currency)
+                                    meta=format!("{} users · {}", ledger.user_count, ledger.currency)
                                     detail=detail
                                     selected=selected_ledger_id
                                         .as_ref()
@@ -270,35 +270,35 @@ pub fn LedgerSettingsPage(
     detail: LedgerDetail,
     invitation_url: Option<String>,
     on_back: Callback<()>,
-    on_add_member: Callback<()>,
+    on_add_user: Callback<()>,
     on_create_invitation: Callback<()>,
     on_copy_invitation: Callback<()>,
 ) -> impl IntoView {
     view! {
         <ScreenFrame
             title="Ledger Settings".to_owned()
-            subtitle="Members and invitation flow".to_owned()
+            subtitle="Users and invitation flow".to_owned()
             leading={view! { <TopBarButton label="Back".to_owned() on_press=Callback::new(move |_| on_back.run(())) /> }.into_any()}
         >
             <div class="stack-gap">
                 <SectionCard
-                    kicker="Members".to_owned()
+                    kicker="Users".to_owned()
                     title=detail.summary.name.clone()
                 >
                     <div class="stack-gap">
                         {detail
-                            .members
+                            .users
                             .into_iter()
-                            .map(|member| {
-                                view! { <ListRow title=member.display_name meta=member.user_id /> }
+                            .map(|user| {
+                                view! { <ListRow title=user.display_name meta=user.user_id /> }
                             })
                             .collect_view()}
 
                         <ActionButton
-                            label="Add Member".to_owned()
+                            label="Add User".to_owned()
                             tone=ButtonTone::Secondary
                             full_width=true
-                            on_press=Callback::new(move |_| on_add_member.run(()))
+                            on_press=Callback::new(move |_| on_add_user.run(()))
                         />
                     </div>
                 </SectionCard>
@@ -342,7 +342,7 @@ pub fn LedgerSettingsPage(
 pub fn BillEditorPage(
     title: String,
     currency: String,
-    members: Vec<Member>,
+    users: Vec<User>,
     seed: BillEditorSeed,
     on_back: Callback<()>,
     on_save: Callback<BillSaveRequest>,
@@ -439,12 +439,12 @@ pub fn BillEditorPage(
                                 prop:value=move || payer_user_id.get()
                                 on:change=move |event| payer_user_id.set(event_target_value(&event))
                             >
-                                <option value="">"Select a member"</option>
-                                {members
+                                <option value="">"Select a user"</option>
+                                {users
                                     .iter()
-                                    .map(|member| {
+                                    .map(|user| {
                                         view! {
-                                            <option value=member.user_id.clone()>{member.display_name.clone()}</option>
+                                            <option value=user.user_id.clone()>{user.display_name.clone()}</option>
                                         }
                                     })
                                     .collect_view()}
@@ -655,17 +655,17 @@ pub fn AddIdentitySheet(on_cancel: Callback<()>, on_submit: Callback<String>) ->
 }
 
 #[component]
-pub fn AddMemberSheet(on_cancel: Callback<()>, on_submit: Callback<String>) -> impl IntoView {
+pub fn AddUserSheet(on_cancel: Callback<()>, on_submit: Callback<String>) -> impl IntoView {
     let display_name = RwSignal::new(String::new());
 
     view! {
         <ModalSheet
-            title="Add Member".to_owned()
-            description="Append a member to the current ledger.".to_owned()
+            title="Add User".to_owned()
+            description="Append a user to the current ledger.".to_owned()
             on_close=Callback::new(move |_| on_cancel.run(()))
         >
             <div class="stack-gap">
-                <FieldBlock label="Member name".to_owned()>
+                <FieldBlock label="User name".to_owned()>
                     <input
                         class="ui-input"
                         prop:value=move || display_name.get()
@@ -673,7 +673,7 @@ pub fn AddMemberSheet(on_cancel: Callback<()>, on_submit: Callback<String>) -> i
                     />
                 </FieldBlock>
                 <ActionButton
-                    label="Add Member".to_owned()
+                    label="Add User".to_owned()
                     full_width=true
                     on_press=Callback::new(move |_| on_submit.run(display_name.get()))
                 />

@@ -37,7 +37,7 @@ Selecting a row opens that row's page context. On mobile this pushes a page. On 
 
 Each ledger row shows:
 - Ledger name
-- Member count
+- User count
 - Latest bill timestamp when at least one bill exists
 
 ### Layout
@@ -109,7 +109,7 @@ Payment setup shows:
 - Optional note field
 
 Participant setup shows:
-- Participant list sourced from current ledger members
+- Participant list sourced from current ledger users
 - Per-participant inclusion toggle
 - Split mode control
 - Per-participant share editor when the split mode uses custom shares
@@ -125,9 +125,9 @@ The save action remains visible from the top bar.
 
 - In create mode, initialize fields from ledger defaults and device-local defaults.
 - In amend mode, load the selected bill and populate all fields from the persisted bill data.
-- The payer picker and participant list both load members from the current ledger.
-- The payer must be one of the current ledger members.
-- The participant list is derived from the current ledger members and writes to `shares`.
+- The payer picker and participant list both load users from the current ledger.
+- The payer must be one of the current ledger users.
+- The participant list is derived from the current ledger users and writes to `shares`.
 - Equal split mode assigns `1` share to each included participant.
 - Custom split mode allows editing the integer share value for each included participant.
 - The derived per-participant amount summary recalculates immediately from `amount`, selected participants, and share weights.
@@ -169,13 +169,13 @@ Import actions appear as full-width action rows below the identities block.
 ### Elements
 
 - Top bar title: `Ledger Settings`
-- Scrollable ledger member list
-- `Add Member` button
+- Scrollable ledger user list
+- `Add User` button
 - `Invitation` section
 
-Each ledger member row shows:
-- Member name
-- Member identifier in the ledger
+Each ledger user row shows:
+- User name
+- User identifier in the ledger
 
 The invitation section shows:
 - `Device Invitation` button
@@ -184,15 +184,15 @@ The invitation section shows:
 
 ### Layout
 
-Ledger members appear first as the main content block.
+Ledger users appear first as the main content block.
 
-The invitation section sits below the members list as a dedicated settings block.
+The invitation section sits below the users list as a dedicated settings block.
 
 ### Data Logic
 
-- Load all members in the current ledger.
-- Sort members by creation order within the ledger.
-- Tapping `Add Member` opens a single-name input flow and appends the new member to the ledger on save.
+- Load all users in the current ledger.
+- Sort users by creation order within the ledger.
+- Tapping `Add User` opens a single-name input flow and appends the new user to the ledger on save.
 - Tapping `Device Invitation` generates the invitation URL for the current ledger, stores it in page state, and renders both the QR code and the `Copy URL` button.
 - Tapping `Copy URL` writes the generated invitation URL to the clipboard.
 
