@@ -32,7 +32,7 @@ pub(crate) enum ShareMode {
 }
 
 #[derive(Clone, PartialEq)]
-pub(crate) struct ParticipantDraft {
+pub(crate) struct BillShareDraft {
     pub(crate) user_id: String,
     pub(crate) display_name: String,
     pub(crate) included: bool,
@@ -46,7 +46,7 @@ pub(crate) struct BillEditorSeed {
     pub(crate) payer_user_id: Option<String>,
     pub(crate) amount_text: String,
     pub(crate) share_mode: ShareMode,
-    pub(crate) participants: Vec<ParticipantDraft>,
+    pub(crate) share_rows: Vec<BillShareDraft>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -97,7 +97,9 @@ pub fn App() -> impl IntoView {
                     let selected = selected_ledger_id.get_untracked();
                     let selection_exists = selected
                         .as_ref()
-                        .map(|ledger_id| data.ledgers.iter().any(|item| &item.ledger_id == ledger_id))
+                        .map(|ledger_id| {
+                            data.ledgers.iter().any(|item| &item.ledger_id == ledger_id)
+                        })
                         .unwrap_or(false);
 
                     if !selection_exists {
@@ -637,9 +639,9 @@ fn new_bill_seed(users: &[User]) -> BillEditorSeed {
         payer_user_id: users.first().map(|user| user.user_id.clone()),
         amount_text: String::new(),
         share_mode: ShareMode::Equal,
-        participants: users
+        share_rows: users
             .iter()
-            .map(|user| ParticipantDraft {
+            .map(|user| BillShareDraft {
                 user_id: user.user_id.clone(),
                 display_name: user.display_name.clone(),
                 included: true,
@@ -671,9 +673,9 @@ fn amend_bill_seed(bill: &Bill, users: &[User]) -> BillEditorSeed {
             bill.amount_cents.abs() % 100
         ),
         share_mode,
-        participants: users
+        share_rows: users
             .iter()
-            .map(|user| ParticipantDraft {
+            .map(|user| BillShareDraft {
                 user_id: user.user_id.clone(),
                 display_name: user.display_name.clone(),
                 included: shares_by_user.contains_key(&user.user_id),
@@ -721,29 +723,29 @@ pub(crate) fn parse_amount_text(input: &str) -> Result<i64, String> {
     Ok(units * 100 + cents)
 }
 
-pub(crate) fn participant_lookup_shares(participants: &[ParticipantDraft], user_id: &str) -> u32 {
-    participants
+pub(crate) fn share_lookup_shares(share_rows: &[BillShareDraft], user_id: &str) -> u32 {
+    share_rows
         .iter()
-        .find(|participant| participant.user_id == user_id)
-        .map(|participant| participant.shares)
+        .find(|share_row| share_row.user_id == user_id)
+        .map(|share_row| share_row.shares)
         .unwrap_or(1)
 }
 
 pub(crate) fn derived_share_preview(
     amount_cents: i64,
     share_mode: ShareMode,
-    participants: &[ParticipantDraft],
+    share_rows: &[BillShareDraft],
 ) -> Vec<(String, i64)> {
-    let active = participants
+    let active = share_rows
         .iter()
-        .filter(|participant| participant.included)
-        .map(|participant| {
+        .filter(|share_row| share_row.included)
+        .map(|share_row| {
             (
-                participant.user_id.clone(),
+                share_row.user_id.clone(),
                 if share_mode == ShareMode::Equal {
                     1
                 } else {
-                    participant.shares
+                    share_row.shares
                 },
             )
         })

@@ -98,7 +98,7 @@ The `New Bill` button stays available as the page's primary action.
 
 The form shows two sections:
 - Payment setup
-- Participant setup
+- Share setup
 
 Payment setup shows:
 - Description field
@@ -108,12 +108,12 @@ Payment setup shows:
 - Payment date field
 - Optional note field
 
-Participant setup shows:
-- Participant list sourced from current ledger users
-- Per-participant inclusion toggle
+Share setup shows:
+- User list sourced from current ledger users
+- Per-user inclusion toggle
 - Split mode control
-- Per-participant share editor when the split mode uses custom shares
-- Derived per-participant amount summary
+- Per-user share editor when the split mode uses custom shares
+- Derived per-user amount summary
 
 ### Layout
 
@@ -125,12 +125,12 @@ The save action remains visible from the top bar.
 
 - In create mode, initialize fields from ledger defaults and device-local defaults.
 - In amend mode, load the selected bill and populate all fields from the persisted bill data.
-- The payer picker and participant list both load users from the current ledger.
+- The payer picker and share list both load users from the current ledger.
 - The payer must be one of the current ledger users.
-- The participant list is derived from the current ledger users and writes to `shares`.
-- Equal split mode assigns `1` share to each included participant.
-- Custom split mode allows editing the integer share value for each included participant.
-- The derived per-participant amount summary recalculates immediately from `amount`, selected participants, and share weights.
+- The share list is derived from the current ledger users and writes to `shares`.
+- Equal split mode assigns `1` share to each included user.
+- Custom split mode allows editing the integer share value for each included user.
+- The derived per-user amount summary recalculates immediately from `amount`, selected users, and share weights.
 - Saving validates required fields, creates a new bill entry in the current ledger, and returns to the ledger page with the saved effective bill selected.
 - Saving in amend mode writes the new bill with `prev` containing the superseded bill identifier so the prior bill is no longer effective.
 

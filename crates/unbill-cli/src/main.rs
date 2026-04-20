@@ -129,9 +129,9 @@ pub enum BillCmd {
         amount: String,
         #[arg(long)]
         description: String,
-        /// Participant user IDs (equal shares). Repeat for each participant.
-        #[arg(long = "participant")]
-        participants: Vec<String>,
+        /// User IDs in the bill's share list (equal shares). Repeat for each user.
+        #[arg(long = "share-user")]
+        share_users: Vec<String>,
     },
     /// List all bills in a ledger.
     List {
@@ -151,9 +151,9 @@ pub enum BillCmd {
         amount: String,
         #[arg(long)]
         description: String,
-        /// Participants (equal shares). Repeat for each.
-        #[arg(long = "participant")]
-        participants: Vec<String>,
+        /// User IDs in the bill's share list (equal shares). Repeat for each user.
+        #[arg(long = "share-user")]
+        share_users: Vec<String>,
     },
 }
 
@@ -245,7 +245,7 @@ async fn run() -> anyhow::Result<()> {
                 payer,
                 amount,
                 description,
-                participants,
+                share_users,
             } => {
                 commands::bill_add(
                     &svc,
@@ -253,7 +253,7 @@ async fn run() -> anyhow::Result<()> {
                     &payer,
                     &amount,
                     description,
-                    participants,
+                    share_users,
                     json,
                 )
                 .await
@@ -265,7 +265,7 @@ async fn run() -> anyhow::Result<()> {
                 payer,
                 amount,
                 description,
-                participants,
+                share_users,
             } => {
                 commands::bill_amend(
                     &svc,
@@ -274,7 +274,7 @@ async fn run() -> anyhow::Result<()> {
                     &payer,
                     &amount,
                     description,
-                    participants,
+                    share_users,
                     json,
                 )
                 .await

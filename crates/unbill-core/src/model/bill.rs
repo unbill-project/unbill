@@ -12,8 +12,8 @@ pub struct Bill {
     pub description: String,
     /// Who pays how much, expressed as relative share weights.
     /// Equal split among N people = each person gets 1 share.
-    /// Participants are always derivable from this field; there is no separate
-    /// `participant_user_ids` list.
+    /// The users involved in a bill are always derivable from this field; there
+    /// is no separate list of bill members.
     pub shares: Vec<Share>,
     /// IDs of bills superseded by this one. Empty for original bills.
     /// A bill whose ID appears in any other bill's `prev` is no longer effective.

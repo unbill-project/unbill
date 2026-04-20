@@ -86,8 +86,9 @@ pub fn compute_from_balances(balances: HashMap<Ulid, i64>) -> Settlement {
     Settlement { transactions }
 }
 
-/// Compute the per-participant cent amounts for a bill from its share weights.
-/// Rounding remainder (from integer division) is assigned to the earliest participants.
+/// Compute the per-user cent amounts for a bill from its share weights.
+/// Rounding remainder (from integer division) is assigned to the earliest
+/// users in the share list.
 pub fn split_amounts(bill: &Bill) -> Vec<(Ulid, i64)> {
     let total_shares: u32 = bill.shares.iter().map(|s| s.shares).sum();
     if total_shares == 0 {
@@ -101,7 +102,7 @@ pub fn split_amounts(bill: &Bill) -> Vec<(Ulid, i64)> {
             (s.user_id, amount)
         })
         .collect();
-    // Distribute rounding remainder to the earliest participants.
+    // Distribute rounding remainder to the earliest users in the share list.
     let assigned: i64 = amounts.iter().map(|(_, a)| a).sum();
     let mut remainder = bill.amount_cents - assigned;
     for (_, amount) in amounts.iter_mut() {
@@ -143,14 +144,14 @@ mod tests {
         }
     }
 
-    /// Equal split: give every participant 1 share.
-    fn equal_bill(id: u128, payer: Ulid, amount_cents: i64, participants: &[Ulid]) -> Bill {
+    /// Equal split: give every user in the share list 1 share.
+    fn equal_bill(id: u128, payer: Ulid, amount_cents: i64, share_users: &[Ulid]) -> Bill {
         Bill {
             id: uid(id),
             payer_user_id: payer,
             amount_cents,
             description: String::new(),
-            shares: participants
+            shares: share_users
                 .iter()
                 .map(|&u| Share {
                     user_id: u,
@@ -163,7 +164,7 @@ mod tests {
         }
     }
 
-    // Named test participants.
+    // Named test users.
     fn alice() -> Ulid {
         uid(1)
     }

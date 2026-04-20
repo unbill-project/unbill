@@ -99,7 +99,7 @@ After merging incoming changes into the local document, the net layer saves the 
 
 ## Join protocol (`unbill/join/v1`)
 
-The join flow is about **device authorization only**. It adds a new `NodeId` to `ledger.devices` so that device can participate in future syncs. It does not add a user. Adding oneself as a named participant (user) is a separate operation performed via `user add` after the device has successfully joined and synced the ledger.
+The join flow is about **device authorization only**. It adds a new `NodeId` to `ledger.devices` so that device can take part in future syncs. It does not add a user. Adding oneself as a named user is a separate operation performed via `user add` after the device has successfully joined and synced the ledger.
 
 ### Invite URL
 
@@ -167,7 +167,7 @@ JoinError { reason: String }
 3. Save meta and bytes to `LedgerStore`.
 4. Emit `LedgerUpdated`.
 
-The requester is now authorized to sync. To appear as a named participant in bills, a group user must separately add them via `user add` (any authorized device can do this).
+The requester is now authorized to sync. To appear in bills as a named user, a group user must separately add them via `user add` (any authorized device can do this).
 
 ## Identity protocol (`unbill/identity/v1`)
 

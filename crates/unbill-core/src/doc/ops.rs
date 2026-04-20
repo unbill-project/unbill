@@ -55,8 +55,8 @@ pub(super) fn get_ledger(doc: &AutoCommit) -> Result<Ledger> {
 
 /// Append a new `Bill` to the ledger. Returns the new bill's ID.
 ///
-/// Returns `UserNotInLedger` if the payer or any share participant is not a
-/// user in the ledger.
+/// Returns `UserNotInLedger` if the payer or any user in the share list is not
+/// a user in the ledger.
 pub(super) fn add_bill(
     doc: &mut AutoCommit,
     input: NewBill,
@@ -222,12 +222,12 @@ mod tests {
         doc
     }
 
-    fn simple_bill(payer: Ulid, participants: &[Ulid], amount_cents: i64) -> NewBill {
+    fn simple_bill(payer: Ulid, share_users: &[Ulid], amount_cents: i64) -> NewBill {
         NewBill {
             payer_user_id: payer,
             amount_cents,
             description: "Dinner".into(),
-            shares: participants
+            shares: share_users
                 .iter()
                 .map(|&u| Share {
                     user_id: u,
@@ -312,7 +312,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add_bill_rejects_non_user_participant() {
+    fn test_add_bill_rejects_non_user_share_user() {
         let alice = uid(1);
         let stranger = uid(99);
         let mut doc = doc_with_users(&[alice]);

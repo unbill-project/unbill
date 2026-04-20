@@ -13,7 +13,7 @@ A thin clap-driven command-line frontend for `UnbillService`. Useful for dogfood
 
 - `ledger create | list | show | delete | invite | join` — ledger lifecycle. `ledger create` registers the creator's own device in `ledger.devices`. `ledger invite` generates an `unbill://join/...` URL authorizing a new device to access the ledger; `ledger join <url> [--label <name>]` dials the host and joins.
 - `bill add | list | amend` — bill management. `bill amend` records a new version of an existing bill (same bill ID, all fields required); the latest version becomes the effective bill.
-- `user list | add` — managing named participants in a ledger. Users may not be removed.
+- `user list | add` — managing named users in a ledger. Users may not be removed.
 - `sync daemon | once | status` — P2P sync control. `sync once <peer_node_id>` dials a specific peer and syncs; `sync daemon` opens the endpoint and waits for incoming connections.
 - `settlement <user_id>` — display who owes whom for a user, aggregated across all their ledgers.
 

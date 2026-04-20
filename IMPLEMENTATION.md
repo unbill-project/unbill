@@ -91,7 +91,7 @@ No per-peer sync state is persisted. On reconnect, both sides exchange current h
 1. Any existing authorized device generates an `InviteToken` via `OsRng`, held only in `UnbillService` memory.
 2. Token is delivered out-of-band (QR code, message) as part of a join URL containing the inviting device's `NodeId`.
 3. The joining device connects, presents the token. The token is validated and consumed. The joining device's `NodeId` is appended to the ledger's device list (not to any user record). Full ledger state flows during the immediately following sync.
-4. Users (named participants) are managed separately from devices. A joining user may already have a user record, or may create one after joining.
+4. Users (named people in a ledger) are managed separately from devices. A joining user may already have a user record, or may create one after joining.
 
 ## Settlement algorithm
 
@@ -99,9 +99,9 @@ Settlement is computed per user, not per ledger. Given a user ID, balances are a
 
 Net balance per user = total paid − total owed across all ledgers. Balances across all users sum to zero.
 
-Minimum cash flow via greedy: pair the largest debtor with the largest creditor, transfer the lesser of their absolute balances, remove the satisfied party, repeat. Produces at most n−1 transactions for n participants.
+Minimum cash flow via greedy: pair the largest debtor with the largest creditor, transfer the lesser of their absolute balances, remove the satisfied party, repeat. Produces at most n−1 transactions for n users with non-zero balances.
 
-All arithmetic in integer cents. Rounding is display-only. Remainder cents from awkward divisions are assigned to earliest participants by user ID order — deterministic, so all devices agree.
+All arithmetic in integer cents. Rounding is display-only. Remainder cents from awkward divisions are assigned to the earliest share entries by user ID order — deterministic, so all devices agree.
 
 ## Schema versioning
 

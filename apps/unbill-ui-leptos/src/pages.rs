@@ -1,7 +1,7 @@
 use crate::api::{self, Identity, LedgerDetail, LedgerSummary, SyncDevice, User};
 use crate::app::{
     BillEditorSeed, BillSaveRequest, ShareMode, derived_share_preview, parse_amount_text,
-    participant_lookup_shares,
+    share_lookup_shares,
 };
 use crate::components::{
     ActionButton, ButtonTone, FieldBlock, ListRow, ModalSheet, ScreenFrame, SectionCard, TagPill,
@@ -347,7 +347,7 @@ pub fn BillEditorPage(
     let amount_text = RwSignal::new(seed.amount_text);
     let payer_user_id = RwSignal::new(seed.payer_user_id.unwrap_or_default());
     let share_mode = RwSignal::new(seed.share_mode);
-    let participants = RwSignal::new(seed.participants);
+    let share_rows = RwSignal::new(seed.share_rows);
     let validation_error = RwSignal::new(None::<String>);
     let currency_field_value = currency.clone();
     let split_currency = currency.clone();
@@ -367,27 +367,25 @@ pub fn BillEditorPage(
             return;
         }
 
-        let active_participants = participants
+        let active_share_rows = share_rows
             .get()
             .into_iter()
-            .filter(|participant| participant.included)
+            .filter(|share_row| share_row.included)
             .collect::<Vec<_>>();
 
-        if active_participants.is_empty() {
-            validation_error.set(Some(
-                "Select at least one participant before saving.".to_owned(),
-            ));
+        if active_share_rows.is_empty() {
+            validation_error.set(Some("Select at least one user before saving.".to_owned()));
             return;
         }
 
-        let shares = active_participants
+        let shares = active_share_rows
             .into_iter()
-            .map(|participant| crate::api::BillShareInput {
-                user_id: participant.user_id,
+            .map(|share_row| crate::api::BillShareInput {
+                user_id: share_row.user_id,
                 shares: if share_mode.get() == ShareMode::Equal {
                     1
                 } else {
-                    participant.shares
+                    share_row.shares
                 },
             })
             .collect::<Vec<_>>();
@@ -410,7 +408,7 @@ pub fn BillEditorPage(
     view! {
         <ScreenFrame
             title=title
-            subtitle="Description, payer, amount, and participant shares".to_owned()
+            subtitle="Description, payer, amount, and share weights".to_owned()
             leading={view! { <TopBarButton label="Back".to_owned() on_press=Callback::new(move |_| on_back.run(())) /> }.into_any()}
             trailing={view! { <ActionButton label="Save".to_owned() tone=ButtonTone::Secondary on_press=Callback::new(save_click) /> }.into_any()}
         >
@@ -463,9 +461,9 @@ pub fn BillEditorPage(
                 </SectionCard>
 
                 <SectionCard
-                    kicker="Participants".to_owned()
+                    kicker="Shares".to_owned()
                     title="Share split".to_owned()
-                    description="Equal split assigns one share per active participant.".to_owned()
+                    description="Equal split assigns one share per active user.".to_owned()
                 >
                     <div class="stack-gap">
                         <div class="chip-row">
@@ -500,33 +498,33 @@ pub fn BillEditorPage(
                         {move || {
                             let current_mode = share_mode.get();
                             let current_amount = parse_amount_text(&amount_text.get()).unwrap_or(0);
-                            let current_rows = participants.get();
+                            let current_rows = share_rows.get();
                             let preview = derived_share_preview(current_amount, current_mode, &current_rows);
 
                             current_rows
                                 .into_iter()
-                                .map(|participant| {
-                                    let participant_id = participant.user_id.clone();
-                                    let toggle_participant_id = participant_id.clone();
-                                    let share_participant_id = participant_id.clone();
-                                    let share_value_id = participant_id.clone();
-                                    let display_name = participant.display_name.clone();
+                                .map(|share_row| {
+                                    let user_id = share_row.user_id.clone();
+                                    let toggle_user_id = user_id.clone();
+                                    let share_user_id = user_id.clone();
+                                    let share_value_user_id = user_id.clone();
+                                    let display_name = share_row.display_name.clone();
                                     let preview_text = preview
                                         .iter()
-                                        .find(|(user_id, _)| user_id == &participant_id)
+                                        .find(|(preview_user_id, _)| preview_user_id == &user_id)
                                         .map(|(_, cents)| api::format_money(*cents, &split_currency))
                                         .unwrap_or_else(|| format!("{} 0.00", split_currency));
 
                                     view! {
-                                        <div class="participant-row">
-                                            <label class="participant-toggle">
+                                        <div class="share-row">
+                                            <label class="share-toggle">
                                                 <input
                                                     type="checkbox"
-                                                    prop:checked=participant.included
+                                                    prop:checked=share_row.included
                                                     on:change=move |event| {
                                                         let checked = event_target_checked(&event);
-                                                        participants.update(|items| {
-                                                            if let Some(item) = items.iter_mut().find(|item| item.user_id == toggle_participant_id) {
+                                                        share_rows.update(|items| {
+                                                            if let Some(item) = items.iter_mut().find(|item| item.user_id == toggle_user_id) {
                                                                 item.included = checked;
                                                             }
                                                         });
@@ -535,20 +533,20 @@ pub fn BillEditorPage(
                                                 <span>{display_name}</span>
                                             </label>
 
-                                            <div class="participant-side">
+                                            <div class="share-side">
                                                 {if current_mode == ShareMode::Custom {
                                                     view! {
                                                         <input
-                                                            class="participant-share-input"
-                                                            prop:value=participant_lookup_shares(&participants.get(), &share_value_id).to_string()
+                                                            class="share-input"
+                                                            prop:value=share_lookup_shares(&share_rows.get(), &share_value_user_id).to_string()
                                                             on:input=move |event| {
                                                                 let value = event_target_value(&event)
                                                                     .parse::<u32>()
                                                                     .ok()
                                                                     .filter(|value| *value > 0)
                                                                     .unwrap_or(1);
-                                                                participants.update(|items| {
-                                                                    if let Some(item) = items.iter_mut().find(|item| item.user_id == share_participant_id) {
+                                                                share_rows.update(|items| {
+                                                                    if let Some(item) = items.iter_mut().find(|item| item.user_id == share_user_id) {
                                                                         item.shares = value;
                                                                     }
                                                                 });
@@ -559,7 +557,7 @@ pub fn BillEditorPage(
                                                 } else {
                                                     view! { <TagPill label="1 share".to_owned() active=true /> }.into_any()
                                                 }}
-                                                <span class="participant-amount">{preview_text}</span>
+                                                <span class="share-amount">{preview_text}</span>
                                             </div>
                                         </div>
                                     }

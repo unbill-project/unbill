@@ -174,18 +174,18 @@ pub async fn bill_add(
     payer: &str,
     amount: &str,
     description: String,
-    participants: Vec<String>,
+    share_users: Vec<String>,
     json: bool,
 ) -> anyhow::Result<()> {
     let payer_id = parse_ulid(payer)?;
     let amount_cents = parse_amount(amount)?;
-    let shares = if participants.is_empty() {
+    let shares = if share_users.is_empty() {
         vec![Share {
             user_id: payer_id,
             shares: 1,
         }]
     } else {
-        participants
+        share_users
             .iter()
             .map(|p| {
                 parse_ulid(p).map(|u| Share {
@@ -247,7 +247,7 @@ pub async fn bill_amend(
     payer: &str,
     amount: &str,
     description: String,
-    participants: Vec<String>,
+    share_users: Vec<String>,
     json: bool,
 ) -> anyhow::Result<()> {
     let prev_ids = prev
@@ -255,7 +255,7 @@ pub async fn bill_amend(
         .map(|p| parse_ulid(p))
         .collect::<anyhow::Result<Vec<_>>>()?;
     let amount_cents = parse_amount(amount)?;
-    let shares = participants
+    let shares = share_users
         .iter()
         .map(|p| {
             parse_ulid(p).map(|u| Share {

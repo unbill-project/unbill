@@ -157,7 +157,7 @@ fn add_bill(
     payer: &str,
     amount: &str,
     desc: &str,
-    participants: &[&str],
+    share_users: &[&str],
 ) -> String {
     let mut args = vec![
         "bill",
@@ -171,9 +171,9 @@ fn add_bill(
         "--description",
         desc,
     ];
-    for p in participants {
-        args.push("--participant");
-        args.push(p);
+    for user_id in share_users {
+        args.push("--share-user");
+        args.push(user_id);
     }
     let v = env.json(&args);
     v["bill_id"].as_str().unwrap().to_owned()
@@ -326,9 +326,9 @@ fn test_amend_bill_supersedes_original() {
         "12.50",
         "--description",
         "Lunch + coffee",
-        "--participant",
+        "--share-user",
         ALICE,
-        "--participant",
+        "--share-user",
         BOB,
     ]);
     let new_bid = amended["bill_id"].as_str().unwrap();
@@ -443,9 +443,9 @@ fn test_amendments_persist_across_process_restarts() {
         "15",
         "--description",
         "Coffee",
-        "--participant",
+        "--share-user",
         ALICE,
-        "--participant",
+        "--share-user",
         BOB,
     ]);
 
@@ -494,9 +494,9 @@ fn test_add_bill_rejects_non_user() {
         "10",
         "--description",
         "Test",
-        "--participant",
+        "--share-user",
         ALICE,
-        "--participant",
+        "--share-user",
         BOB,
     ]);
     assert!(

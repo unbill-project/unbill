@@ -9,7 +9,7 @@ Think of it as "Splitwise without servers."
 ## What is it?
 
 A group of friends shares a **ledger**: a history of expenses, who paid, and who owes whom.
-Each participant runs unbill on their own device. **There is no central server.**
+Each group member runs unbill on their own device. **There is no central server.**
 Devices sync directly with each other over P2P networking (Iroh/QUIC) when online;
 changes made while offline propagate automatically once connectivity returns.
 

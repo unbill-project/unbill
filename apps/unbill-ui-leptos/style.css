@@ -476,7 +476,7 @@ textarea {
 .sheet-description,
 .empty-copy,
 .invite-url,
-.participant-amount {
+.share-amount {
   margin: 8px 0 0;
   color: var(--text-body);
   line-height: 1.5;
@@ -503,7 +503,7 @@ textarea {
   font-size: 0.9rem;
 }
 
-.participant-row {
+.share-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
@@ -525,19 +525,19 @@ textarea {
   background: rgba(255, 250, 242, 0.86);
 }
 
-.participant-toggle {
+.share-toggle {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.participant-side {
+.share-side {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.participant-share-input {
+.share-input {
   width: 74px;
   padding: 10px 12px;
   border: 1px solid var(--line-strong);
@@ -614,11 +614,11 @@ textarea {
     flex-wrap: wrap;
   }
 
-  .participant-row {
+  .share-row {
     grid-template-columns: 1fr;
   }
 
-  .participant-side {
+  .share-side {
     justify-content: space-between;
   }
 }

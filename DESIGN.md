@@ -4,7 +4,7 @@ A fully decentralized, peer-to-peer, offline-first bill-splitting app. No centra
 
 ## What it is
 
-Groups share a **ledger** — a history of expenses: who paid, how much, and how costs are split. Each participant runs unbill on their own device. Devices sync directly when online; changes made offline propagate automatically on reconnect.
+Groups share a **ledger** — a history of expenses: who paid, how much, and how costs are split. Each group member runs unbill on their own device. Devices sync directly when online; changes made offline propagate automatically on reconnect.
 
 ## What it is not
 
@@ -34,7 +34,7 @@ A person splitting expenses with a small group — roommates, a couple, a travel
 A shared expense context — "our household," "the Iceland trip." Contains users, authorized devices, and bills. Each ledger is independent; a user may have many.
 
 ### User
-A named participant in a ledger, identified by a stable user ID. Users have no device binding — any authorized device may record bills on behalf of any user. Users are append-only; once added they are never removed. A user must exist in the ledger before they can appear as a payer or participant on any bill.
+A named person in a ledger, identified by a stable user ID. Users have no device binding — any authorized device may record bills on behalf of any user. Users are append-only; once added they are never removed. A user must exist in the ledger before they can appear as a payer or in any bill share list.
 
 ### Device
 A physical device authorized to sync a ledger, identified by its Ed25519 `NodeId`. Devices are associated with the ledger, not with individual users. Any device in a ledger's device list may submit bills for any user — the trust model is "everyone in the group trusts everyone else's device." Devices are append-only; once authorized they are never removed from the list.
