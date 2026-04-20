@@ -26,11 +26,7 @@ pub fn StatusStrip(status: Option<String>, error: Option<String>, busy: bool) ->
         <section class=class_name>
             <div class="status-copy">
                 {message.unwrap_or_default()}
-                {if busy {
-                    view! { <span class="status-chip">"Working"</span> }.into_any()
-                } else {
-                    view! {}.into_any()
-                }}
+                {busy.then(|| view! { <span class="status-chip">"Working"</span> })}
             </div>
         </section>
     }

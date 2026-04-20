@@ -73,284 +73,178 @@ pub fn App() -> impl IntoView {
     let error_message = RwSignal::new(None::<String>);
     let busy = RwSignal::new(false);
 
-    let load_selected_ledger = {
-        let ledger_detail = ledger_detail;
-        let selected_ledger_id = selected_ledger_id;
-        let error_message = error_message;
-        let busy = busy;
-        move |ledger_id: String| {
-            selected_ledger_id.set(Some(ledger_id.clone()));
-            busy.set(true);
-            spawn_local({
-                let ledger_detail = ledger_detail;
-                let error_message = error_message;
-                let busy = busy;
-                async move {
-                    match api::load_ledger_detail(&ledger_id).await {
-                        Ok(detail) => {
-                            ledger_detail.set(Some(detail));
-                            error_message.set(None);
-                        }
-                        Err(error) => error_message.set(Some(error)),
-                    }
-                    busy.set(false);
+    let load_selected_ledger = move |ledger_id: String| {
+        selected_ledger_id.set(Some(ledger_id.clone()));
+        busy.set(true);
+        spawn_local(async move {
+            match api::load_ledger_detail(&ledger_id).await {
+                Ok(detail) => {
+                    ledger_detail.set(Some(detail));
+                    error_message.set(None);
                 }
-            });
-        }
+                Err(error) => error_message.set(Some(error)),
+            }
+            busy.set(false);
+        });
     };
 
-    let reload_bootstrap = {
-        let bootstrap = bootstrap;
-        let selected_ledger_id = selected_ledger_id;
-        let ledger_detail = ledger_detail;
-        let error_message = error_message;
-        let busy = busy;
-        move || {
-            busy.set(true);
-            spawn_local({
-                let bootstrap = bootstrap;
-                let selected_ledger_id = selected_ledger_id;
-                let ledger_detail = ledger_detail;
-                let error_message = error_message;
-                let busy = busy;
-                async move {
-                    match api::bootstrap_app().await {
-                        Ok(mut data) => {
-                            sort_ledgers(&mut data.ledgers);
-                            let selected = selected_ledger_id.get_untracked();
-                            let selection_exists = selected
-                                .as_ref()
-                                .map(|ledger_id| {
-                                    data.ledgers.iter().any(|item| &item.ledger_id == ledger_id)
-                                })
-                                .unwrap_or(false);
+    let reload_bootstrap = move || {
+        busy.set(true);
+        spawn_local(async move {
+            match api::bootstrap_app().await {
+                Ok(mut data) => {
+                    sort_ledgers(&mut data.ledgers);
+                    let selected = selected_ledger_id.get_untracked();
+                    let selection_exists = selected
+                        .as_ref()
+                        .map(|ledger_id| data.ledgers.iter().any(|item| &item.ledger_id == ledger_id))
+                        .unwrap_or(false);
 
-                            if !selection_exists {
-                                selected_ledger_id.set(None);
-                                ledger_detail.set(None);
-                            }
-
-                            if let Some(ledger_id) = selected {
-                                if selection_exists {
-                                    match api::load_ledger_detail(&ledger_id).await {
-                                        Ok(detail) => ledger_detail.set(Some(detail)),
-                                        Err(error) => {
-                                            ledger_detail.set(None);
-                                            error_message.set(Some(error));
-                                        }
-                                    }
-                                }
-                            }
-
-                            bootstrap.set(Some(data));
-                            error_message.set(None);
-                        }
-                        Err(error) => error_message.set(Some(error)),
+                    if !selection_exists {
+                        selected_ledger_id.set(None);
+                        ledger_detail.set(None);
                     }
-                    busy.set(false);
+
+                    if let Some(ledger_id) = selected
+                        && selection_exists
+                    {
+                        match api::load_ledger_detail(&ledger_id).await {
+                            Ok(detail) => ledger_detail.set(Some(detail)),
+                            Err(error) => {
+                                ledger_detail.set(None);
+                                error_message.set(Some(error));
+                            }
+                        }
+                    }
+
+                    bootstrap.set(Some(data));
+                    error_message.set(None);
                 }
-            });
-        }
+                Err(error) => error_message.set(Some(error)),
+            }
+            busy.set(false);
+        });
     };
 
     reload_bootstrap();
 
-    let open_ledger = {
-        let device_settings_open = device_settings_open;
-        let ledger_settings_open = ledger_settings_open;
-        let invitation_url = invitation_url;
-        let bill_editor = bill_editor;
-        let load_selected_ledger = load_selected_ledger.clone();
-        move |ledger_id: String| {
-            device_settings_open.set(false);
-            ledger_settings_open.set(false);
-            invitation_url.set(None);
-            bill_editor.set(None);
-            load_selected_ledger(ledger_id);
-        }
+    let open_ledger = move |ledger_id: String| {
+        device_settings_open.set(false);
+        ledger_settings_open.set(false);
+        invitation_url.set(None);
+        bill_editor.set(None);
+        load_selected_ledger(ledger_id);
     };
 
-    let open_new_bill = {
-        let bill_editor = bill_editor;
-        let error_message = error_message;
-        let ledger_detail = ledger_detail;
-        move || {
-            if let Some(detail) = ledger_detail.get() {
-                if detail.users.is_empty() {
-                    error_message.set(Some(
-                        "Add at least one user to the ledger before creating a bill.".to_owned(),
-                    ));
-                    return;
-                }
-                bill_editor.set(Some(new_bill_seed(&detail.users)));
-                error_message.set(None);
+    let open_new_bill = move || {
+        if let Some(detail) = ledger_detail.get() {
+            if detail.users.is_empty() {
+                error_message.set(Some(
+                    "Add at least one user to the ledger before creating a bill.".to_owned(),
+                ));
+                return;
             }
+            bill_editor.set(Some(new_bill_seed(&detail.users)));
+            error_message.set(None);
         }
     };
 
-    let open_bill_amend = {
-        let ledger_detail = ledger_detail;
-        let bill_editor = bill_editor;
-        move |bill_id: String| {
-            if let Some(detail) = ledger_detail.get() {
-                if let Some(bill) = detail.bills.iter().find(|item| item.id == bill_id) {
-                    bill_editor.set(Some(amend_bill_seed(bill, &detail.users)));
-                }
-            }
+    let open_bill_amend = move |bill_id: String| {
+        if let Some(detail) = ledger_detail.get()
+            && let Some(bill) = detail.bills.iter().find(|item| item.id == bill_id)
+        {
+            bill_editor.set(Some(amend_bill_seed(bill, &detail.users)));
         }
     };
 
-    let save_bill = {
-        let selected_ledger_id = selected_ledger_id;
-        let bill_editor = bill_editor;
-        let error_message = error_message;
-        let status_message = status_message;
-        let busy = busy;
-        let reload_bootstrap = reload_bootstrap.clone();
-        let load_selected_ledger = load_selected_ledger.clone();
-        move |request: BillSaveRequest| {
-            if let Some(ledger_id) = selected_ledger_id.get() {
-                busy.set(true);
-                spawn_local({
-                    let bill_editor = bill_editor;
-                    let error_message = error_message;
-                    let status_message = status_message;
-                    let busy = busy;
-                    let reload_bootstrap = reload_bootstrap.clone();
-                    let load_selected_ledger = load_selected_ledger.clone();
-                    async move {
-                        match api::save_bill(SaveBillInput {
-                            ledger_id: ledger_id.clone(),
-                            description: request.description,
-                            payer_user_id: request.payer_user_id,
-                            amount_cents: request.amount_cents,
-                            shares: request.shares,
-                            prev_bill_id: request.prev_bill_id,
-                        })
-                        .await
-                        {
-                            Ok(_) => {
-                                bill_editor.set(None);
-                                status_message.set(Some("Bill saved.".to_owned()));
-                                error_message.set(None);
-                                load_selected_ledger(ledger_id);
-                                reload_bootstrap();
-                            }
-                            Err(error) => error_message.set(Some(error)),
-                        }
-                        busy.set(false);
-                    }
-                });
-            }
-        }
-    };
-
-    let create_invitation = {
-        let selected_ledger_id = selected_ledger_id;
-        let invitation_url = invitation_url;
-        let error_message = error_message;
-        let status_message = status_message;
-        let busy = busy;
-        move || {
-            if let Some(ledger_id) = selected_ledger_id.get() {
-                busy.set(true);
-                spawn_local({
-                    let invitation_url = invitation_url;
-                    let error_message = error_message;
-                    let status_message = status_message;
-                    let busy = busy;
-                    async move {
-                        match api::create_invitation(&ledger_id).await {
-                            Ok(url) => {
-                                invitation_url.set(Some(url));
-                                status_message.set(Some("Invitation URL generated.".to_owned()));
-                                error_message.set(None);
-                            }
-                            Err(error) => error_message.set(Some(error)),
-                        }
-                        busy.set(false);
-                    }
-                });
-            }
-        }
-    };
-
-    let copy_invitation_url = {
-        let invitation_url = invitation_url;
-        let error_message = error_message;
-        let status_message = status_message;
-        move || {
-            if let Some(url) = invitation_url.get() {
-                spawn_local({
-                    let error_message = error_message;
-                    let status_message = status_message;
-                    async move {
-                        match api::write_clipboard_text(&url).await {
-                            Ok(()) => {
-                                status_message.set(Some("Invitation URL copied.".to_owned()));
-                                error_message.set(None);
-                            }
-                            Err(error) => error_message.set(Some(error)),
-                        }
-                    }
-                });
-            }
-        }
-    };
-
-    let open_join_from_clipboard = {
-        let overlay = overlay;
-        let error_message = error_message;
-        move || {
-            spawn_local({
-                let overlay = overlay;
-                let error_message = error_message;
-                async move {
-                    match api::read_clipboard_text().await {
-                        Ok(url) if !url.trim().is_empty() => {
-                            overlay.set(Some(OverlayKind::JoinLedger { url }));
-                            error_message.set(None);
-                        }
-                        Ok(_) => error_message.set(Some("Clipboard is empty.".to_owned())),
-                        Err(error) => error_message.set(Some(error)),
-                    }
-                }
-            });
-        }
-    };
-
-    let sync_device = {
-        let error_message = error_message;
-        let status_message = status_message;
-        let busy = busy;
-        let reload_bootstrap = reload_bootstrap.clone();
-        let selected_ledger_id = selected_ledger_id;
-        let load_selected_ledger = load_selected_ledger.clone();
-        move |peer_node_id: String| {
+    let save_bill = move |request: BillSaveRequest| {
+        if let Some(ledger_id) = selected_ledger_id.get() {
             busy.set(true);
-            spawn_local({
-                let error_message = error_message;
-                let status_message = status_message;
-                let busy = busy;
-                let reload_bootstrap = reload_bootstrap.clone();
-                let selected_ledger_id = selected_ledger_id;
-                let load_selected_ledger = load_selected_ledger.clone();
-                async move {
-                    match api::sync_once(&peer_node_id).await {
-                        Ok(()) => {
-                            status_message.set(Some("Sync completed.".to_owned()));
-                            error_message.set(None);
-                            if let Some(ledger_id) = selected_ledger_id.get_untracked() {
-                                load_selected_ledger(ledger_id);
-                            }
-                            reload_bootstrap();
-                        }
-                        Err(error) => error_message.set(Some(error)),
+            spawn_local(async move {
+                match api::save_bill(SaveBillInput {
+                    ledger_id: ledger_id.clone(),
+                    description: request.description,
+                    payer_user_id: request.payer_user_id,
+                    amount_cents: request.amount_cents,
+                    shares: request.shares,
+                    prev_bill_id: request.prev_bill_id,
+                })
+                .await
+                {
+                    Ok(_) => {
+                        bill_editor.set(None);
+                        status_message.set(Some("Bill saved.".to_owned()));
+                        error_message.set(None);
+                        load_selected_ledger(ledger_id);
+                        reload_bootstrap();
                     }
-                    busy.set(false);
+                    Err(error) => error_message.set(Some(error)),
+                }
+                busy.set(false);
+            });
+        }
+    };
+
+    let create_invitation = move || {
+        if let Some(ledger_id) = selected_ledger_id.get() {
+            busy.set(true);
+            spawn_local(async move {
+                match api::create_invitation(&ledger_id).await {
+                    Ok(url) => {
+                        invitation_url.set(Some(url));
+                        status_message.set(Some("Invitation URL generated.".to_owned()));
+                        error_message.set(None);
+                    }
+                    Err(error) => error_message.set(Some(error)),
+                }
+                busy.set(false);
+            });
+        }
+    };
+
+    let copy_invitation_url = move || {
+        if let Some(url) = invitation_url.get() {
+            spawn_local(async move {
+                match api::write_clipboard_text(&url).await {
+                    Ok(()) => {
+                        status_message.set(Some("Invitation URL copied.".to_owned()));
+                        error_message.set(None);
+                    }
+                    Err(error) => error_message.set(Some(error)),
                 }
             });
         }
+    };
+
+    let open_join_from_clipboard = move || {
+        spawn_local(async move {
+            match api::read_clipboard_text().await {
+                Ok(url) if !url.trim().is_empty() => {
+                    overlay.set(Some(OverlayKind::JoinLedger { url }));
+                    error_message.set(None);
+                }
+                Ok(_) => error_message.set(Some("Clipboard is empty.".to_owned())),
+                Err(error) => error_message.set(Some(error)),
+            }
+        });
+    };
+
+    let sync_device = move |peer_node_id: String| {
+        busy.set(true);
+        spawn_local(async move {
+            match api::sync_once(&peer_node_id).await {
+                Ok(()) => {
+                    status_message.set(Some("Sync completed.".to_owned()));
+                    error_message.set(None);
+                    if let Some(ledger_id) = selected_ledger_id.get_untracked() {
+                        load_selected_ledger(ledger_id);
+                    }
+                    reload_bootstrap();
+                }
+                Err(error) => error_message.set(Some(error)),
+            }
+            busy.set(false);
+        });
     };
 
     let render_overlay = move || {
@@ -359,37 +253,21 @@ pub fn App() -> impl IntoView {
                 view! {
                     <CreateLedgerSheet
                         on_cancel=Callback::new(move |_| overlay.set(None))
-                        on_submit=Callback::new({
-                            let overlay = overlay;
-                            let open_ledger = open_ledger.clone();
-                            let reload_bootstrap = reload_bootstrap.clone();
-                            let error_message = error_message;
-                            let status_message = status_message;
-                            let busy = busy;
-                            move |(name, currency): (String, String)| {
-                                busy.set(true);
-                                spawn_local({
-                                    let overlay = overlay;
-                                    let open_ledger = open_ledger.clone();
-                                    let reload_bootstrap = reload_bootstrap.clone();
-                                    let error_message = error_message;
-                                    let status_message = status_message;
-                                    let busy = busy;
-                                    async move {
-                                        match api::create_ledger(api::CreateLedgerInput { name, currency }).await {
-                                            Ok(summary) => {
-                                                overlay.set(None);
-                                                reload_bootstrap();
-                                                open_ledger(summary.ledger_id);
-                                                status_message.set(Some("Ledger created.".to_owned()));
-                                                error_message.set(None);
-                                            }
-                                            Err(error) => error_message.set(Some(error)),
-                                        }
-                                        busy.set(false);
+                        on_submit=Callback::new(move |(name, currency): (String, String)| {
+                            busy.set(true);
+                            spawn_local(async move {
+                                match api::create_ledger(api::CreateLedgerInput { name, currency }).await {
+                                    Ok(summary) => {
+                                        overlay.set(None);
+                                        reload_bootstrap();
+                                        open_ledger(summary.ledger_id);
+                                        status_message.set(Some("Ledger created.".to_owned()));
+                                        error_message.set(None);
                                     }
-                                });
-                            }
+                                    Err(error) => error_message.set(Some(error)),
+                                }
+                                busy.set(false);
+                            });
                         })
                     />
                 }
@@ -399,34 +277,20 @@ pub fn App() -> impl IntoView {
                 view! {
                     <AddIdentitySheet
                         on_cancel=Callback::new(move |_| overlay.set(None))
-                        on_submit=Callback::new({
-                            let overlay = overlay;
-                            let reload_bootstrap = reload_bootstrap.clone();
-                            let error_message = error_message;
-                            let status_message = status_message;
-                            let busy = busy;
-                            move |display_name: String| {
-                                busy.set(true);
-                                spawn_local({
-                                    let overlay = overlay;
-                                    let reload_bootstrap = reload_bootstrap.clone();
-                                    let error_message = error_message;
-                                    let status_message = status_message;
-                                    let busy = busy;
-                                    async move {
-                                        match api::add_identity(AddIdentityInput { display_name }).await {
-                                            Ok(_) => {
-                                                overlay.set(None);
-                                                reload_bootstrap();
-                                                status_message.set(Some("Identity saved on this device.".to_owned()));
-                                                error_message.set(None);
-                                            }
-                                            Err(error) => error_message.set(Some(error)),
-                                        }
-                                        busy.set(false);
+                        on_submit=Callback::new(move |display_name: String| {
+                            busy.set(true);
+                            spawn_local(async move {
+                                match api::add_identity(AddIdentityInput { display_name }).await {
+                                    Ok(_) => {
+                                        overlay.set(None);
+                                        reload_bootstrap();
+                                        status_message.set(Some("Identity saved on this device.".to_owned()));
+                                        error_message.set(None);
                                     }
-                                });
-                            }
+                                    Err(error) => error_message.set(Some(error)),
+                                }
+                                busy.set(false);
+                            });
                         })
                     />
                 }
@@ -437,34 +301,20 @@ pub fn App() -> impl IntoView {
                     <JoinLedgerSheet
                         initial_url=url
                         on_cancel=Callback::new(move |_| overlay.set(None))
-                        on_submit=Callback::new({
-                            let overlay = overlay;
-                            let reload_bootstrap = reload_bootstrap.clone();
-                            let error_message = error_message;
-                            let status_message = status_message;
-                            let busy = busy;
-                            move |(url, label): (String, String)| {
-                                busy.set(true);
-                                spawn_local({
-                                    let overlay = overlay;
-                                    let reload_bootstrap = reload_bootstrap.clone();
-                                    let error_message = error_message;
-                                    let status_message = status_message;
-                                    let busy = busy;
-                                    async move {
-                                        match api::join_ledger(JoinLedgerInput { url, label }).await {
-                                            Ok(()) => {
-                                                overlay.set(None);
-                                                reload_bootstrap();
-                                                status_message.set(Some("Ledger imported onto this device.".to_owned()));
-                                                error_message.set(None);
-                                            }
-                                            Err(error) => error_message.set(Some(error)),
-                                        }
-                                        busy.set(false);
+                        on_submit=Callback::new(move |(url, label): (String, String)| {
+                            busy.set(true);
+                            spawn_local(async move {
+                                match api::join_ledger(JoinLedgerInput { url, label }).await {
+                                    Ok(()) => {
+                                        overlay.set(None);
+                                        reload_bootstrap();
+                                        status_message.set(Some("Ledger imported onto this device.".to_owned()));
+                                        error_message.set(None);
                                     }
-                                });
-                            }
+                                    Err(error) => error_message.set(Some(error)),
+                                }
+                                busy.set(false);
+                            });
                         })
                     />
                 }
@@ -474,39 +324,22 @@ pub fn App() -> impl IntoView {
                 view! {
                     <AddUserSheet
                         on_cancel=Callback::new(move |_| overlay.set(None))
-                        on_submit=Callback::new({
-                            let overlay = overlay;
-                            let selected_ledger_id = selected_ledger_id;
-                            let error_message = error_message;
-                            let status_message = status_message;
-                            let busy = busy;
-                            let load_selected_ledger = load_selected_ledger.clone();
-                            let reload_bootstrap = reload_bootstrap.clone();
-                            move |display_name: String| {
-                                if let Some(ledger_id) = selected_ledger_id.get() {
-                                    busy.set(true);
-                                    spawn_local({
-                                        let overlay = overlay;
-                                        let error_message = error_message;
-                                        let status_message = status_message;
-                                        let busy = busy;
-                                        let load_selected_ledger = load_selected_ledger.clone();
-                                        let reload_bootstrap = reload_bootstrap.clone();
-                                        async move {
-                                            match api::add_user(AddUserInput { ledger_id: ledger_id.clone(), display_name }).await {
-                                                Ok(_) => {
-                                                    overlay.set(None);
-                                                    load_selected_ledger(ledger_id);
-                                                    reload_bootstrap();
-                                                    status_message.set(Some("User added to ledger.".to_owned()));
-                                                    error_message.set(None);
-                                                }
-                                                Err(error) => error_message.set(Some(error)),
-                                            }
-                                            busy.set(false);
+                        on_submit=Callback::new(move |display_name: String| {
+                            if let Some(ledger_id) = selected_ledger_id.get() {
+                                busy.set(true);
+                                spawn_local(async move {
+                                    match api::add_user(AddUserInput { ledger_id: ledger_id.clone(), display_name }).await {
+                                        Ok(_) => {
+                                            overlay.set(None);
+                                            load_selected_ledger(ledger_id);
+                                            reload_bootstrap();
+                                            status_message.set(Some("User added to ledger.".to_owned()));
+                                            error_message.set(None);
                                         }
-                                    });
-                                }
+                                        Err(error) => error_message.set(Some(error)),
+                                    }
+                                    busy.set(false);
+                                });
                             }
                         })
                     />
@@ -536,29 +369,29 @@ pub fn App() -> impl IntoView {
                             .unwrap_or_default()
                         seed=seed
                         on_back=Callback::new(move |_| bill_editor.set(None))
-                        on_save=Callback::new(move |request| save_bill(request))
+                        on_save=Callback::new(save_bill)
                     />
                 </div>
             }
             .into_any();
         }
 
-        if ledger_settings_open.get() {
-            if let Some(detail) = ledger_detail.get() {
-                return view! {
-                    <div class="app-shell">
-                        <LedgerSettingsPage
-                            detail=detail
-                            invitation_url=invitation_url.get()
-                            on_back=Callback::new(move |_| ledger_settings_open.set(false))
-                            on_add_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddUser)))
-                            on_create_invitation=Callback::new(move |_| create_invitation())
-                            on_copy_invitation=Callback::new(move |_| copy_invitation_url())
-                        />
-                    </div>
-                }
-                .into_any();
+        if ledger_settings_open.get()
+            && let Some(detail) = ledger_detail.get()
+        {
+            return view! {
+                <div class="app-shell">
+                    <LedgerSettingsPage
+                        detail=detail
+                        invitation_url=invitation_url.get()
+                        on_back=Callback::new(move |_| ledger_settings_open.set(false))
+                        on_add_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddUser)))
+                        on_create_invitation=Callback::new(move |_| create_invitation())
+                        on_copy_invitation=Callback::new(move |_| copy_invitation_url())
+                    />
+                </div>
             }
+            .into_any();
         }
 
         if device_settings_open.get() {
@@ -571,7 +404,7 @@ pub fn App() -> impl IntoView {
                         on_add_identity=Callback::new(move |_| overlay.set(Some(OverlayKind::AddIdentity)))
                         on_import_ledger=Callback::new(move |_| open_join_from_clipboard())
                         on_scan_qr=Callback::new(move |_| open_join_from_clipboard())
-                        on_sync_device=Callback::new(move |node_id| sync_device(node_id))
+                        on_sync_device=Callback::new(sync_device)
                     />
                 </div>
             }
@@ -591,7 +424,7 @@ pub fn App() -> impl IntoView {
                             ledger_settings_open.set(true);
                             invitation_url.set(None);
                         })
-                        on_open_bill=Callback::new(move |bill_id| open_bill_amend(bill_id))
+                        on_open_bill=Callback::new(open_bill_amend)
                         on_new_bill=Callback::new(move |_| open_new_bill())
                     />
                 </div>
@@ -605,7 +438,7 @@ pub fn App() -> impl IntoView {
                     ledgers=bootstrap.get().map(|data| data.ledgers).unwrap_or_default()
                     selected_ledger_id=None
                     on_more=Callback::new(move |_| device_settings_open.set(true))
-                    on_select_ledger=Callback::new(move |ledger_id| open_ledger(ledger_id))
+                    on_select_ledger=Callback::new(open_ledger)
                     on_new_ledger=Callback::new(move |_| overlay.set(Some(OverlayKind::CreateLedger)))
                 />
             </div>
@@ -630,7 +463,7 @@ pub fn App() -> impl IntoView {
                     on_add_identity=Callback::new(move |_| overlay.set(Some(OverlayKind::AddIdentity)))
                     on_import_ledger=Callback::new(move |_| open_join_from_clipboard())
                     on_scan_qr=Callback::new(move |_| open_join_from_clipboard())
-                    on_sync_device=Callback::new(move |node_id| sync_device(node_id))
+                    on_sync_device=Callback::new(sync_device)
                 />
             }
             .into_any()
@@ -647,7 +480,7 @@ pub fn App() -> impl IntoView {
                         invitation_url.set(None);
                         bill_editor.set(None);
                     })
-                    on_open_bill=Callback::new(move |bill_id| open_bill_amend(bill_id))
+                    on_open_bill=Callback::new(open_bill_amend)
                     on_new_bill=Callback::new(move |_| open_new_bill())
                 />
             }
@@ -680,7 +513,7 @@ pub fn App() -> impl IntoView {
                         .unwrap_or_default()
                     seed=seed
                     on_back=Callback::new(move |_| bill_editor.set(None))
-                    on_save=Callback::new(move |request| save_bill(request))
+                    on_save=Callback::new(save_bill)
                 />
             }
             .into_any()
@@ -733,7 +566,7 @@ pub fn App() -> impl IntoView {
                             ledger_settings_open.set(false);
                             bill_editor.set(None);
                         })
-                        on_select_ledger=Callback::new(move |ledger_id| open_ledger(ledger_id))
+                        on_select_ledger=Callback::new(open_ledger)
                         on_new_ledger=Callback::new(move |_| overlay.set(Some(OverlayKind::CreateLedger)))
                     />
 

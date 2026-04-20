@@ -285,7 +285,7 @@ mod tests {
         let bill = equal_bill(1, uids[0], 5000, &uids);
         let s = compute(&users, &EffectiveBills(vec![bill]));
         assert!(
-            s.transactions.len() <= users.len() - 1,
+            s.transactions.len() < users.len(),
             "got {} transactions for {} users",
             s.transactions.len(),
             users.len()

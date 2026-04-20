@@ -216,7 +216,7 @@ fn test_device_show_returns_id_and_data_dir() {
     assert_eq!(v["device_id"].as_str().unwrap().len(), 64);
     assert!(
         v["data_dir"].as_str().unwrap().contains("unbill")
-            || v["data_dir"].as_str().unwrap().len() > 0
+            || !v["data_dir"].as_str().unwrap().is_empty()
     );
 }
 

@@ -13,6 +13,12 @@ pub struct UnbillPath {
 
 pub static UNBILL_PATH: UnbillPath = UnbillPath::new();
 
+impl Default for UnbillPath {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UnbillPath {
     pub const fn new() -> Self {
         Self {
