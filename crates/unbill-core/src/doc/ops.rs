@@ -159,7 +159,6 @@ pub(super) fn add_device(doc: &mut AutoCommit, input: NewDevice, now: Timestamp)
     }
     ledger.devices.push(Device {
         node_id: input.node_id,
-        label: input.label,
         added_at: now,
     });
     reconcile(doc, &ledger).map_err(|e| UnbillError::Other(e.into()))
@@ -427,10 +426,7 @@ mod tests {
     }
 
     fn new_device(seed: u8) -> NewDevice {
-        NewDevice {
-            node_id: dev(seed),
-            label: format!("device-{seed}"),
-        }
+        NewDevice { node_id: dev(seed) }
     }
 
     #[test]
@@ -440,7 +436,7 @@ mod tests {
         let devices = list_devices(&doc).unwrap();
         assert_eq!(devices.len(), 1);
         assert_eq!(devices[0].node_id, dev(1));
-        assert_eq!(devices[0].label, "device-1");
+        assert_eq!(devices[0].added_at, ts(0));
     }
 
     #[test]

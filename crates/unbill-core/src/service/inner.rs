@@ -146,6 +146,22 @@ impl UnbillService {
         self.load_doc(ledger_id).await?.list_devices()
     }
 
+    pub async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
+        load_device_labels(&*self.store).await
+    }
+
+    pub async fn set_device_label(&self, node_id: NodeId, label: String) -> Result<()> {
+        let mut labels = load_device_labels(&*self.store).await?;
+        let key = node_id.to_string();
+        let trimmed = label.trim();
+        if trimmed.is_empty() {
+            labels.remove(&key);
+        } else {
+            labels.insert(key, trimmed.to_owned());
+        }
+        save_device_labels(&*self.store, &labels).await
+    }
+
     // -----------------------------------------------------------------------
     // Settlement
     // -----------------------------------------------------------------------
@@ -245,19 +261,16 @@ impl UnbillService {
     /// Accept a join invite URL and join the ledger hosted by the inviting device.
     ///
     /// URL format: `unbill://join/<ledger_id>/<host_node_id>/<token_hex>`
-    /// `label` is a human-readable name for this device recorded in the ledger.
+    /// `label` is an optional device-local nickname for the host device.
     pub async fn join_ledger(self: &Arc<Self>, url: &str, label: String) -> Result<()> {
         use crate::net::{JoinRequest, UnbillEndpoint};
         let (ledger_id, host, token) = parse_join_url(url)?;
-        let request = JoinRequest {
-            token,
-            ledger_id,
-            label,
-        };
+        let local_label = (!label.trim().is_empty()).then_some(label.trim().to_owned());
+        let request = JoinRequest { token, ledger_id };
         let ep = UnbillEndpoint::bind(self.secret_key.clone())
             .await
             .map_err(UnbillError::Other)?;
-        let result = ep.join_ledger_inner(host, request, self).await;
+        let result = ep.join_ledger_inner(host, local_label, request, self).await;
         ep.close().await;
         result.map_err(UnbillError::Other)
     }
@@ -405,6 +418,7 @@ pub struct Identity {
 // ---------------------------------------------------------------------------
 
 const IDENTITIES_KEY: &str = "identities.json";
+pub(crate) const DEVICE_LABELS_KEY: &str = "device_labels.json";
 const PENDING_IDENTITY_TOKENS_KEY: &str = "pending_identity_tokens.json";
 
 async fn load_identities(store: &dyn LedgerStore) -> Result<Vec<Identity>> {
@@ -419,6 +433,24 @@ async fn save_identities(store: &dyn LedgerStore, identities: &[Identity]) -> Re
     let bytes = serde_json::to_vec(identities)
         .map_err(|e| UnbillError::Other(anyhow::anyhow!("serialize identities: {e}")))?;
     store.save_device_meta(IDENTITIES_KEY, &bytes).await?;
+    Ok(())
+}
+
+pub(crate) async fn load_device_labels(store: &dyn LedgerStore) -> Result<HashMap<String, String>> {
+    match store.load_device_meta(DEVICE_LABELS_KEY).await? {
+        None => Ok(HashMap::new()),
+        Some(bytes) => serde_json::from_slice(&bytes)
+            .map_err(|e| UnbillError::Other(anyhow::anyhow!("device_labels.json: {e}"))),
+    }
+}
+
+pub(crate) async fn save_device_labels(
+    store: &dyn LedgerStore,
+    labels: &HashMap<String, String>,
+) -> Result<()> {
+    let bytes = serde_json::to_vec(labels)
+        .map_err(|e| UnbillError::Other(anyhow::anyhow!("serialize device_labels: {e}")))?;
+    store.save_device_meta(DEVICE_LABELS_KEY, &bytes).await?;
     Ok(())
 }
 
@@ -769,6 +801,24 @@ mod tests {
         let svc1 = UnbillService::open(Arc::clone(&store)).await.unwrap();
         let svc2 = UnbillService::open(Arc::clone(&store)).await.unwrap();
         assert_eq!(svc1.device_id, svc2.device_id);
+    }
+
+    #[tokio::test]
+    async fn test_device_labels_survive_restart() {
+        let store = mem_store();
+        let peer = NodeId::from_seed(9);
+        {
+            let svc = UnbillService::open(Arc::clone(&store)).await.unwrap();
+            svc.set_device_label(peer, "Kitchen iPad".into())
+                .await
+                .unwrap();
+        }
+        let svc2 = UnbillService::open(Arc::clone(&store)).await.unwrap();
+        let labels = svc2.list_device_labels().await.unwrap();
+        assert_eq!(
+            labels.get(&peer.to_string()).map(String::as_str),
+            Some("Kitchen iPad")
+        );
     }
 
     // --- identities ---

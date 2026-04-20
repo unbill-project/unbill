@@ -314,6 +314,7 @@ async fn load_ledgers(service: &Arc<UnbillService>) -> Result<Vec<LedgerSummaryD
 
 async fn load_sync_devices(service: &Arc<UnbillService>) -> Result<Vec<SyncDeviceDto>> {
     let local_node_id = service.device_id().to_string();
+    let device_labels = service.list_device_labels().await?;
     let mut by_node_id = BTreeMap::<String, SyncDeviceDto>::new();
 
     for meta in service.list_ledgers().await? {
@@ -329,13 +330,12 @@ async fn load_sync_devices(service: &Arc<UnbillService>) -> Result<Vec<SyncDevic
                 .entry(node_id.clone())
                 .or_insert_with(|| SyncDeviceDto {
                     node_id,
-                    label: device.label.clone(),
+                    label: device_labels
+                        .get(&device.node_id.to_string())
+                        .cloned()
+                        .unwrap_or_default(),
                     ledger_names: Vec::new(),
                 });
-
-            if entry.label.is_empty() && !device.label.is_empty() {
-                entry.label = device.label.clone();
-            }
             if !entry.ledger_names.iter().any(|name| name == &ledger_name) {
                 entry.ledger_names.push(ledger_name.clone());
             }

@@ -129,7 +129,6 @@ Requester (new device)                 Host (inviting device)
 JoinRequest {
     token: String,       // token_hex from the invite URL
     ledger_id: String,   // which ledger to join (from the invite URL)
-    label: String,       // human-readable name for this device (e.g. "Alice's phone")
 }
 ```
 
@@ -155,7 +154,7 @@ JoinError { reason: String }
 2. Verify the token has not expired.
 3. Verify the `ledger_id` in the request matches the invitation's `ledger_id`.
 4. Read the requester's `NodeId` from the TLS-authenticated Iroh connection.
-5. Add that `NodeId` (with the provided `label`) to `ledger.devices` in the Automerge document.
+5. Add that `NodeId` to `ledger.devices` in the Automerge document.
 6. Save the updated document to `LedgerStore`.
 7. Emit `LedgerUpdated` on the service event channel.
 8. Send `JoinResponse` with the full document bytes.
@@ -168,6 +167,8 @@ JoinError { reason: String }
 4. Emit `LedgerUpdated`.
 
 The requester is now authorized to sync. To appear in bills as a named user, a group user must separately add them via `user add` (any authorized device can do this).
+
+Any human-readable device label is stored only in device-local metadata keyed by `NodeId`. Joining may optionally record a local nickname for the inviting device on the requester, but that nickname is never sent over the network or written into the shared ledger.
 
 ## Identity protocol (`unbill/identity/v1`)
 

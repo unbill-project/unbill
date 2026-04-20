@@ -14,7 +14,10 @@ use tokio::sync::broadcast;
 
 use crate::doc::LedgerDoc;
 use crate::model::{LedgerMeta, NewDevice, NodeId, Timestamp};
-use crate::service::{ServiceEvent, load_pending_invitations, save_pending_invitations};
+use crate::service::{
+    ServiceEvent, load_device_labels, load_pending_invitations, save_device_labels,
+    save_pending_invitations,
+};
 use crate::storage::LedgerStore;
 
 use super::protocol::{JoinError, JoinReply, JoinRequest, JoinResponse, read_msg, write_msg};
@@ -102,7 +105,6 @@ where
     doc.add_device(
         NewDevice {
             node_id: peer_node_id,
-            label: req.label,
         },
         Timestamp::now(),
     )?;
@@ -125,6 +127,8 @@ where
 
 /// Send a `JoinRequest`, and on success persist the received ledger to the store.
 pub async fn run_join_requester<R, W>(
+    host_node_id: NodeId,
+    local_label: Option<String>,
     request: JoinRequest,
     store: &Arc<dyn LedgerStore>,
     events: &broadcast::Sender<ServiceEvent>,
@@ -154,6 +158,11 @@ where
             store
                 .save_ledger_bytes(&ledger_id, &response.ledger_bytes)
                 .await?;
+            if let Some(label) = local_label {
+                let mut device_labels = load_device_labels(&**store).await?;
+                device_labels.insert(host_node_id.to_string(), label);
+                save_device_labels(&**store, &device_labels).await?;
+            }
             let _ = events.send(ServiceEvent::LedgerUpdated { ledger_id });
             Ok(())
         }
@@ -214,14 +223,8 @@ mod tests {
 
         let mut doc =
             LedgerDoc::new(Ulid::new(), "Trip".to_string(), usd(), Timestamp::now()).unwrap();
-        doc.add_device(
-            NewDevice {
-                node_id: host_node,
-                label: "host".to_string(),
-            },
-            Timestamp::now(),
-        )
-        .unwrap();
+        doc.add_device(NewDevice { node_id: host_node }, Timestamp::now())
+            .unwrap();
         let ledger_id = doc.get_ledger().unwrap().ledger_id;
         let ledger_id_str = ledger_id.to_string();
 
@@ -265,7 +268,6 @@ mod tests {
         let request = JoinRequest {
             token: token.to_string(),
             ledger_id: ledger_id_str.clone(),
-            label: "joiner's phone".to_string(),
         };
 
         let task_host = tokio::spawn(async move {
@@ -281,6 +283,8 @@ mod tests {
         });
         let task_joiner = tokio::spawn(async move {
             run_join_requester(
+                host_node,
+                Some("host laptop".to_string()),
                 request,
                 &joiner_store2,
                 &events_joiner,
@@ -307,6 +311,22 @@ mod tests {
         assert!(
             devices.iter().any(|d| d.node_id == joiner_node),
             "joiner's device should be in the ledger"
+        );
+        assert!(
+            devices
+                .iter()
+                .all(|d| d.node_id != host_node || d.added_at.as_millis() >= 0),
+            "host device entry should still be present without relying on a synced label"
+        );
+
+        let device_labels = crate::service::load_device_labels(&*joiner_store)
+            .await
+            .unwrap();
+        assert_eq!(
+            device_labels
+                .get(&host_node.to_string())
+                .map(String::as_str),
+            Some("host laptop")
         );
 
         // Token was consumed.
@@ -346,7 +366,6 @@ mod tests {
         let request = JoinRequest {
             token: fake_token.to_string(),
             ledger_id: ledger_id_str.clone(),
-            label: "joiner".to_string(),
         };
 
         let task_host = tokio::spawn(async move {
@@ -362,6 +381,8 @@ mod tests {
         });
         let task_joiner = tokio::spawn(async move {
             let result = run_join_requester(
+                NodeId::from_seed(1),
+                Some("host".to_string()),
                 request,
                 &joiner_store2,
                 &events_joiner,

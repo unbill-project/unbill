@@ -109,9 +109,9 @@ pub enum LedgerCmd {
     /// Join a ledger using an unbill://join/... URL.
     Join {
         url: String,
-        /// Human-readable label for this device recorded in the ledger.
-        #[arg(long, default_value = "new device")]
-        label: String,
+        /// Optional device-local label to remember the host device on this machine.
+        #[arg(long)]
+        label: Option<String>,
     },
 }
 

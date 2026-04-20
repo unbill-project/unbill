@@ -32,7 +32,6 @@ pub struct User {
 pub struct Device {
     /// The iroh NodeId (a 32-byte Ed25519 public key).
     pub node_id: NodeId,
-    pub label: String,
     pub added_at: Timestamp,
 }
 
@@ -47,7 +46,6 @@ pub struct NewUser {
 #[derive(Clone, Debug)]
 pub struct NewDevice {
     pub node_id: NodeId,
-    pub label: String,
 }
 
 /// A pending join invitation. Held in `UnbillService` memory only — never

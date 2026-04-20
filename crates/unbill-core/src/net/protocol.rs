@@ -79,8 +79,6 @@ pub struct JoinRequest {
     pub token: String,
     /// ULID of the ledger to join (from the invite URL).
     pub ledger_id: String,
-    /// Human-readable name for this device (e.g. "Alice's phone").
-    pub label: String,
 }
 
 /// Sent by the host on success.

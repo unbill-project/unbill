@@ -92,6 +92,7 @@ No per-peer sync state is persisted. On reconnect, both sides exchange current h
 2. Token is delivered out-of-band (QR code, message) as part of a join URL containing the inviting device's `NodeId`.
 3. The joining device connects, presents the token. The token is validated and consumed. The joining device's `NodeId` is appended to the ledger's device list (not to any user record). Full ledger state flows during the immediately following sync.
 4. Users (named people in a ledger) are managed separately from devices. A joining user may already have a user record, or may create one after joining.
+5. Human-readable device labels are stored only in device-local metadata keyed by remote `NodeId`. The shared ledger stores device authorization only.
 
 ## Settlement algorithm
 

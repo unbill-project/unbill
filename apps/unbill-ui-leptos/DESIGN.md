@@ -161,8 +161,8 @@ Import actions appear as full-width action rows below the identities block.
 - Tapping `Add Identity` opens identity creation for a new device-local saved identity and persists it locally on save.
 - Tapping `Import Ledger` reads the current clipboard text, parses it as an invitation URL, and opens a join confirmation sheet when the URL is valid.
 - Tapping `Scan QR Code` opens the device scanner, reads a QR payload as an invitation URL, and opens a join confirmation sheet when the payload is valid.
-- The join confirmation sheet shows the invitation URL, a required device label field, and a confirm action.
-- Confirming the join confirmation sheet calls ledger join with the parsed invitation URL and the entered device label.
+- The join confirmation sheet shows the invitation URL, an optional device label field for a local nickname, and a confirm action.
+- Confirming the join confirmation sheet calls ledger join with the parsed invitation URL and optionally stores the entered device label locally for the inviting device.
 
 ## Ledger Settings Page
 

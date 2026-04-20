@@ -80,13 +80,23 @@ impl UnbillEndpoint {
     pub(crate) async fn join_ledger_inner(
         &self,
         host: NodeId,
+        local_label: Option<String>,
         request: JoinRequest,
         svc: &UnbillService,
     ) -> anyhow::Result<()> {
         let addr = iroh::EndpointAddr::new(host.as_node_id());
         let conn = self.inner.connect(addr, ALPN_JOIN).await?;
         let (send, recv) = conn.open_bi().await?;
-        run_join_requester(request, &svc.store, &svc.events, recv, send).await?;
+        run_join_requester(
+            host,
+            local_label,
+            request,
+            &svc.store,
+            &svc.events,
+            recv,
+            send,
+        )
+        .await?;
         conn.close(0u32.into(), b"done");
         Ok(())
     }

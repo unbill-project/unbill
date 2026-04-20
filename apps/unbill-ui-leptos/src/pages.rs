@@ -185,7 +185,7 @@ pub fn DeviceSettingsPage(
                 <SectionCard
                     kicker="Sync peers".to_owned()
                     title="Known devices".to_owned()
-                    description="Authorized devices gathered from the ledgers stored on this device.".to_owned()
+                    description="Authorized devices gathered from the ledgers stored on this device. Labels are local to this device.".to_owned()
                 >
                     <div class="stack-gap">
                         {if devices.is_empty() {
@@ -688,7 +688,7 @@ pub fn JoinLedgerSheet(
     view! {
         <ModalSheet
             title="Join Ledger".to_owned()
-            description="Confirm the invitation URL and enter the device label to store in the ledger.".to_owned()
+            description="Confirm the invitation URL and optionally save a local nickname for the inviting device.".to_owned()
             on_close=Callback::new(move |_| on_cancel.run(()))
         >
             <div class="stack-gap">
@@ -699,7 +699,7 @@ pub fn JoinLedgerSheet(
                         on:input=move |event| url.set(event_target_value(&event))
                     />
                 </FieldBlock>
-                <FieldBlock label="Device label".to_owned()>
+                <FieldBlock label="Local device label".to_owned()>
                     <input
                         class="ui-input"
                         prop:value=move || label.get()

@@ -328,9 +328,9 @@ pub async fn user_list(svc: &UnbillService, ledger_id: &str, json: bool) -> anyh
 pub async fn ledger_join(
     svc: &Arc<UnbillService>,
     url: String,
-    label: String,
+    label: Option<String>,
 ) -> anyhow::Result<()> {
-    svc.join_ledger(&url, label).await?;
+    svc.join_ledger(&url, label.unwrap_or_default()).await?;
     Ok(())
 }
 

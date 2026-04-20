@@ -37,7 +37,7 @@ A shared expense context — "our household," "the Iceland trip." Contains users
 A named person in a ledger, identified by a stable user ID. Users have no device binding — any authorized device may record bills on behalf of any user. Users are append-only; once added they are never removed. A user must exist in the ledger before they can appear as a payer or in any bill share list.
 
 ### Device
-A physical device authorized to sync a ledger, identified by its Ed25519 `NodeId`. Devices are associated with the ledger, not with individual users. Any device in a ledger's device list may submit bills for any user — the trust model is "everyone in the group trusts everyone else's device." Devices are append-only; once authorized they are never removed from the list.
+A physical device authorized to sync a ledger, identified by its Ed25519 `NodeId`. Devices are associated with the ledger, not with individual users. Any device in a ledger's device list may submit bills for any user — the trust model is "everyone in the group trusts everyone else's device." Devices are append-only; once authorized they are never removed from the list. Human-readable device labels are device-local metadata keyed by `NodeId`; they are never stored in the shared ledger.
 
 ### Bill
 An expense entry: who paid, how much, and how the cost is split. Every bill has a unique ID. Bills carry a `prev` list of IDs of the bills they supersede — empty for original bills. A bill is **effective** if no other bill's `prev` references its ID. Amending a bill means creating a new bill whose `prev` points to the bill(s) being replaced. `prev` may reference multiple bills, enabling merges. Bills are never deleted.

@@ -11,7 +11,7 @@ A thin clap-driven command-line frontend for `UnbillService`. Useful for dogfood
 - `identity share --user-id <user_id>` — generate an `unbill://identity/...` URL for a specific identity so another device can import it via `identity import`.
 - `device show` — print this device's node ID and data directory.
 
-- `ledger create | list | show | delete | invite | join` — ledger lifecycle. `ledger create` registers the creator's own device in `ledger.devices`. `ledger invite` generates an `unbill://join/...` URL authorizing a new device to access the ledger; `ledger join <url> [--label <name>]` dials the host and joins.
+- `ledger create | list | show | delete | invite | join` — ledger lifecycle. `ledger create` registers the creator's own device in `ledger.devices`. `ledger invite` generates an `unbill://join/...` URL authorizing a new device to access the ledger; `ledger join <url> [--label <name>]` dials the host, joins, and optionally stores a device-local label for the host device.
 - `bill add | list | amend` — bill management. `bill amend` records a new version of an existing bill (same bill ID, all fields required); the latest version becomes the effective bill.
 - `user list | add` — managing named users in a ledger. Users may not be removed.
 - `sync daemon | once | status` — P2P sync control. `sync once <peer_node_id>` dials a specific peer and syncs; `sync daemon` opens the endpoint and waits for incoming connections.
