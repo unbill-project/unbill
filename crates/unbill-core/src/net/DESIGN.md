@@ -1,261 +1,68 @@
-# net — P2P Networking
+# net
 
-The net layer connects unbill devices directly, without any central server. It is responsible for two things: **ongoing document sync** between authorized devices that share a ledger, and the **one-time join handshake** that bootstraps a new device into a ledger it has not seen before.
+Peer-to-peer transport for existing peers, device join, and saved-user transfer. All network I/O goes through Iroh, and each device is identified by its `NodeId`.
 
-All network I/O goes through Iroh, which provides QUIC transport with TLS 1.3 and Ed25519 identity. Each device is permanently identified by its `NodeId` — the public half of its Ed25519 key. Iroh handles relay fallback and hole-punching transparently.
+## Protocols
 
-## Three protocols
+- `unbill/sync/v1` — authorized peers exchange ledger lists and Automerge sync messages
+- `unbill/join/v1` — an invite token authorizes a new device, appends its `NodeId` to the ledger, and returns a full snapshot
+- `unbill/user/v1` — one device transfers a saved user record to another device
 
-### `unbill/sync/v1` — document sync
+## Flows
 
-Used between devices that both already hold a copy of a ledger. Identified by ALPN token `unbill/sync/v1`.
+### Sync
 
-### `unbill/join/v1` — device join
+```mermaid
+sequenceDiagram
+    participant I as Initiator
+    participant R as Responder
 
-Used exactly once when a new device joins a ledger for the first time. Identified by ALPN token `unbill/join/v1`.
-
-### `unbill/user/v1` — saved-user transfer
-
-Used exactly once when a new device wants to import an existing saved user (user ID and display name) from another device. Identified by ALPN token `unbill/user/v1`.
-
-## Peer discovery
-
-No separate discovery mechanism is needed. The `devices` list embedded in each ledger's Automerge document contains the `NodeId` of every device authorized to sync that ledger. To sync, a device dials each entry by `NodeId`. Iroh resolves `NodeId` to an IP address using its relay network and peer discovery; the application never handles addresses directly.
-
-## Authorization
-
-A device is authorized to sync a ledger if and only if its `NodeId` appears in `ledger.devices` at the time of connection. The responder reads the ledger document, checks the list, and rejects any initiator not found there. Because Iroh's TLS layer verifies `NodeId` during the handshake, a device cannot claim a `NodeId` it does not own. Devices are append-only; once authorized a device cannot be revoked.
-
-## Sync protocol (`unbill/sync/v1`)
-
-### Framing
-
-Messages are CBOR-encoded structs, each preceded by a 4-byte big-endian length prefix. The entire exchange runs over a single bidirectional Iroh stream per connection.
-
-### Message sequence
-
-```
-Initiator                              Responder
-  ── Hello ────────────────────────>
-  <─ HelloAck ──────────────────────
-  ── SyncMsg(ledger=L, ...) ────────>   (Automerge sync messages,
-  <─ SyncMsg(ledger=L, ...) ──────────   one per ledger, interleaved)
-  ── SyncDone(ledger=L) ────────────>
-  <─ SyncDone(ledger=L) ──────────────
-  [stream closed when both sides done]
+    I->>R: Hello(ledger_ids)
+    R-->>I: HelloAck(accepted, rejected)
+    loop "for each accepted ledger"
+        I->>R: SyncMsg(ledger, payload)
+        R->>I: SyncMsg(ledger, payload)
+    end
+    I->>R: SyncDone(ledger)
+    R->>I: SyncDone(ledger)
 ```
 
-**`Hello`** — sent by the initiator immediately after the stream is opened.
+### Device join
 
-```
-Hello {
-    ledger_ids: Vec<String>,   // ULIDs of ledgers this device holds
-}
-```
+```mermaid
+sequenceDiagram
+    participant N as New device
+    participant H as Host device
 
-The initiator's `NodeId` is not sent in the message — the responder reads it from the Iroh connection, where it is verified by TLS.
-
-**`HelloAck`** — sent by the responder after authorization checks.
-
-```
-HelloAck {
-    accepted: Vec<String>,   // ledger IDs where the initiator is authorized
-    rejected: Vec<String>,   // ledger IDs not shared or not authorized
-}
+    N->>H: JoinRequest(token, ledger_id)
+    H->>H: Validate token and peer NodeId
+    H->>H: Add device to ledger and save snapshot
+    H-->>N: JoinResponse(ledger_bytes)
 ```
 
-The responder only accepts a ledger if it can load a copy from `LedgerStore` and the TLS-authenticated `NodeId` of the initiator is in `ledger.devices`. Rejected ledgers are dropped silently.
+### Saved-user transfer
 
-**`SyncMsg`** — carries a single Automerge sync message for one ledger.
+```mermaid
+sequenceDiagram
+    participant N as New device
+    participant E as Existing device
 
-```
-SyncMsg {
-    ledger_id: String,
-    payload: Vec<u8>,   // opaque Automerge sync::Message bytes
-}
-```
-
-Both sides drive the Automerge sync loop independently for each accepted ledger: call `generate_sync_message`, send if non-`None`, call `receive_sync_message` on incoming payloads, repeat. The loop terminates per ledger when a side's `generate_sync_message` returns `None`.
-
-**`SyncDone`** — signals that this side has no more sync messages for a given ledger.
-
-```
-SyncDone { ledger_id: String }
+    N->>E: UserRequest(token)
+    E->>E: Validate token and load saved user
+    E-->>N: UserResponse(user_id, display_name)
 ```
 
-The stream is closed once both sides have sent `SyncDone` for every accepted ledger.
+## Rules
 
-### Session-local ledger memory
+- discovery comes from known `NodeId` values in ledgers or invite URLs
+- authorization is ledger-scoped and based on the TLS-authenticated `NodeId`
+- all protocols use length-prefixed CBOR framing
+- sync state is session-local and not persisted between connections
+- sync is user-initiated; there is no background polling or automatic reconciliation loop
+- after remote changes are applied, the touched ledger is saved and the service emits `LedgerUpdated`
+- join authorizes devices only; adding a named ledger user is a separate step
+- device labels and pending tokens stay in local metadata, not shared ledger state
 
-At the start of a session, the accepted ledger documents are loaded from `LedgerStore` into a session-local map. This map exists only for the duration of the connection; nothing is retained after the session closes. Ledger documents that received remote changes are saved back to `LedgerStore` before the session exits.
+## Failure model
 
-### SyncState management
-
-Automerge requires a per-(ledger, peer) `SyncState` to track what each peer has already seen. A fresh `SyncState` is created at the start of every connection and discarded when the connection closes. Because sync is always user-initiated and connections are short-lived, there is no persistent SyncState between sessions.
-
-### What triggers sync
-
-After merging incoming changes into the local document, the net layer saves the updated bytes to `LedgerStore` and emits a `LedgerUpdated` event on the service's broadcast channel.
-
-## Join protocol (`unbill/join/v1`)
-
-The join flow is about **device authorization only**. It adds a new `NodeId` to `ledger.devices` so that device can take part in future syncs. It does not add a user. Adding oneself as a named user is a separate operation performed via `user add` after the device has successfully joined and synced the ledger.
-
-### Invite URL
-
-The inviting device generates a 32-byte cryptographically random `InviteToken`, saves it to `LedgerStore` (keyed by token hex in `pending_invitations.json`), and constructs an invite URL:
-
-```
-unbill://join/<ledger_id>/<inviter_node_id_hex>/<token_hex>
-```
-
-- `ledger_id`: 26-character ULID of the ledger
-- `inviter_node_id_hex`: 64-character hex of the inviting device's `NodeId`
-- `token_hex`: 64-character hex of the 32-byte `InviteToken`
-
-The URL is shared out of band (QR code, copy/paste, messaging app). The token is valid until first use or expiry (default: 24 hours).
-
-### Message sequence
-
-```
-Requester (new device)                 Host (inviting device)
-  ── JoinRequest ──────────────────>
-  <─ JoinResponse / JoinError ──────
-```
-
-**`JoinRequest`** — sent by the joining device.
-
-```
-JoinRequest {
-    token: String,       // token_hex from the invite URL
-    ledger_id: String,   // which ledger to join (from the invite URL)
-}
-```
-
-The joining device's `NodeId` is not sent in the message — the host reads it from the Iroh connection, where it is verified by TLS. No saved-user data (user ID, display name) is part of this request.
-
-**`JoinResponse`** — sent by the host on success.
-
-```
-JoinResponse {
-    ledger_bytes: Vec<u8>,   // full Automerge document snapshot
-}
-```
-
-**`JoinError`** — sent by the host on failure.
-
-```
-JoinError { reason: String }
-```
-
-### Host-side join processing
-
-1. Load `pending_invitations.json` from `LedgerStore` and remove the token (consume it). Save the updated map back. Reject with `JoinError` if the token was not found or already consumed.
-2. Verify the token has not expired.
-3. Verify the `ledger_id` in the request matches the invitation's `ledger_id`.
-4. Read the requester's `NodeId` from the TLS-authenticated Iroh connection.
-5. Add that `NodeId` to `ledger.devices` in the Automerge document.
-6. Save the updated document to `LedgerStore`.
-7. Emit `LedgerUpdated` on the service event channel.
-8. Send `JoinResponse` with the full document bytes.
-
-### Requester-side join processing
-
-1. Receive `JoinResponse`.
-2. Load the ledger document from the received bytes via `LedgerDoc::from_bytes`.
-3. Save meta and bytes to `LedgerStore`.
-4. Emit `LedgerUpdated`.
-
-The requester is now authorized to sync. To appear in bills as a named user, a group user must separately add them via `user add` (any authorized device can do this).
-
-Any human-readable device label is stored only in device-local metadata keyed by `NodeId`. Joining may optionally record a local nickname for the inviting device on the requester, but that nickname is never sent over the network or written into the shared ledger.
-
-## User protocol (`unbill/user/v1`)
-
-A device stores a list of saved users. Each saved user is a stable `user_id` (ULID) paired with a `display_name`. A device may hold saved users for multiple people (e.g. a shared device) or multiple saved users for the same person across different contexts. Saved users are stored as device-local metadata alongside the device key.
-
-When setting up a new device, a user can import one of their existing saved users from another device rather than creating a fresh one. This protocol transfers a single saved user. It does not touch any ledger document.
-
-### User invite URL
-
-The existing device generates a 32-byte cryptographically random token associated with a specific `user_id`, saves it to `LedgerStore` (in `pending_user_tokens.json`), and constructs an invite URL:
-
-```
-unbill://user/<existing_node_id_hex>/<token_hex>
-```
-
-The URL is shared out of band. The token is valid until first use or expiry (default: 24 hours). Each token is bound to exactly one saved user — a device with multiple saved users generates a separate URL per saved user.
-
-### Message sequence
-
-```
-New device                             Existing device
-  ── UserRequest ──────────────────>
-  <─ UserResponse / UserError
-```
-
-**`UserRequest`** — sent by the new device.
-
-```
-UserRequest {
-    token: String,   // token_hex from the user invite URL
-}
-```
-
-The new device's `NodeId` is read from the TLS-authenticated Iroh connection by the existing device, but is not used — this protocol does not authorize ledger access.
-
-**`UserResponse`** — sent on success.
-
-```
-UserResponse {
-    user_id: String,        // the stable ULID for this user
-    display_name: String,   // the user's display name
-}
-```
-
-**`UserError`** — sent on failure.
-
-```
-UserError { reason: String }
-```
-
-### Processing
-
-Existing device: load `pending_user_tokens.json` from `LedgerStore`, remove the token (consume it), save the updated map back. Reject if the token was not found. Send `UserResponse`.
-
-New device: receive `UserResponse`, persist `user_id` and `display_name` to device-local storage as a saved user. The device is now ready to join ledgers.
-
-## Sync modes
-
-Sync is always user-initiated. There is no background polling or automatic triggering.
-
-### `sync once <peer_node_id>`
-
-Dial the specified peer by `NodeId`. Run the full sync exchange for all ledgers shared with that peer. Close the connection when both sides have sent `SyncDone` for every accepted ledger. If the peer is unreachable, exit non-zero with a clear error message.
-
-### `sync daemon`
-
-Open the Iroh endpoint and wait for incoming connections. When a peer dials in, run the full sync exchange for all shared ledgers, then close the connection. The daemon stays running and accepts additional connections until the user stops it. It makes no outbound connections on its own.
-
-`sync daemon` is the counterpart to `sync once`: one device runs the daemon to receive, the other runs `sync once` to initiate. Both end the connection after sync completes.
-
-The daemon exposes `sync status` by returning whether the endpoint is open and the last sync time per ledger.
-
-## Failure modes
-
-| Condition | Behavior |
-|-----------|----------|
-| Peer unreachable (`sync once`) | Exit non-zero with error message. |
-| `NotAuthorized` | Responder sends `HelloAck` with the ledger in `rejected`. Initiator skips it. |
-| Token expired or unknown | Host sends `JoinError`. Requester surfaces the message to the user. |
-| Token already consumed | Same as expired. |
-| Host offline at join time | Connection fails. Known limitation: the inviting device must be online when the invitee joins. |
-| Source device offline at user import | Same: the device holding the saved user must be online during `user import`. |
-| Malformed message | Connection closed immediately. |
-| Iroh relay unreachable | Iroh retries internally. If all transports fail, treated as peer unreachable. |
-
-## Testing
-
-The sync and join protocol logic is tested with in-process channel pairs that stand in for Iroh streams. No real Iroh endpoints are started. Two `LedgerDoc` instances diverge independently, then run the sync message loop over the in-process channels; the test asserts that both docs reach identical state.
-
-The join flow is tested with a mock host that consumes `JoinRequest` messages and returns pre-built `JoinResponse` payloads, verifying that the requester correctly loads and persists the received ledger document.
+Unauthorized ledgers are rejected, invalid tokens fail join or user transfer, and transport errors surface to the service layer without creating a second source of truth.

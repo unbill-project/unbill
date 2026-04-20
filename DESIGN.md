@@ -1,73 +1,122 @@
 # unbill
 
-A fully decentralized, peer-to-peer, offline-first bill-splitting app. No central server. No accounts. Data lives on users' devices.
+unbill is a decentralized expense ledger for small trusted groups. Each ledger is stored on member devices and syncs peer-to-peer. No server or account system owns the data.
 
-## What it is
+## Purpose
 
-Groups share a **ledger** — a history of expenses: who paid, how much, and how costs are split. Each group member runs unbill on their own device. Devices sync directly when online; changes made offline propagate automatically on reconnect.
+The project exists to make shared expense tracking durable without requiring a hosted service. A ledger should remain usable when a device is offline, when one participant is temporarily unavailable, and when there is no central operator coordinating state. The system is meant for groups that already trust each other enough to share a bill log and reconcile payments outside the app.
 
-## What it is not
+The design favors a small number of concepts that compose cleanly: ledgers, users, devices, bills, and projections derived from those records. The aim is for the whole system to stay understandable from the model upward.
 
-- A payment processor. unbill records obligations; settlement happens outside the app.
-- A general-purpose accounting tool.
-- A commercial service. No SaaS, no data monetization, no lock-in.
-- Hardened against malicious users in a shared group in v1. Trust model is "friends and family."
+## System View
 
-## Target user
+```mermaid
+flowchart LR
+    UI["UI shell"]
+    CLI["CLI"]
+    Tauri["Tauri bridge"]
+    Service["UnbillService"]
+    Doc["LedgerDoc"]
+    Store["LedgerStore"]
+    Net["Iroh sync"]
+    Settlement["Settlement"]
 
-A person splitting expenses with a small group — roommates, a couple, a travel party — who wants data ownership, no account, no subscription, multi-device sync without cloud, and offline-first operation.
+    UI --> Tauri
+    CLI --> Service
+    Tauri --> Service
+    Service --> Doc
+    Service --> Store
+    Service --> Net
+    Service --> Settlement
+    Net --> Store
+    Net --> Doc
+```
 
-## Design principles
+The codebase is organized around one domain engine and several adapters. Shells ask the service to perform work. The service loads or saves ledger state, coordinates sync, and returns typed results. No shell owns its own version of bill logic, projection, or settlement.
 
-1. **Offline-first.** Every operation works without network. Sync is opportunistic.
-2. **Data lives with users.** No server required. If the author disappears, existing installs keep working forever.
-3. **CRDTs over consensus.** State is a deterministic function of observed operations. We never ask which device has "the truth."
-4. **Append-only at the data layer.** Users, devices, and bills are never removed. Amending a bill creates a new bill with a fresh ID and a `prev` list naming the bill(s) it supersedes; superseded bills are excluded from the effective view. The ledger is an event log; the UI renders a projection.
-5. **One layer per concern.** Persistence, networking, business logic, and UI are separate and do not leak into each other.
-6. **Abstract only where a real alternative exists.** The storage backend is a trait; the CRDT engine is not.
-7. **Conservative about CRDT content.** Device preferences, UI state, and caches stay out of the synced document.
-8. **Rust engine, any UI.** The core library defines what unbill is. Frontends are thin consumers.
+## Core model
 
-## Data model
+- `Ledger` — an independent shared workspace with a fixed currency
+- `User` — a named person inside a ledger; append-only
+- `Device` — an authorized sync peer identified by `NodeId`; append-only and ledger-scoped
+- `Bill` — an expense entry with payer, amount, weighted shares, and optional `prev` links to superseded bills
+- effective bills — bills not named by another bill's `prev`
+- invitation tokens — short-lived values used for device join or saved-user transfer; not part of shared ledger state
 
-### Ledger
-A shared expense context — "our household," "the Iceland trip." Contains users, authorized devices, and bills. Each ledger is independent; a user may have many.
+The shared ledger stores only durable collaborative state. Local preferences and convenience data stay outside it so peers do not have to converge on UI choices or machine-specific metadata.
 
-### User
-A named person in a ledger, identified by a stable user ID. Users have no device binding — any authorized device may record bills on behalf of any user. Users are append-only; once added they are never removed. A user must exist in the ledger before they can appear as a payer or in any bill share list.
+## Shared And Local State
 
-### Device
-A physical device authorized to sync a ledger, identified by its Ed25519 `NodeId`. Devices are associated with the ledger, not with individual users. Any device in a ledger's device list may submit bills for any user — the trust model is "everyone in the group trusts everyone else's device." Devices are append-only; once authorized they are never removed from the list. Human-readable device labels are device-local metadata keyed by `NodeId`; they are never stored in the shared ledger.
+```mermaid
+flowchart TB
+    subgraph Shared["Shared ledger state"]
+        Ledger["Ledger metadata"]
+        Users["Ledger users"]
+        Bills["Bills and supersession links"]
+        Devices["Authorized device NodeIds"]
+    end
 
-### Bill
-An expense entry: who paid, how much, and how the cost is split. Every bill has a unique ID. Bills carry a `prev` list of IDs of the bills they supersede — empty for original bills. A bill is **effective** if no other bill's `prev` references its ID. Amending a bill means creating a new bill whose `prev` points to the bill(s) being replaced. `prev` may reference multiple bills, enabling merges. Bills are never deleted.
+    subgraph Local["Device-local state"]
+        LocalUsers["Saved users"]
+        Labels["Device labels"]
+        Pending["Pending invite tokens"]
+        Ui["UI state and caches"]
+    end
+```
 
-### Split model
-All bills use relative share weights. Equal split is everyone gets weight 1. Different weights express proportional or exact-amount splits. One model covers all cases — no separate split modes.
+This split is one of the key design choices in unbill. Shared state is the minimum durable record required for peers to agree on a ledger. Local state exists to make one device usable and is never treated as part of the replicated document.
 
-### Invitation
-A short-lived in-memory token allowing a new user to join. Never persisted or synced; consumed on first use or expiry.
+## Principles
 
-## Security and privacy
+- Offline first. Local work never depends on network availability.
+- Core first. The Rust core defines model, storage, sync, and settlement; shells stay thin.
+- CRDTs over consensus. State is derived from observed operations rather than from a single authoritative device.
+- Append-only shared state. Users, devices, and bills are added rather than edited in place.
+- Deterministic projection. The UI renders derived state from the shared log.
+- Narrow trust model. v1 assumes honest members of a small group.
 
-**Defended:** Passive eavesdroppers (QUIC+TLS 1.3 via Iroh). Device impersonation (Ed25519 key verification at handshake). Cross-group leakage (only devices in the ledger's device list are accepted).
+These principles keep the codebase biased toward recoverable, mergeable state. If a device falls behind, reconnects later, or uses a different shell, the result should still be the same effective ledger.
 
-**Not defended in v1:** Malicious insiders, device compromise, device revocation (devices cannot be removed; a compromised device retains access until the ledger is abandoned), relay metadata exposure.
+## Why The Model Looks This Way
 
-**Telemetry:** None. Outbound connections are limited to Iroh peer discovery, Iroh relay fallback, and direct peer sync. No analytics, no error reporting, no update checks by default.
+Users and devices are separate because people and hardware do not map one-to-one. A person may use many devices, and a shared device may be used by more than one person. Authorization therefore happens at the device level, while bill semantics reference users.
 
-## Open questions
+Bills are append-only because shared editing is simpler when old records remain part of the log. A correction becomes a new bill that supersedes an older one through `prev`. The visible ledger is therefore a projection over durable history rather than a mutable table with in-place updates.
 
-1. Mobile notification strategy (iOS backgrounding constraints).
-2. Backup and restore for the "phone lost" scenario.
-3. App name — "unbill" is a placeholder.
+Weighted shares give one split representation for equal and uneven splits. That keeps the storage and settlement model small while still covering the common cases.
 
-## Glossary
+## Bill Supersession
 
-- **CRDT** — Conflict-free Replicated Data Type. A data structure that can be updated independently on any device and merged without conflict resolution logic.
+```mermaid
+flowchart LR
+    B1["Bill A"]
+    B2["Bill B"]
+    A1["Amendment C"]
 
-- **Amendment** — A new bill with a fresh ID whose `prev` list names the bill(s) it supersedes. A superseded bill is excluded from the effective view. `prev` may name multiple bills, allowing several bills to be merged into one.
-- **NodeId** — A device's identity: an Ed25519 public key derived from a per-device secret.
-- **Op / operation** — A single unit of change in a CRDT. Append-only; never deleted.
-- **Head** — The latest operation(s) in a CRDT document. A document's state is uniquely identified by its set of heads.
-- **ALPN** — Application-Layer Protocol Negotiation. Used in TLS/QUIC to identify the sync protocol version.
+    A1 -->|"prev"| B1
+    A1 -->|"prev"| B2
+```
+
+The effective view contains bills whose IDs are not referenced by another bill's `prev`. That allows one bill to replace one earlier bill or merge several earlier bills into a single successor while keeping the underlying history intact.
+
+## Boundaries
+
+- unbill records obligations but does not move money.
+- Synced state excludes UI state, caches, device labels, and other local metadata.
+- Devices are authorized per ledger and are not bound to specific users.
+- Saved users are device-local records; ledger users are shared ledger records.
+- unbill has no telemetry, analytics, hosted account system, or server-backed authority model
+
+The system also avoids a server-backed recovery or authority model. Sync helps peers converge, but no peer becomes the permanent owner of a ledger once others have a copy.
+
+## Architecture View
+
+The repository is organized around one core engine and several thin shells. `unbill-core` owns the model and rules. The CLI, Tauri bridge, and UI applications adapt that core to different environments. This keeps business logic in one place and makes the system easier to reason about, test, and evolve.
+
+## Security
+
+Transport uses Iroh over QUIC/TLS with `NodeId` identity. Authorization is based on membership in the ledger's device list.
+
+Outbound network traffic is limited to peer discovery, relay fallback, and direct sync traffic. The design does not include analytics beacons, hosted coordination services, or default update checks.
+
+The threat model is intentionally modest. v1 aims to prevent accidental cross-ledger access and trivial impersonation on the wire, not to defend against malicious insiders, compromised devices, revocation problems, or relay metadata leakage. Groups that need stronger guarantees are outside the current design target.

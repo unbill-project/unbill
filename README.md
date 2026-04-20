@@ -1,87 +1,58 @@
 # unbill
 
-A fully decentralized, peer-to-peer, offline-first bill-splitting application.
+Decentralized, offline-first, peer-to-peer bill splitting for small trusted groups.
 Think of it as "Splitwise without servers."
 
-> **Status:** Early development — Milestone M0 (workspace skeleton).
-> Nothing is user-facing yet. See the [roadmap](#roadmap) below.
+Ledgers live on member devices and sync directly between them. There is no server, account system, or hosted source of truth.
+Unbill records obligations only. It does not move money, act as bookkeeping software, or collect telemetry.
 
-## What is it?
+## What It Is
 
-A group of friends shares a **ledger**: a history of expenses, who paid, and who owes whom.
-Each group member runs unbill on their own device. **There is no central server.**
-Devices sync directly with each other over P2P networking (Iroh/QUIC) when online;
-changes made while offline propagate automatically once connectivity returns.
+Unbill is for situations like a household, a trip, or a recurring shared budget where a few people need one durable record of who paid and who owes what. Each shared group uses a ledger. Every device with access to that ledger keeps a local copy and can continue working while offline.
 
-See [DESIGN.md](DESIGN.md) for the full architecture and design rationale.
+The project is intentionally narrow. It prefers a small, understandable model over trying to cover every accounting or fintech use case. The goal is dependable shared expense tracking that still works when a network, company, or account system is missing.
 
-## Non-goals
+## What It Is Not
 
-- Not a payment processor — unbill records who owes whom; it does not move money.
-- Not a commercial service — no accounts, no subscriptions, no telemetry.
-- Not a general-purpose accounting tool.
+- not a payment network
+- not a bank integration layer
+- not a general accounting package
+- not a product aimed at hostile or anonymous groups
 
-## Repository layout
+## How The System Hangs Together
 
-```
-unbill/
-├── crates/
-│   ├── unbill-core/     # The library: CRDT ledger, persistence, P2P sync
-│   ├── unbill-cli/      # Command-line frontend
-│   └── unbill-tauri/    # Tauri desktop/mobile backend
-└── apps/
-    └── unbill-desktop/  # React frontend (Vite + TanStack Query + Tailwind)
-```
+At the center is `unbill-core`, which owns the ledger model, Automerge document, persistence, sync, settlement, and the service API used by shells. Other workspace members are adapters around that core:
 
-## Building
+- the CLI exercises the service directly for scripting and end-to-end verification
+- the Tauri crate exposes the service through desktop or mobile IPC
+- the UI apps consume typed DTOs and present local interaction flows
 
-**Prerequisites:** Rust (stable), Cargo.
+That structure is deliberate. The codebase treats the Rust core as the source of truth and keeps UI code focused on presentation and short-lived client state.
 
-```bash
-# Check / build the core library and CLI
-cargo build -p unbill-core -p unbill-cli
+## Workspace
 
-# Run tests
-cargo test -p unbill-core
+- `crates/unbill-core/` — ledger model, Automerge document, storage, sync, settlement, service facade
+- `crates/unbill-cli/` — command-line frontend over the core service
+- `crates/unbill-tauri/` — Tauri bridge between Rust and desktop or mobile UI
+- `apps/unbill-ui-leptos/` — shared Leptos UI for compact and multi-column shells
+- `apps/unbill-desktop/` — early React desktop shell
 
-# Run the CLI (stub — commands are not yet implemented)
-cargo run -p unbill-cli -- --help
-```
+## Docs
 
-The `unbill-tauri` crate additionally requires GTK and WebKit system libraries.
-On Ubuntu/Debian:
+- [DESIGN.md](DESIGN.md) — system intent and core invariants
+- [IMPLEMENTATION.md](IMPLEMENTATION.md) — workspace and runtime structure
+- crate and module `DESIGN.md` / `IMPLEMENTATION.md` files — local contracts
 
-```bash
-sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev \
-  librsvg2-dev patchelf
-cargo build  # full workspace
-```
+The root docs describe the whole system. Crate and module docs narrow that view to one boundary at a time.
 
-The JavaScript frontend requires Node.js ≥ 20 and pnpm ≥ 9:
+## Status
 
-```bash
-pnpm install
-pnpm dev     # Vite dev server on :1420
-```
+The Rust core, CLI, sync layer, and Tauri boundary exist. UI work is split between an active Leptos app and an early React shell.
 
-## Roadmap
+## Working Style
 
-| Milestone | Description | Status |
-|-----------|-------------|--------|
-| M0 | Workspace skeleton, DESIGN.md, stub crates, tests | **Done** |
-| M1 | Core data model: `LedgerDoc`, `add_bill`, `list_bills` | Planned |
-| M2 | Persistence: `SqliteStore`, `UnbillService`, CLI commands | Planned |
-| M3 | Offline file sync: export/import `.unbill` files | Planned |
-| M4 | P2P sync: Iroh integration, invite flow | Planned |
-| M5 | Desktop GUI: Tauri + React frontend | Planned |
-
-## Design philosophy
-
-This project is **design-first and test-first**. Every non-trivial module begins
-with a `DESIGN.md` before any production code, and tests are written before the
-implementation. See [DESIGN.md §0](DESIGN.md#0-preamble-design-first-test-first-philosophy)
-for the full rationale.
+This repository is design-first and test-first. Non-trivial changes are expected to update the relevant `DESIGN.md` and `IMPLEMENTATION.md` files, then land with tests close to the code they protect. The docs are meant to stay brief, current, and architectural rather than becoming changelogs.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
