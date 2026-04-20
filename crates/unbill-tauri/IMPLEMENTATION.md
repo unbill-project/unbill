@@ -1,13 +1,5 @@
-# unbill-tauri — Implementation Notes
+# unbill-tauri — Implementation
 
-## Dependencies
+`src/lib.rs` defines the DTOs, command handlers, and bootstrap flow. Tauri setup opens `FsStore`, constructs `UnbillService`, and shares it through `tauri::State`.
 
-| Crate | Why |
-|-------|-----|
-| `unbill-core` | All business logic |
-| `tauri` | Desktop app shell and IPC bridge |
-| `tauri-plugin-shell` | Shell integration for debug builds |
-
-## Testing strategy
-
-Individual command handler unit tests are low value — logic lives in `unbill-core`. Full-stack testing is manual at M5, covering the Tauri → React round-trip for each command and each event type.
+Most correctness testing belongs in `unbill-core`. This crate is best verified through end-to-end UI flows that exercise the full Tauri boundary.

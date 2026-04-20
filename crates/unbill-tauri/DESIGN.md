@@ -1,29 +1,16 @@
 # unbill-tauri
 
-Thin Tauri 2 backend that exposes `UnbillService` as Tauri commands and forwards service events to the React frontend. Contains no business logic.
+Tauri bridge around `UnbillService`. It exposes async commands and frontend-ready DTOs without adding new business logic.
 
-## Command surface
+## Contract
 
-One Tauri command per `UnbillService` public method. Rust methods are `snake_case`; Tauri's automatic transformation makes them `camelCase` in JavaScript.
+- commands bootstrap app state, load ledger detail, create or join ledgers, add users, save bills, create invitations, and trigger sync
+- IDs cross the boundary as strings and are parsed back into typed Rust values before touching core code
 
-IDs (`ledger_id`, `bill_id`, `user_id`, `peer`) cross the Tauri boundary as ULID strings. The Rust side parses them back to typed values before calling into `UnbillService`.
+The current boundary is command-first. `UnbillService` has an internal `ServiceEvent` stream, but a stable frontend event contract is not yet the primary design surface of this crate.
 
-## Events
+## Rules
 
-The backend emits named events to the frontend whenever service state changes:
-
-- `unbill:ledger-updated { ledger_id }` — any change to a ledger's content.
-- `unbill:peer-connected { ledger_id, peer }` — a new sync peer appeared.
-- `unbill:peer-disconnected { ledger_id, peer }` — a sync peer dropped.
-- `unbill:sync-error { ledger_id, peer, error }` — a sync failure occurred.
-
-## Invariants
-
-- Commands never block the main thread. All `UnbillService` calls are async.
-- `UnbillService` is initialized once in Tauri's `setup` hook and shared via `tauri::State`.
-- Commands return a result where errors are human-readable strings. The JavaScript side handles them via try/catch on `invoke`.
-
-## Open questions
-
-- Mobile (iOS, Android): Tauri 2 supports it; deferred to post-M5.
-- Auto-updater: Tauri has a built-in updater; opt-in only, per the telemetry policy in the root DESIGN.md.
+- one shared `UnbillService` instance lives in Tauri state
+- command handlers stay async and return user-facing error strings
+- this crate is an IPC boundary, not a domain layer

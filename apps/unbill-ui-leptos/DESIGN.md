@@ -1,207 +1,75 @@
-# Unbill UI Design
+# unbill-ui-leptos
 
-## Structure
+Shared Leptos UI for compact and desktop-style shells. The same page components drive both layouts.
 
-`unbill-ui-leptos` is the shared UI for mobile and desktop shells.
+## Navigation
 
-Mobile presents one page at a time.
+```mermaid
+flowchart LR
+    Ledgers["Ledgers"]
+    Ledger["Ledger"]
+    Bill["Bill editor"]
+    Device["Device settings"]
+    LedgerSettings["Ledger settings"]
 
-Desktop presents a three-column ranger layout:
-- Column 1: ledgers page
-- Column 2: selected ledger page or device settings page
-- Column 3: selected bill page or ledger settings page
+    Ledgers --> Ledger
+    Ledgers --> Device
+    Ledger --> Bill
+    Ledger --> LedgerSettings
+```
 
-Each column uses the same page structure, actions, and data logic as the corresponding mobile page.
+- compact mode shows one page at a time
+- ranger mode shows three columns: ledgers, the active ledger or device settings, and the active bill or ledger settings in adjacent columns
+- selection is page state: opening a ledger, bill, or settings view changes the current context, not shared data
 
-## Shared Page Frame
+## Screens
 
-Each page uses a vertical stack:
-- Top bar with page title, primary context, and trailing actions
-- Scrollable content area
-- Primary action anchored at the bottom edge or presented as a full-width action row near the bottom of the content
+### Ledgers
 
-Top bar actions always operate on the current page context.
+The ledgers screen is the entry point of the app. It lists ledgers available on the current device and provides the create-ledger action.
 
-Lists use large touch rows with a primary label and a compact metadata line when metadata exists.
+- renders typed ledger summaries from the backend
+- sorts ledgers by latest bill timestamp descending, with empty ledgers after active ones and name order as the tie-breaker
+- selecting a ledger changes page context only; it does not mutate shared state
+- in ranger mode this screen remains visible as the first column
 
-Selecting a row opens that row's page context. On mobile this pushes a page. On desktop this fills the next column.
+### Ledger
 
-## Ledgers Page
+The ledger screen shows the effective bills for the selected ledger and is the main entry into bill editing and ledger settings.
 
-### Elements
+- renders effective bill DTOs rather than computing projection locally
+- opens bill editing from the selected bill context
+- opening ledger settings keeps the selected ledger visible in the middle column in ranger mode
+- using the back action clears the active ledger selection
 
-- Top bar title: `Ledgers`
-- Top right `More` button
-- Scrollable ledger list
-- Bottom `New Ledger` button
+### Bill Editor
 
-Each ledger row shows:
-- Ledger name
-- User count
-- Latest bill timestamp when at least one bill exists
+The bill editor is used for both create and amend flows. It edits one bill draft against the current ledger context.
 
-### Layout
+- sends complete bill-save commands back through the bridge
+- performs only local form logic such as amount parsing, share preview, and share-mode handling
+- uses ledger users from the backend as the selectable bill participants
+- does not own settlement, projection, or persistence rules
 
-The page opens on the ledger list.
+### Device Settings
 
-The list fills the full content area.
+The device settings screen owns local-only device concerns such as saved users, known peer devices, and join or import actions.
 
-The `New Ledger` button stays visually separate from the list as the page's primary action.
+- invitation URLs from clipboard, device labels, and local saved users remain local client concerns
+- sync actions target known peer devices gathered from backend state
+- opening device settings clears the third column in ranger mode
+- this screen does not require an active ledger selection
 
-### Data Logic
+### Ledger Settings
 
-- Load all ledgers available on the device.
-- Sort ledgers by latest bill timestamp descending.
-- Ledgers without bills sort after ledgers with bills and then by ledger name ascending.
-- Tapping a ledger opens that ledger page.
-- Tapping `More` opens the device settings page.
-- Tapping `New Ledger` creates a draft ledger flow and opens the new ledger setup when that flow exists.
+The ledger settings screen manages ledger-scoped users and the device invitation flow for the selected ledger.
 
-## Ledger Page
+- renders ledger users from the current ledger context
+- creates invitation URLs for the current ledger only
+- keeps invitation output in page state rather than shared ledger state
+- in ranger mode it appears beside the selected ledger rather than replacing it
 
-### Elements
+### Cross-Screen Behavior
 
-- Top bar title: ledger name
-- Top right `More` button
-- Scrollable bill list
-- Bottom `New Bill` button
-
-Each bill row shows:
-- Bill description
-- Payment date
-- Payer name
-- Total amount
-
-### Layout
-
-The page opens with the selected ledger as the active context.
-
-The bill list fills the content area.
-
-The `New Bill` button stays available as the page's primary action.
-
-### Data Logic
-
-- Load all bills for the selected ledger.
-- Sort bills by payment timestamp descending.
-- Tapping a bill opens the bill page in amend mode with the selected bill loaded into the form.
-- Tapping `More` opens the ledger settings page for the current ledger.
-- Tapping `New Bill` opens the bill page in create mode with the current ledger preselected.
-
-## New/Edit Bill Page
-
-### Elements
-
-- Top bar title: `New Bill` or bill title
-- Save action in the top bar
-- Scrollable form
-
-The form shows two sections:
-- Payment setup
-- Share setup
-
-Payment setup shows:
-- Description field
-- Payer picker
-- Amount field
-- Currency field
-- Payment date field
-- Optional note field
-
-Share setup shows:
-- User list sourced from current ledger users
-- Per-user inclusion toggle
-- Split mode control
-- Per-user share editor when the split mode uses custom shares
-- Derived per-user amount summary
-
-### Layout
-
-The page uses a single-column form with section headers and grouped input rows.
-
-The save action remains visible from the top bar.
-
-### Data Logic
-
-- In create mode, initialize fields from ledger defaults and device-local defaults.
-- In amend mode, load the selected bill and populate all fields from the persisted bill data.
-- The payer picker and share list both load users from the current ledger.
-- The payer must be one of the current ledger users.
-- The share list is derived from the current ledger users and writes to `shares`.
-- Equal split mode assigns `1` share to each included user.
-- Custom split mode allows editing the integer share value for each included user.
-- The derived per-user amount summary recalculates immediately from `amount`, selected users, and share weights.
-- Saving validates required fields, creates a new bill entry in the current ledger, and returns to the ledger page with the saved effective bill selected.
-- Saving in amend mode writes the new bill with `prev` containing the superseded bill identifier so the prior bill is no longer effective.
-
-## Device Settings Page
-
-### Elements
-
-- Top bar title: `Device Settings`
-- Scrollable saved user list
-- `Add User` button
-- `Import Ledger` button
-- `Scan QR Code` button
-
-Each saved user row shows:
-- User name
-- User identifier
-
-### Layout
-
-Saved users appear first as the main content block.
-
-Import actions appear as full-width action rows below the saved-users block.
-
-### Data Logic
-
-- Load all device-local saved users.
-- Sort saved users by name ascending.
-- Tapping `Add User` opens creation for a new device-local saved user and persists it locally on save.
-- Tapping `Import Ledger` reads the current clipboard text, parses it as an invitation URL, and opens a join confirmation sheet when the URL is valid.
-- Tapping `Scan QR Code` opens the device scanner, reads a QR payload as an invitation URL, and opens a join confirmation sheet when the payload is valid.
-- The join confirmation sheet shows the invitation URL, an optional device label field for a local nickname, and a confirm action.
-- Confirming the join confirmation sheet calls ledger join with the parsed invitation URL and optionally stores the entered device label locally for the inviting device.
-
-## Ledger Settings Page
-
-### Elements
-
-- Top bar title: `Ledger Settings`
-- Scrollable ledger user list
-- `Add User` button
-- `Invitation` section
-
-Each ledger user row shows:
-- User name
-- User identifier in the ledger
-
-The invitation section shows:
-- `Device Invitation` button
-- Invitation QR code after generation
-- `Copy URL` button after generation
-
-### Layout
-
-Ledger users appear first as the main content block.
-
-The invitation section sits below the users list as a dedicated settings block.
-
-### Data Logic
-
-- Load all users in the current ledger.
-- Sort users by creation order within the ledger.
-- Tapping `Add User` opens a single-name input flow and appends the new user to the ledger on save.
-- Tapping `Device Invitation` generates the invitation URL for the current ledger, stores it in page state, and renders both the QR code and the `Copy URL` button.
-- Tapping `Copy URL` writes the generated invitation URL to the clipboard.
-
-## Selection Model
-
-- The selected ledger is the active ledger context across ledger page, bill page, and ledger settings page.
-- The selected bill is the active bill context for bill viewing and editing.
-- Device settings is a top-level page context and does not require a selected ledger.
-- Desktop columns keep the active selection visible across columns.
-- On desktop, opening device settings from the ledgers page fills column 2 and clears column 3.
-- On desktop, opening ledger settings from the ledger page fills column 3 while column 2 continues to show the selected ledger page.
-- Mobile navigation keeps the current selection in page state and restores it when returning to the previous page.
+- pages render backend DTOs and send complete commands back through the bridge
+- compact mode swaps the whole active page, while ranger mode keeps selection visible across columns
