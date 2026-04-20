@@ -120,7 +120,6 @@ mod tests {
     use super::*;
     use crate::model::{Bill, EffectiveBills, NodeId, Share, Timestamp, Ulid, User};
 
-
     /// Convenience: compute settlement from a single set of users + bills.
     fn compute(users: &[User], bills: &EffectiveBills) -> Settlement {
         let mut balances = HashMap::new();
@@ -150,10 +149,16 @@ mod tests {
             id: uid(id),
             amount_cents,
             description: String::new(),
-            payers: vec![Share { user_id: payer, shares: 1 }],
+            payers: vec![Share {
+                user_id: payer,
+                shares: 1,
+            }],
             payees: payee_users
                 .iter()
-                .map(|&u| Share { user_id: u, shares: 1 })
+                .map(|&u| Share {
+                    user_id: u,
+                    shares: 1,
+                })
                 .collect(),
             prev: vec![],
             created_at: Timestamp::from_millis(0),
@@ -204,10 +209,19 @@ mod tests {
             id: uid(1),
             amount_cents: 300,
             description: String::new(),
-            payers: vec![Share { user_id: alice(), shares: 1 }],
+            payers: vec![Share {
+                user_id: alice(),
+                shares: 1,
+            }],
             payees: vec![
-                Share { user_id: alice(), shares: 2 },
-                Share { user_id: bob(), shares: 1 },
+                Share {
+                    user_id: alice(),
+                    shares: 2,
+                },
+                Share {
+                    user_id: bob(),
+                    shares: 1,
+                },
             ],
             prev: vec![],
             created_at: Timestamp::from_millis(0),

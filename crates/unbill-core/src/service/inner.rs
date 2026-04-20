@@ -589,10 +589,19 @@ mod tests {
         let bill = NewBill {
             amount_cents,
             description: desc.to_owned(),
-            payers: vec![Share { user_id: Ulid::from_u128(1), shares: 1 }],
+            payers: vec![Share {
+                user_id: Ulid::from_u128(1),
+                shares: 1,
+            }],
             payees: vec![
-                Share { user_id: Ulid::from_u128(1), shares: 1 },
-                Share { user_id: Ulid::from_u128(2), shares: 1 },
+                Share {
+                    user_id: Ulid::from_u128(1),
+                    shares: 1,
+                },
+                Share {
+                    user_id: Ulid::from_u128(2),
+                    shares: 1,
+                },
             ],
             prev: vec![],
         };
@@ -690,10 +699,19 @@ mod tests {
                 NewBill {
                     amount_cents: 4000,
                     description: "Lunch".into(),
-                    payers: vec![Share { user_id: Ulid::from_u128(1), shares: 1 }],
+                    payers: vec![Share {
+                        user_id: Ulid::from_u128(1),
+                        shares: 1,
+                    }],
                     payees: vec![
-                        Share { user_id: Ulid::from_u128(1), shares: 1 },
-                        Share { user_id: Ulid::from_u128(2), shares: 1 },
+                        Share {
+                            user_id: Ulid::from_u128(1),
+                            shares: 1,
+                        },
+                        Share {
+                            user_id: Ulid::from_u128(2),
+                            shares: 1,
+                        },
                     ],
                     prev: vec![Ulid::from_string(&original_id).unwrap()],
                 },
@@ -738,10 +756,19 @@ mod tests {
         let bob_pays = NewBill {
             amount_cents: 2000,
             description: "Utilities".into(),
-            payers: vec![Share { user_id: Ulid::from_u128(2), shares: 1 }],
+            payers: vec![Share {
+                user_id: Ulid::from_u128(2),
+                shares: 1,
+            }],
             payees: vec![
-                Share { user_id: Ulid::from_u128(1), shares: 1 },
-                Share { user_id: Ulid::from_u128(2), shares: 1 },
+                Share {
+                    user_id: Ulid::from_u128(1),
+                    shares: 1,
+                },
+                Share {
+                    user_id: Ulid::from_u128(2),
+                    shares: 1,
+                },
             ],
             prev: vec![],
         };

@@ -226,10 +226,16 @@ mod tests {
         NewBill {
             amount_cents,
             description: "Dinner".into(),
-            payers: vec![Share { user_id: payer, shares: 1 }],
+            payers: vec![Share {
+                user_id: payer,
+                shares: 1,
+            }],
             payees: payee_users
                 .iter()
-                .map(|&u| Share { user_id: u, shares: 1 })
+                .map(|&u| Share {
+                    user_id: u,
+                    shares: 1,
+                })
                 .collect(),
             prev: vec![],
         }

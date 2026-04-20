@@ -378,12 +378,18 @@ pub fn BillEditorPage(
             .into_iter()
             .map(|row| crate::api::BillShareInput {
                 user_id: row.user_id,
-                shares: if payer_mode.get() == ShareMode::Equal { 1 } else { row.shares },
+                shares: if payer_mode.get() == ShareMode::Equal {
+                    1
+                } else {
+                    row.shares
+                },
             })
             .collect::<Vec<_>>();
 
         if payers.iter().any(|item| item.shares == 0) {
-            validation_error.set(Some("Custom payer shares must be greater than zero.".to_owned()));
+            validation_error.set(Some(
+                "Custom payer shares must be greater than zero.".to_owned(),
+            ));
             return;
         }
 

@@ -180,11 +180,19 @@ pub async fn bill_add(
     let payer_id = parse_ulid(payer)?;
     let amount_cents = parse_amount(amount)?;
     let payees = if share_users.is_empty() {
-        vec![Share { user_id: payer_id, shares: 1 }]
+        vec![Share {
+            user_id: payer_id,
+            shares: 1,
+        }]
     } else {
         share_users
             .iter()
-            .map(|p| parse_ulid(p).map(|u| Share { user_id: u, shares: 1 }))
+            .map(|p| {
+                parse_ulid(p).map(|u| Share {
+                    user_id: u,
+                    shares: 1,
+                })
+            })
             .collect::<anyhow::Result<Vec<_>>>()?
     };
 
@@ -194,7 +202,10 @@ pub async fn bill_add(
             NewBill {
                 amount_cents,
                 description,
-                payers: vec![Share { user_id: payer_id, shares: 1 }],
+                payers: vec![Share {
+                    user_id: payer_id,
+                    shares: 1,
+                }],
                 payees,
                 prev: vec![],
             },
@@ -249,7 +260,12 @@ pub async fn bill_amend(
     let amount_cents = parse_amount(amount)?;
     let payees = share_users
         .iter()
-        .map(|p| parse_ulid(p).map(|u| Share { user_id: u, shares: 1 }))
+        .map(|p| {
+            parse_ulid(p).map(|u| Share {
+                user_id: u,
+                shares: 1,
+            })
+        })
         .collect::<anyhow::Result<Vec<_>>>()?;
     let bill_id = svc
         .add_bill(
@@ -257,7 +273,10 @@ pub async fn bill_amend(
             NewBill {
                 amount_cents,
                 description,
-                payers: vec![Share { user_id: parse_ulid(payer)?, shares: 1 }],
+                payers: vec![Share {
+                    user_id: parse_ulid(payer)?,
+                    shares: 1,
+                }],
                 payees,
                 prev: prev_ids,
             },

@@ -350,8 +350,14 @@ mod tests {
                 NewBill {
                     amount_cents: 1000,
                     description: "from A".to_string(),
-                    payers: vec![Share { user_id: payer, shares: 1 }],
-                    payees: vec![Share { user_id: payer, shares: 1 }],
+                    payers: vec![Share {
+                        user_id: payer,
+                        shares: 1,
+                    }],
+                    payees: vec![Share {
+                        user_id: payer,
+                        shares: 1,
+                    }],
                     prev: vec![],
                 },
                 node_a,
@@ -364,8 +370,14 @@ mod tests {
                 NewBill {
                     amount_cents: 2000,
                     description: "from B".to_string(),
-                    payers: vec![Share { user_id: payer, shares: 1 }],
-                    payees: vec![Share { user_id: payer, shares: 1 }],
+                    payers: vec![Share {
+                        user_id: payer,
+                        shares: 1,
+                    }],
+                    payees: vec![Share {
+                        user_id: payer,
+                        shares: 1,
+                    }],
                     prev: vec![],
                 },
                 node_b,
