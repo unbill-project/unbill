@@ -345,11 +345,13 @@ pub fn BillEditorPage(
 ) -> impl IntoView {
     let description = RwSignal::new(seed.description);
     let amount_text = RwSignal::new(seed.amount_text);
-    let payer_user_id = RwSignal::new(seed.payer_user_id.unwrap_or_default());
+    let payer_mode = RwSignal::new(seed.payer_mode);
+    let payer_rows = RwSignal::new(seed.payer_rows);
     let share_mode = RwSignal::new(seed.share_mode);
     let share_rows = RwSignal::new(seed.share_rows);
     let validation_error = RwSignal::new(None::<String>);
     let currency_field_value = currency.clone();
+    let payer_currency = currency.clone();
     let split_currency = currency.clone();
 
     let save_click = move |_| {
@@ -361,9 +363,27 @@ pub fn BillEditorPage(
             }
         };
 
-        let selected_payer = payer_user_id.get();
-        if selected_payer.is_empty() {
-            validation_error.set(Some("Choose a payer before saving.".to_owned()));
+        let active_payer_rows = payer_rows
+            .get()
+            .into_iter()
+            .filter(|row| row.included)
+            .collect::<Vec<_>>();
+
+        if active_payer_rows.is_empty() {
+            validation_error.set(Some("Select at least one payer before saving.".to_owned()));
+            return;
+        }
+
+        let payers = active_payer_rows
+            .into_iter()
+            .map(|row| crate::api::BillShareInput {
+                user_id: row.user_id,
+                shares: if payer_mode.get() == ShareMode::Equal { 1 } else { row.shares },
+            })
+            .collect::<Vec<_>>();
+
+        if payers.iter().any(|item| item.shares == 0) {
+            validation_error.set(Some("Custom payer shares must be greater than zero.".to_owned()));
             return;
         }
 
@@ -374,7 +394,7 @@ pub fn BillEditorPage(
             .collect::<Vec<_>>();
 
         if active_share_rows.is_empty() {
-            validation_error.set(Some("Select at least one user before saving.".to_owned()));
+            validation_error.set(Some("Select at least one payee before saving.".to_owned()));
             return;
         }
 
@@ -399,7 +419,7 @@ pub fn BillEditorPage(
         on_save.run(BillSaveRequest {
             prev_bill_id: seed.prev_bill_id.clone(),
             description: description.get(),
-            payer_user_id: selected_payer,
+            payers,
             amount_cents,
             shares,
         });
@@ -427,24 +447,6 @@ pub fn BillEditorPage(
                             />
                         </FieldBlock>
 
-                        <FieldBlock label="Payer".to_owned()>
-                            <select
-                                class="ui-select"
-                                prop:value=move || payer_user_id.get()
-                                on:change=move |event| payer_user_id.set(event_target_value(&event))
-                            >
-                                <option value="">"Select a user"</option>
-                                {users
-                                    .iter()
-                                    .map(|user| {
-                                        view! {
-                                            <option value=user.user_id.clone()>{user.display_name.clone()}</option>
-                                        }
-                                    })
-                                    .collect_view()}
-                            </select>
-                        </FieldBlock>
-
                         <div class="field-grid">
                             <FieldBlock label="Amount".to_owned()>
                                 <input
@@ -457,6 +459,113 @@ pub fn BillEditorPage(
                                 <input class="ui-input" value=currency_field_value.clone() readonly />
                             </FieldBlock>
                         </div>
+                    </div>
+                </SectionCard>
+
+                <SectionCard
+                    kicker="Payers".to_owned()
+                    title="Who paid".to_owned()
+                    description="Equal split divides the payment equally among selected payers.".to_owned()
+                >
+                    <div class="stack-gap">
+                        <div class="chip-row">
+                            <button
+                                type="button"
+                                class=move || {
+                                    if payer_mode.get() == ShareMode::Equal {
+                                        "tag-pill tag-pill-active"
+                                    } else {
+                                        "tag-pill"
+                                    }
+                                }
+                                on:click=move |_| payer_mode.set(ShareMode::Equal)
+                            >
+                                "Equal split"
+                            </button>
+                            <button
+                                type="button"
+                                class=move || {
+                                    if payer_mode.get() == ShareMode::Custom {
+                                        "tag-pill tag-pill-active"
+                                    } else {
+                                        "tag-pill"
+                                    }
+                                }
+                                on:click=move |_| payer_mode.set(ShareMode::Custom)
+                            >
+                                "Custom shares"
+                            </button>
+                        </div>
+
+                        {move || {
+                            let current_mode = payer_mode.get();
+                            let current_amount = parse_amount_text(&amount_text.get()).unwrap_or(0);
+                            let current_rows = payer_rows.get();
+                            let preview = derived_share_preview(current_amount, current_mode, &current_rows);
+
+                            current_rows
+                                .into_iter()
+                                .map(|row| {
+                                    let user_id = row.user_id.clone();
+                                    let toggle_user_id = user_id.clone();
+                                    let share_user_id = user_id.clone();
+                                    let share_value_user_id = user_id.clone();
+                                    let display_name = row.display_name.clone();
+                                    let preview_text = preview
+                                        .iter()
+                                        .find(|(pid, _)| pid == &user_id)
+                                        .map(|(_, cents)| api::format_money(*cents, &payer_currency))
+                                        .unwrap_or_else(|| format!("{} 0.00", payer_currency));
+
+                                    view! {
+                                        <div class="share-row">
+                                            <label class="share-toggle">
+                                                <input
+                                                    type="checkbox"
+                                                    prop:checked=row.included
+                                                    on:change=move |event| {
+                                                        let checked = event_target_checked(&event);
+                                                        payer_rows.update(|items| {
+                                                            if let Some(item) = items.iter_mut().find(|item| item.user_id == toggle_user_id) {
+                                                                item.included = checked;
+                                                            }
+                                                        });
+                                                    }
+                                                />
+                                                <span>{display_name}</span>
+                                            </label>
+
+                                            <div class="share-side">
+                                                {if current_mode == ShareMode::Custom {
+                                                    view! {
+                                                        <input
+                                                            class="share-input"
+                                                            prop:value=share_lookup_shares(&payer_rows.get(), &share_value_user_id).to_string()
+                                                            on:input=move |event| {
+                                                                let value = event_target_value(&event)
+                                                                    .parse::<u32>()
+                                                                    .ok()
+                                                                    .filter(|v| *v > 0)
+                                                                    .unwrap_or(1);
+                                                                payer_rows.update(|items| {
+                                                                    if let Some(item) = items.iter_mut().find(|item| item.user_id == share_user_id) {
+                                                                        item.shares = value;
+                                                                    }
+                                                                });
+                                                            }
+                                                        />
+                                                    }
+                                                        .into_any()
+                                                } else {
+                                                    view! { <TagPill label="1 share".to_owned() active=true /> }.into_any()
+                                                }}
+                                                <span class="share-amount">{preview_text}</span>
+                                            </div>
+                                        </div>
+                                    }
+                                })
+                                .collect_view()
+                        }}
                     </div>
                 </SectionCard>
 
