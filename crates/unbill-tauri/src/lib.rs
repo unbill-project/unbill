@@ -462,7 +462,7 @@ fn map_bills_from(
                 amount_cents: bill.amount_cents,
                 description: bill.description,
                 created_at_ms: bill.created_at.as_millis(),
-                payers: bill.payers.into_iter().map(|s| to_share_dto(s)).collect(),
+                payers: bill.payers.into_iter().map(to_share_dto).collect(),
                 payees: bill.payees.into_iter().map(to_share_dto).collect(),
                 prev: bill.prev.into_iter().map(|prev| prev.to_string()).collect(),
             }
