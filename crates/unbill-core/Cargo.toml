@@ -21,7 +21,7 @@ anyhow.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 dashmap.workspace = true
-dirs.workspace = true
+directories.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

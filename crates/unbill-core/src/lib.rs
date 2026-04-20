@@ -5,6 +5,7 @@ pub mod doc;
 pub mod error;
 pub mod model;
 pub mod net;
+pub mod path;
 pub mod service;
 pub mod settlement;
 pub mod storage;

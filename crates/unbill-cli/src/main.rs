@@ -3,8 +3,9 @@
 
 use std::sync::Arc;
 
-use anyhow::{Context as _, bail};
+use anyhow::bail;
 use clap::Parser;
+use unbill_core::path::UNBILL_PATH;
 use unbill_core::service::UnbillService;
 use unbill_core::storage::FsStore;
 
@@ -207,13 +208,7 @@ async fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let json = cli.json;
 
-    let data_dir = if let Ok(p) = std::env::var("UNBILL_DATA_DIR") {
-        std::path::PathBuf::from(p)
-    } else {
-        dirs::data_dir()
-            .context("could not resolve data directory")?
-            .join("unbill")
-    };
+    let data_dir = UNBILL_PATH.ensure_data_dir()?;
 
     let store = Arc::new(FsStore::new(data_dir.clone()));
     let svc = UnbillService::open(store).await?;

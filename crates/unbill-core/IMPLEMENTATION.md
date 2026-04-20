@@ -12,7 +12,7 @@
 | `iso_currency` | ISO 4217 currency enum for the `Currency` newtype |
 | `rand` | `OsRng` for cryptographically secure `InviteToken` generation |
 | `dashmap` | Concurrent ledger map in `UnbillService` |
-| `dirs` | Platform data directory resolution |
+| `directories` | Platform data directory resolution |
 | `serde` / `serde_json` | `meta.json` serialization |
 | `ciborium` | CBOR wire framing for the sync protocol |
 | `thiserror` / `anyhow` | Error types |
@@ -25,4 +25,3 @@
 - Sync protocol: in-process channel pairs simulate the network — no real Iroh endpoints.
 - Settlement properties: total owed equals total paid; transaction count is at most n−1.
 - Storage round-trips: save → reload → assert identical bytes; compact → reload → assert identical.
-

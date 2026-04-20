@@ -43,7 +43,7 @@ All identifiers and semantic primitives use newtypes to prevent misuse at compil
 
 ### Directory layout
 
-One root per device, resolved via the `dirs` crate:
+One root per device, resolved via `directories::ProjectDirs`:
 - Linux: `~/.local/share/unbill/`
 - macOS: `~/Library/Application Support/unbill/`
 - Windows: `%APPDATA%\unbill\`
@@ -121,7 +121,7 @@ The Ledger struct carries `schema_version`. On load, any version below current r
 | `serde` / `serde_json` | `meta.json` serialization |
 | `ciborium` | CBOR wire framing |
 | `dashmap` | Concurrent ledger map in `UnbillService` |
-| `dirs` | Platform data directory resolution |
+| `directories` | Platform data directory resolution |
 | `thiserror` / `anyhow` | Error types |
 | `tracing` | Structured logging |
 | `clap` | CLI argument parsing (`unbill-cli` only) |

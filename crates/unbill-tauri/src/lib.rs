@@ -3,8 +3,9 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, State};
+use tauri::{Manager, State};
 use unbill_core::model::{NewBill, NewMember, NodeId, Share, Ulid};
+use unbill_core::path::UNBILL_PATH;
 use unbill_core::service::{Identity, UnbillService};
 use unbill_core::storage::FsStore;
 
@@ -310,13 +311,8 @@ async fn sync_once(
     state.service.sync_once(peer).await.map_err(stringify_error)
 }
 
-fn load_store_root(app: &AppHandle) -> Result<std::path::PathBuf> {
-    let root = app
-        .path()
-        .app_data_dir()
-        .context("unable to resolve app data directory")?;
-    std::fs::create_dir_all(&root).context("unable to create app data directory")?;
-    Ok(root)
+fn load_store_root() -> Result<std::path::PathBuf> {
+    UNBILL_PATH.ensure_data_dir()
 }
 
 async fn load_ledgers(service: &Arc<UnbillService>) -> Result<Vec<LedgerSummaryDto>> {
@@ -489,10 +485,9 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            let root =
-                load_store_root(app.handle()).map_err(|error| -> Box<dyn std::error::Error> {
-                    Box::new(std::io::Error::other(error.to_string()))
-                })?;
+            let root = load_store_root().map_err(|error| -> Box<dyn std::error::Error> {
+                Box::new(std::io::Error::other(error.to_string()))
+            })?;
             let store = Arc::new(FsStore::new(root));
             let service = tauri::async_runtime::block_on(UnbillService::open(store)).map_err(
                 |error| -> Box<dyn std::error::Error> {
