@@ -25,3 +25,7 @@
 - Sync protocol: in-process channel pairs simulate the network — no real Iroh endpoints.
 - Settlement properties: total owed equals total paid; transaction count is at most n−1.
 - Storage round-trips: save → reload → assert identical bytes; compact → reload → assert identical.
+
+## Model notes
+
+- `User` persists `user_id`, `display_name`, and `added_at` only. The system does not store who created a user record.

@@ -140,7 +140,6 @@ mod tests {
             user_id: id,
             display_name: String::new(),
             added_at: Timestamp::from_millis(0),
-            added_by: uid(0),
         }
     }
 

@@ -65,7 +65,6 @@ pub struct User {
     pub user_id: String,
     pub display_name: String,
     pub added_at_ms: i64,
-    pub added_by: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

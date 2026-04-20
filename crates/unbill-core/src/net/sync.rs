@@ -352,7 +352,6 @@ mod tests {
             crate::model::NewUser {
                 user_id: payer,
                 display_name: "Payer".to_string(),
-                added_by: payer,
             },
             Timestamp::now(),
         )

@@ -293,14 +293,12 @@ pub async fn user_add(
     ledger_id: &str,
     user_id: &str,
     name: String,
-    added_by: &str,
 ) -> anyhow::Result<()> {
     svc.add_user(
         ledger_id,
         NewUser {
             user_id: parse_ulid(user_id)?,
             display_name: name,
-            added_by: parse_ulid(added_by)?,
         },
     )
     .await?;

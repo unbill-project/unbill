@@ -54,7 +54,6 @@ struct UserDto {
     user_id: String,
     display_name: String,
     added_at_ms: i64,
-    added_by: String,
 }
 
 #[derive(Clone, Serialize)]
@@ -198,17 +197,7 @@ async fn add_user(
     input: AddUserInput,
     state: State<'_, AppState>,
 ) -> std::result::Result<UserDto, String> {
-    let existing_users = state
-        .service
-        .list_users(&input.ledger_id)
-        .await
-        .map_err(stringify_error)?;
-
     let user_id = Ulid::new();
-    let added_by = existing_users
-        .first()
-        .map(|user| user.user_id)
-        .unwrap_or(user_id);
 
     state
         .service
@@ -217,7 +206,6 @@ async fn add_user(
             NewUser {
                 user_id,
                 display_name: input.display_name,
-                added_by,
             },
         )
         .await
@@ -475,7 +463,6 @@ impl From<unbill_core::model::User> for UserDto {
             user_id: value.user_id.to_string(),
             display_name: value.display_name,
             added_at_ms: value.added_at.as_millis(),
-            added_by: value.added_by.to_string(),
         }
     }
 }

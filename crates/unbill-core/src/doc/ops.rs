@@ -135,7 +135,6 @@ pub(super) fn add_user(doc: &mut AutoCommit, input: NewUser, now: Timestamp) -> 
         user_id: input.user_id,
         display_name: input.display_name,
         added_at: now,
-        added_by: input.added_by,
     });
     reconcile(doc, &ledger).map_err(|e| UnbillError::Other(e.into()))
 }
@@ -215,7 +214,6 @@ mod tests {
                 user_id,
                 display_name: user_id.to_string(),
                 added_at: ts(0),
-                added_by: uid(0),
             });
         }
         reconcile(&mut doc, &ledger).unwrap();
@@ -382,7 +380,6 @@ mod tests {
             NewUser {
                 user_id: uid(1),
                 display_name: "Alice".into(),
-                added_by: uid(1),
             },
             ts(0),
         )
@@ -392,7 +389,6 @@ mod tests {
             NewUser {
                 user_id: uid(2),
                 display_name: "Bob".into(),
-                added_by: uid(1),
             },
             ts(1),
         )

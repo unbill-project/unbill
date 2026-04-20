@@ -171,9 +171,6 @@ pub enum UserCmd {
         user_id: String,
         #[arg(long)]
         name: String,
-        /// User ID of the person performing this action.
-        #[arg(long)]
-        added_by: String,
     },
 }
 
@@ -286,8 +283,7 @@ async fn run() -> anyhow::Result<()> {
                 ledger_id,
                 user_id,
                 name,
-                added_by,
-            } => commands::user_add(&svc, &ledger_id, &user_id, name, &added_by).await,
+            } => commands::user_add(&svc, &ledger_id, &user_id, name).await,
         },
         Command::Sync { sub } => match sub {
             SyncCmd::Once { peer_node_id } => commands::sync_once(&svc, &peer_node_id).await,

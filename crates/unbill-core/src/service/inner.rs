@@ -578,7 +578,6 @@ mod tests {
                 NewUser {
                     user_id: Ulid::from_u128(n),
                     display_name: name.into(),
-                    added_by: Ulid::from_u128(1),
                 },
             )
             .await

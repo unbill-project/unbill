@@ -26,7 +26,6 @@ pub struct User {
     pub user_id: Ulid,
     pub display_name: String,
     pub added_at: Timestamp,
-    pub added_by: Ulid,
 }
 
 #[derive(Clone, Debug, Reconcile, Hydrate)]
@@ -42,7 +41,6 @@ pub struct Device {
 pub struct NewUser {
     pub user_id: Ulid,
     pub display_name: String,
-    pub added_by: Ulid,
 }
 
 /// Input type for adding a device to a ledger.

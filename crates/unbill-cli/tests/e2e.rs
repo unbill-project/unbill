@@ -137,8 +137,6 @@ fn add_user(env: &Env, ledger_id: &str, user_id: &str, name: &str) {
         user_id,
         "--name",
         name,
-        "--added-by",
-        ALICE,
     ]);
 }
 
