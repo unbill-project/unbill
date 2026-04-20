@@ -1,4 +1,4 @@
-use crate::api::{self, Identity, LedgerDetail, LedgerSummary, SyncDevice, User};
+use crate::api::{self, LedgerDetail, LedgerSummary, LocalUser, SyncDevice, User};
 use crate::app::{
     BillEditorSeed, BillSaveRequest, ShareMode, derived_share_preview, parse_amount_text,
     share_lookup_shares,
@@ -153,10 +153,10 @@ pub fn LedgerPage(
 
 #[component]
 pub fn DeviceSettingsPage(
-    identities: Vec<Identity>,
+    local_users: Vec<LocalUser>,
     devices: Vec<SyncDevice>,
     on_back: Callback<()>,
-    on_add_identity: Callback<()>,
+    on_add_local_user: Callback<()>,
     on_import_ledger: Callback<()>,
     on_scan_qr: Callback<()>,
     on_sync_device: Callback<String>,
@@ -164,19 +164,19 @@ pub fn DeviceSettingsPage(
     view! {
         <ScreenFrame
             title="Device Settings".to_owned()
-            subtitle="Local identities, known devices, and join actions".to_owned()
+            subtitle="Saved users, known devices, and join actions".to_owned()
             leading={view! { <TopBarButton label="Back".to_owned() on_press=Callback::new(move |_| on_back.run(())) /> }.into_any()}
         >
             <div class="stack-gap">
                 <SectionCard
-                    kicker="Saved identities".to_owned()
+                    kicker="Saved users".to_owned()
                     title="On this device".to_owned()
                 >
                     <div class="stack-gap">
-                        {identities
+                        {local_users
                             .into_iter()
-                            .map(|identity| {
-                                view! { <ListRow title=identity.display_name meta=identity.user_id /> }
+                            .map(|local_user| {
+                                view! { <ListRow title=local_user.display_name meta=local_user.user_id /> }
                             })
                             .collect_view()}
                     </div>
@@ -237,10 +237,10 @@ pub fn DeviceSettingsPage(
                 >
                     <div class="stack-gap">
                         <ActionButton
-                            label="Add Identity".to_owned()
+                            label="Add Saved User".to_owned()
                             tone=ButtonTone::Secondary
                             full_width=true
-                            on_press=Callback::new(move |_| on_add_identity.run(()))
+                            on_press=Callback::new(move |_| on_add_local_user.run(()))
                         />
                         <ActionButton
                             label="Import Ledger".to_owned()
@@ -621,17 +621,17 @@ pub fn CreateLedgerSheet(
 }
 
 #[component]
-pub fn AddIdentitySheet(on_cancel: Callback<()>, on_submit: Callback<String>) -> impl IntoView {
+pub fn AddLocalUserSheet(on_cancel: Callback<()>, on_submit: Callback<String>) -> impl IntoView {
     let display_name = RwSignal::new(String::new());
 
     view! {
         <ModalSheet
-            title="Add Identity".to_owned()
+            title="Add Saved User".to_owned()
             description="Save a person on this device for later reuse.".to_owned()
             on_close=Callback::new(move |_| on_cancel.run(()))
         >
             <div class="stack-gap">
-                <FieldBlock label="Identity name".to_owned()>
+                <FieldBlock label="User name".to_owned()>
                     <input
                         class="ui-input"
                         prop:value=move || display_name.get()
@@ -639,7 +639,7 @@ pub fn AddIdentitySheet(on_cancel: Callback<()>, on_submit: Callback<String>) ->
                     />
                 </FieldBlock>
                 <ActionButton
-                    label="Save Identity".to_owned()
+                    label="Save User".to_owned()
                     full_width=true
                     on_press=Callback::new(move |_| on_submit.run(display_name.get()))
                 />

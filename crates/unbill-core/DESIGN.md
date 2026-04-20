@@ -31,7 +31,7 @@ Key model types: `Ulid`, `Timestamp`, `Currency`, `NodeId`, `InviteToken`, `Ledg
 - Device node IDs and bill creator fields are valid Ed25519 public keys.
 - Device authorization is represented only by `NodeId` plus authorization timestamp in the shared ledger. Human-readable device labels are local metadata keyed by `NodeId`.
 - User IDs are stable. A user is identified solely by their `user_id`; no device is bound to a specific user.
-- User records store only the user's identity and display metadata (`user_id`, `display_name`, `added_at`).
+- Ledger user records store only the user's display metadata (`user_id`, `display_name`, `added_at`).
 - `InviteToken` is 32 bytes from `OsRng`, hex-encoded. Stored in `LedgerStore` and consumed on first use.
 - No store-backed data is cached in memory. Every operation (ledger read, bill write, settlement, sync session) loads what it needs directly from `LedgerStore` and discards it when done. There is no in-memory shadow of store contents.
 - The payer and every user referenced in a bill's share list must be users in the ledger at the time the bill is added. Attempting to add a bill referencing a non-user returns `UserNotInLedger`.

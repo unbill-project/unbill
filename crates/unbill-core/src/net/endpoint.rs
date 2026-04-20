@@ -13,10 +13,10 @@ use tracing::{info, warn};
 use crate::model::NodeId;
 use crate::service::UnbillService;
 
-use super::identity::{run_identity_host, run_identity_requester};
 use super::join::{run_join_host, run_join_requester};
-use super::protocol::{ALPN_IDENTITY, ALPN_JOIN, ALPN_SYNC, JoinRequest};
+use super::protocol::{ALPN_JOIN, ALPN_SYNC, ALPN_USER, JoinRequest};
 use super::sync::run_sync_session;
+use super::user::{run_user_host, run_user_requester};
 
 pub struct UnbillEndpoint {
     inner: iroh::Endpoint,
@@ -31,7 +31,7 @@ impl UnbillEndpoint {
             .alpns(vec![
                 ALPN_SYNC.to_vec(),
                 ALPN_JOIN.to_vec(),
-                ALPN_IDENTITY.to_vec(),
+                ALPN_USER.to_vec(),
             ])
             .bind()
             .await?;
@@ -102,19 +102,19 @@ impl UnbillEndpoint {
     }
 
     // -----------------------------------------------------------------------
-    // Initiator: import identity
+    // Initiator: import user
     // -----------------------------------------------------------------------
 
-    pub(crate) async fn import_identity_inner(
+    pub(crate) async fn import_user_inner(
         &self,
         host: NodeId,
         token: String,
         svc: &UnbillService,
     ) -> anyhow::Result<()> {
         let addr = iroh::EndpointAddr::new(host.as_node_id());
-        let conn = self.inner.connect(addr, ALPN_IDENTITY).await?;
+        let conn = self.inner.connect(addr, ALPN_USER).await?;
         let (send, recv) = conn.open_bi().await?;
-        run_identity_requester(token, &svc.store, recv, send).await?;
+        run_user_requester(token, &svc.store, recv, send).await?;
         conn.close(0u32.into(), b"done");
         Ok(())
     }
@@ -191,9 +191,9 @@ async fn dispatch(
             let (send, recv) = conn.accept_bi().await?;
             run_join_host(peer, &svc.store, &svc.events, recv, send).await?;
         }
-        ALPN_IDENTITY => {
+        ALPN_USER => {
             let (send, recv) = conn.accept_bi().await?;
-            run_identity_host(&svc.store, recv, send).await?;
+            run_user_host(&svc.store, recv, send).await?;
         }
         other => {
             anyhow::bail!(

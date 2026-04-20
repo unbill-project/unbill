@@ -14,9 +14,9 @@ Used between devices that both already hold a copy of a ledger. Identified by AL
 
 Used exactly once when a new device joins a ledger for the first time. Identified by ALPN token `unbill/join/v1`.
 
-### `unbill/identity/v1` — identity transfer
+### `unbill/user/v1` — saved-user transfer
 
-Used exactly once when a new device wants to import an existing user identity (user ID and display name) from another device. Identified by ALPN token `unbill/identity/v1`.
+Used exactly once when a new device wants to import an existing saved user (user ID and display name) from another device. Identified by ALPN token `unbill/user/v1`.
 
 ## Peer discovery
 
@@ -132,7 +132,7 @@ JoinRequest {
 }
 ```
 
-The joining device's `NodeId` is not sent in the message — the host reads it from the Iroh connection, where it is verified by TLS. No user identity (user ID, display name) is part of this request.
+The joining device's `NodeId` is not sent in the message — the host reads it from the Iroh connection, where it is verified by TLS. No saved-user data (user ID, display name) is part of this request.
 
 **`JoinResponse`** — sent by the host on success.
 
@@ -170,60 +170,60 @@ The requester is now authorized to sync. To appear in bills as a named user, a g
 
 Any human-readable device label is stored only in device-local metadata keyed by `NodeId`. Joining may optionally record a local nickname for the inviting device on the requester, but that nickname is never sent over the network or written into the shared ledger.
 
-## Identity protocol (`unbill/identity/v1`)
+## User protocol (`unbill/user/v1`)
 
-A device stores a list of user identities. Each identity is a stable `user_id` (ULID) paired with a `display_name`. A device may hold identities for multiple people (e.g. a shared device) or multiple identities for the same person across different contexts. Identities are stored as device-local metadata alongside the device key.
+A device stores a list of saved users. Each saved user is a stable `user_id` (ULID) paired with a `display_name`. A device may hold saved users for multiple people (e.g. a shared device) or multiple saved users for the same person across different contexts. Saved users are stored as device-local metadata alongside the device key.
 
-When setting up a new device, a user can import one of their existing identities from another device rather than creating a fresh one. This protocol transfers a single identity. It does not touch any ledger document.
+When setting up a new device, a user can import one of their existing saved users from another device rather than creating a fresh one. This protocol transfers a single saved user. It does not touch any ledger document.
 
-### Identity invite URL
+### User invite URL
 
-The existing device generates a 32-byte cryptographically random token associated with a specific `user_id`, saves it to `LedgerStore` (in `pending_identity_tokens.json`), and constructs an invite URL:
+The existing device generates a 32-byte cryptographically random token associated with a specific `user_id`, saves it to `LedgerStore` (in `pending_user_tokens.json`), and constructs an invite URL:
 
 ```
-unbill://identity/<existing_node_id_hex>/<token_hex>
+unbill://user/<existing_node_id_hex>/<token_hex>
 ```
 
-The URL is shared out of band. The token is valid until first use or expiry (default: 24 hours). Each token is bound to exactly one identity — a device with multiple identities generates a separate URL per identity.
+The URL is shared out of band. The token is valid until first use or expiry (default: 24 hours). Each token is bound to exactly one saved user — a device with multiple saved users generates a separate URL per saved user.
 
 ### Message sequence
 
 ```
 New device                             Existing device
-  ── IdentityRequest ──────────────>
-  <─ IdentityResponse / IdentityError
+  ── UserRequest ──────────────────>
+  <─ UserResponse / UserError
 ```
 
-**`IdentityRequest`** — sent by the new device.
+**`UserRequest`** — sent by the new device.
 
 ```
-IdentityRequest {
-    token: String,   // token_hex from the invite URL
+UserRequest {
+    token: String,   // token_hex from the user invite URL
 }
 ```
 
 The new device's `NodeId` is read from the TLS-authenticated Iroh connection by the existing device, but is not used — this protocol does not authorize ledger access.
 
-**`IdentityResponse`** — sent on success.
+**`UserResponse`** — sent on success.
 
 ```
-IdentityResponse {
+UserResponse {
     user_id: String,        // the stable ULID for this user
     display_name: String,   // the user's display name
 }
 ```
 
-**`IdentityError`** — sent on failure.
+**`UserError`** — sent on failure.
 
 ```
-IdentityError { reason: String }
+UserError { reason: String }
 ```
 
 ### Processing
 
-Existing device: load `pending_identity_tokens.json` from `LedgerStore`, remove the token (consume it), save the updated map back. Reject if the token was not found. Send `IdentityResponse`.
+Existing device: load `pending_user_tokens.json` from `LedgerStore`, remove the token (consume it), save the updated map back. Reject if the token was not found. Send `UserResponse`.
 
-New device: receive `IdentityResponse`, persist `user_id` and `display_name` to device-local storage. The device is now ready to join ledgers.
+New device: receive `UserResponse`, persist `user_id` and `display_name` to device-local storage as a saved user. The device is now ready to join ledgers.
 
 ## Sync modes
 
@@ -250,7 +250,7 @@ The daemon exposes `sync status` by returning whether the endpoint is open and t
 | Token expired or unknown | Host sends `JoinError`. Requester surfaces the message to the user. |
 | Token already consumed | Same as expired. |
 | Host offline at join time | Connection fails. Known limitation: the inviting device must be online when the invitee joins. |
-| Source device offline at identity import | Same: the device holding the identity must be online during `init import`. |
+| Source device offline at user import | Same: the device holding the saved user must be online during `user import`. |
 | Malformed message | Connection closed immediately. |
 | Iroh relay unreachable | Iroh retries internally. If all transports fail, treated as peer unreachable. |
 

@@ -139,26 +139,26 @@ The save action remains visible from the top bar.
 ### Elements
 
 - Top bar title: `Device Settings`
-- Scrollable saved identity list
-- `Add Identity` button
+- Scrollable saved user list
+- `Add User` button
 - `Import Ledger` button
 - `Scan QR Code` button
 
-Each saved identity row shows:
-- Identity name
-- Identity identifier
+Each saved user row shows:
+- User name
+- User identifier
 
 ### Layout
 
-Saved identities appear first as the main content block.
+Saved users appear first as the main content block.
 
-Import actions appear as full-width action rows below the identities block.
+Import actions appear as full-width action rows below the saved-users block.
 
 ### Data Logic
 
-- Load all device-local saved identities.
-- Sort identities by name ascending.
-- Tapping `Add Identity` opens identity creation for a new device-local saved identity and persists it locally on save.
+- Load all device-local saved users.
+- Sort saved users by name ascending.
+- Tapping `Add User` opens creation for a new device-local saved user and persists it locally on save.
 - Tapping `Import Ledger` reads the current clipboard text, parses it as an invitation URL, and opens a join confirmation sheet when the URL is valid.
 - Tapping `Scan QR Code` opens the device scanner, reads a QR payload as an invitation URL, and opens a join confirmation sheet when the payload is valid.
 - The join confirmation sheet shows the invitation URL, an optional device label field for a local nickname, and a confirm action.

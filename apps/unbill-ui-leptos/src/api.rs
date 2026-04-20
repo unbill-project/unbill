@@ -20,7 +20,7 @@ extern "C" {
 #[serde(rename_all = "camelCase")]
 pub struct AppBootstrap {
     pub ledgers: Vec<LedgerSummary>,
-    pub identities: Vec<Identity>,
+    pub local_users: Vec<LocalUser>,
     pub devices: Vec<SyncDevice>,
 }
 
@@ -46,7 +46,7 @@ pub struct LedgerDetail {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct Identity {
+pub struct LocalUser {
     pub user_id: String,
     pub display_name: String,
 }
@@ -97,7 +97,7 @@ pub struct CreateLedgerInput {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AddIdentityInput {
+pub struct AddLocalUserInput {
     pub display_name: String,
 }
 
@@ -149,8 +149,8 @@ pub async fn load_ledger_detail(ledger_id: &str) -> Result<LedgerDetail, String>
     .await
 }
 
-pub async fn add_identity(input: AddIdentityInput) -> Result<Identity, String> {
-    invoke("add_identity", &serde_json::json!({ "input": input })).await
+pub async fn add_local_user(input: AddLocalUserInput) -> Result<LocalUser, String> {
+    invoke("add_local_user", &serde_json::json!({ "input": input })).await
 }
 
 pub async fn add_user(input: AddUserInput) -> Result<User, String> {

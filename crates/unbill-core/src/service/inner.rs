@@ -45,8 +45,8 @@ pub enum ServiceEvent {
 impl UnbillService {
     /// Open the service: load or create the device key.
     ///
-    /// All store-backed data (ledgers, pending invitations, pending identity
-    /// tokens, identities) is loaded on demand and never cached in memory.
+    /// All store-backed data (ledgers, pending invitations, pending user
+    /// tokens, local users) is loaded on demand and never cached in memory.
     pub async fn open(store: Arc<dyn LedgerStore>) -> Result<Arc<Self>> {
         let (device_id, secret_key) = load_or_create_device_key(&*store).await?;
         let (events, _) = broadcast::channel(256);
@@ -231,31 +231,30 @@ impl UnbillService {
         ))
     }
 
-    /// Generate an identity-share URL for `user_id` and store the pending token.
+    /// Generate a user-share URL for `user_id` and store the pending token.
     ///
-    /// URL format: `unbill://identity/<host_node_id>/<token_hex>`
-    pub async fn create_identity_share(&self, user_id: &str) -> Result<String> {
+    /// URL format: `unbill://user/<host_node_id>/<token_hex>`
+    pub async fn create_local_user_share(&self, user_id: &str) -> Result<String> {
         let user_ulid = parse_ulid(user_id)?;
-        let identities = load_identities(&*self.store).await?;
-        let identity = identities
+        let local_users = load_local_users(&*self.store).await?;
+        let local_user = local_users
             .iter()
             .find(|i| i.user_id == user_ulid)
-            .ok_or_else(|| UnbillError::Other(anyhow::anyhow!("identity not found: {user_id}")))?;
-        let display_name = identity.display_name.clone();
+            .ok_or_else(|| {
+                UnbillError::Other(anyhow::anyhow!("local user not found: {user_id}"))
+            })?;
+        let display_name = local_user.display_name.clone();
         let mut token_bytes = [0u8; 32];
         rand::rngs::SysRng
             .try_fill_bytes(&mut token_bytes)
-            .expect("system RNG should generate identity share tokens");
+            .expect("system RNG should generate user share tokens");
         let token_hex: String = token_bytes.iter().map(|b| format!("{b:02x}")).collect();
         {
-            let mut map = load_pending_identity_tokens(&*self.store).await?;
+            let mut map = load_pending_user_tokens(&*self.store).await?;
             map.insert(token_hex.clone(), (user_ulid, display_name));
-            save_pending_identity_tokens(&*self.store, &map).await?;
+            save_pending_user_tokens(&*self.store, &map).await?;
         }
-        Ok(format!(
-            "unbill://identity/{}/{}",
-            self.device_id, token_hex
-        ))
+        Ok(format!("unbill://user/{}/{}", self.device_id, token_hex))
     }
 
     /// Accept a join invite URL and join the ledger hosted by the inviting device.
@@ -275,16 +274,16 @@ impl UnbillService {
         result.map_err(UnbillError::Other)
     }
 
-    /// Fetch an identity from another device using an `unbill://identity/...` URL.
+    /// Fetch a saved user from another device using an `unbill://user/...` URL.
     ///
-    /// URL format: `unbill://identity/<host_node_id>/<token_hex>`
-    pub async fn fetch_identity(self: &Arc<Self>, url: &str) -> Result<()> {
+    /// URL format: `unbill://user/<host_node_id>/<token_hex>`
+    pub async fn fetch_local_user(self: &Arc<Self>, url: &str) -> Result<()> {
         use crate::net::UnbillEndpoint;
-        let (host, token) = parse_identity_url(url)?;
+        let (host, token) = parse_user_url(url)?;
         let ep = UnbillEndpoint::bind(self.secret_key.clone())
             .await
             .map_err(UnbillError::Other)?;
-        let result = ep.import_identity_inner(host, token, self).await;
+        let result = ep.import_user_inner(host, token, self).await;
         ep.close().await;
         result.map_err(UnbillError::Other)
     }
@@ -300,7 +299,7 @@ impl UnbillService {
         result.map_err(UnbillError::Other)
     }
 
-    /// Open an endpoint and accept incoming sync/join/identity connections until
+    /// Open an endpoint and accept incoming sync/join/user-transfer connections until
     /// an error occurs or the process is interrupted.
     ///
     /// Prints the local `NodeId` to stdout so peers know what to dial.
@@ -329,51 +328,55 @@ impl UnbillService {
     }
 
     // -----------------------------------------------------------------------
-    // Identity
+    // Local users
     // -----------------------------------------------------------------------
 
-    /// Return all user identities stored on this device.
-    pub async fn list_identities(&self) -> Result<Vec<Identity>> {
-        load_identities(&*self.store).await
+    /// Return all saved users stored on this device.
+    pub async fn list_local_users(&self) -> Result<Vec<LocalUser>> {
+        load_local_users(&*self.store).await
     }
 
-    /// Add a new identity (fresh user ID + display name) to this device.
-    pub async fn add_identity(&self, display_name: String) -> Result<Identity> {
-        let identity = Identity {
+    /// Add a new saved user (fresh user ID + display name) to this device.
+    pub async fn add_local_user(&self, display_name: String) -> Result<LocalUser> {
+        let local_user = LocalUser {
             user_id: Ulid::new(),
             display_name,
         };
-        let mut identities = load_identities(&*self.store).await?;
-        identities.push(identity.clone());
-        save_identities(&*self.store, &identities).await?;
-        Ok(identity)
+        let mut local_users = load_local_users(&*self.store).await?;
+        local_users.push(local_user.clone());
+        save_local_users(&*self.store, &local_users).await?;
+        Ok(local_user)
     }
 
-    /// Remove an identity from this device's local storage (does not affect the ledger).
-    pub async fn remove_identity(&self, user_id: Ulid) -> Result<()> {
-        let mut identities = load_identities(&*self.store).await?;
-        let before = identities.len();
-        identities.retain(|i| i.user_id != user_id);
-        if identities.len() == before {
+    /// Remove a saved user from this device's local storage (does not affect the ledger).
+    pub async fn remove_local_user(&self, user_id: Ulid) -> Result<()> {
+        let mut local_users = load_local_users(&*self.store).await?;
+        let before = local_users.len();
+        local_users.retain(|i| i.user_id != user_id);
+        if local_users.len() == before {
             return Err(UnbillError::Other(anyhow::anyhow!(
-                "identity {user_id} not found"
+                "local user {user_id} not found"
             )));
         }
-        save_identities(&*self.store, &identities).await
+        save_local_users(&*self.store, &local_users).await
     }
 
-    /// Import an existing identity onto this device.
-    pub async fn import_identity(&self, user_id: Ulid, display_name: String) -> Result<Identity> {
-        let identity = Identity {
+    /// Import an existing saved user onto this device.
+    pub async fn import_local_user(
+        &self,
+        user_id: Ulid,
+        display_name: String,
+    ) -> Result<LocalUser> {
+        let local_user = LocalUser {
             user_id,
             display_name,
         };
-        let mut identities = load_identities(&*self.store).await?;
-        if !identities.iter().any(|i| i.user_id == identity.user_id) {
-            identities.push(identity.clone());
-            save_identities(&*self.store, &identities).await?;
+        let mut local_users = load_local_users(&*self.store).await?;
+        if !local_users.iter().any(|i| i.user_id == local_user.user_id) {
+            local_users.push(local_user.clone());
+            save_local_users(&*self.store, &local_users).await?;
         }
-        Ok(identity)
+        Ok(local_user)
     }
 
     // -----------------------------------------------------------------------
@@ -403,12 +406,12 @@ impl UnbillService {
 }
 
 // ---------------------------------------------------------------------------
-// Identity type
+// Local user type
 // ---------------------------------------------------------------------------
 
-/// A user identity stored on this device.
+/// A saved user stored on this device.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct Identity {
+pub struct LocalUser {
     pub user_id: Ulid,
     pub display_name: String,
 }
@@ -417,22 +420,22 @@ pub struct Identity {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const IDENTITIES_KEY: &str = "identities.json";
+const LOCAL_USERS_KEY: &str = "users.json";
 pub(crate) const DEVICE_LABELS_KEY: &str = "device_labels.json";
-const PENDING_IDENTITY_TOKENS_KEY: &str = "pending_identity_tokens.json";
+const PENDING_USER_TOKENS_KEY: &str = "pending_user_tokens.json";
 
-async fn load_identities(store: &dyn LedgerStore) -> Result<Vec<Identity>> {
-    match store.load_device_meta(IDENTITIES_KEY).await? {
+async fn load_local_users(store: &dyn LedgerStore) -> Result<Vec<LocalUser>> {
+    match store.load_device_meta(LOCAL_USERS_KEY).await? {
         None => Ok(vec![]),
         Some(bytes) => serde_json::from_slice(&bytes)
-            .map_err(|e| UnbillError::Other(anyhow::anyhow!("identities.json: {e}"))),
+            .map_err(|e| UnbillError::Other(anyhow::anyhow!("users.json: {e}"))),
     }
 }
 
-async fn save_identities(store: &dyn LedgerStore, identities: &[Identity]) -> Result<()> {
-    let bytes = serde_json::to_vec(identities)
-        .map_err(|e| UnbillError::Other(anyhow::anyhow!("serialize identities: {e}")))?;
-    store.save_device_meta(IDENTITIES_KEY, &bytes).await?;
+async fn save_local_users(store: &dyn LedgerStore, local_users: &[LocalUser]) -> Result<()> {
+    let bytes = serde_json::to_vec(local_users)
+        .map_err(|e| UnbillError::Other(anyhow::anyhow!("serialize users: {e}")))?;
+    store.save_device_meta(LOCAL_USERS_KEY, &bytes).await?;
     Ok(())
 }
 
@@ -478,25 +481,24 @@ pub(crate) async fn save_pending_invitations(
     Ok(())
 }
 
-pub(crate) async fn load_pending_identity_tokens(
+pub(crate) async fn load_pending_user_tokens(
     store: &dyn LedgerStore,
 ) -> Result<HashMap<String, (Ulid, String)>> {
-    match store.load_device_meta(PENDING_IDENTITY_TOKENS_KEY).await? {
+    match store.load_device_meta(PENDING_USER_TOKENS_KEY).await? {
         None => Ok(HashMap::new()),
         Some(bytes) => serde_json::from_slice(&bytes)
-            .map_err(|e| UnbillError::Other(anyhow::anyhow!("pending_identity_tokens.json: {e}"))),
+            .map_err(|e| UnbillError::Other(anyhow::anyhow!("pending_user_tokens.json: {e}"))),
     }
 }
 
-pub(crate) async fn save_pending_identity_tokens(
+pub(crate) async fn save_pending_user_tokens(
     store: &dyn LedgerStore,
     map: &HashMap<String, (Ulid, String)>,
 ) -> Result<()> {
-    let bytes = serde_json::to_vec(map).map_err(|e| {
-        UnbillError::Other(anyhow::anyhow!("serialize pending_identity_tokens: {e}"))
-    })?;
+    let bytes = serde_json::to_vec(map)
+        .map_err(|e| UnbillError::Other(anyhow::anyhow!("serialize pending_user_tokens: {e}")))?;
     store
-        .save_device_meta(PENDING_IDENTITY_TOKENS_KEY, &bytes)
+        .save_device_meta(PENDING_USER_TOKENS_KEY, &bytes)
         .await?;
     Ok(())
 }
@@ -542,15 +544,15 @@ fn parse_join_url(url: &str) -> Result<(String, NodeId, String)> {
     Ok((ledger_id, host, token))
 }
 
-/// Parse `unbill://identity/<host_node_id>/<token_hex>`.
-fn parse_identity_url(url: &str) -> Result<(NodeId, String)> {
+/// Parse `unbill://user/<host_node_id>/<token_hex>`.
+fn parse_user_url(url: &str) -> Result<(NodeId, String)> {
     let path = url
-        .strip_prefix("unbill://identity/")
-        .ok_or_else(|| UnbillError::Other(anyhow::anyhow!("invalid identity URL: {url:?}")))?;
+        .strip_prefix("unbill://user/")
+        .ok_or_else(|| UnbillError::Other(anyhow::anyhow!("invalid user URL: {url:?}")))?;
     let parts: Vec<&str> = path.splitn(2, '/').collect();
     if parts.len() != 2 {
         return Err(UnbillError::Other(anyhow::anyhow!(
-            "invalid identity URL (expected host_node_id/token): {url:?}"
+            "invalid user URL (expected host_node_id/token): {url:?}"
         )));
     }
     let host = parts[0]
@@ -821,46 +823,46 @@ mod tests {
         );
     }
 
-    // --- identities ---
+    // --- local users ---
 
     #[tokio::test]
-    async fn test_add_identity_appears_in_list() {
+    async fn test_add_local_user_appears_in_list() {
         let svc = open().await;
-        let identity = svc.add_identity("Alice".into()).await.unwrap();
-        let list = svc.list_identities().await.unwrap();
+        let local_user = svc.add_local_user("Alice".into()).await.unwrap();
+        let list = svc.list_local_users().await.unwrap();
         assert_eq!(list.len(), 1);
-        assert_eq!(list[0].user_id, identity.user_id);
+        assert_eq!(list[0].user_id, local_user.user_id);
         assert_eq!(list[0].display_name, "Alice");
     }
 
     #[tokio::test]
-    async fn test_multiple_identities_stored() {
+    async fn test_multiple_local_users_stored() {
         let svc = open().await;
-        svc.add_identity("Alice".into()).await.unwrap();
-        svc.add_identity("Bob".into()).await.unwrap();
-        let list = svc.list_identities().await.unwrap();
+        svc.add_local_user("Alice".into()).await.unwrap();
+        svc.add_local_user("Bob".into()).await.unwrap();
+        let list = svc.list_local_users().await.unwrap();
         assert_eq!(list.len(), 2);
     }
 
     #[tokio::test]
-    async fn test_import_identity_deduplicates() {
+    async fn test_import_local_user_deduplicates() {
         let svc = open().await;
-        let id = svc.add_identity("Alice".into()).await.unwrap();
-        svc.import_identity(id.user_id, "Alice".into())
+        let id = svc.add_local_user("Alice".into()).await.unwrap();
+        svc.import_local_user(id.user_id, "Alice".into())
             .await
             .unwrap();
-        assert_eq!(svc.list_identities().await.unwrap().len(), 1);
+        assert_eq!(svc.list_local_users().await.unwrap().len(), 1);
     }
 
     #[tokio::test]
-    async fn test_identities_survive_restart() {
+    async fn test_local_users_survive_restart() {
         let store = mem_store();
         let user_id = {
             let svc = UnbillService::open(Arc::clone(&store)).await.unwrap();
-            svc.add_identity("Alice".into()).await.unwrap().user_id
+            svc.add_local_user("Alice".into()).await.unwrap().user_id
         };
         let svc2 = UnbillService::open(Arc::clone(&store)).await.unwrap();
-        let list = svc2.list_identities().await.unwrap();
+        let list = svc2.list_local_users().await.unwrap();
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].user_id, user_id);
     }

@@ -15,8 +15,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 pub const ALPN_SYNC: &[u8] = b"unbill/sync/v1";
 /// ALPN token for the device-join protocol.
 pub const ALPN_JOIN: &[u8] = b"unbill/join/v1";
-/// ALPN token for the identity-transfer protocol.
-pub const ALPN_IDENTITY: &[u8] = b"unbill/identity/v1";
+/// ALPN token for the saved-user transfer protocol.
+pub const ALPN_USER: &[u8] = b"unbill/user/v1";
 
 #[allow(dead_code)]
 pub const PROTOCOL_VERSION: u32 = 1;
@@ -102,19 +102,19 @@ pub enum JoinReply {
 }
 
 // ---------------------------------------------------------------------------
-// Identity protocol (`unbill/identity/v1`)
+// User protocol (`unbill/user/v1`)
 // ---------------------------------------------------------------------------
 
 /// Sent by the new device.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct IdentityRequest {
-    /// Hex-encoded 32-byte token from the identity invite URL.
+pub struct UserRequest {
+    /// Hex-encoded 32-byte token from the user invite URL.
     pub token: String,
 }
 
 /// Sent by the existing device on success.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct IdentityResponse {
+pub struct UserResponse {
     /// Stable ULID for this user (26-character string).
     pub user_id: String,
     pub display_name: String,
@@ -122,15 +122,15 @@ pub struct IdentityResponse {
 
 /// Sent by the existing device on failure.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct IdentityError {
+pub struct UserError {
     pub reason: String,
 }
 
-/// Existing-device-to-new-device reply on the identity stream.
+/// Existing-device-to-new-device reply on the user stream.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub enum IdentityReply {
-    Ok(IdentityResponse),
-    Err(IdentityError),
+pub enum UserReply {
+    Ok(UserResponse),
+    Err(UserError),
 }
 
 // ---------------------------------------------------------------------------
@@ -240,16 +240,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_round_trip_identity_reply() {
-        let reply = IdentityReply::Ok(IdentityResponse {
+    async fn test_round_trip_user_reply() {
+        let reply = UserReply::Ok(UserResponse {
             user_id: "01HX000000000000000000000".to_string(),
             display_name: "Alice".to_string(),
         });
         let mut buf = Vec::new();
         write_msg(&mut buf, &reply).await.unwrap();
-        let decoded: IdentityReply = read_msg(&mut buf.as_slice()).await.unwrap();
+        let decoded: UserReply = read_msg(&mut buf.as_slice()).await.unwrap();
         match decoded {
-            IdentityReply::Ok(r) => {
+            UserReply::Ok(r) => {
                 assert_eq!(r.user_id, "01HX000000000000000000000");
                 assert_eq!(r.display_name, "Alice");
             }

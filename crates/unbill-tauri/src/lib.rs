@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{Manager, State};
 use unbill_core::model::{NewBill, NewUser, NodeId, Share, Ulid};
 use unbill_core::path::UNBILL_PATH;
-use unbill_core::service::{Identity, UnbillService};
+use unbill_core::service::{LocalUser, UnbillService};
 use unbill_core::storage::FsStore;
 
 struct AppState {
@@ -17,7 +17,7 @@ struct AppState {
 #[serde(rename_all = "camelCase")]
 struct AppBootstrapDto {
     ledgers: Vec<LedgerSummaryDto>,
-    identities: Vec<IdentityDto>,
+    local_users: Vec<LocalUserDto>,
     devices: Vec<SyncDeviceDto>,
 }
 
@@ -43,7 +43,7 @@ struct LedgerDetailDto {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct IdentityDto {
+struct LocalUserDto {
     user_id: String,
     display_name: String,
 }
@@ -94,7 +94,7 @@ struct CreateLedgerInput {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct AddIdentityInput {
+struct AddLocalUserInput {
     display_name: String,
 }
 
@@ -135,11 +135,11 @@ async fn bootstrap_app(state: State<'_, AppState>) -> std::result::Result<AppBoo
     let ledgers = load_ledgers(&state.service)
         .await
         .map_err(stringify_error)?;
-    let identities = state
+    let local_users = state
         .service
-        .list_identities()
+        .list_local_users()
         .await
-        .map(|items| items.into_iter().map(IdentityDto::from).collect())
+        .map(|items| items.into_iter().map(LocalUserDto::from).collect())
         .map_err(stringify_error)?;
     let devices = load_sync_devices(&state.service)
         .await
@@ -147,7 +147,7 @@ async fn bootstrap_app(state: State<'_, AppState>) -> std::result::Result<AppBoo
 
     Ok(AppBootstrapDto {
         ledgers,
-        identities,
+        local_users,
         devices,
     })
 }
@@ -180,15 +180,15 @@ async fn load_ledger_detail(
 }
 
 #[tauri::command]
-async fn add_identity(
-    input: AddIdentityInput,
+async fn add_local_user(
+    input: AddLocalUserInput,
     state: State<'_, AppState>,
-) -> std::result::Result<IdentityDto, String> {
+) -> std::result::Result<LocalUserDto, String> {
     state
         .service
-        .add_identity(input.display_name)
+        .add_local_user(input.display_name)
         .await
-        .map(IdentityDto::from)
+        .map(LocalUserDto::from)
         .map_err(stringify_error)
 }
 
@@ -448,8 +448,8 @@ fn stringify_error(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
 
-impl From<Identity> for IdentityDto {
-    fn from(value: Identity) -> Self {
+impl From<LocalUser> for LocalUserDto {
+    fn from(value: LocalUser) -> Self {
         Self {
             user_id: value.user_id.to_string(),
             display_name: value.display_name,
@@ -496,7 +496,7 @@ pub fn run() {
             bootstrap_app,
             create_ledger,
             load_ledger_detail,
-            add_identity,
+            add_local_user,
             add_user,
             create_invitation,
             join_ledger,
