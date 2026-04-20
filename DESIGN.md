@@ -39,7 +39,7 @@ The codebase is organized around one domain engine and several adapters. Shells 
 - `Ledger` — an independent shared workspace with a fixed currency
 - `User` — a named person inside a ledger; append-only
 - `Device` — an authorized sync peer identified by `NodeId`; append-only and ledger-scoped
-- `Bill` — an expense entry with payer, amount, weighted shares, and optional `prev` links to superseded bills
+- `Bill` — an expense entry with payer shares, payee shares, amount, and optional `prev` links to superseded bills
 - effective bills — bills not named by another bill's `prev`
 - invitation tokens — short-lived values used for device join or saved-user transfer; not part of shared ledger state
 

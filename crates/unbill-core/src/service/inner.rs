@@ -587,10 +587,13 @@ mod tests {
     fn two_way_bill(desc: &str, amount_cents: i64, ledger_id: &str) -> (String, NewBill) {
         let _ = ledger_id;
         let bill = NewBill {
-            payer_user_id: Ulid::from_u128(1),
             amount_cents,
             description: desc.to_owned(),
-            shares: vec![
+            payers: vec![Share {
+                user_id: Ulid::from_u128(1),
+                shares: 1,
+            }],
+            payees: vec![
                 Share {
                     user_id: Ulid::from_u128(1),
                     shares: 1,
@@ -694,10 +697,13 @@ mod tests {
             .add_bill(
                 &lid,
                 NewBill {
-                    payer_user_id: Ulid::from_u128(1),
                     amount_cents: 4000,
                     description: "Lunch".into(),
-                    shares: vec![
+                    payers: vec![Share {
+                        user_id: Ulid::from_u128(1),
+                        shares: 1,
+                    }],
+                    payees: vec![
                         Share {
                             user_id: Ulid::from_u128(1),
                             shares: 1,
@@ -748,10 +754,13 @@ mod tests {
         let lid2 = svc.create_ledger("L2".into(), usd().into()).await.unwrap();
         seed_users(&svc, &lid2).await;
         let bob_pays = NewBill {
-            payer_user_id: Ulid::from_u128(2),
             amount_cents: 2000,
             description: "Utilities".into(),
-            shares: vec![
+            payers: vec![Share {
+                user_id: Ulid::from_u128(2),
+                shares: 1,
+            }],
+            payees: vec![
                 Share {
                     user_id: Ulid::from_u128(1),
                     shares: 1,

@@ -43,7 +43,8 @@ pub(crate) struct BillShareDraft {
 pub(crate) struct BillEditorSeed {
     pub(crate) prev_bill_id: Option<String>,
     pub(crate) description: String,
-    pub(crate) payer_user_id: Option<String>,
+    pub(crate) payer_mode: ShareMode,
+    pub(crate) payer_rows: Vec<BillShareDraft>,
     pub(crate) amount_text: String,
     pub(crate) share_mode: ShareMode,
     pub(crate) share_rows: Vec<BillShareDraft>,
@@ -53,7 +54,7 @@ pub(crate) struct BillEditorSeed {
 pub(crate) struct BillSaveRequest {
     pub(crate) prev_bill_id: Option<String>,
     pub(crate) description: String,
-    pub(crate) payer_user_id: String,
+    pub(crate) payers: Vec<BillShareInput>,
     pub(crate) amount_cents: i64,
     pub(crate) shares: Vec<BillShareInput>,
 }
@@ -166,9 +167,9 @@ pub fn App() -> impl IntoView {
                 match api::save_bill(SaveBillInput {
                     ledger_id: ledger_id.clone(),
                     description: request.description,
-                    payer_user_id: request.payer_user_id,
                     amount_cents: request.amount_cents,
-                    shares: request.shares,
+                    payers: request.payers,
+                    payees: request.shares,
                     prev_bill_id: request.prev_bill_id,
                 })
                 .await
@@ -636,7 +637,17 @@ fn new_bill_seed(users: &[User]) -> BillEditorSeed {
     BillEditorSeed {
         prev_bill_id: None,
         description: String::new(),
-        payer_user_id: users.first().map(|user| user.user_id.clone()),
+        payer_mode: ShareMode::Equal,
+        payer_rows: users
+            .iter()
+            .enumerate()
+            .map(|(i, user)| BillShareDraft {
+                user_id: user.user_id.clone(),
+                display_name: user.display_name.clone(),
+                included: i == 0,
+                shares: 1,
+            })
+            .collect(),
         amount_text: String::new(),
         share_mode: ShareMode::Equal,
         share_rows: users
@@ -652,12 +663,23 @@ fn new_bill_seed(users: &[User]) -> BillEditorSeed {
 }
 
 fn amend_bill_seed(bill: &Bill, users: &[User]) -> BillEditorSeed {
-    let shares_by_user = bill
-        .shares
+    let payers_by_user = bill
+        .payers
         .iter()
         .map(|share| (share.user_id.clone(), share.shares))
         .collect::<std::collections::HashMap<_, _>>();
-    let share_mode = if shares_by_user.values().all(|shares| *shares == 1) {
+    let payees_by_user = bill
+        .payees
+        .iter()
+        .map(|share| (share.user_id.clone(), share.shares))
+        .collect::<std::collections::HashMap<_, _>>();
+
+    let payer_mode = if payers_by_user.values().all(|&s| s == 1) {
+        ShareMode::Equal
+    } else {
+        ShareMode::Custom
+    };
+    let share_mode = if payees_by_user.values().all(|&s| s == 1) {
         ShareMode::Equal
     } else {
         ShareMode::Custom
@@ -666,7 +688,16 @@ fn amend_bill_seed(bill: &Bill, users: &[User]) -> BillEditorSeed {
     BillEditorSeed {
         prev_bill_id: Some(bill.id.clone()),
         description: bill.description.clone(),
-        payer_user_id: Some(bill.payer_user_id.clone()),
+        payer_mode,
+        payer_rows: users
+            .iter()
+            .map(|user| BillShareDraft {
+                user_id: user.user_id.clone(),
+                display_name: user.display_name.clone(),
+                included: payers_by_user.contains_key(&user.user_id),
+                shares: payers_by_user.get(&user.user_id).copied().unwrap_or(1),
+            })
+            .collect(),
         amount_text: format!(
             "{}.{:02}",
             bill.amount_cents / 100,
@@ -678,8 +709,8 @@ fn amend_bill_seed(bill: &Bill, users: &[User]) -> BillEditorSeed {
             .map(|user| BillShareDraft {
                 user_id: user.user_id.clone(),
                 display_name: user.display_name.clone(),
-                included: shares_by_user.contains_key(&user.user_id),
-                shares: shares_by_user.get(&user.user_id).copied().unwrap_or(1),
+                included: payees_by_user.contains_key(&user.user_id),
+                shares: payees_by_user.get(&user.user_id).copied().unwrap_or(1),
             })
             .collect(),
     }

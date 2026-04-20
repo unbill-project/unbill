@@ -68,8 +68,11 @@ pub(super) fn add_bill(
     let user_ids: std::collections::HashSet<Ulid> =
         ledger.users.iter().map(|user| user.user_id).collect();
 
-    let all_users =
-        std::iter::once(&input.payer_user_id).chain(input.shares.iter().map(|s| &s.user_id));
+    let all_users = input
+        .payers
+        .iter()
+        .chain(input.payees.iter())
+        .map(|s| &s.user_id);
     for user_id in all_users {
         if !user_ids.contains(user_id) {
             return Err(UnbillError::UserNotInLedger(user_id.to_string()));
@@ -85,10 +88,10 @@ pub(super) fn add_bill(
     let bill_id = Ulid::new();
     ledger.bills.push(Bill {
         id: bill_id,
-        payer_user_id: input.payer_user_id,
         amount_cents: input.amount_cents,
         description: input.description,
-        shares: input.shares,
+        payers: input.payers,
+        payees: input.payees,
         prev: input.prev,
         created_at: now,
         created_by_device,
@@ -219,12 +222,15 @@ mod tests {
         doc
     }
 
-    fn simple_bill(payer: Ulid, share_users: &[Ulid], amount_cents: i64) -> NewBill {
+    fn simple_bill(payer: Ulid, payee_users: &[Ulid], amount_cents: i64) -> NewBill {
         NewBill {
-            payer_user_id: payer,
             amount_cents,
             description: "Dinner".into(),
-            shares: share_users
+            payers: vec![Share {
+                user_id: payer,
+                shares: 1,
+            }],
+            payees: payee_users
                 .iter()
                 .map(|&u| Share {
                     user_id: u,

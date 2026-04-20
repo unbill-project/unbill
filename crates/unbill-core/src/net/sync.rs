@@ -348,10 +348,13 @@ mod tests {
         doc_a
             .add_bill(
                 NewBill {
-                    payer_user_id: payer,
                     amount_cents: 1000,
                     description: "from A".to_string(),
-                    shares: vec![Share {
+                    payers: vec![Share {
+                        user_id: payer,
+                        shares: 1,
+                    }],
+                    payees: vec![Share {
                         user_id: payer,
                         shares: 1,
                     }],
@@ -365,10 +368,13 @@ mod tests {
         doc_b
             .add_bill(
                 NewBill {
-                    payer_user_id: payer,
                     amount_cents: 2000,
                     description: "from B".to_string(),
-                    shares: vec![Share {
+                    payers: vec![Share {
+                        user_id: payer,
+                        shares: 1,
+                    }],
+                    payees: vec![Share {
                         user_id: payer,
                         shares: 1,
                     }],

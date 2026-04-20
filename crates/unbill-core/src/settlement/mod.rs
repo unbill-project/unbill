@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::model::{Bill, EffectiveBills, Ulid, User};
+use crate::model::{EffectiveBills, Ulid, User};
 
 /// A single suggested settlement transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -33,9 +33,10 @@ pub fn accumulate_balances(
         balances.entry(user.user_id).or_insert(0);
     }
     for bill in bills.iter() {
-        let share_cents = split_amounts(bill);
-        *balances.entry(bill.payer_user_id).or_default() += bill.amount_cents;
-        for (user_id, amount) in share_cents {
+        for (user_id, amount) in split_shares(&bill.payers, bill.amount_cents) {
+            *balances.entry(user_id).or_default() += amount;
+        }
+        for (user_id, amount) in split_shares(&bill.payees, bill.amount_cents) {
             *balances.entry(user_id).or_default() -= amount;
         }
     }
@@ -86,25 +87,24 @@ pub fn compute_from_balances(balances: HashMap<Ulid, i64>) -> Settlement {
     Settlement { transactions }
 }
 
-/// Compute the per-user cent amounts for a bill from its share weights.
+/// Compute the per-user cent amounts from a share list and a total.
 /// Rounding remainder (from integer division) is assigned to the earliest
 /// users in the share list.
-pub fn split_amounts(bill: &Bill) -> Vec<(Ulid, i64)> {
-    let total_shares: u32 = bill.shares.iter().map(|s| s.shares).sum();
-    if total_shares == 0 {
-        return bill.shares.iter().map(|s| (s.user_id, 0)).collect();
+pub fn split_shares(shares: &[crate::model::Share], total_cents: i64) -> Vec<(Ulid, i64)> {
+    let total_weight: u32 = shares.iter().map(|s| s.shares).sum();
+    if total_weight == 0 {
+        return shares.iter().map(|s| (s.user_id, 0)).collect();
     }
-    let mut amounts: Vec<(Ulid, i64)> = bill
-        .shares
+    let mut amounts: Vec<(Ulid, i64)> = shares
         .iter()
         .map(|s| {
-            let amount = (bill.amount_cents * s.shares as i64) / total_shares as i64;
+            let amount = (total_cents * s.shares as i64) / total_weight as i64;
             (s.user_id, amount)
         })
         .collect();
     // Distribute rounding remainder to the earliest users in the share list.
     let assigned: i64 = amounts.iter().map(|(_, a)| a).sum();
-    let mut remainder = bill.amount_cents - assigned;
+    let mut remainder = total_cents - assigned;
     for (_, amount) in amounts.iter_mut() {
         if remainder == 0 {
             break;
@@ -143,14 +143,17 @@ mod tests {
         }
     }
 
-    /// Equal split: give every user in the share list 1 share.
-    fn equal_bill(id: u128, payer: Ulid, amount_cents: i64, share_users: &[Ulid]) -> Bill {
+    /// Equal split: one payer, every user in the payee list gets 1 share.
+    fn equal_bill(id: u128, payer: Ulid, amount_cents: i64, payee_users: &[Ulid]) -> Bill {
         Bill {
             id: uid(id),
-            payer_user_id: payer,
             amount_cents,
             description: String::new(),
-            shares: share_users
+            payers: vec![Share {
+                user_id: payer,
+                shares: 1,
+            }],
+            payees: payee_users
                 .iter()
                 .map(|&u| Share {
                     user_id: u,
@@ -174,12 +177,12 @@ mod tests {
         uid(3)
     }
 
-    // --- split_amounts ---
+    // --- split_shares ---
 
     #[test]
     fn test_split_equal_exact_division() {
         let bill = equal_bill(1, alice(), 300, &[alice(), bob(), carol()]);
-        let shares = split_amounts(&bill);
+        let shares = split_shares(&bill.payees, bill.amount_cents);
         assert_eq!(shares.len(), 3);
         for (_, cents) in &shares {
             assert_eq!(*cents, 100);
@@ -192,7 +195,7 @@ mod tests {
     fn test_split_remainder_distributed_to_earliest() {
         // $10 split 3 ways: 334, 333, 333
         let bill = equal_bill(1, alice(), 1000, &[alice(), bob(), carol()]);
-        let shares = split_amounts(&bill);
+        let shares = split_shares(&bill.payees, bill.amount_cents);
         let total: i64 = shares.iter().map(|(_, c)| c).sum();
         assert_eq!(total, 1000);
         assert_eq!(shares[0].1, 334);
@@ -204,10 +207,13 @@ mod tests {
     fn test_split_proportional_shares() {
         let bill = Bill {
             id: uid(1),
-            payer_user_id: alice(),
             amount_cents: 300,
             description: String::new(),
-            shares: vec![
+            payers: vec![Share {
+                user_id: alice(),
+                shares: 1,
+            }],
+            payees: vec![
                 Share {
                     user_id: alice(),
                     shares: 2,
@@ -221,7 +227,7 @@ mod tests {
             created_at: Timestamp::from_millis(0),
             created_by_device: device(),
         };
-        let amounts = split_amounts(&bill);
+        let amounts = split_shares(&bill.payees, bill.amount_cents);
         let a = amounts.iter().find(|(id, _)| *id == alice()).unwrap().1;
         let b = amounts.iter().find(|(id, _)| *id == bob()).unwrap().1;
         assert_eq!(a, 200);

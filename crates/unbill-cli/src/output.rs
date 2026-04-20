@@ -25,10 +25,10 @@ pub struct BillOut {
     pub id: String,
     pub description: String,
     pub amount_cents: i64,
-    pub payer_user_id: String,
     pub prev: Vec<Ulid>,
     pub created_at_ms: i64,
-    pub shares: Vec<ShareOut>,
+    pub payers: Vec<ShareOut>,
+    pub payees: Vec<ShareOut>,
 }
 
 #[derive(serde::Serialize)]
@@ -70,21 +70,18 @@ pub fn ledger_out(m: &LedgerMeta) -> LedgerOut {
 }
 
 pub fn bill_out(b: &Bill) -> BillOut {
+    let to_share_out = |s: &unbill_core::model::Share| ShareOut {
+        user_id: s.user_id.to_string(),
+        shares: s.shares,
+    };
     BillOut {
         id: b.id.to_string(),
         description: b.description.clone(),
         amount_cents: b.amount_cents,
-        payer_user_id: b.payer_user_id.to_string(),
         prev: b.prev.clone(),
         created_at_ms: b.created_at.as_millis(),
-        shares: b
-            .shares
-            .iter()
-            .map(|s| ShareOut {
-                user_id: s.user_id.to_string(),
-                shares: s.shares,
-            })
-            .collect(),
+        payers: b.payers.iter().map(to_share_out).collect(),
+        payees: b.payees.iter().map(to_share_out).collect(),
     }
 }
 
