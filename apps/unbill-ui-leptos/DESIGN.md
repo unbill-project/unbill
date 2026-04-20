@@ -20,6 +20,7 @@ flowchart LR
 
 - compact mode shows one page at a time
 - ranger mode shows three columns: ledgers, the active ledger or device settings, and the active bill or ledger settings in adjacent columns
+- the surface mode is chosen from window width, with narrow windows using compact mode and wider windows using ranger mode
 - selection is page state: opening a ledger, bill, or settings view changes the current context, not shared data
 
 ## Screens
@@ -49,6 +50,8 @@ The bill editor is used for both create and amend flows. It edits one bill draft
 - sends complete bill-save commands back through the bridge
 - performs only local form logic such as amount parsing, share preview, and share-mode handling
 - uses ledger users from the backend as the selectable bill participants
+- new-bill mode seeds the draft from the current ledger users with equal shares
+- amend mode seeds the draft from the selected bill and preserves its effective participant set
 - does not own settlement, projection, or persistence rules
 
 ### Device Settings
@@ -73,3 +76,7 @@ The ledger settings screen manages ledger-scoped users and the device invitation
 
 - pages render backend DTOs and send complete commands back through the bridge
 - compact mode swaps the whole active page, while ranger mode keeps selection visible across columns
+- column one is always the ledgers view; column two is the ledger view or device settings; column three is the bill editor or ledger settings
+- create-ledger, add-local-user, join-ledger, and add-user flows are overlays rather than full navigation contexts
+- status, busy, and error feedback are shared across the app shell rather than owned by one screen
+- mutating actions usually refresh bootstrap state, and ledger-scoped actions also refresh the selected ledger detail
