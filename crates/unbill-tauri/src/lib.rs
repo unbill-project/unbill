@@ -68,12 +68,11 @@ struct ShareDto {
 #[serde(rename_all = "camelCase")]
 struct BillDto {
     id: String,
-    payer_user_id: String,
-    payer_name: String,
     amount_cents: i64,
     description: String,
     created_at_ms: i64,
-    shares: Vec<ShareDto>,
+    payers: Vec<ShareDto>,
+    payees: Vec<ShareDto>,
     prev: Vec<String>,
 }
 
@@ -124,9 +123,9 @@ struct BillShareInput {
 struct SaveBillInput {
     ledger_id: String,
     description: String,
-    payer_user_id: String,
     amount_cents: i64,
-    shares: Vec<BillShareInput>,
+    payers: Vec<BillShareInput>,
+    payees: Vec<BillShareInput>,
     prev_bill_id: Option<String>,
 }
 
@@ -253,8 +252,20 @@ async fn save_bill(
     input: SaveBillInput,
     state: State<'_, AppState>,
 ) -> std::result::Result<String, String> {
-    let shares = input
-        .shares
+    let payers = input
+        .payers
+        .into_iter()
+        .map(|item| {
+            Ok(Share {
+                user_id: parse_ulid(&item.user_id)?,
+                shares: item.shares,
+            })
+        })
+        .collect::<Result<Vec<_>>>()
+        .map_err(stringify_error)?;
+
+    let payees = input
+        .payees
         .into_iter()
         .map(|item| {
             Ok(Share {
@@ -277,10 +288,10 @@ async fn save_bill(
         .add_bill(
             &input.ledger_id,
             NewBill {
-                payer_user_id: parse_ulid(&input.payer_user_id).map_err(stringify_error)?,
                 amount_cents: input.amount_cents,
                 description: input.description,
-                shares,
+                payers,
+                payees,
                 prev,
             },
         )
@@ -410,29 +421,24 @@ async fn map_bills(service: &Arc<UnbillService>, ledger_id: &str) -> Result<Vec<
     let mut items = bills
         .into_vec()
         .into_iter()
-        .map(|bill| BillDto {
-            id: bill.id.to_string(),
-            payer_user_id: bill.payer_user_id.to_string(),
-            payer_name: user_lookup
-                .get(&bill.payer_user_id)
-                .cloned()
-                .unwrap_or_else(|| bill.payer_user_id.to_string()),
-            amount_cents: bill.amount_cents,
-            description: bill.description,
-            created_at_ms: bill.created_at.as_millis(),
-            shares: bill
-                .shares
-                .into_iter()
-                .map(|share| ShareDto {
-                    display_name: user_lookup
-                        .get(&share.user_id)
-                        .cloned()
-                        .unwrap_or_else(|| share.user_id.to_string()),
-                    user_id: share.user_id.to_string(),
-                    shares: share.shares,
-                })
-                .collect(),
-            prev: bill.prev.into_iter().map(|prev| prev.to_string()).collect(),
+        .map(|bill| {
+            let to_share_dto = |share: unbill_core::model::Share| ShareDto {
+                display_name: user_lookup
+                    .get(&share.user_id)
+                    .cloned()
+                    .unwrap_or_else(|| share.user_id.to_string()),
+                user_id: share.user_id.to_string(),
+                shares: share.shares,
+            };
+            BillDto {
+                id: bill.id.to_string(),
+                amount_cents: bill.amount_cents,
+                description: bill.description,
+                created_at_ms: bill.created_at.as_millis(),
+                payers: bill.payers.into_iter().map(|s| to_share_dto(s)).collect(),
+                payees: bill.payees.into_iter().map(|s| to_share_dto(s)).collect(),
+                prev: bill.prev.into_iter().map(|prev| prev.to_string()).collect(),
+            }
         })
         .collect::<Vec<_>>();
 

@@ -179,20 +179,12 @@ pub async fn bill_add(
 ) -> anyhow::Result<()> {
     let payer_id = parse_ulid(payer)?;
     let amount_cents = parse_amount(amount)?;
-    let shares = if share_users.is_empty() {
-        vec![Share {
-            user_id: payer_id,
-            shares: 1,
-        }]
+    let payees = if share_users.is_empty() {
+        vec![Share { user_id: payer_id, shares: 1 }]
     } else {
         share_users
             .iter()
-            .map(|p| {
-                parse_ulid(p).map(|u| Share {
-                    user_id: u,
-                    shares: 1,
-                })
-            })
+            .map(|p| parse_ulid(p).map(|u| Share { user_id: u, shares: 1 }))
             .collect::<anyhow::Result<Vec<_>>>()?
     };
 
@@ -200,10 +192,10 @@ pub async fn bill_add(
         .add_bill(
             ledger_id,
             NewBill {
-                payer_user_id: payer_id,
                 amount_cents,
                 description,
-                shares,
+                payers: vec![Share { user_id: payer_id, shares: 1 }],
+                payees,
                 prev: vec![],
             },
         )
@@ -255,23 +247,18 @@ pub async fn bill_amend(
         .map(|p| parse_ulid(p))
         .collect::<anyhow::Result<Vec<_>>>()?;
     let amount_cents = parse_amount(amount)?;
-    let shares = share_users
+    let payees = share_users
         .iter()
-        .map(|p| {
-            parse_ulid(p).map(|u| Share {
-                user_id: u,
-                shares: 1,
-            })
-        })
+        .map(|p| parse_ulid(p).map(|u| Share { user_id: u, shares: 1 }))
         .collect::<anyhow::Result<Vec<_>>>()?;
     let bill_id = svc
         .add_bill(
             ledger_id,
             NewBill {
-                payer_user_id: parse_ulid(payer)?,
                 amount_cents,
                 description,
-                shares,
+                payers: vec![Share { user_id: parse_ulid(payer)?, shares: 1 }],
+                payees,
                 prev: prev_ids,
             },
         )

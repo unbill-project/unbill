@@ -79,12 +79,11 @@ pub struct Share {
 #[serde(rename_all = "camelCase")]
 pub struct Bill {
     pub id: String,
-    pub payer_user_id: String,
-    pub payer_name: String,
     pub amount_cents: i64,
     pub description: String,
     pub created_at_ms: i64,
-    pub shares: Vec<Share>,
+    pub payers: Vec<Share>,
+    pub payees: Vec<Share>,
     pub prev: Vec<String>,
 }
 
@@ -120,9 +119,9 @@ pub struct JoinLedgerInput {
 pub struct SaveBillInput {
     pub ledger_id: String,
     pub description: String,
-    pub payer_user_id: String,
     pub amount_cents: i64,
-    pub shares: Vec<BillShareInput>,
+    pub payers: Vec<BillShareInput>,
+    pub payees: Vec<BillShareInput>,
     pub prev_bill_id: Option<String>,
 }
 

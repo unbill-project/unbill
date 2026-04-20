@@ -134,7 +134,7 @@ pub fn LedgerPage(
                                     } else {
                                         bill.description
                                     }
-                                    meta=format!("Paid by {}", bill.payer_name)
+                                    meta=format!("Paid by {}", bill.payers.first().map(|s| s.display_name.as_str()).unwrap_or("unknown"))
                                     detail=format!(
                                         "{} · {}",
                                         api::format_timestamp(bill.created_at_ms),

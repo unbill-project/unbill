@@ -16,6 +16,7 @@ flowchart LR
 - all arithmetic is integer cents
 - balances are accumulated from effective bills only
 - the total of all balances must sum to zero
+- each bill credits its payers and debits its payees proportionally to their share weights
 - share-weight rounding remainder is assigned in a stable order so every peer derives the same cent split
 - the reduction step minimizes the number of transfers, not narrative fairness or payment ordering
 

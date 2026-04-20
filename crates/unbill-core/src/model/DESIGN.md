@@ -7,7 +7,7 @@ The model module defines the shared vocabulary of unbill. It exists so every lay
 - `Ledger` is the shared expense workspace
 - `User` is a named person inside a ledger
 - `Device` is an authorized sync peer inside a ledger
-- `Bill` is an expense entry with payer, amount, weighted shares, and supersession links
+- `Bill` is an expense entry with payer shares, payee shares, amount, and supersession links
 - `LedgerMeta` is a lightweight summary used for listing ledgers without loading full snapshots
 - `Invitation` and `InviteToken` are local coordination types for join and user-transfer flows
 
