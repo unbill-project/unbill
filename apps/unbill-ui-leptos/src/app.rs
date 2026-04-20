@@ -319,6 +319,40 @@ pub fn App() -> impl IntoView {
         }
     };
 
+    let sync_device = {
+        let error_message = error_message;
+        let status_message = status_message;
+        let busy = busy;
+        let reload_bootstrap = reload_bootstrap.clone();
+        let selected_ledger_id = selected_ledger_id;
+        let load_selected_ledger = load_selected_ledger.clone();
+        move |peer_node_id: String| {
+            busy.set(true);
+            spawn_local({
+                let error_message = error_message;
+                let status_message = status_message;
+                let busy = busy;
+                let reload_bootstrap = reload_bootstrap.clone();
+                let selected_ledger_id = selected_ledger_id;
+                let load_selected_ledger = load_selected_ledger.clone();
+                async move {
+                    match api::sync_once(&peer_node_id).await {
+                        Ok(()) => {
+                            status_message.set(Some("Sync completed.".to_owned()));
+                            error_message.set(None);
+                            if let Some(ledger_id) = selected_ledger_id.get_untracked() {
+                                load_selected_ledger(ledger_id);
+                            }
+                            reload_bootstrap();
+                        }
+                        Err(error) => error_message.set(Some(error)),
+                    }
+                    busy.set(false);
+                }
+            });
+        }
+    };
+
     let render_overlay = move || {
         overlay.get().map(|sheet| match sheet {
             OverlayKind::CreateLedger => {
@@ -532,10 +566,12 @@ pub fn App() -> impl IntoView {
                 <div class="app-shell">
                     <DeviceSettingsPage
                         identities=bootstrap.get().map(|data| data.identities).unwrap_or_default()
+                        devices=bootstrap.get().map(|data| data.devices).unwrap_or_default()
                         on_back=Callback::new(move |_| device_settings_open.set(false))
                         on_add_identity=Callback::new(move |_| overlay.set(Some(OverlayKind::AddIdentity)))
                         on_import_ledger=Callback::new(move |_| open_join_from_clipboard())
                         on_scan_qr=Callback::new(move |_| open_join_from_clipboard())
+                        on_sync_device=Callback::new(move |node_id| sync_device(node_id))
                     />
                 </div>
             }
@@ -589,10 +625,12 @@ pub fn App() -> impl IntoView {
             view! {
                 <DeviceSettingsPage
                     identities=identities
+                    devices=bootstrap.get().map(|data| data.devices).unwrap_or_default()
                     on_back=Callback::new(move |_| device_settings_open.set(false))
                     on_add_identity=Callback::new(move |_| overlay.set(Some(OverlayKind::AddIdentity)))
                     on_import_ledger=Callback::new(move |_| open_join_from_clipboard())
                     on_scan_qr=Callback::new(move |_| open_join_from_clipboard())
+                    on_sync_device=Callback::new(move |node_id| sync_device(node_id))
                 />
             }
             .into_any()

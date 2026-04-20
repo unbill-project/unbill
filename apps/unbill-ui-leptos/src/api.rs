@@ -21,6 +21,7 @@ extern "C" {
 pub struct AppBootstrap {
     pub ledgers: Vec<LedgerSummary>,
     pub identities: Vec<Identity>,
+    pub devices: Vec<SyncDevice>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -48,6 +49,14 @@ pub struct LedgerDetail {
 pub struct Identity {
     pub user_id: String,
     pub display_name: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncDevice {
+    pub node_id: String,
+    pub label: String,
+    pub ledger_names: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -163,6 +172,14 @@ pub async fn join_ledger(input: JoinLedgerInput) -> Result<(), String> {
 
 pub async fn save_bill(input: SaveBillInput) -> Result<String, String> {
     invoke("save_bill", &serde_json::json!({ "input": input })).await
+}
+
+pub async fn sync_once(peer_node_id: &str) -> Result<(), String> {
+    invoke(
+        "sync_once",
+        &serde_json::json!({ "peerNodeId": peer_node_id }),
+    )
+    .await
 }
 
 pub async fn read_clipboard_text() -> Result<String, String> {

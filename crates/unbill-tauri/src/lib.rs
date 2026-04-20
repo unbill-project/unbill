@@ -1,9 +1,10 @@
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
-use unbill_core::model::{NewBill, NewMember, Share, Ulid};
+use unbill_core::model::{NewBill, NewMember, NodeId, Share, Ulid};
 use unbill_core::service::{Identity, UnbillService};
 use unbill_core::storage::FsStore;
 
@@ -16,6 +17,7 @@ struct AppState {
 struct AppBootstrapDto {
     ledgers: Vec<LedgerSummaryDto>,
     identities: Vec<IdentityDto>,
+    devices: Vec<SyncDeviceDto>,
 }
 
 #[derive(Clone, Serialize)]
@@ -75,6 +77,14 @@ struct BillDto {
     prev: Vec<String>,
 }
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SyncDeviceDto {
+    node_id: String,
+    label: String,
+    ledger_names: Vec<String>,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct CreateLedgerInput {
@@ -131,10 +141,14 @@ async fn bootstrap_app(state: State<'_, AppState>) -> std::result::Result<AppBoo
         .await
         .map(|items| items.into_iter().map(IdentityDto::from).collect())
         .map_err(stringify_error)?;
+    let devices = load_sync_devices(&state.service)
+        .await
+        .map_err(stringify_error)?;
 
     Ok(AppBootstrapDto {
         ledgers,
         identities,
+        devices,
     })
 }
 
@@ -287,6 +301,15 @@ async fn save_bill(
     Ok(bill_id)
 }
 
+#[tauri::command]
+async fn sync_once(
+    peer_node_id: String,
+    state: State<'_, AppState>,
+) -> std::result::Result<(), String> {
+    let peer = peer_node_id.parse::<NodeId>().map_err(stringify_error)?;
+    state.service.sync_once(peer).await.map_err(stringify_error)
+}
+
 fn load_store_root(app: &AppHandle) -> Result<std::path::PathBuf> {
     let root = app
         .path()
@@ -303,6 +326,46 @@ async fn load_ledgers(service: &Arc<UnbillService>) -> Result<Vec<LedgerSummaryD
         summaries.push(summarize_ledger(service, meta).await?);
     }
     Ok(summaries)
+}
+
+async fn load_sync_devices(service: &Arc<UnbillService>) -> Result<Vec<SyncDeviceDto>> {
+    let local_node_id = service.device_id().to_string();
+    let mut by_node_id = BTreeMap::<String, SyncDeviceDto>::new();
+
+    for meta in service.list_ledgers().await? {
+        let ledger_id = meta.ledger_id.to_string();
+        let ledger_name = meta.name.clone();
+        for device in service.list_devices(&ledger_id).await? {
+            let node_id = device.node_id.to_string();
+            if node_id == local_node_id {
+                continue;
+            }
+
+            let entry = by_node_id
+                .entry(node_id.clone())
+                .or_insert_with(|| SyncDeviceDto {
+                    node_id,
+                    label: device.label.clone(),
+                    ledger_names: Vec::new(),
+                });
+
+            if entry.label.is_empty() && !device.label.is_empty() {
+                entry.label = device.label.clone();
+            }
+            if !entry.ledger_names.iter().any(|name| name == &ledger_name) {
+                entry.ledger_names.push(ledger_name.clone());
+            }
+        }
+    }
+
+    let mut devices = by_node_id.into_values().collect::<Vec<_>>();
+    devices.sort_by(|left, right| {
+        left.label
+            .to_lowercase()
+            .cmp(&right.label.to_lowercase())
+            .then_with(|| left.node_id.cmp(&right.node_id))
+    });
+    Ok(devices)
 }
 
 async fn load_ledger_detail_inner(
@@ -455,7 +518,8 @@ pub fn run() {
             add_member,
             create_invitation,
             join_ledger,
-            save_bill
+            save_bill,
+            sync_once
         ])
         .run(tauri::generate_context!())
         .expect("error while running unbill");

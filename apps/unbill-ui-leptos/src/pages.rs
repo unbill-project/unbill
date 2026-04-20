@@ -1,4 +1,4 @@
-use crate::api::{self, Identity, LedgerDetail, LedgerSummary, Member};
+use crate::api::{self, Identity, LedgerDetail, LedgerSummary, Member, SyncDevice};
 use crate::app::{
     BillEditorSeed, BillSaveRequest, ShareMode, derived_share_preview, parse_amount_text,
     participant_lookup_shares,
@@ -158,15 +158,17 @@ pub fn LedgerPage(
 #[component]
 pub fn DeviceSettingsPage(
     identities: Vec<Identity>,
+    devices: Vec<SyncDevice>,
     on_back: Callback<()>,
     on_add_identity: Callback<()>,
     on_import_ledger: Callback<()>,
     on_scan_qr: Callback<()>,
+    on_sync_device: Callback<String>,
 ) -> impl IntoView {
     view! {
         <ScreenFrame
             title="Device Settings".to_owned()
-            subtitle="Local identities and join actions".to_owned()
+            subtitle="Local identities, known devices, and join actions".to_owned()
             leading={view! { <TopBarButton label="Back".to_owned() on_press=Callback::new(move |_| on_back.run(())) /> }.into_any()}
         >
             <div class="stack-gap">
@@ -181,6 +183,55 @@ pub fn DeviceSettingsPage(
                                 view! { <ListRow title=identity.display_name meta=identity.user_id /> }
                             })
                             .collect_view()}
+                    </div>
+                </SectionCard>
+
+                <SectionCard
+                    kicker="Sync peers".to_owned()
+                    title="Known devices".to_owned()
+                    description="Authorized devices gathered from the ledgers stored on this device.".to_owned()
+                >
+                    <div class="stack-gap">
+                        {if devices.is_empty() {
+                            view! {
+                                <div class="empty-copy">
+                                    "No peer devices are available yet. Join a shared ledger to sync with another device."
+                                </div>
+                            }
+                                .into_any()
+                        } else {
+                            devices
+                                .into_iter()
+                                .map(|device| {
+                                    let node_id = device.node_id.clone();
+                                    let detail = if device.ledger_names.is_empty() {
+                                        "No shared ledgers".to_owned()
+                                    } else {
+                                        format!("Shared via {}", device.ledger_names.join(", "))
+                                    };
+                                    let title = if device.label.trim().is_empty() {
+                                        "Unnamed device".to_owned()
+                                    } else {
+                                        device.label
+                                    };
+                                    view! {
+                                        <div class="sync-device-row">
+                                            <div class="row-copy">
+                                                <p class="row-title">{title}</p>
+                                                <p class="row-meta">{node_id.clone()}</p>
+                                                <p class="row-detail">{detail}</p>
+                                            </div>
+                                            <ActionButton
+                                                label="Sync".to_owned()
+                                                tone=ButtonTone::Quiet
+                                                on_press=Callback::new(move |_| on_sync_device.run(node_id.clone()))
+                                            />
+                                        </div>
+                                    }
+                                })
+                                .collect_view()
+                                .into_any()
+                        }}
                     </div>
                 </SectionCard>
 
@@ -202,7 +253,7 @@ pub fn DeviceSettingsPage(
                             on_press=Callback::new(move |_| on_import_ledger.run(()))
                         />
                         <ActionButton
-                            label="Scan QR Code".to_owned()
+                            label="Join Ledger".to_owned()
                             tone=ButtonTone::Quiet
                             full_width=true
                             on_press=Callback::new(move |_| on_scan_qr.run(()))
