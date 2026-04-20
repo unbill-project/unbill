@@ -1,9 +1,9 @@
 use crate::api::{
-    self, AddIdentityInput, AddUserInput, AppBootstrap, Bill, BillShareInput, JoinLedgerInput,
+    self, AddLocalUserInput, AddUserInput, AppBootstrap, Bill, BillShareInput, JoinLedgerInput,
     LedgerDetail, LedgerSummary, SaveBillInput, User,
 };
 use crate::pages::{
-    AddIdentitySheet, AddUserSheet, BillEditorPage, CreateLedgerSheet, DeviceSettingsPage,
+    AddLocalUserSheet, AddUserSheet, BillEditorPage, CreateLedgerSheet, DeviceSettingsPage,
     EmptyColumn, JoinLedgerSheet, LedgerPage, LedgerSettingsPage, LedgersPage, StatusStrip,
 };
 use leptos::prelude::*;
@@ -20,7 +20,7 @@ pub(crate) enum SurfaceMode {
 #[derive(Clone, PartialEq)]
 pub(crate) enum OverlayKind {
     CreateLedger,
-    AddIdentity,
+    AddLocalUser,
     JoinLedger { url: String },
     AddUser,
 }
@@ -275,18 +275,18 @@ pub fn App() -> impl IntoView {
                 }
                     .into_any()
             }
-            OverlayKind::AddIdentity => {
+            OverlayKind::AddLocalUser => {
                 view! {
-                    <AddIdentitySheet
+                    <AddLocalUserSheet
                         on_cancel=Callback::new(move |_| overlay.set(None))
                         on_submit=Callback::new(move |display_name: String| {
                             busy.set(true);
                             spawn_local(async move {
-                                match api::add_identity(AddIdentityInput { display_name }).await {
+                                match api::add_local_user(AddLocalUserInput { display_name }).await {
                                     Ok(_) => {
                                         overlay.set(None);
                                         reload_bootstrap();
-                                        status_message.set(Some("Identity saved on this device.".to_owned()));
+                                        status_message.set(Some("Saved user added on this device.".to_owned()));
                                         error_message.set(None);
                                     }
                                     Err(error) => error_message.set(Some(error)),
@@ -400,10 +400,10 @@ pub fn App() -> impl IntoView {
             return view! {
                 <div class="app-shell">
                     <DeviceSettingsPage
-                        identities=bootstrap.get().map(|data| data.identities).unwrap_or_default()
+                        local_users=bootstrap.get().map(|data| data.local_users).unwrap_or_default()
                         devices=bootstrap.get().map(|data| data.devices).unwrap_or_default()
                         on_back=Callback::new(move |_| device_settings_open.set(false))
-                        on_add_identity=Callback::new(move |_| overlay.set(Some(OverlayKind::AddIdentity)))
+                        on_add_local_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddLocalUser)))
                         on_import_ledger=Callback::new(move |_| open_join_from_clipboard())
                         on_scan_qr=Callback::new(move |_| open_join_from_clipboard())
                         on_sync_device=Callback::new(sync_device)
@@ -450,19 +450,19 @@ pub fn App() -> impl IntoView {
 
     let render_ranger = move || {
         let ledgers = bootstrap.get().map(|data| data.ledgers).unwrap_or_default();
-        let identities = bootstrap
+        let local_users = bootstrap
             .get()
-            .map(|data| data.identities)
+            .map(|data| data.local_users)
             .unwrap_or_default();
         let selected_ledger = selected_ledger_id.get();
 
         let column_two = if device_settings_open.get() {
             view! {
                 <DeviceSettingsPage
-                    identities=identities
+                    local_users=local_users
                     devices=bootstrap.get().map(|data| data.devices).unwrap_or_default()
                     on_back=Callback::new(move |_| device_settings_open.set(false))
-                    on_add_identity=Callback::new(move |_| overlay.set(Some(OverlayKind::AddIdentity)))
+                    on_add_local_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddLocalUser)))
                     on_import_ledger=Callback::new(move |_| open_join_from_clipboard())
                     on_scan_qr=Callback::new(move |_| open_join_from_clipboard())
                     on_sync_device=Callback::new(sync_device)

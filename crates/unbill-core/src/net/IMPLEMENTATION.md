@@ -8,7 +8,7 @@
 | `protocol.rs` | ALPN constants, CBOR message types for all three protocols, length-prefixed framing helpers (read/write a `u32` byte-count then a CBOR payload). |
 | `sync.rs` | `run_sync_session` — drives the `Hello`/`HelloAck` handshake then the Automerge sync loop for all accepted ledgers over an already-open bidirectional stream. No Iroh dependency; takes abstract `AsyncRead + AsyncWrite`. |
 | `join.rs` | `run_join_host` and `run_join_requester` — host and requester sides of `unbill/join/v1`. Host reads peer `NodeId` from the caller (passed in from the Iroh connection); requester dials the host NodeId from the invite URL. |
-| `identity.rs` | `run_identity_host` and `run_identity_requester` — host and requester sides of `unbill/identity/v1`. Same pattern as join. |
+| `user.rs` | `run_user_host` and `run_user_requester` — host and requester sides of `unbill/user/v1`. Same pattern as join. |
 | `endpoint.rs` | `UnbillEndpoint` — wraps `iroh::Endpoint`. Opens the endpoint with the device secret key. Dispatches incoming connections to the correct handler by ALPN. Exposes `sync_once(peer_node_id)` and `accept_loop()`. |
 
 ## Dependencies
@@ -53,4 +53,4 @@ All protocol logic is tested without real Iroh endpoints. `tokio::io::duplex` cr
 - `test_sync_converges_after_divergence` — two `LedgerDoc` instances apply independent writes, run `run_sync_session`, assert identical final state.
 - `test_sync_empty_hello_ack` — `HelloAck.accepted` is empty when peer has no shared authorized ledgers; both sides close cleanly.
 - `test_join_adds_device_to_ledger` — mock host validates token and returns ledger bytes; requester loads and persists them.
-- `test_identity_transfer_round_trip` — host sends `(user_id, display_name)`; requester receives and stores them.
+- `test_user_transfer_round_trip` — host sends `(user_id, display_name)`; requester receives and stores them.

@@ -30,3 +30,4 @@
 
 - `User` persists `user_id`, `display_name`, and `added_at` only. The system does not store who created a user record.
 - `Device` persists `node_id` and `added_at` only. Human-readable device labels live in device-local metadata rather than the Automerge document.
+- Device-local saved users are stored separately from ledger users and are transferred over the `unbill/user/v1` protocol.

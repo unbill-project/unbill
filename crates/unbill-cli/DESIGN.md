@@ -5,15 +5,15 @@ A thin clap-driven command-line frontend for `UnbillService`. Useful for dogfood
 ## Commands
 
 - `init` — initialize this device: generate a device key. Must be run once before any other command.
-- `identity new <display_name>` — add a fresh user identity (new user ID + display name) to this device. A device may hold many identities.
-- `identity import <url>` — fetch an existing user identity from another device via an `unbill://identity/...` URL and add it to this device's identity list. The other device must be online and have issued the URL via `identity share`.
-- `identity list` — list all identities stored on this device (user ID + display name for each).
-- `identity share --user-id <user_id>` — generate an `unbill://identity/...` URL for a specific identity so another device can import it via `identity import`.
+- `user create <display_name>` — add a fresh saved user (new user ID + display name) to this device. A device may hold many saved users.
+- `user import <url>` — fetch an existing saved user from another device via an `unbill://user/...` URL and add it to this device's saved-user list. The other device must be online and have issued the URL via `user share`.
+- `user list` — list all saved users stored on this device (user ID + display name for each).
+- `user share --user-id <user_id>` — generate an `unbill://user/...` URL for a specific saved user so another device can import it via `user import`.
 - `device show` — print this device's node ID and data directory.
 
 - `ledger create | list | show | delete | invite | join` — ledger lifecycle. `ledger create` registers the creator's own device in `ledger.devices`. `ledger invite` generates an `unbill://join/...` URL authorizing a new device to access the ledger; `ledger join <url> [--label <name>]` dials the host, joins, and optionally stores a device-local label for the host device.
 - `bill add | list | amend` — bill management. `bill amend` records a new version of an existing bill (same bill ID, all fields required); the latest version becomes the effective bill.
-- `user list | add` — managing named users in a ledger. Users may not be removed.
+- `user add --ledger-id ...` and `user list --ledger-id ...` — managing named users in a ledger. Omitting `--ledger-id` operates on device-local saved users instead.
 - `sync daemon | once | status` — P2P sync control. `sync once <peer_node_id>` dials a specific peer and syncs; `sync daemon` opens the endpoint and waits for incoming connections.
 - `settlement <user_id>` — display who owes whom for a user, aggregated across all their ledgers.
 

@@ -521,7 +521,7 @@ fn test_m3_commands_are_not_yet_available() {
 }
 
 // ---------------------------------------------------------------------------
-// Two-env peer tests (join, sync, identity import)
+// Two-env peer tests (join, sync, user import)
 // ---------------------------------------------------------------------------
 
 /// Host creates a ledger and generates an invite URL; joiner calls
@@ -580,26 +580,26 @@ fn test_sync_once_propagates_bills() {
     );
 }
 
-/// Host generates an identity-share URL; the joiner runs `identity import`;
-/// the imported identity then appears in the joiner's identity list.
+/// Host generates a user-share URL; the joiner runs `user import`;
+/// the imported saved user then appears in the joiner's saved-user list.
 #[test]
-fn test_identity_import_flow() {
+fn test_user_import_flow() {
     let host = Env::new();
     let joiner = Env::new();
 
-    let identity = host.json(&["identity", "create", "Alice"]);
-    let user_id = identity["user_id"].as_str().unwrap().to_owned();
+    let local_user = host.json(&["user", "create", "Alice"]);
+    let user_id = local_user["user_id"].as_str().unwrap().to_owned();
 
-    let share = host.json(&["identity", "share", "--user-id", &user_id]);
+    let share = host.json(&["user", "share", "--user-id", &user_id]);
     let url = share["url"].as_str().unwrap().to_owned();
 
     let daemon = Daemon::spawn(&host);
-    joiner.ok(&["identity", "import", &url]);
+    joiner.ok(&["user", "import", &url]);
     drop(daemon);
 
-    let identities = joiner.json(&["identity", "list"]);
-    let arr = identities.as_array().unwrap();
-    assert_eq!(arr.len(), 1, "joiner should have one imported identity");
+    let local_users = joiner.json(&["user", "list"]);
+    let arr = local_users.as_array().unwrap();
+    assert_eq!(arr.len(), 1, "joiner should have one imported saved user");
     assert_eq!(arr[0]["user_id"].as_str().unwrap(), user_id);
     assert_eq!(arr[0]["display_name"].as_str().unwrap(), "Alice");
 }

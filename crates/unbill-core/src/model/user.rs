@@ -52,7 +52,7 @@ pub struct NewDevice {
 /// persisted or synced. Consumed (removed from the map) on first use or expiry.
 ///
 /// The invitation authorizes a new device (NodeId) to join the ledger. It
-/// carries no user identity — user management is a separate operation.
+/// carries no person record — user management is a separate operation.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Invitation {
     pub token: InviteToken,
