@@ -5,6 +5,7 @@
 // concern so the core library stays independent of serialization.
 
 use unbill_core::model::{Bill, LedgerMeta, Ulid, User};
+use unbill_core::service::ConflictGroup;
 use unbill_core::settlement::Settlement;
 
 // ---------------------------------------------------------------------------
@@ -41,6 +42,12 @@ pub struct ShareOut {
 pub struct UserOut {
     pub user_id: String,
     pub display_name: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct ConflictGroupOut {
+    pub conflicting: Vec<BillOut>,
+    pub ancestors: Vec<BillOut>,
 }
 
 #[derive(serde::Serialize)]
@@ -89,6 +96,13 @@ pub fn user_out(user: &User) -> UserOut {
     UserOut {
         user_id: user.user_id.to_string(),
         display_name: user.display_name.clone(),
+    }
+}
+
+pub fn conflict_group_out(g: &ConflictGroup) -> ConflictGroupOut {
+    ConflictGroupOut {
+        conflicting: g.conflicting.iter().map(bill_out).collect(),
+        ancestors: g.ancestors.iter().map(bill_out).collect(),
     }
 }
 

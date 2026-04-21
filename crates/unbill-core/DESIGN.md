@@ -12,23 +12,26 @@ flowchart TB
     Storage["storage/"]
     Net["net/"]
     Settlement["settlement/"]
+    Conflict["conflict/"]
 
     Service --> Model
     Service --> Doc
     Service --> Storage
     Service --> Net
     Service --> Settlement
+    Service --> Conflict
     Doc --> Model
     Net --> Doc
     Net --> Storage
     Settlement --> Model
+    Conflict --> Model
 ```
 
 `service/` is the public entry point. The other modules are support layers that the service composes.
 
 ## Surface
 
-`UnbillService` is the main entry point. It manages local users, ledgers, users inside a ledger, bills, invitations, sync, settlement, and service events.
+`UnbillService` is the main entry point. It manages local users, ledgers, users inside a ledger, bills, invitations, sync, settlement, conflict detection, and service events.
 
 ## Invariants
 

@@ -54,6 +54,10 @@ impl LedgerDoc {
         ops::get_ledger(&self.doc)
     }
 
+    pub fn list_all_bills(&self) -> Result<Vec<crate::model::Bill>> {
+        ops::list_all_bills(&self.doc)
+    }
+
     pub fn list_bills(&self) -> Result<EffectiveBills> {
         ops::list_bills(&self.doc)
     }

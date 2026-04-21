@@ -11,6 +11,7 @@ flowchart LR
     Service --> Doc["LedgerDoc"]
     Service --> Net["UnbillEndpoint and protocol helpers"]
     Service --> Settlement["settlement module"]
+    Service --> Conflict["conflict module"]
     Service --> Events["ServiceEvent stream"]
 ```
 
@@ -21,6 +22,7 @@ flowchart LR
 - create invitations and consume join or user-share flows
 - coordinate sync and surface service events
 - compute settlement across ledgers for one user
+- detect amendment conflicts in the effective bill set
 
 ## Rules
 

@@ -100,6 +100,12 @@ pub(super) fn add_bill(
     Ok(bill_id)
 }
 
+/// Return all bills in insertion order, including superseded ones.
+pub(super) fn list_all_bills(doc: &AutoCommit) -> Result<Vec<Bill>> {
+    let ledger = get_ledger(doc)?;
+    Ok(ledger.bills)
+}
+
 /// Return only effective bills — those whose ID is not referenced in any other
 /// bill's `prev`. The order matches insertion order.
 pub(super) fn list_bills(doc: &AutoCommit) -> Result<EffectiveBills> {

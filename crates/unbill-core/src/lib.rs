@@ -1,6 +1,7 @@
 // unbill-core: the library that defines what unbill is.
 // See DESIGN.md for the module structure and invariants.
 
+pub mod conflict;
 pub mod doc;
 pub mod error;
 pub mod model;

@@ -20,6 +20,7 @@ flowchart LR
     Store["LedgerStore"]
     Net["Iroh sync"]
     Settlement["Settlement"]
+    Conflict["Conflict detection"]
 
     UI --> Tauri
     CLI --> Service
@@ -28,6 +29,7 @@ flowchart LR
     Service --> Store
     Service --> Net
     Service --> Settlement
+    Service --> Conflict
     Net --> Store
     Net --> Doc
 ```
@@ -98,6 +100,26 @@ flowchart LR
 ```
 
 The effective view contains bills whose IDs are not referenced by another bill's `prev`. That allows one bill to replace one earlier bill or merge several earlier bills into a single successor while keeping the underlying history intact.
+
+## Conflict Detection
+
+Because two peers may independently amend the same bill without knowing about each other, the effective bill set can contain a conflict: multiple effective bills that share a common ancestry but none of which supersedes the others.
+
+```mermaid
+flowchart LR
+    A["Bill A"]
+    B["Amendment B (peer 1)"]
+    C["Amendment C (peer 2)"]
+
+    B -->|"prev"| A
+    C -->|"prev"| A
+```
+
+After sync, A is superseded and both B and C are effective. They are in conflict because neither is named in the other's `prev`.
+
+Conflict detection uses a Union-Find over all bill IDs. Every `prev` link unions the successor with its predecessor. After all links are processed, any two effective bills that share the same root are in conflict. A `ConflictGroup` represents one such set of effective bills.
+
+A conflict is resolved by creating a new amendment bill whose `prev` includes every effective bill in the group, merging the competing branches into a single successor.
 
 ## Boundaries
 

@@ -8,6 +8,7 @@
 - `net/` — protocol framing, sync, join, user transfer, Iroh endpoint
 - `service/` — `UnbillService` orchestration and events
 - `settlement/` — balance math and transaction reduction
+- `conflict/` — Union-Find conflict detection over effective bills
 
 ## Runtime
 
