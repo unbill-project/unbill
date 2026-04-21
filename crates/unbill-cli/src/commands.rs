@@ -9,7 +9,8 @@ use unbill_core::model::{NewBill, NewUser, NodeId, Share, Ulid};
 use unbill_core::service::UnbillService;
 
 use crate::output::{
-    bill_out, fmt_amount, ledger_out, parse_amount, print_json, settlement_out, truncate, user_out,
+    bill_out, conflict_group_out, fmt_amount, ledger_out, parse_amount, print_json, settlement_out,
+    truncate, user_out,
 };
 
 fn parse_ulid(s: &str) -> anyhow::Result<Ulid> {
@@ -395,6 +396,48 @@ pub async fn sync_once(svc: &Arc<UnbillService>, peer_node_id: &str) -> anyhow::
 
 pub async fn sync_daemon(svc: &Arc<UnbillService>) -> anyhow::Result<()> {
     svc.accept_loop().await?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Conflicts
+// ---------------------------------------------------------------------------
+
+pub async fn bill_conflicts(
+    svc: &UnbillService,
+    ledger_id: &str,
+    json: bool,
+) -> anyhow::Result<()> {
+    let groups = svc.detect_conflicts(ledger_id).await?;
+    if json {
+        print_json(&groups.iter().map(conflict_group_out).collect::<Vec<_>>())?;
+    } else {
+        if groups.is_empty() {
+            println!("no conflicts");
+            return Ok(());
+        }
+        for (i, group) in groups.iter().enumerate() {
+            println!("conflict {} of {}", i + 1, groups.len());
+            println!("  conflicting:");
+            for b in &group.conflicting {
+                println!(
+                    "    {:<26}  {:>10}  {}",
+                    b.id,
+                    fmt_amount(b.amount_cents),
+                    truncate(&b.description, 32),
+                );
+            }
+            println!("  ancestors:");
+            for b in &group.ancestors {
+                println!(
+                    "    {:<26}  {:>10}  {}",
+                    b.id,
+                    fmt_amount(b.amount_cents),
+                    truncate(&b.description, 32),
+                );
+            }
+        }
+    }
     Ok(())
 }
 

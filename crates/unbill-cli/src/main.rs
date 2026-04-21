@@ -116,6 +116,11 @@ pub enum BillCmd {
         #[arg(long)]
         ledger_id: String,
     },
+    /// Show amendment conflicts in a ledger.
+    Conflicts {
+        #[arg(long)]
+        ledger_id: String,
+    },
     /// Create a new bill that supersedes one or more existing bills.
     Amend {
         #[arg(long)]
@@ -237,6 +242,9 @@ async fn run() -> anyhow::Result<()> {
                 .await
             }
             BillCmd::List { ledger_id } => commands::bill_list(&svc, &ledger_id, json).await,
+        BillCmd::Conflicts { ledger_id } => {
+            commands::bill_conflicts(&svc, &ledger_id, json).await
+        }
             BillCmd::Amend {
                 ledger_id,
                 prev,

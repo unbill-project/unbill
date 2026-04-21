@@ -12,6 +12,7 @@ use crate::model::{
     Currency, Device, EffectiveBills, Invitation, InviteToken, LedgerMeta, NewBill, NewDevice,
     NewUser, NodeId, Timestamp, Ulid, User,
 };
+use crate::conflict::{self, ConflictGroup};
 use crate::settlement;
 use crate::storage::LedgerStore;
 
@@ -198,6 +199,16 @@ impl UnbillService {
             .filter(|t| t.from_user_id == user_ulid || t.to_user_id == user_ulid)
             .collect();
         Ok(settlement::Settlement { transactions })
+    }
+
+    // -----------------------------------------------------------------------
+    // Conflict detection
+    // -----------------------------------------------------------------------
+
+    pub async fn detect_conflicts(&self, ledger_id: &str) -> Result<Vec<ConflictGroup>> {
+        let doc = self.load_doc(ledger_id).await?;
+        let all_bills = doc.list_all_bills()?;
+        Ok(conflict::detect(&all_bills))
     }
 
     // -----------------------------------------------------------------------
