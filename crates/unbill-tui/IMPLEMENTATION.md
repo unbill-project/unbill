@@ -4,20 +4,21 @@
 
 ```
 src/
-├── main.rs       — entry point: open service, run event loop
-├── app.rs        — AppState and top-level event dispatch
-├── ui.rs         — top-level render function; composes panes and status bar
+├── main.rs         — entry point: open service, run event loop
+├── app.rs          — AppState and top-level event dispatch
+├── ui.rs           — top-level render function; composes panes, popup, status bar
 ├── pane/
-│   ├── mod.rs    — Pane enum (Ledger, Bills, Detail)
-│   ├── ledger.rs — render and keymap for the ledger list pane
-│   └── bills.rs  — render and keymap for the bill list pane
-└── modal/
-    ├── mod.rs        — Modal trait and ModalStack
+│   ├── mod.rs      — Pane enum (Ledger, Bills, Detail) and shared types
+│   ├── ledger.rs   — render and key handling for the ledger list pane
+│   └── bills.rs    — render and key handling for the bill list pane
+└── popup/
+    ├── mod.rs           — PopupView trait, PopupOutcome, active popup dispatch
     ├── create_ledger.rs
     ├── add_bill.rs
     ├── amend_bill.rs
     ├── users.rs
-    ├── settlement.rs
+    ├── settlement.rs    — pick-user and result views, each a separate PopupView
+    ├── device.rs
     ├── invite.rs
     └── confirm.rs
 ```
@@ -31,50 +32,65 @@ src/
 
 ## AppState
 
-`AppState` is the single source of UI state. It holds no ledger data directly — all domain data is fetched from the service on demand and cached only for the current render frame.
+`AppState` is the single source of UI state. It holds no ledger data directly — domain data is fetched from the service and held only for the duration of a render frame.
 
 ```
 focused_pane: Pane
-ledger_cursor: usize        // index into the fetched ledger list
-bill_cursor: usize          // index into the fetched bill list
-modal: Option<Box<dyn Modal>>
-sync_status: SyncStatus     // Idle | Syncing | Error(String)
-status_message: Option<String>  // transient error or info line
+ledger_cursor: usize
+bill_cursor: usize
+popup: Option<Box<dyn PopupView>>
+sync_status: SyncStatus        // Idle | Syncing | Error(String)
+status_message: Option<String> // transient error or info shown in status bar
 ```
 
-When an action mutates the ledger, `AppState` calls the service and then clears any cached data so the next render re-fetches.
+After every mutation the relevant cursor is bounds-checked and the cached data is invalidated so the next render re-fetches from the service.
 
 ## Event loop
 
-The main loop runs inside a single tokio task and drives three concurrent streams:
+The main loop runs in a single tokio task and selects across three concurrent streams:
 
-1. **Terminal events** — crossterm key/resize events via `EventStream`.
-2. **Service events** — `broadcast::Receiver<ServiceEvent>` from `UnbillService::subscribe()`.
-3. **Render tick** — a fixed-interval ticker (16 ms, ~60 fps) that triggers a redraw.
+1. **Terminal events** — crossterm key and resize events via `EventStream`.
+2. **Service events** — `broadcast::Receiver<ServiceEvent>` from `UnbillService::subscribe()`. A `LedgerUpdated` event clears the bill cache and schedules a redraw.
+3. **Render tick** — a 16 ms interval (~60 fps) that triggers a redraw unconditionally.
 
-On each iteration the loop selects across all three streams, updates `AppState`, then redraws. Service events that signal `LedgerUpdated` clear the bill cache so the next render fetches fresh data.
+Key events are routed first to the active popup (if any), then to the focused pane.
 
 ## Rendering
 
-`ui.rs` calls `ratatui`'s `Layout::horizontal` to split the terminal into three equal-ish columns (roughly 20 % / 40 % / 40 %). Each pane module exposes a `render(frame, area, state, data)` function that draws into its allocated area. The status bar occupies a fixed one-line area at the bottom.
+`ui.rs` calls `Layout::horizontal` to divide the terminal into three columns (roughly 20 % / 40 % / 40 %) and a fixed one-line status bar at the bottom. Each pane module exposes a `render(frame, area, state, data)` function.
 
-Pane borders are styled to distinguish focused (bright) from unfocused (dim). The cursor row within a list is highlighted with a reversed-video style.
+When a popup is active, `ui.rs` renders the main layout first (dimmed), then draws the popup centered over the screen using `ratatui`'s `Clear` widget followed by a `Block`-framed area.
 
-## Modal system
+Focused pane borders are styled bright; unfocused borders are dim.
 
-`Modal` is a trait with two methods:
+## PopupView trait
 
-- `render(&self, frame, area)` — draws the modal centered over the screen.
-- `handle_key(&mut self, key) -> ModalOutcome` — returns `Pending`, `Confirmed(ModalResult)`, or `Cancelled`.
+`PopupView` is a trait with two methods:
 
-`ModalResult` is an enum carrying the data needed for the service call (e.g. `CreateLedger { name, currency }`). After a `Confirmed` result, the event loop extracts the result, calls the appropriate service method, and drops the modal.
+```rust
+fn render(&self, frame: &mut Frame, area: Rect);
+fn handle_key(&mut self, key: KeyEvent) -> PopupOutcome;
+```
 
-Modals with multiple fields track a `focused_field: usize` internally and advance it on `Tab`.
+`PopupOutcome` is an enum:
+
+```rust
+enum PopupOutcome {
+    Pending,                    // popup stays open, no action
+    Cancelled,                  // close popup, no action
+    Action(PopupAction),        // close popup, call service with this action
+    OpenNext(Box<dyn PopupView>), // replace current popup with a new one
+}
+```
+
+`PopupAction` carries the data for the service call (e.g. `CreateLedger { name, currency }`, `AddBill { ... }`, `DeleteLedger { id }`). The event loop matches on the action and calls the appropriate `UnbillService` method.
+
+The `OpenNext` variant handles sequential multi-step flows: the settlement pick-user popup returns `OpenNext(Box::new(SettlementResultPopup { user_id }))` when the user confirms their selection.
 
 ## Status bar hints
 
-Each `Pane` variant exposes a `hints() -> &[(&str, &str)]` function returning `(key, label)` pairs. The status bar renders these as `[key] label` separated by spaces, rebuilding the string only when focus changes.
+Each `Pane` variant has a `hints()` method returning a slice of `(key, label)` pairs. The status bar renders them as `[key] label` and rebuilds the string only when focus changes. When a popup is open the hints area shows `[Esc] close` instead.
 
 ## Testing
 
-The TUI has no unit tests of its own. Correctness of domain logic is covered by `unbill-core` tests. The TUI is validated manually and via the existing CLI e2e tests which exercise the same service layer.
+The TUI has no unit tests of its own. Domain correctness is covered by `unbill-core` tests. The TUI is validated manually against the same `UnbillService` that the CLI e2e tests exercise.

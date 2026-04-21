@@ -49,11 +49,11 @@ Actions are context-sensitive. The status bar shows only the keys valid for the 
 | `e` | — | Amend selected bill |
 | `d` | Delete ledger (confirmation required) | — |
 | `u` | Manage users in ledger | — |
-| `s` | Open settlement for a local user | — |
-| `S` | Trigger manual sync | — |
-| `i` | Open invite / join modal | — |
+| `s` | Open settlement | — |
+| `S` | Open device settings | — |
+| `i` | Open invite / join | — |
 | `q` | Quit | Quit |
-| `Esc` | Close modal / cancel | Close modal / cancel |
+| `Esc` | Close popup / cancel | Close popup / cancel |
 
 Bills are append-only and cannot be deleted.
 
@@ -61,47 +61,53 @@ Bills are append-only and cannot be deleted.
 
 The status bar at the bottom of the screen has two parts:
 
-- **Left** — context-sensitive key hints for the currently focused pane.
+- **Left** — context-sensitive key hints for the currently focused pane. Updates immediately when focus changes.
 - **Right** — sync status indicator: idle, syncing, or last error.
 
-The hints update immediately when focus changes.
+## Popup Window
 
-## Modals
+Every action that requires input or displays a secondary view opens a popup window centered over the main panes. The background dims. Only one popup is visible at a time. Multi-step flows open a second popup sequentially: the first popup closes and the second opens in its place.
 
-Actions that require input open a modal overlay. The rest of the screen dims. Within a modal, `Tab` / `Shift+Tab` move between fields, `Enter` confirms, `Esc` cancels.
+Navigation inside a popup follows the same `j`/`k` conventions as the main panes. `Tab` / `Shift+Tab` advance between form fields. `Enter` confirms. `Esc` closes the popup without acting.
 
 ### Create ledger
-Two fields: name and ISO 4217 currency code.
+Form with two fields: name and ISO 4217 currency code.
 
 ### Add bill
-Fields: description, amount (decimal), payer (chosen from ledger users), share users (multi-select from ledger users with equal shares).
+Form with fields: description, amount (decimal), payer (selected from ledger users with `j`/`k`), share users (multi-select from ledger users).
 
 ### Amend bill
-Same fields as add bill, pre-filled from the selected bill. The `prev` link to the selected bill is set automatically on confirm.
+Same form as add bill, pre-filled from the selected bill. The `prev` link to the selected bill is set automatically on confirm.
 
 ### User management
-Shows the current users in the focused ledger. A sub-action allows adding a local device user to the ledger by selecting from the device's saved local users. New local users can also be created here.
+Lists the current users in the focused ledger. An add action opens a sub-popup (sequentially) showing the device's saved local users to choose from. A create action in that same sub-popup creates a new local user and adds them.
 
-### Settlement
-First presents a list of saved local users on this device. After one is chosen, shows the net transactions for that user across all ledgers.
+### Settlement — pick user
+Lists the saved local users on this device. Selecting one and pressing `Enter` closes this popup and opens the settlement result popup.
+
+### Settlement — result
+Shows the net transactions for the chosen user across all ledgers. Read-only; `Esc` closes.
+
+### Device settings
+Shows the device ID and known peer labels. An action allows entering a peer `NodeId` to trigger a manual sync.
 
 ### Invite / join
-Two tabs within the modal:
+Two tabs navigated with `h`/`l`:
 - **Invite** — generates and displays an `unbill://join/...` URL for the focused ledger.
-- **Join** — accepts a pasted `unbill://join/...` URL to join a ledger hosted by another device.
+- **Join** — a text field to paste an inbound `unbill://join/...` URL and join the ledger.
 
 ### Confirm delete
-A yes/no prompt shown before deleting a ledger.
+A yes/no prompt shown before deleting a ledger. `Enter` on yes confirms; `Esc` or `Enter` on no cancels.
 
 ## Sync
 
-A background task subscribes to `ServiceEvent`s from the service and refreshes the visible panes when a `LedgerUpdated` event arrives. Manual sync is triggered with `S`, which opens a prompt for a peer `NodeId` and then dials that peer.
+A background task subscribes to `ServiceEvent`s from the service and refreshes the visible panes when a `LedgerUpdated` event arrives. Manual sync is initiated from the device settings popup.
 
 ## Empty States
 
 - No ledgers: left pane shows a dim `no ledgers — press [a] to create one`.
 - No bills: middle pane shows a dim `no bills — press [a] to add one`.
-- No local users (for settlement): settlement modal shows `no saved users — create one first`.
+- No local users (for settlement): settlement pick-user popup shows `no saved users — create one first`.
 
 ## Principles
 
