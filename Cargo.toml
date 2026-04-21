@@ -5,6 +5,7 @@ members = [
     "crates/unbill-core",
     "crates/unbill-cli",
     "crates/unbill-tauri",
+    "crates/unbill-tui",
 ]
 
 [workspace.package]
