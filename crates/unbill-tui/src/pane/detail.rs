@@ -308,7 +308,7 @@ fn render_editor(frame: &mut Frame, area: Rect, block: Block, editor: &BillEdito
 
 fn build_preview(editor: &BillEditor) -> String {
     let amount_cents = match parse_amount_cents(&editor.amount_str) {
-        Some(v) if v > 0 => v,
+        Some(v) if v >= 0 => v,
         _ => return String::new(),
     };
     let selected_payees: Vec<&ParticipantRow> =

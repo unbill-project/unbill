@@ -358,7 +358,7 @@ async fn handle_editor_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
             KeyCode::BackTab => {
                 editor.section = retreat_section(editor.section);
             }
-            KeyCode::Char('j') | KeyCode::Down => match editor.section {
+            KeyCode::Down => match editor.section {
                 EditorSection::Payers => {
                     if !editor.payers.is_empty() {
                         editor.payer_cursor =
@@ -373,7 +373,7 @@ async fn handle_editor_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
                 }
                 _ => {}
             },
-            KeyCode::Char('k') | KeyCode::Up => match editor.section {
+            KeyCode::Up => match editor.section {
                 EditorSection::Payers => {
                     editor.payer_cursor = editor.payer_cursor.saturating_sub(1);
                 }
@@ -382,44 +382,60 @@ async fn handle_editor_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
                 }
                 _ => {}
             },
-            KeyCode::Char(' ') => match editor.section {
-                EditorSection::Payers => {
-                    let cur = editor.payer_cursor;
-                    if let Some(row) = editor.payers.get_mut(cur) {
-                        row.selected = !row.selected;
+            KeyCode::Char(c) => match editor.section {
+                EditorSection::Description => editor.description.push(c),
+                EditorSection::Amount if c != 'j' && c != 'k' => editor.amount_str.push(c),
+                EditorSection::Amount => {}
+                EditorSection::Payers => match c {
+                    'j' => {
+                        if !editor.payers.is_empty() {
+                            editor.payer_cursor =
+                                (editor.payer_cursor + 1).min(editor.payers.len() - 1);
+                        }
                     }
-                }
-                EditorSection::Payees => {
-                    let cur = editor.payee_cursor;
-                    if let Some(row) = editor.payees.get_mut(cur) {
-                        row.selected = !row.selected;
+                    'k' => {
+                        editor.payer_cursor = editor.payer_cursor.saturating_sub(1);
                     }
-                }
-                _ => {}
-            },
-            KeyCode::Char(c) if c.is_ascii_digit() => {
-                let digit = c.to_digit(10).unwrap_or(1).max(1);
-                match editor.section {
-                    EditorSection::Description => editor.description.push(c),
-                    EditorSection::Amount => editor.amount_str.push(c),
-                    EditorSection::Payers => {
+                    ' ' => {
+                        let cur = editor.payer_cursor;
+                        if let Some(row) = editor.payers.get_mut(cur) {
+                            row.selected = !row.selected;
+                        }
+                    }
+                    c if c.is_ascii_digit() => {
+                        let digit = c.to_digit(10).unwrap_or(1).max(1);
                         let cur = editor.payer_cursor;
                         if let Some(row) = editor.payers.get_mut(cur) {
                             row.weight = digit;
                         }
                     }
-                    EditorSection::Payees => {
+                    _ => {}
+                },
+                EditorSection::Payees => match c {
+                    'j' => {
+                        if !editor.payees.is_empty() {
+                            editor.payee_cursor =
+                                (editor.payee_cursor + 1).min(editor.payees.len() - 1);
+                        }
+                    }
+                    'k' => {
+                        editor.payee_cursor = editor.payee_cursor.saturating_sub(1);
+                    }
+                    ' ' => {
+                        let cur = editor.payee_cursor;
+                        if let Some(row) = editor.payees.get_mut(cur) {
+                            row.selected = !row.selected;
+                        }
+                    }
+                    c if c.is_ascii_digit() => {
+                        let digit = c.to_digit(10).unwrap_or(1).max(1);
                         let cur = editor.payee_cursor;
                         if let Some(row) = editor.payees.get_mut(cur) {
                             row.weight = digit;
                         }
                     }
-                }
-            }
-            KeyCode::Char(c) => match editor.section {
-                EditorSection::Description => editor.description.push(c),
-                EditorSection::Amount => editor.amount_str.push(c),
-                _ => {}
+                    _ => {}
+                },
             },
             KeyCode::Backspace => match editor.section {
                 EditorSection::Description => {
@@ -487,12 +503,18 @@ async fn try_confirm_editor(state: &mut AppState, svc: &Arc<UnbillService>) {
             Err("Description must not be empty".to_string())
         } else {
             let amount_cents = match parse_amount_cents(&editor.amount_str) {
-                Some(v) if v > 0 => v,
-                _ => {
+                Some(v) if v >= 0 => v,
+                Some(_) => {
                     return {
                         if let Some(e) = state.bill_editor.as_mut() {
-                            e.error =
-                                Some("Enter a valid positive amount (e.g. 12.50)".to_string());
+                            e.error = Some("Amount must not be negative".to_string());
+                        }
+                    };
+                }
+                None => {
+                    return {
+                        if let Some(e) = state.bill_editor.as_mut() {
+                            e.error = Some("Enter a valid amount (e.g. 12.50)".to_string());
                         }
                     };
                 }
