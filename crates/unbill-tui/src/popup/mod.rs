@@ -112,7 +112,7 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
 
 /// Clears `area`, draws a bordered block with `title`, and returns the inner
 /// area available for content.
-pub fn render_popup_base<'a>(frame: &mut Frame, area: Rect, title: &'a str) -> Rect {
+pub fn render_popup_base(frame: &mut Frame, area: Rect, title: &str) -> Rect {
     let block = Block::bordered()
         .title(title)
         .style(Style::default().fg(Color::Cyan));
