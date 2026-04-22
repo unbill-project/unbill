@@ -23,7 +23,7 @@ impl Env {
     }
 
     fn run(&self, args: &[&str]) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_unbill"))
+        Command::new(env!("CARGO_BIN_EXE_unbill-cli"))
             .env("UNBILL_DATA_DIR", self.dir.path())
             .args(args)
             .output()
@@ -86,7 +86,7 @@ struct Daemon {
 
 impl Daemon {
     fn spawn(env: &Env) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_unbill"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_unbill-cli"))
             .env("UNBILL_DATA_DIR", env.dir.path())
             .args(["sync", "daemon"])
             .stdout(Stdio::piped())
