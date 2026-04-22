@@ -22,6 +22,9 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      AUR_SSH_KEY:
+        required: false
 
 jobs:
   github:
