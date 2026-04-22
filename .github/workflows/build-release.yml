@@ -1,0 +1,83 @@
+name: Build Release
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Git tag for the release (e.g. nightly-20260422-000000, v1.2.3)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+      body:
+        description: 'Release description'
+        required: false
+        type: string
+        default: ''
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            suffix: linux-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            suffix: macos-aarch64
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build release binaries
+        run: cargo build --release --target ${{ matrix.target }} -p unbill-cli -p unbill-tui
+
+      - name: Stage binaries
+        run: |
+          cp target/${{ matrix.target }}/release/unbill-cli unbill-cli-${{ matrix.suffix }}
+          cp target/${{ matrix.target }}/release/unbill-tui unbill-tui-${{ matrix.suffix }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.suffix }}
+          path: |
+            unbill-cli-${{ matrix.suffix }}
+            unbill-tui-${{ matrix.suffix }}
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: ${{ inputs.tag }}
+          prerelease: ${{ inputs.prerelease }}
+          make_latest: ${{ !inputs.prerelease }}
+          body: ${{ inputs.body }}
+          files: |
+            unbill-cli-*
+            unbill-tui-*
