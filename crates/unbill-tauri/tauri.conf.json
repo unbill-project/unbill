@@ -4,18 +4,26 @@
   "version": "0.1.0",
   "identifier": "com.unbill.app",
   "build": {
-    "beforeDevCommand": "pnpm --filter unbill-desktop dev",
+    "beforeDevCommand": {
+      "cwd": "../../apps/unbill-ui-leptos",
+      "script": "trunk serve --config Trunk.toml",
+      "wait": false
+    },
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm --filter unbill-desktop build",
-    "frontendDist": "../../apps/unbill-desktop/dist"
+    "beforeBuildCommand": {
+      "cwd": "../../apps/unbill-ui-leptos",
+      "script": "trunk build --config Trunk.toml --release"
+    },
+    "frontendDist": "../../apps/unbill-ui-leptos/dist"
   },
   "app": {
-    "withGlobalTauri": false,
+    "withGlobalTauri": true,
     "windows": [
       {
+        "label": "main",
         "title": "unbill",
-        "width": 1024,
-        "height": 768,
+        "width": 1280,
+        "height": 800,
         "resizable": true,
         "decorations": false
       }

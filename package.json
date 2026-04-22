@@ -3,14 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "pnpm --filter unbill-desktop dev",
+    "dev": "trunk serve --config apps/unbill-ui-leptos/Trunk.toml",
     "dev:leptos": "trunk serve --config apps/unbill-ui-leptos/Trunk.toml",
-    "build": "pnpm --filter unbill-desktop build",
+    "build": "trunk build --config apps/unbill-ui-leptos/Trunk.toml --release",
     "build:leptos": "trunk build --config apps/unbill-ui-leptos/Trunk.toml --release",
-    "lint": "pnpm --filter unbill-desktop lint",
-    "typecheck": "pnpm --filter unbill-desktop typecheck",
-    "tauri:dev:leptos": "cargo tauri dev --manifest-path crates/unbill-tauri/Cargo.toml -c crates/unbill-tauri/tauri.leptos.conf.json",
-    "tauri:build:leptos": "cargo tauri build --manifest-path crates/unbill-tauri/Cargo.toml -c crates/unbill-tauri/tauri.leptos.conf.json"
+    "lint": "cargo clippy --workspace --all-targets",
+    "typecheck": "cargo check --workspace",
+    "tauri:dev": "cd crates/unbill-tauri && cargo tauri dev",
+    "tauri:dev:leptos": "cd crates/unbill-tauri && cargo tauri dev",
+    "tauri:build": "cd crates/unbill-tauri && cargo tauri build",
+    "tauri:build:leptos": "cd crates/unbill-tauri && cargo tauri build"
   },
   "engines": {
     "node": ">=20",

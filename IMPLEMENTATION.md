@@ -4,9 +4,8 @@
 
 - `crates/unbill-core/` — domain model, Automerge ledger, storage, sync, settlement, service facade
 - `crates/unbill-cli/` — terminal frontend
-- `crates/unbill-tauri/` — Tauri IPC bridge
-- `apps/unbill-ui-leptos/` — shared Leptos UI
-- `apps/unbill-desktop/` — early React desktop shell
+- `crates/unbill-tauri/` — Tauri IPC bridge and desktop shell host
+- `apps/unbill-ui-leptos/` — default desktop UI, built with Leptos and loaded by Tauri
 
 ## Core shape
 

@@ -539,3 +539,50 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running unbill");
 }
+
+#[cfg(test)]
+mod tests {
+    use serde_json::Value;
+
+    fn tauri_config() -> Value {
+        serde_json::from_str(include_str!("../tauri.conf.json"))
+            .expect("tauri.conf.json should stay valid JSON")
+    }
+
+    #[test]
+    fn desktop_config_points_to_leptos_frontend() {
+        let config = tauri_config();
+        let build = &config["build"];
+
+        assert_eq!(build["devUrl"].as_str(), Some("http://localhost:1420"));
+        assert_eq!(
+            build["frontendDist"].as_str(),
+            Some("../../apps/unbill-ui-leptos/dist")
+        );
+
+        let before_dev = &build["beforeDevCommand"];
+        assert_eq!(
+            before_dev["cwd"].as_str(),
+            Some("../../apps/unbill-ui-leptos")
+        );
+        assert_eq!(
+            before_dev["script"].as_str(),
+            Some("trunk serve --config Trunk.toml")
+        );
+    }
+
+    #[test]
+    fn desktop_config_defines_visible_main_window() {
+        let config = tauri_config();
+        let windows = config["app"]["windows"]
+            .as_array()
+            .expect("desktop config should define at least one window");
+        let main_window = windows
+            .iter()
+            .find(|window| window["label"].as_str() == Some("main"))
+            .expect("desktop config should define a main window");
+
+        assert_eq!(main_window["title"].as_str(), Some("unbill"));
+        assert!(main_window["visible"].as_bool().unwrap_or(true));
+    }
+}
