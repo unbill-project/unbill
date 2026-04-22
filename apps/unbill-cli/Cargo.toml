@@ -10,7 +10,7 @@ name = "unbill-cli"
 path = "src/main.rs"
 
 [dependencies]
-unbill-core = { path = "../unbill-core" }
+unbill-core = { path = "../../crates/unbill-core" }
 tokio.workspace = true
 anyhow.workspace = true
 tracing.workspace = true

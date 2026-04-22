@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
+    "apps/unbill-cli",
+    "apps/unbill-tui",
     "apps/unbill-ui-leptos",
     "crates/unbill-core",
-    "crates/unbill-cli",
     "crates/unbill-tauri",
-    "crates/unbill-tui",
 ]
 
 [workspace.package]
