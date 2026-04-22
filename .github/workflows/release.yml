@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Git tag (e.g. nightly-20260422-000000, v1.2.3)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+      body:
+        description: 'Release description'
+        required: false
+        type: string
+        default: ''
+      aur:
+        description: 'Publish to AUR'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  github:
+    name: Publish GitHub release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: ${{ inputs.tag }}
+          prerelease: ${{ inputs.prerelease }}
+          make_latest: ${{ !inputs.prerelease }}
+          body: ${{ inputs.body }}
+          files: |
+            unbill-cli-*
+            unbill-tui-*
+
+  aur:
+    name: Publish AUR release
+    if: inputs.aur
+    uses: ./.github/workflows/release-aur.yml
+    with:
+      tag: ${{ inputs.tag }}
+    secrets: inherit

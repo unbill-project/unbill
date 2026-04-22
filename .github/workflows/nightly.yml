@@ -16,7 +16,11 @@ jobs:
 
   build:
     needs: prepare
-    uses: ./.github/workflows/build-release.yml
+    uses: ./.github/workflows/build.yml
+
+  release:
+    needs: [prepare, build]
+    uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.prepare.outputs.tag }}
       prerelease: true

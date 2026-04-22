@@ -1,22 +1,7 @@
-name: Build Release
+name: Build
 
 on:
   workflow_call:
-    inputs:
-      tag:
-        description: 'Git tag for the release (e.g. nightly-20260422-000000, v1.2.3)'
-        required: true
-        type: string
-      prerelease:
-        description: 'Mark as pre-release'
-        required: false
-        type: boolean
-        default: false
-      body:
-        description: 'Release description'
-        required: false
-        type: string
-        default: ''
 
 env:
   CARGO_TERM_COLOR: always
@@ -68,26 +53,3 @@ jobs:
           path: |
             unbill-cli-${{ matrix.suffix }}*
             unbill-tui-${{ matrix.suffix }}*
-
-  release:
-    name: Publish release
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          merge-multiple: true
-
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ inputs.tag }}
-          name: ${{ inputs.tag }}
-          prerelease: ${{ inputs.prerelease }}
-          make_latest: ${{ !inputs.prerelease }}
-          body: ${{ inputs.body }}
-          files: |
-            unbill-cli-*
-            unbill-tui-*
