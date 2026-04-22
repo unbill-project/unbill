@@ -6,7 +6,7 @@ edition.workspace = true
 license.workspace = true
 
 [[bin]]
-name = "unbill"
+name = "unbill-cli"
 path = "src/main.rs"
 
 [dependencies]
