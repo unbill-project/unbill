@@ -260,7 +260,12 @@ async fn handle_ledger_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
         }
         KeyCode::Char('S') => {
             let device_id = svc.device_id().to_string();
-            state.popup = Some(Box::new(DevicePopup::new(device_id)));
+            match svc.list_local_users().await {
+                Ok(saved_users) => {
+                    state.popup = Some(Box::new(DevicePopup::new(device_id, saved_users)));
+                }
+                Err(e) => state.status_message = Some(e.to_string()),
+            }
         }
         _ => {}
     }

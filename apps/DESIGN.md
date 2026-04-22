@@ -60,9 +60,11 @@ The bill editor is used for both create and amend flows. It edits one bill draft
 
 The device settings popup owns local-only device concerns such as saved users, known peer devices, and join or import actions.
 
-- invitation URLs, device labels, and local saved users remain local client concerns
+- shows the device ID (read-only)
+- lists saved local users on this device; an add-saved-user action creates a new named user stored only on this device
 - sync actions target known peer devices gathered from backend state
 - join-ledger action accepts an inbound `unbill://join/…` URL to import a ledger from a peer device
+- invitation URLs, device labels, and local saved users remain local client concerns
 - this popup does not require an active ledger selection
 
 ### Ledger Settings Popup
