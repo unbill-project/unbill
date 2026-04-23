@@ -106,7 +106,7 @@ jobs:
       - name: Rename artifacts
         shell: bash
         run: |
-          echo '${{ steps.tauri.outputs.artifactPaths }}' | jq -r '.[]' | while read -r path; do
+          echo '${{ steps.tauri.outputs.artifactPaths }}' | jq -r '.[]' | tr -d '\r' | while read -r path; do
             ext="${path##*.}"
             mv "$path" "unbill-${{ matrix.suffix }}.${ext}"
           done
