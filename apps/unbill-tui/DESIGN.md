@@ -32,7 +32,7 @@ Actions are context-sensitive. The status bar shows only the keys valid for the 
 | `a` | Create ledger | Add bill |
 | `e` | — | Amend selected bill |
 | `d` | Delete ledger (confirmation required) | — |
-| `u` | Ledger settings popup | — |
+| `u` | — | Ledger settings popup |
 | `S` | Device settings popup | — |
 | `q` | Quit | Quit |
 | `Esc` | Close popup / cancel | Close popup / cancel |

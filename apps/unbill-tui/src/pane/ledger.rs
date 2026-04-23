@@ -9,7 +9,7 @@ use crate::app::AppState;
 use crate::pane::Pane;
 
 pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
-    let focused = state.focused_pane == Pane::Ledger;
+    let focused = state.focused_pane == Pane::Ledgers;
     let border_style = if focused {
         Style::default().fg(Color::Yellow)
     } else {

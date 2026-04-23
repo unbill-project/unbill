@@ -9,18 +9,17 @@ flowchart LR
     Ledgers["Ledgers"]
     Ledger["Ledger"]
     Bill["Bill editor"]
-    DevicePopup["Device settings popup"]
-    LedgerPopup["Ledger settings popup"]
+    SettingsPopup["Settings popup"]
 
     Ledgers --> Ledger
-    Ledgers --> DevicePopup
+    Ledgers --> SettingsPopup
     Ledger --> Bill
-    Ledger --> LedgerPopup
+    Ledger --> SettingsPopup
 ```
 
 - compact mode shows one screen at a time (desktop only, narrow windows)
 - ranger mode shows three columns: ledgers, the active ledger, and the active bill editor in adjacent columns
-- device settings and ledger settings open as popups over the current layout in both implementations
+- the settings popup opens as a full-screen overlay in compact mode and as a floating overlay over the columns in ranger mode
 - selection is page state: opening a ledger or bill editor changes the current context, not shared data
 
 ## Screens
@@ -41,7 +40,8 @@ The ledger screen shows the effective bills for the selected ledger and the per-
 - renders effective bill DTOs rather than computing projection locally
 - settlement is shown inline below the bill list: minimum transfers to clear the selected ledger's balances
 - opens bill editing from the selected bill context
-- opening ledger settings popup keeps the ledger screen visible behind the overlay
+- opens the settings popup on the Ledger Settings tab with the current ledger pre-selected
+- opening the settings popup keeps the ledger screen visible behind the overlay
 - using the back action clears the active ledger selection
 
 ### Bill Editor
@@ -56,9 +56,18 @@ The bill editor is used for both create and amend flows. It edits one bill draft
 - payers and payees each have a share weight (positive integer); the editor shows a live per-participant amount so the user can verify the split before confirming
 - does not own settlement, projection, or persistence rules
 
-### Device Settings Popup
+### Settings Popup
 
-The device settings popup owns local-only device concerns such as saved users, known peer devices, and join or import actions.
+The settings popup is a single overlay with two tabs: Device Settings and Ledger Settings. It can be opened from two entry points, each of which controls which tab is active on open.
+
+- opening from the device settings button or device settings keybinding opens the popup with the Device Settings tab active
+- opening from a ledger (via ledger settings button or keybinding) opens the popup with the Ledger Settings tab active and that ledger pre-selected
+- switching between tabs is always available within the popup
+- in compact mode the popup occupies the full screen; in ranger mode it floats as an overlay over the columns
+
+#### Device Settings Tab
+
+The device settings tab owns local-only device concerns such as saved users, known peer devices, and join or import actions.
 
 - shows the device ID (read-only)
 - lists saved local users on this device; an add-saved-user action creates a new named user stored only on this device
@@ -67,22 +76,24 @@ The device settings popup owns local-only device concerns such as saved users, k
 - sync actions target known peer devices gathered from backend state
 - join-ledger action accepts an inbound `unbill://join/…` URL to import a ledger from a peer device
 - invitation URLs, device labels, and local saved users remain local client concerns
-- this popup does not require an active ledger selection
+- this tab does not require an active ledger selection
 
-### Ledger Settings Popup
+#### Ledger Settings Tab
 
-The ledger settings popup manages ledger-scoped users and the device invitation flow for the selected ledger.
+The ledger settings tab manages ledger-scoped users and the device invitation flow.
 
-- renders ledger users from the current ledger context
-- add-user action lets the operator pick from device-local saved users to add to the ledger
-- creates invitation URLs for the current ledger only; keeps invitation output in popup state rather than shared ledger state
+- shows a ledger selector listing all ledgers available on the device; the active ledger from context is pre-selected on open
+- all actions in this tab apply to the currently selected ledger in the selector
+- renders ledger users from the selected ledger
+- add-user action lets the operator pick from device-local saved users to add to the selected ledger
+- creates invitation URLs for the selected ledger only; keeps invitation output in popup state rather than shared ledger state
 
 ### Cross-Screen Behavior
 
 - screens and popups render backend DTOs and send complete commands back through the bridge
 - compact mode swaps the whole active screen, while ranger mode keeps selection visible across columns
 - column one is always the ledgers view; column two is the ledger view; column three is the bill editor
-- create-ledger, add-local-user, join-ledger, and add-user flows are overlays rather than navigation contexts
-- device settings and ledger settings are popups; they never replace a column
-- status, busy, and error feedback are shared across the app shell rather than owned by one screen
+- create-ledger, add-local-user, join-ledger, and add-user flows are overlays
+- the settings popup is an overlay that sits above the column layout
+- status, busy, and error feedback are shared across the app shell
 - mutating actions refresh bootstrap state; ledger-scoped actions also refresh the selected ledger detail

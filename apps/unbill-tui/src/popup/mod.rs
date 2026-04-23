@@ -10,9 +10,8 @@ use unbill_core::model::{NewBill, NewUser};
 
 pub mod confirm;
 pub mod create_ledger;
-pub mod device;
 pub mod invite;
-pub mod ledger_settings;
+pub mod settings;
 
 /// Trait implemented by every popup view.
 pub trait PopupView: Send {

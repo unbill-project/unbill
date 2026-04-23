@@ -15,8 +15,7 @@ src/
 └── popup/
     ├── mod.rs           — PopupView trait, PopupOutcome, PopupAction
     ├── create_ledger.rs
-    ├── ledger_settings.rs — users tab + invite tab (was users.rs)
-    ├── device.rs
+    ├── settings.rs      — SettingsPopup: Device Settings tab + Ledger Settings tab
     ├── invite.rs        — InviteResultPopup only
     └── confirm.rs
 ```
@@ -94,9 +93,16 @@ enum PopupOutcome {
 
 `PopupAction` carries the data for the service call. The event loop matches on the action and calls the appropriate `UnbillService` method.
 
-## Ledger settings popup
+## Settings popup
 
-`LedgerSettingsPopup` (in `popup/ledger_settings.rs`) replaces the old `UsersPopup` and `InvitePopup`. It has two tabs: Users (read-only list + add-from-local) and Invite (press Enter to generate URL). Generating an invite returns `Action(GenerateInvite { ledger_id })`, which the app handles by calling `svc.create_invitation` and then opening `InviteResultPopup` via direct assignment to `state.popup`.
+`SettingsPopup` (in `popup/settings.rs`) is the single settings overlay. It has two top-level tabs selectable with `Tab` / `Shift+Tab`:
+
+- **Device Settings** — device ID display, saved-user list (add, import, share, peer sync). Field navigation uses `Tab` / `Shift+Tab`; `Enter` confirms the focused field.
+- **Ledger Settings** — a ledger selector at the top (j/k to move, Enter or Tab to move focus to content) and per-ledger content below (Users sub-tab: ledger user list + add-from-device; Invite sub-tab: generate invite URL). `h`/`l` switch sub-tabs within the content area.
+
+`app.rs` constructs `SettingsPopup` via `open_settings_popup`, which pre-loads device ID, saved local users, all ledger metadata, and ledger users for each ledger before opening the popup. The initial tab (`TopTab::Device` or `TopTab::Ledger`) and the pre-selected ledger cursor are passed at construction time.
+
+Generating an invite returns `Action(GenerateInvite { ledger_id })`, which the app handles by calling `svc.create_invitation` and then opening `InviteResultPopup` via direct assignment to `state.popup`.
 
 ## Testing
 
