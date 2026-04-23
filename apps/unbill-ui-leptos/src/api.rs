@@ -19,6 +19,7 @@ extern "C" {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppBootstrap {
+    pub device_id: String,
     pub ledgers: Vec<LedgerSummary>,
     pub local_users: Vec<LocalUser>,
     pub devices: Vec<SyncDevice>,

@@ -16,6 +16,7 @@ struct AppState {
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AppBootstrapDto {
+    device_id: String,
     ledgers: Vec<LedgerSummaryDto>,
     local_users: Vec<LocalUserDto>,
     devices: Vec<SyncDeviceDto>,
@@ -152,8 +153,10 @@ async fn bootstrap_app(state: State<'_, AppState>) -> std::result::Result<AppBoo
     let devices = load_sync_devices(&state.service)
         .await
         .map_err(stringify_error)?;
+    let device_id = state.service.device_id().to_string();
 
     Ok(AppBootstrapDto {
+        device_id,
         ledgers,
         local_users,
         devices,

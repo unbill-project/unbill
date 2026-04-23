@@ -1,13 +1,14 @@
 use crate::api::{self, LedgerDetail, LedgerSummary, LocalUser, SyncDevice, User};
 use crate::app::{
-    BillEditorSeed, BillSaveRequest, ShareMode, derived_share_preview, parse_amount_text,
-    share_lookup_shares,
+    BillEditorSeed, BillSaveRequest, SettingsTab, ShareMode, SurfaceMode, derived_share_preview,
+    parse_amount_text, share_lookup_shares,
 };
 use crate::components::{
     ActionButton, ButtonTone, FieldBlock, ListRow, ModalSheet, ScreenFrame, SectionCard, TagPill,
     TopBarButton,
 };
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 
 #[component]
 pub fn StatusStrip(status: Option<String>, error: Option<String>, busy: bool) -> impl IntoView {
@@ -182,185 +183,280 @@ pub fn LedgerPage(
 }
 
 #[component]
-pub fn DeviceSettingsPage(
+pub fn SettingsPopup(
+    surface_mode: SurfaceMode,
+    initial_tab: SettingsTab,
+    device_id: String,
+    ledgers: Vec<LedgerSummary>,
     local_users: Vec<LocalUser>,
     devices: Vec<SyncDevice>,
-    on_back: Callback<()>,
+    pre_selected_ledger_id: Option<String>,
+    invitation_url: RwSignal<Option<String>>,
+    popup_refresh: RwSignal<u32>,
+    on_close: Callback<()>,
     on_add_local_user: Callback<()>,
-    on_import_ledger: Callback<()>,
-    on_scan_qr: Callback<()>,
+    on_join_from_clipboard: Callback<()>,
     on_sync_device: Callback<String>,
-) -> impl IntoView {
-    view! {
-        <ScreenFrame
-            title="Device Settings".to_owned()
-            subtitle="Saved users, known devices, and join actions".to_owned()
-            leading={view! { <TopBarButton label="Back".to_owned() on_press=Callback::new(move |_| on_back.run(())) /> }.into_any()}
-        >
-            <div class="stack-gap">
-                <SectionCard
-                    kicker="Saved users".to_owned()
-                    title="On this device".to_owned()
-                >
-                    <div class="stack-gap">
-                        {local_users
-                            .into_iter()
-                            .map(|local_user| {
-                                view! { <ListRow title=local_user.display_name meta=local_user.user_id /> }
-                            })
-                            .collect_view()}
-                    </div>
-                </SectionCard>
-
-                <SectionCard
-                    kicker="Sync peers".to_owned()
-                    title="Known devices".to_owned()
-                    description="Authorized devices gathered from the ledgers stored on this device. Labels are local to this device.".to_owned()
-                >
-                    <div class="stack-gap">
-                        {if devices.is_empty() {
-                            view! {
-                                <div class="empty-copy">
-                                    "No peer devices are available yet. Join a shared ledger to sync with another device."
-                                </div>
-                            }
-                                .into_any()
-                        } else {
-                            devices
-                                .into_iter()
-                                .map(|device| {
-                                    let node_id = device.node_id.clone();
-                                    let detail = if device.ledger_names.is_empty() {
-                                        "No shared ledgers".to_owned()
-                                    } else {
-                                        format!("Shared via {}", device.ledger_names.join(", "))
-                                    };
-                                    let title = if device.label.trim().is_empty() {
-                                        "Unnamed device".to_owned()
-                                    } else {
-                                        device.label
-                                    };
-                                    view! {
-                                        <div class="sync-device-row">
-                                            <div class="row-copy">
-                                                <p class="row-title">{title}</p>
-                                                <p class="row-meta">{node_id.clone()}</p>
-                                                <p class="row-detail">{detail}</p>
-                                            </div>
-                                            <ActionButton
-                                                label="Sync".to_owned()
-                                                tone=ButtonTone::Quiet
-                                                on_press=Callback::new(move |_| on_sync_device.run(node_id.clone()))
-                                            />
-                                        </div>
-                                    }
-                                })
-                                .collect_view()
-                                .into_any()
-                        }}
-                    </div>
-                </SectionCard>
-
-                <SectionCard
-                    kicker="Actions".to_owned()
-                    title="Import and add".to_owned()
-                >
-                    <div class="stack-gap">
-                        <ActionButton
-                            label="Add Saved User".to_owned()
-                            tone=ButtonTone::Secondary
-                            full_width=true
-                            on_press=Callback::new(move |_| on_add_local_user.run(()))
-                        />
-                        <ActionButton
-                            label="Import Ledger".to_owned()
-                            tone=ButtonTone::Quiet
-                            full_width=true
-                            on_press=Callback::new(move |_| on_import_ledger.run(()))
-                        />
-                        <ActionButton
-                            label="Join Ledger".to_owned()
-                            tone=ButtonTone::Quiet
-                            full_width=true
-                            on_press=Callback::new(move |_| on_scan_qr.run(()))
-                        />
-                    </div>
-                </SectionCard>
-            </div>
-        </ScreenFrame>
-    }
-}
-
-#[component]
-pub fn LedgerSettingsPage(
-    detail: LedgerDetail,
-    invitation_url: Option<String>,
-    on_back: Callback<()>,
-    on_add_user: Callback<()>,
-    on_create_invitation: Callback<()>,
+    on_add_user: Callback<(String, String)>,
+    on_create_invitation: Callback<String>,
     on_copy_invitation: Callback<()>,
 ) -> impl IntoView {
+    let active_tab = RwSignal::new(initial_tab);
+    let popup_selected_ledger_id = RwSignal::new(pre_selected_ledger_id);
+    let popup_users = RwSignal::new(Vec::<User>::new());
+
+    let _ = Effect::new(move |_| {
+        let ledger_id = popup_selected_ledger_id.get();
+        let _ = popup_refresh.get();
+        if let Some(lid) = ledger_id {
+            spawn_local(async move {
+                if let Ok(detail) = api::load_ledger_detail(&lid).await {
+                    popup_users.set(detail.users);
+                }
+            });
+        } else {
+            popup_users.set(vec![]);
+        }
+    });
+
+    let panel_class = if surface_mode == SurfaceMode::Compact {
+        "sheet-panel sheet-panel-settings sheet-panel-settings-compact"
+    } else {
+        "sheet-panel sheet-panel-settings"
+    };
+
     view! {
-        <ScreenFrame
-            title="Ledger Settings".to_owned()
-            subtitle="Users and invitation flow".to_owned()
-            leading={view! { <TopBarButton label="Back".to_owned() on_press=Callback::new(move |_| on_back.run(())) /> }.into_any()}
-        >
-            <div class="stack-gap">
-                <SectionCard
-                    kicker="Users".to_owned()
-                    title=detail.summary.name.clone()
-                >
-                    <div class="stack-gap">
-                        {detail
-                            .users
-                            .into_iter()
-                            .map(|user| {
-                                view! { <ListRow title=user.display_name meta=user.user_id /> }
-                            })
-                            .collect_view()}
-
-                        <ActionButton
-                            label="Add User".to_owned()
-                            tone=ButtonTone::Secondary
-                            full_width=true
-                            on_press=Callback::new(move |_| on_add_user.run(()))
-                        />
+        <div class="sheet-overlay">
+            <div class="sheet-backdrop"></div>
+            <section class=panel_class>
+                <header class="sheet-header">
+                    <div class="tab-bar">
+                        <button
+                            type="button"
+                            class=move || if active_tab.get() == SettingsTab::Device { "tab-button tab-button-active" } else { "tab-button" }
+                            on:click=move |_| active_tab.set(SettingsTab::Device)
+                        >"Device Settings"</button>
+                        <button
+                            type="button"
+                            class=move || if active_tab.get() == SettingsTab::Ledger { "tab-button tab-button-active" } else { "tab-button" }
+                            on:click=move |_| active_tab.set(SettingsTab::Ledger)
+                        >"Ledger Settings"</button>
                     </div>
-                </SectionCard>
-
-                <SectionCard
-                    kicker="Invitation".to_owned()
-                    title="Device invitation".to_owned()
-                    description="Create a join URL and copy it onto another device.".to_owned()
-                >
-                    <div class="stack-gap">
-                        <ActionButton
-                            label="Device Invitation".to_owned()
-                            tone=ButtonTone::Secondary
-                            full_width=true
-                            on_press=Callback::new(move |_| on_create_invitation.run(()))
-                        />
-
-                        {invitation_url
-                            .map(|url| {
+                    <button type="button" class="topbar-button" on:click=move |_| on_close.run(())>"Close"</button>
+                </header>
+                <div class="sheet-body">
+                    {move || {
+                        let tab = active_tab.get();
+                        match tab {
+                            SettingsTab::Device => {
+                                let device_id = device_id.clone();
+                                let local_users = local_users.clone();
+                                let devices = devices.clone();
                                 view! {
-                                    <div class="invite-panel">
-                                        <pre class="invite-url">{url.clone()}</pre>
-                                        <ActionButton
-                                            label="Copy URL".to_owned()
-                                            tone=ButtonTone::Quiet
-                                            full_width=true
-                                            on_press=Callback::new(move |_| on_copy_invitation.run(()))
-                                        />
+                                    <div class="stack-gap">
+                                        <SectionCard
+                                            kicker="Device".to_owned()
+                                            title="Device ID".to_owned()
+                                        >
+                                            <p class="row-meta">{device_id}</p>
+                                        </SectionCard>
+
+                                        <SectionCard
+                                            kicker="Saved users".to_owned()
+                                            title="On this device".to_owned()
+                                        >
+                                            <div class="stack-gap">
+                                                {local_users
+                                                    .iter()
+                                                    .map(|u| view! { <ListRow title=u.display_name.clone() meta=u.user_id.clone() /> })
+                                                    .collect_view()}
+                                            </div>
+                                        </SectionCard>
+
+                                        <SectionCard
+                                            kicker="Sync peers".to_owned()
+                                            title="Known devices".to_owned()
+                                            description="Authorized devices gathered from ledgers stored on this device.".to_owned()
+                                        >
+                                            <div class="stack-gap">
+                                                {if devices.is_empty() {
+                                                    view! {
+                                                        <div class="empty-copy">
+                                                            "No peer devices yet. Join a shared ledger to sync with another device."
+                                                        </div>
+                                                    }.into_any()
+                                                } else {
+                                                    devices
+                                                        .into_iter()
+                                                        .map(|device| {
+                                                            let node_id = device.node_id.clone();
+                                                            let title = if device.label.trim().is_empty() {
+                                                                "Unnamed device".to_owned()
+                                                            } else {
+                                                                device.label
+                                                            };
+                                                            let detail = if device.ledger_names.is_empty() {
+                                                                "No shared ledgers".to_owned()
+                                                            } else {
+                                                                format!("Shared via {}", device.ledger_names.join(", "))
+                                                            };
+                                                            view! {
+                                                                <div class="sync-device-row">
+                                                                    <div class="row-copy">
+                                                                        <p class="row-title">{title}</p>
+                                                                        <p class="row-meta">{node_id.clone()}</p>
+                                                                        <p class="row-detail">{detail}</p>
+                                                                    </div>
+                                                                    <ActionButton
+                                                                        label="Sync".to_owned()
+                                                                        tone=ButtonTone::Quiet
+                                                                        on_press=Callback::new(move |_| on_sync_device.run(node_id.clone()))
+                                                                    />
+                                                                </div>
+                                                            }
+                                                        })
+                                                        .collect_view()
+                                                        .into_any()
+                                                }}
+                                            </div>
+                                        </SectionCard>
+
+                                        <SectionCard
+                                            kicker="Actions".to_owned()
+                                            title="Import and add".to_owned()
+                                        >
+                                            <div class="stack-gap">
+                                                <ActionButton
+                                                    label="Add Saved User".to_owned()
+                                                    tone=ButtonTone::Secondary
+                                                    full_width=true
+                                                    on_press=Callback::new(move |_| on_add_local_user.run(()))
+                                                />
+                                                <ActionButton
+                                                    label="Join Ledger".to_owned()
+                                                    tone=ButtonTone::Quiet
+                                                    full_width=true
+                                                    on_press=Callback::new(move |_| on_join_from_clipboard.run(()))
+                                                />
+                                            </div>
+                                        </SectionCard>
                                     </div>
-                                }
-                                    .into_any()
-                            })}
-                    </div>
-                </SectionCard>
-            </div>
-        </ScreenFrame>
+                                }.into_any()
+                            }
+                            SettingsTab::Ledger => {
+                                let ledgers = ledgers.clone();
+                                let local_users = local_users.clone();
+                                view! {
+                                    <div class="stack-gap">
+                                        <SectionCard
+                                            kicker="Ledger".to_owned()
+                                            title="Select ledger".to_owned()
+                                        >
+                                            <div class="stack-gap">
+                                                {ledgers
+                                                    .into_iter()
+                                                    .map(|ledger| {
+                                                        let ledger_id = ledger.ledger_id.clone();
+                                                        view! {
+                                                            <ListRow
+                                                                title=ledger.name
+                                                                meta=format!("{} · {} users", ledger.currency, ledger.user_count)
+                                                                selected=popup_selected_ledger_id
+                                                                    .get()
+                                                                    .as_ref()
+                                                                    .map(|id| id == &ledger_id)
+                                                                    .unwrap_or(false)
+                                                                on_press=Callback::new(move |_| {
+                                                                    popup_selected_ledger_id.set(Some(ledger_id.clone()));
+                                                                    invitation_url.set(None);
+                                                                })
+                                                            />
+                                                        }
+                                                    })
+                                                    .collect_view()}
+                                            </div>
+                                        </SectionCard>
+
+                                        {move || popup_selected_ledger_id.get().map(|ledger_id| {
+                                            let lu = local_users.clone();
+                                            let lid = ledger_id.clone();
+                                            let lid2 = ledger_id.clone();
+                                            view! {
+                                                <SectionCard
+                                                    kicker="Users".to_owned()
+                                                    title="Ledger users".to_owned()
+                                                >
+                                                    <div class="stack-gap">
+                                                        {move || popup_users.get().into_iter().map(|u| view! {
+                                                            <ListRow title=u.display_name meta=u.user_id />
+                                                        }).collect_view()}
+                                                    </div>
+                                                </SectionCard>
+
+                                                <SectionCard
+                                                    kicker="Add user".to_owned()
+                                                    title="From saved users".to_owned()
+                                                    description="Pick a saved user to add to this ledger.".to_owned()
+                                                >
+                                                    <div class="stack-gap">
+                                                        {if lu.is_empty() {
+                                                            view! {
+                                                                <div class="empty-copy">
+                                                                    "No saved users. Add saved users on the Device Settings tab first."
+                                                                </div>
+                                                            }.into_any()
+                                                        } else {
+                                                            lu.into_iter().map(|local_user| {
+                                                                let display_name = local_user.display_name.clone();
+                                                                let lid_add = lid.clone();
+                                                                view! {
+                                                                    <ActionButton
+                                                                        label=format!("Add {}", local_user.display_name)
+                                                                        tone=ButtonTone::Secondary
+                                                                        full_width=true
+                                                                        on_press=Callback::new(move |_| on_add_user.run((lid_add.clone(), display_name.clone())))
+                                                                    />
+                                                                }
+                                                            }).collect_view().into_any()
+                                                        }}
+                                                    </div>
+                                                </SectionCard>
+
+                                                <SectionCard
+                                                    kicker="Invitation".to_owned()
+                                                    title="Device invitation".to_owned()
+                                                    description="Create a join URL and copy it onto another device.".to_owned()
+                                                >
+                                                    <div class="stack-gap">
+                                                        <ActionButton
+                                                            label="Create Invitation".to_owned()
+                                                            tone=ButtonTone::Secondary
+                                                            full_width=true
+                                                            on_press=Callback::new(move |_| on_create_invitation.run(lid2.clone()))
+                                                        />
+                                                        {move || invitation_url.get().map(|url| view! {
+                                                            <div class="invite-panel">
+                                                                <pre class="invite-url">{url}</pre>
+                                                                <ActionButton
+                                                                    label="Copy URL".to_owned()
+                                                                    tone=ButtonTone::Quiet
+                                                                    full_width=true
+                                                                    on_press=Callback::new(move |_| on_copy_invitation.run(()))
+                                                                />
+                                                            </div>
+                                                        })}
+                                                    </div>
+                                                </SectionCard>
+                                            }
+                                        })}
+                                    </div>
+                                }.into_any()
+                            }
+                        }
+                    }}
+                </div>
+            </section>
+        </div>
     }
 }
 
@@ -786,34 +882,6 @@ pub fn AddLocalUserSheet(on_cancel: Callback<()>, on_submit: Callback<String>) -
                 </FieldBlock>
                 <ActionButton
                     label="Save User".to_owned()
-                    full_width=true
-                    on_press=Callback::new(move |_| on_submit.run(display_name.get()))
-                />
-            </div>
-        </ModalSheet>
-    }
-}
-
-#[component]
-pub fn AddUserSheet(on_cancel: Callback<()>, on_submit: Callback<String>) -> impl IntoView {
-    let display_name = RwSignal::new(String::new());
-
-    view! {
-        <ModalSheet
-            title="Add User".to_owned()
-            description="Append a user to the current ledger.".to_owned()
-            on_close=Callback::new(move |_| on_cancel.run(()))
-        >
-            <div class="stack-gap">
-                <FieldBlock label="User name".to_owned()>
-                    <input
-                        class="ui-input"
-                        prop:value=move || display_name.get()
-                        on:input=move |event| display_name.set(event_target_value(&event))
-                    />
-                </FieldBlock>
-                <ActionButton
-                    label="Add User".to_owned()
                     full_width=true
                     on_press=Callback::new(move |_| on_submit.run(display_name.get()))
                 />

@@ -459,6 +459,45 @@ textarea {
   overflow: hidden;
 }
 
+.sheet-panel-settings {
+  width: min(680px, 100%);
+  max-height: min(80vh, 800px);
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-panel-settings-compact {
+  width: 100%;
+  max-height: 100%;
+  border-radius: 0;
+}
+
+.sheet-panel-settings .sheet-body {
+  overflow-y: auto;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.tab-button {
+  padding: 6px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.tab-button-active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--text-on-accent, #fff);
+}
+
 .sheet-header {
   display: flex;
   align-items: flex-start;
