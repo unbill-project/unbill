@@ -12,7 +12,7 @@ use crate::pane::detail::{BillEditor, EditorSection, ParticipantRow};
 use crate::popup::PopupView;
 use crate::popup::{
     PopupAction, PopupOutcome, confirm::ConfirmPopup, create_ledger::CreateLedgerPopup,
-    device::DevicePopup, invite::InviteResultPopup, ledger_settings::LedgerSettingsPopup,
+    invite::InviteResultPopup, settings::{SettingsPopup, TopTab},
 };
 
 // ---------------------------------------------------------------------------
@@ -230,30 +230,10 @@ async fn handle_ledger_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
             }
         }
         KeyCode::Char('u') => {
-            if let Some(ledger_id) = state.current_ledger_id() {
-                match svc.list_users(&ledger_id).await {
-                    Ok(ledger_users) => match svc.list_local_users().await {
-                        Ok(local_users) => {
-                            state.popup = Some(Box::new(LedgerSettingsPopup::new(
-                                ledger_id,
-                                ledger_users,
-                                local_users,
-                            )));
-                        }
-                        Err(e) => state.status_message = Some(e.to_string()),
-                    },
-                    Err(e) => state.status_message = Some(e.to_string()),
-                }
-            }
+            open_settings_popup(TopTab::Ledger, state, svc).await;
         }
         KeyCode::Char('S') => {
-            let device_id = svc.device_id().to_string();
-            match svc.list_local_users().await {
-                Ok(saved_users) => {
-                    state.popup = Some(Box::new(DevicePopup::new(device_id, saved_users)));
-                }
-                Err(e) => state.status_message = Some(e.to_string()),
-            }
+            open_settings_popup(TopTab::Device, state, svc).await;
         }
         _ => {}
     }
@@ -678,6 +658,40 @@ async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<Unb
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Settings popup opener
+// ---------------------------------------------------------------------------
+
+async fn open_settings_popup(tab: TopTab, state: &mut AppState, svc: &Arc<UnbillService>) {
+    let device_id = svc.device_id().to_string();
+    let saved_users = match svc.list_local_users().await {
+        Ok(u) => u,
+        Err(e) => {
+            state.status_message = Some(e.to_string());
+            return;
+        }
+    };
+    let ledgers = state.ledgers.clone();
+    let mut ledger_users_map = Vec::with_capacity(ledgers.len());
+    for ledger in &ledgers {
+        let users = svc
+            .list_users(&ledger.ledger_id.to_string())
+            .await
+            .unwrap_or_default();
+        ledger_users_map.push(users);
+    }
+    let all_local_users = saved_users.clone();
+    state.popup = Some(Box::new(SettingsPopup::new(
+        tab,
+        device_id,
+        saved_users,
+        ledgers,
+        ledger_users_map,
+        all_local_users,
+        state.ledger_cursor,
+    )));
 }
 
 // ---------------------------------------------------------------------------
