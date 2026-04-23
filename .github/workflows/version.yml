@@ -16,6 +16,7 @@ jobs:
       tag: ${{ github.ref_name }}
       prerelease: false
       aur_packages: '["unbill-cli-bin","unbill-tui-bin","unbill-bin"]'
+      homebrew_packages: '["unbill-cli","unbill-tui"]'
     permissions:
       contents: write
     secrets: inherit

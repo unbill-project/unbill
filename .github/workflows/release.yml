@@ -22,8 +22,15 @@ on:
         required: false
         type: string
         default: '[]'
+      homebrew_packages:
+        description: 'JSON array of Homebrew formula names to publish (e.g. ["unbill-cli","unbill-tui"])'
+        required: false
+        type: string
+        default: '[]'
     secrets:
       AUR_SSH_KEY:
+        required: false
+      HOMEBREW_TOKEN:
         required: false
 
 jobs:
@@ -53,4 +60,13 @@ jobs:
     with:
       tag: ${{ inputs.tag }}
       packages: ${{ inputs.aur_packages }}
+    secrets: inherit
+
+  homebrew:
+    name: Publish Homebrew release
+    if: inputs.homebrew_packages != '[]' && inputs.homebrew_packages != ''
+    uses: ./.github/workflows/release-homebrew.yml
+    with:
+      tag: ${{ inputs.tag }}
+      packages: ${{ inputs.homebrew_packages }}
     secrets: inherit
