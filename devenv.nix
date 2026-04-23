@@ -28,6 +28,7 @@
   # https://devenv.sh/packages/
   packages = [
     pkgs.cargo-tauri
+    pkgs.cargo-release
     pkgs.trunk
     pkgs.llvmPackages.bintools
   ] ++ lib.optionals pkgs.stdenv.isLinux [
