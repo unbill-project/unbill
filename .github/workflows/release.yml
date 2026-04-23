@@ -47,6 +47,13 @@ jobs:
           files: |
             unbill-cli-*
             unbill-tui-*
+            *.dmg
+            *.app.tar.gz
+            *.msi
+            *.exe
+            *.AppImage
+            *.deb
+            *.rpm
 
   aur:
     name: Publish AUR release
