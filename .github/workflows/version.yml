@@ -1,0 +1,21 @@
+name: Version Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  release:
+    needs: build
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ github.ref_name }}
+      prerelease: false
+      aur_packages: '["unbill-cli-bin","unbill-tui-bin","unbill-bin"]'
+    permissions:
+      contents: write
+    secrets: inherit
