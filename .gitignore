@@ -30,3 +30,7 @@ device_key.bin
 # devenv
 .devenv.flake.nix
 .devenv
+
+#android
+.android
+local.properties
