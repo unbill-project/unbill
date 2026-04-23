@@ -27,15 +27,15 @@ One pane is active at a time. The active pane has a highlighted border.
 
 Actions are context-sensitive. The status bar shows only the keys valid for the currently focused pane.
 
-| Key | Ledger pane | Bill pane |
-|-----|-------------|-----------|
-| `a` | Create ledger | Add bill |
-| `e` | — | Amend selected bill |
-| `d` | Delete ledger (confirmation required) | — |
-| `u` | — | Ledger settings popup |
-| `S` | Device settings popup | — |
-| `q` | Quit | Quit |
-| `Esc` | Close popup / cancel | Close popup / cancel |
+| Key | Ledgers pane | Bills pane | Detail pane |
+|-----|--------------|------------|-------------|
+| `a` | Create ledger | Add bill | New bill |
+| `e` | — | Amend selected bill | Amend bill |
+| `d` | Delete ledger (confirmation required) | — | — |
+| `u` | — | Ledger settings popup | — |
+| `S` | Device settings popup | — | — |
+| `q` | Quit | Quit | Quit |
+| `Esc` | Close popup / cancel | Close popup / cancel | Close popup / cancel |
 
 ## Popup keyboard conventions
 
