@@ -7,6 +7,10 @@ on:
         description: 'Git tag to publish (e.g. v1.2.3)'
         required: true
         type: string
+      packages:
+        description: 'JSON array of AUR package names (e.g. ["unbill-cli-bin","unbill-tui-bin"])'
+        required: true
+        type: string
     secrets:
       AUR_SSH_KEY:
         description: 'SSH private key for the AUR account'
@@ -18,11 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - package: unbill-cli-bin
-            pkgbuild: .github/aur/unbill-cli-bin/PKGBUILD
-          - package: unbill-tui-bin
-            pkgbuild: .github/aur/unbill-tui-bin/PKGBUILD
+        package: ${{ fromJSON(inputs.packages) }}
 
     steps:
       - uses: actions/checkout@v4
@@ -32,14 +32,14 @@ jobs:
           VERSION="${{ inputs.tag }}"
           VERSION="${VERSION#v}"
           VERSION="${VERSION//-/.}"
-          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" ${{ matrix.pkgbuild }}
-          sed -i "s/^pkgrel=.*/pkgrel=1/" ${{ matrix.pkgbuild }}
+          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" .github/aur/${{ matrix.package }}/PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" .github/aur/${{ matrix.package }}/PKGBUILD
 
       - name: Release ${{ matrix.package }} to AUR
         uses: jbouter/aur-releaser@v0.0.8
         with:
           pkgname: ${{ matrix.package }}
-          pkgbuild: ${{ matrix.pkgbuild }}
+          pkgbuild: .github/aur/${{ matrix.package }}/PKGBUILD
           commit_username: github-actions[bot]
           commit_email: github-actions[bot]@users.noreply.github.com
           ssh_private_key: ${{ secrets.AUR_SSH_KEY }}
