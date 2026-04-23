@@ -3,8 +3,8 @@ use crate::api::{
     LedgerDetail, LedgerSummary, SaveBillInput, User,
 };
 use crate::pages::{
-    AddLocalUserSheet, AddUserSheet, BillEditorPage, CreateLedgerSheet, DeviceSettingsPage,
-    EmptyColumn, JoinLedgerSheet, LedgerPage, LedgerSettingsPage, LedgersPage, StatusStrip,
+    AddLocalUserSheet, BillEditorPage, CreateLedgerSheet, EmptyColumn, JoinLedgerSheet, LedgerPage,
+    LedgersPage, SettingsPopup, StatusStrip,
 };
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -17,12 +17,17 @@ pub(crate) enum SurfaceMode {
     Ranger,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SettingsTab {
+    Device,
+    Ledger,
+}
+
 #[derive(Clone, PartialEq)]
 pub(crate) enum OverlayKind {
     CreateLedger,
     AddLocalUser,
     JoinLedger { url: String },
-    AddUser,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -61,12 +66,22 @@ pub(crate) struct BillSaveRequest {
 
 #[component]
 pub fn App() -> impl IntoView {
-    let surface_mode = surface_mode_from_window();
+    let surface_mode = RwSignal::new(surface_mode_from_window());
+    {
+        use wasm_bindgen::JsCast;
+        let cb = wasm_bindgen::closure::Closure::<dyn Fn()>::new(move || {
+            surface_mode.set(surface_mode_from_window());
+        });
+        if let Some(win) = web_sys::window() {
+            let _ = win.add_event_listener_with_callback("resize", cb.as_ref().unchecked_ref());
+        }
+        cb.forget();
+    }
     let bootstrap = RwSignal::new(None::<AppBootstrap>);
     let selected_ledger_id = RwSignal::new(None::<String>);
     let ledger_detail = RwSignal::new(None::<LedgerDetail>);
-    let device_settings_open = RwSignal::new(false);
-    let ledger_settings_open = RwSignal::new(false);
+    let settings_popup = RwSignal::new(None::<SettingsTab>);
+    let popup_refresh = RwSignal::new(0u32);
     let invitation_url = RwSignal::new(None::<String>);
     let overlay = RwSignal::new(None::<OverlayKind>);
     let bill_editor = RwSignal::new(None::<BillEditorSeed>);
@@ -132,8 +147,7 @@ pub fn App() -> impl IntoView {
     reload_bootstrap();
 
     let open_ledger = move |ledger_id: String| {
-        device_settings_open.set(false);
-        ledger_settings_open.set(false);
+        settings_popup.set(None);
         invitation_url.set(None);
         bill_editor.set(None);
         load_selected_ledger(ledger_id);
@@ -188,37 +202,6 @@ pub fn App() -> impl IntoView {
         }
     };
 
-    let create_invitation = move || {
-        if let Some(ledger_id) = selected_ledger_id.get() {
-            busy.set(true);
-            spawn_local(async move {
-                match api::create_invitation(&ledger_id).await {
-                    Ok(url) => {
-                        invitation_url.set(Some(url));
-                        status_message.set(Some("Invitation URL generated.".to_owned()));
-                        error_message.set(None);
-                    }
-                    Err(error) => error_message.set(Some(error)),
-                }
-                busy.set(false);
-            });
-        }
-    };
-
-    let copy_invitation_url = move || {
-        if let Some(url) = invitation_url.get() {
-            spawn_local(async move {
-                match api::write_clipboard_text(&url).await {
-                    Ok(()) => {
-                        status_message.set(Some("Invitation URL copied.".to_owned()));
-                        error_message.set(None);
-                    }
-                    Err(error) => error_message.set(Some(error)),
-                }
-            });
-        }
-    };
-
     let open_join_from_clipboard = move || {
         spawn_local(async move {
             match api::read_clipboard_text().await {
@@ -243,6 +226,7 @@ pub fn App() -> impl IntoView {
                         load_selected_ledger(ledger_id);
                     }
                     reload_bootstrap();
+                    popup_refresh.update(|v| *v += 1);
                 }
                 Err(error) => error_message.set(Some(error)),
             }
@@ -287,6 +271,7 @@ pub fn App() -> impl IntoView {
                                     Ok(_) => {
                                         overlay.set(None);
                                         reload_bootstrap();
+                                        popup_refresh.update(|v| *v += 1);
                                         status_message.set(Some("Saved user added on this device.".to_owned()));
                                         error_message.set(None);
                                     }
@@ -323,150 +308,99 @@ pub fn App() -> impl IntoView {
                 }
                     .into_any()
             }
-            OverlayKind::AddUser => {
-                view! {
-                    <AddUserSheet
-                        on_cancel=Callback::new(move |_| overlay.set(None))
-                        on_submit=Callback::new(move |display_name: String| {
-                            if let Some(ledger_id) = selected_ledger_id.get() {
-                                busy.set(true);
-                                spawn_local(async move {
-                                    match api::add_user(AddUserInput { ledger_id: ledger_id.clone(), display_name }).await {
-                                        Ok(_) => {
-                                            overlay.set(None);
-                                            load_selected_ledger(ledger_id);
-                                            reload_bootstrap();
-                                            status_message.set(Some("User added to ledger.".to_owned()));
-                                            error_message.set(None);
-                                        }
-                                        Err(error) => error_message.set(Some(error)),
+        })
+    };
+
+    let render_settings_popup = move || {
+        settings_popup.get().map(|tab| {
+            view! {
+                <SettingsPopup
+                    surface_mode=surface_mode.get()
+                    initial_tab=tab
+                    device_id=bootstrap.get().map(|b| b.device_id).unwrap_or_default()
+                    ledgers=bootstrap.get().map(|b| b.ledgers).unwrap_or_default()
+                    local_users=bootstrap.get().map(|b| b.local_users).unwrap_or_default()
+                    devices=bootstrap.get().map(|b| b.devices).unwrap_or_default()
+                    pre_selected_ledger_id=selected_ledger_id.get()
+                    invitation_url=invitation_url
+                    popup_refresh=popup_refresh
+                    on_close=Callback::new(move |_| {
+                        settings_popup.set(None);
+                        invitation_url.set(None);
+                    })
+                    on_add_local_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddLocalUser)))
+                    on_join_from_clipboard=Callback::new(move |_| open_join_from_clipboard())
+                    on_sync_device=Callback::new(sync_device)
+                    on_add_user=Callback::new(move |(ledger_id, display_name): (String, String)| {
+                        busy.set(true);
+                        spawn_local(async move {
+                            match api::add_user(AddUserInput { ledger_id: ledger_id.clone(), display_name }).await {
+                                Ok(_) => {
+                                    if selected_ledger_id.get_untracked() == Some(ledger_id.clone()) {
+                                        load_selected_ledger(ledger_id.clone());
                                     }
-                                    busy.set(false);
-                                });
+                                    reload_bootstrap();
+                                    popup_refresh.update(|v| *v += 1);
+                                    status_message.set(Some("User added to ledger.".to_owned()));
+                                    error_message.set(None);
+                                }
+                                Err(error) => error_message.set(Some(error)),
                             }
-                        })
-                    />
-                }
-                    .into_any()
-            }
+                            busy.set(false);
+                        });
+                    })
+                    on_create_invitation=Callback::new(move |ledger_id: String| {
+                        busy.set(true);
+                        spawn_local(async move {
+                            match api::create_invitation(&ledger_id).await {
+                                Ok(url) => {
+                                    invitation_url.set(Some(url));
+                                    status_message.set(Some("Invitation URL generated.".to_owned()));
+                                    error_message.set(None);
+                                }
+                                Err(error) => error_message.set(Some(error)),
+                            }
+                            busy.set(false);
+                        });
+                    })
+                    on_copy_invitation=Callback::new(move |_| {
+                        if let Some(url) = invitation_url.get() {
+                            spawn_local(async move {
+                                match api::write_clipboard_text(&url).await {
+                                    Ok(()) => {
+                                        status_message.set(Some("Invitation URL copied.".to_owned()));
+                                        error_message.set(None);
+                                    }
+                                    Err(error) => error_message.set(Some(error)),
+                                }
+                            });
+                        }
+                    })
+                />
+            }.into_any()
         })
     };
 
     let render_compact_page = move || {
         if let Some(seed) = bill_editor.get() {
-            return view! {
-                <div class="app-shell">
-                    <BillEditorPage
-                        title=if seed.prev_bill_id.is_some() {
-                            "Amend Bill".to_owned()
-                        } else {
-                            "New Bill".to_owned()
-                        }
-                        currency=ledger_detail
-                            .get()
-                            .map(|detail| detail.summary.currency)
-                            .unwrap_or_else(|| "USD".to_owned())
-                        users=ledger_detail
-                            .get()
-                            .map(|detail| detail.users)
-                            .unwrap_or_default()
-                        seed=seed
-                        on_back=Callback::new(move |_| bill_editor.set(None))
-                        on_save=Callback::new(save_bill)
-                    />
-                </div>
-            }
-            .into_any();
-        }
-
-        if ledger_settings_open.get()
-            && let Some(detail) = ledger_detail.get()
-        {
-            return view! {
-                <div class="app-shell">
-                    <LedgerSettingsPage
-                        detail=detail
-                        invitation_url=invitation_url.get()
-                        on_back=Callback::new(move |_| ledger_settings_open.set(false))
-                        on_add_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddUser)))
-                        on_create_invitation=Callback::new(move |_| create_invitation())
-                        on_copy_invitation=Callback::new(move |_| copy_invitation_url())
-                    />
-                </div>
-            }
-            .into_any();
-        }
-
-        if device_settings_open.get() {
-            return view! {
-                <div class="app-shell">
-                    <DeviceSettingsPage
-                        local_users=bootstrap.get().map(|data| data.local_users).unwrap_or_default()
-                        devices=bootstrap.get().map(|data| data.devices).unwrap_or_default()
-                        on_back=Callback::new(move |_| device_settings_open.set(false))
-                        on_add_local_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddLocalUser)))
-                        on_import_ledger=Callback::new(move |_| open_join_from_clipboard())
-                        on_scan_qr=Callback::new(move |_| open_join_from_clipboard())
-                        on_sync_device=Callback::new(sync_device)
-                    />
-                </div>
-            }
-            .into_any();
-        }
-
-        if let Some(detail) = ledger_detail.get() {
-            return view! {
-                <div class="app-shell">
-                    <LedgerPage
-                        detail=detail
-                        on_back=Callback::new(move |_| {
-                            selected_ledger_id.set(None);
-                            ledger_detail.set(None);
-                        })
-                        on_more=Callback::new(move |_| {
-                            ledger_settings_open.set(true);
-                            invitation_url.set(None);
-                        })
-                        on_open_bill=Callback::new(open_bill_amend)
-                        on_new_bill=Callback::new(move |_| open_new_bill())
-                    />
-                </div>
-            }
-            .into_any();
-        }
-
-        view! {
-            <div class="app-shell">
-                <LedgersPage
-                    ledgers=bootstrap.get().map(|data| data.ledgers).unwrap_or_default()
-                    selected_ledger_id=None
-                    on_more=Callback::new(move |_| device_settings_open.set(true))
-                    on_select_ledger=Callback::new(open_ledger)
-                    on_new_ledger=Callback::new(move |_| overlay.set(Some(OverlayKind::CreateLedger)))
-                />
-            </div>
-        }
-        .into_any()
-    };
-
-    let render_ranger = move || {
-        let ledgers = bootstrap.get().map(|data| data.ledgers).unwrap_or_default();
-        let local_users = bootstrap
-            .get()
-            .map(|data| data.local_users)
-            .unwrap_or_default();
-        let selected_ledger = selected_ledger_id.get();
-
-        let column_two = if device_settings_open.get() {
             view! {
-                <DeviceSettingsPage
-                    local_users=local_users
-                    devices=bootstrap.get().map(|data| data.devices).unwrap_or_default()
-                    on_back=Callback::new(move |_| device_settings_open.set(false))
-                    on_add_local_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddLocalUser)))
-                    on_import_ledger=Callback::new(move |_| open_join_from_clipboard())
-                    on_scan_qr=Callback::new(move |_| open_join_from_clipboard())
-                    on_sync_device=Callback::new(sync_device)
+                <BillEditorPage
+                    title=if seed.prev_bill_id.is_some() {
+                        "Amend Bill".to_owned()
+                    } else {
+                        "New Bill".to_owned()
+                    }
+                    currency=ledger_detail
+                        .get()
+                        .map(|detail| detail.summary.currency)
+                        .unwrap_or_else(|| "USD".to_owned())
+                    users=ledger_detail
+                        .get()
+                        .map(|detail| detail.users)
+                        .unwrap_or_default()
+                    seed=seed
+                    on_back=Callback::new(move |_| bill_editor.set(None))
+                    on_save=Callback::new(save_bill)
                 />
             }
             .into_any()
@@ -479,8 +413,45 @@ pub fn App() -> impl IntoView {
                         ledger_detail.set(None);
                     })
                     on_more=Callback::new(move |_| {
-                        ledger_settings_open.set(true);
                         invitation_url.set(None);
+                        settings_popup.set(Some(SettingsTab::Ledger));
+                    })
+                    on_open_bill=Callback::new(open_bill_amend)
+                    on_new_bill=Callback::new(move |_| open_new_bill())
+                />
+            }
+            .into_any()
+        } else {
+            view! {
+                <LedgersPage
+                    ledgers=bootstrap.get().map(|data| data.ledgers).unwrap_or_default()
+                    selected_ledger_id=None
+                    on_more=Callback::new(move |_| {
+                        settings_popup.set(Some(SettingsTab::Device));
+                    })
+                    on_select_ledger=Callback::new(open_ledger)
+                    on_new_ledger=Callback::new(move |_| overlay.set(Some(OverlayKind::CreateLedger)))
+                />
+            }
+            .into_any()
+        }
+    };
+
+    let render_ranger = move || {
+        let ledgers = bootstrap.get().map(|data| data.ledgers).unwrap_or_default();
+        let selected_ledger = selected_ledger_id.get();
+
+        let column_two = if let Some(detail) = ledger_detail.get() {
+            view! {
+                <LedgerPage
+                    detail=detail
+                    on_back=Callback::new(move |_| {
+                        selected_ledger_id.set(None);
+                        ledger_detail.set(None);
+                    })
+                    on_more=Callback::new(move |_| {
+                        invitation_url.set(None);
+                        settings_popup.set(Some(SettingsTab::Ledger));
                         bill_editor.set(None);
                     })
                     on_open_bill=Callback::new(open_bill_amend)
@@ -520,28 +491,6 @@ pub fn App() -> impl IntoView {
                 />
             }
             .into_any()
-        } else if ledger_settings_open.get() {
-            if let Some(detail) = ledger_detail.get() {
-                view! {
-                    <LedgerSettingsPage
-                        detail=detail
-                        invitation_url=invitation_url.get()
-                        on_back=Callback::new(move |_| ledger_settings_open.set(false))
-                        on_add_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddUser)))
-                        on_create_invitation=Callback::new(move |_| create_invitation())
-                        on_copy_invitation=Callback::new(move |_| copy_invitation_url())
-                    />
-                }
-                .into_any()
-            } else {
-                view! {
-                    <EmptyColumn
-                        title="No ledger settings".to_owned()
-                        detail="Select a ledger before opening settings.".to_owned()
-                    />
-                }
-                .into_any()
-            }
         } else {
             view! {
                 <EmptyColumn
@@ -565,9 +514,7 @@ pub fn App() -> impl IntoView {
                         ledgers=ledgers
                         selected_ledger_id=selected_ledger
                         on_more=Callback::new(move |_| {
-                            device_settings_open.set(true);
-                            ledger_settings_open.set(false);
-                            bill_editor.set(None);
+                            settings_popup.set(Some(SettingsTab::Device));
                         })
                         on_select_ledger=Callback::new(open_ledger)
                         on_new_ledger=Callback::new(move |_| overlay.set(Some(OverlayKind::CreateLedger)))
@@ -578,6 +525,7 @@ pub fn App() -> impl IntoView {
                     {column_three}
                 </section>
 
+                {render_settings_popup()}
                 {render_overlay()}
             </main>
         }
@@ -586,7 +534,7 @@ pub fn App() -> impl IntoView {
 
     view! {
         {move || {
-            if surface_mode == SurfaceMode::Compact {
+            if surface_mode.get() == SurfaceMode::Compact {
                 view! {
                     <main class="app-shell">
                         <StatusStrip
@@ -595,6 +543,7 @@ pub fn App() -> impl IntoView {
                             busy=busy.get()
                         />
                         {render_compact_page()}
+                        {render_settings_popup()}
                         {render_overlay()}
                     </main>
                 }
