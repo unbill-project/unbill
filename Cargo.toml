@@ -15,6 +15,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/unbill-project/unbill"
 homepage = "https://github.com/unbill-project/unbill"
 description = "Shared bill tracking"
+publish = false
 
 [workspace.dependencies]
 # CRDT
