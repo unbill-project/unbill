@@ -31,6 +31,7 @@ jobs:
         run: |
           VERSION="${{ inputs.tag }}"
           VERSION="${VERSION#v}"
+          VERSION="${VERSION//-/.}"
           sed -i "s/^pkgver=.*/pkgver=${VERSION}/" ${{ matrix.pkgbuild }}
           sed -i "s/^pkgrel=.*/pkgrel=1/" ${{ matrix.pkgbuild }}
 
