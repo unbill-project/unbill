@@ -44,16 +44,7 @@ jobs:
           prerelease: ${{ inputs.prerelease }}
           make_latest: ${{ !inputs.prerelease }}
           body: ${{ inputs.body }}
-          files: |
-            unbill-cli-*
-            unbill-tui-*
-            *.dmg
-            *.app.tar.gz
-            *.msi
-            *.exe
-            *.AppImage
-            *.deb
-            *.rpm
+          files: unbill-*
 
   aur:
     name: Publish AUR release
