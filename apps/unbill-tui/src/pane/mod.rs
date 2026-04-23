@@ -5,7 +5,7 @@ pub mod ledger;
 /// The three panes of the TUI layout.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Pane {
-    Ledger,
+    Ledgers,
     Bills,
     Detail,
 }
@@ -14,7 +14,7 @@ impl Pane {
     /// Returns the key-hint string shown in the status bar for this pane.
     pub fn hints(&self) -> &'static str {
         match self {
-            Pane::Ledger => {
+            Pane::Ledgers => {
                 "[j/k] move  [g/G] first/last  [l/Tab] pane  [a] create  [d] delete  [S] device  [q] quit"
             }
             Pane::Bills => {

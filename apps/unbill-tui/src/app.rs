@@ -44,7 +44,7 @@ pub struct AppState {
 impl AppState {
     fn new() -> Self {
         Self {
-            focused_pane: Pane::Ledger,
+            focused_pane: Pane::Ledgers,
             ledger_cursor: 0,
             bill_cursor: 0,
             ledgers: vec![],
@@ -174,7 +174,7 @@ async fn handle_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillService
 
     // Pane-specific routing.
     match state.focused_pane {
-        Pane::Ledger => handle_ledger_key(key, state, svc).await,
+        Pane::Ledgers => handle_ledger_key(key, state, svc).await,
         Pane::Bills => handle_bills_key(key, state, svc).await,
         Pane::Detail => handle_detail_key(key, state),
     }
@@ -251,7 +251,7 @@ async fn handle_bills_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillS
             state.bill_cursor = state.bills.len() - 1;
         }
         KeyCode::Char('h') | KeyCode::BackTab => {
-            state.focused_pane = Pane::Ledger;
+            state.focused_pane = Pane::Ledgers;
         }
         KeyCode::Char('l') | KeyCode::Tab | KeyCode::Enter => {
             state.focused_pane = Pane::Detail;
