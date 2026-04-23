@@ -22,14 +22,14 @@ in
   };
   android = {
     enable = true;
-    platforms.version = [ "32" "34" ];
+    platforms.version = [ "32" "34" "36" ];
     systemImageTypes = [ "google_apis_playstore" ];
     abis = [ "arm64-v8a" "x86_64" ];
     cmake.version = [ "3.22.1" ];
     cmdLineTools.version = "11.0";
     tools.version = "26.1.1";
     # platformTools.version defaults to latest from nixpkgs
-    buildTools.version = [ "30.0.3" ];
+    buildTools.version = [ "35.0.0" ];
     emulator = {
       enable = true;
     };
@@ -89,8 +89,10 @@ in
     pkgs.webkitgtk_4_1
   ];
 
-  # Point Tauri CLI to the Android Studio binary (Linux uses STUDIO_PATH).
-  env.STUDIO_PATH = "${pkgs.android-studio}/bin/android-studio";
+  # Tauri on Linux looks for `studio.sh` to open Android Studio.
+  scripts."studio.sh".exec = ''
+    exec ${pkgs.android-studio}/bin/android-studio "$@"
+  '';
 
   # Shim rustup so the android devenv module doesn't fail — Android Rust
   # targets are already installed via languages.rust.targets above.
@@ -112,6 +114,22 @@ in
     LD_LIBRARY_PATH=${libcxxELF}/lib:$LD_LIBRARY_PATH \
       ANDROID_EMULATOR_USE_SYSTEM_LIBS=1 \
       emulator -avd unbill_dev &
+    echo "Waiting for emulator to boot..."
+    adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done'
+    echo "Emulator ready."
+  '';
+
+  # On NixOS the AGP-bundled aapt2 binary can't run (non-FHS).  Override it
+  # with the SDK's aapt2 in the user-level gradle.properties on every shell
+  # entry so the path stays current even when the Nix store hash changes.
+  enterShell = ''
+    # AGP-bundled aapt2 can't run on NixOS (non-FHS). Override it with the
+    # SDK's aapt2 so Gradle uses the Nix-provided binary instead.
+    mkdir -p ~/.gradle
+    grep -v "android.aapt2FromMavenOverride" ~/.gradle/gradle.properties \
+      > /tmp/_gp.tmp 2>/dev/null || true
+    echo "android.aapt2FromMavenOverride=$ANDROID_HOME/build-tools/35.0.0/aapt2" >> /tmp/_gp.tmp
+    mv /tmp/_gp.tmp ~/.gradle/gradle.properties
   '';
 
   # See full reference at https://devenv.sh/reference/options/
