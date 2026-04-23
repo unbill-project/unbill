@@ -17,11 +17,11 @@ on:
         required: false
         type: string
         default: ''
-      aur:
-        description: 'Publish to AUR'
+      aur_packages:
+        description: 'JSON array of AUR package names to publish (e.g. ["unbill-cli-bin","unbill-tui-bin"])'
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: '[]'
     secrets:
       AUR_SSH_KEY:
         required: false
@@ -50,8 +50,9 @@ jobs:
 
   aur:
     name: Publish AUR release
-    if: inputs.aur
+    if: inputs.aur_packages != '[]' && inputs.aur_packages != ''
     uses: ./.github/workflows/release-aur.yml
     with:
       tag: ${{ inputs.tag }}
+      packages: ${{ inputs.aur_packages }}
     secrets: inherit

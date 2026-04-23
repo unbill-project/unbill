@@ -25,7 +25,7 @@ jobs:
       tag: ${{ needs.prepare.outputs.tag }}
       prerelease: true
       body: Automated nightly build from `main`. Not guaranteed to be stable.
-      aur: true
+      aur_packages: '["unbill-cli-nightly-bin","unbill-tui-nightly-bin"]'
     permissions:
       contents: write
     secrets: inherit
