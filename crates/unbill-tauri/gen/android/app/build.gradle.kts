@@ -15,7 +15,6 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 36
-    buildToolsVersion = "35.0.0"
     namespace = "com.unbill.app"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
@@ -51,14 +50,6 @@ android {
     }
     buildFeatures {
         buildConfig = true
-    }
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
-            isUniversalApk = false
-        }
     }
 }
 

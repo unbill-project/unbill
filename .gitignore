@@ -9,11 +9,7 @@ apps/*/dist/
 
 # Tauri
 crates/unbill-tauri/target/
-crates/unbill-tauri/gen/android/build/
-crates/unbill-tauri/gen/android/.gradle/
-crates/unbill-tauri/gen/android/app/build/
-crates/unbill-tauri/gen/android/buildSrc/build/
-crates/unbill-tauri/gen/android/buildSrc/.gradle/
+crates/unbill-tauri/gen/
 
 # Editor
 .vscode/
