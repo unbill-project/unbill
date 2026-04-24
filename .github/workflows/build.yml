@@ -168,21 +168,13 @@ jobs:
 
       - name: Stage artifacts
         run: |
-          cp crates/unbill-tauri/gen/android/app/build/outputs/apk/arm64/release/app-arm64-release-unsigned.apk unbill-android-arm64.apk
-          cp crates/unbill-tauri/gen/android/app/build/outputs/apk/arm/release/app-arm-release-unsigned.apk unbill-android-armv7.apk
-          cp crates/unbill-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab unbill-android.aab
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: binaries-tauri-android-arm64
-          path: unbill-android-arm64.apk
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: binaries-tauri-android-armv7
-          path: unbill-android-armv7.apk
+          find crates/unbill-tauri/gen/android/app/build/outputs/apk -name "*.apk" | while read apk; do
+            flavor=$(echo "$apk" | sed 's|.*/apk/||; s|/.*||')
+            cp "$apk" "unbill-android-${flavor}.apk"
+          done
+          find crates/unbill-tauri/gen/android/app/build/outputs/bundle -name "*.aab" | head -1 | xargs -I{} cp {} unbill-android.aab
 
       - uses: actions/upload-artifact@v4
         with:
           name: binaries-tauri-android
-          path: unbill-android.aab
+          path: unbill-android*
