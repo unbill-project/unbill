@@ -153,6 +153,10 @@ jobs:
       - name: Install tauri-cli
         run: npm install -g @tauri-apps/cli
 
+      - name: Initialize Android project
+        run: tauri android init
+        working-directory: crates/unbill-tauri
+
       - name: Build APK (arm64 + armv7)
         run: tauri android build --apk --target aarch64 --target armv7
         working-directory: crates/unbill-tauri
