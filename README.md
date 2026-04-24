@@ -1,5 +1,9 @@
 # Unbill
 
+<p align="center">
+  <img src="./unbill-icon.png" alt="Unbill zipper logo" width="160">
+</p>
+
 Offline-first bill splitting for small trusted groups.
 
 Think of unbill as shared expense tracking that does not depend on a company staying alive.
