@@ -501,9 +501,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            let root = app.path().app_data_dir().map_err(|error| -> Box<dyn std::error::Error> {
-                Box::new(std::io::Error::other(error.to_string()))
-            })?;
+            let root =
+                app.path()
+                    .app_data_dir()
+                    .map_err(|error| -> Box<dyn std::error::Error> {
+                        Box::new(std::io::Error::other(error.to_string()))
+                    })?;
             std::fs::create_dir_all(&root)?;
             let store = Arc::new(FsStore::new(root));
             let service = tauri::async_runtime::block_on(UnbillService::open(store)).map_err(
