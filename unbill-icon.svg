@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
+  <title id="title">Unbill zipper logo</title>
+  <defs>
+    <mask id="pull-cutouts">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <rect x="492" y="573" width="31" height="55" rx="15.5" fill="#000"/>
+      <circle cx="509" cy="740" r="24" fill="#000"/>
+    </mask>
+  </defs>
+
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M119 107c88 12 160 47 203 105" stroke="#3cb29f" stroke-width="37"/>
+    <path d="M905 107c-88 12-160 47-203 105" stroke="#3cb29f" stroke-width="37"/>
+
+    <path d="M452 444l27 82" stroke="#252f39" stroke-width="35"/>
+    <path d="M572 444l-27 82" stroke="#252f39" stroke-width="35"/>
+
+    <path d="M370 264l-19 12" stroke="#252f39" stroke-width="29"/>
+    <path d="M408 320l-21 12" stroke="#252f39" stroke-width="29"/>
+    <path d="M448 379l-22 10" stroke="#252f39" stroke-width="29"/>
+
+    <path d="M654 264l19 12" stroke="#252f39" stroke-width="29"/>
+    <path d="M616 320l21 12" stroke="#252f39" stroke-width="29"/>
+    <path d="M576 379l22 10" stroke="#252f39" stroke-width="29"/>
+
+    <path d="M493 818h32" stroke="#252f39" stroke-width="28"/>
+    <path d="M493 869h32" stroke="#252f39" stroke-width="28"/>
+    <path d="M493 920h32" stroke="#252f39" stroke-width="28"/>
+  </g>
+
+  <g fill="#3cb29f" mask="url(#pull-cutouts)">
+    <circle cx="509" cy="592" r="57"/>
+    <path d="M476 636h66l25 104c7 30-16 51-58 51s-65-21-58-51z"/>
+  </g>
+</svg>
