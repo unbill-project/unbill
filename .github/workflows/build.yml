@@ -149,19 +149,21 @@ jobs:
         with:
           version: latest
 
+      - uses: cargo-bins/cargo-binstall@main
+
       - name: Install tauri-cli
-        run: npm install -g @tauri-apps/cli
+        run: cargo binstall tauri-cli --locked -y
 
       - name: Initialize Android project
-        run: tauri android init
+        run: cargo tauri android init
         working-directory: crates/unbill-tauri
 
       - name: Build APK (arm64 + armv7)
-        run: tauri android build --apk --target aarch64 --target armv7
+        run: cargo tauri android build --apk --target aarch64 --target armv7
         working-directory: crates/unbill-tauri
 
       - name: Build AAB
-        run: tauri android build --aab
+        run: cargo tauri android build --aab
         working-directory: crates/unbill-tauri
 
       - name: Stage artifacts
