@@ -1,7 +1,7 @@
 # Unbill
 
 <p align="center">
-  <img src="./unbill-icon.png" alt="Unbill zipper logo" width="160">
+  <img src="./unbill-icon.svg" alt="Unbill zipper logo" width="160">
 </p>
 
 Offline-first bill splitting for small trusted groups.
