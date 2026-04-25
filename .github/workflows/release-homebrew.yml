@@ -1,0 +1,40 @@
+name: Release Homebrew
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Git tag to publish (e.g. v1.2.3)'
+        required: true
+        type: string
+      packages:
+        description: 'JSON array of Homebrew formula names (e.g. ["unbill-cli","unbill-tui"])'
+        required: true
+        type: string
+    secrets:
+      HOMEBREW_TOKEN:
+        description: 'Personal access token with repo scope for the homebrew tap'
+        required: true
+
+jobs:
+  homebrew:
+    name: Push ${{ matrix.package }} to Homebrew tap
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: ${{ fromJSON(inputs.packages) }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: Justintime50/homebrew-releaser@v3
+        with:
+          homebrew_owner: unbill-project
+          homebrew_tap: homebrew-tap
+          github_token: ${{ secrets.HOMEBREW_TOKEN }}
+          formula_folder: Formula
+          install: .github/homebrew/${{ matrix.package }}/install.rb
+          target_darwin_arm64: true
+          target_linux_amd64: true
+          commit_owner: github-actions[bot]
+          commit_email: github-actions[bot]@users.noreply.github.com
