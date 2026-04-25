@@ -7,18 +7,18 @@ Shared UI model for all Unbill frontend implementations. Two implementations exi
 ```mermaid
 flowchart LR
     Ledgers["Ledgers"]
-    Ledger["Ledger"]
-    Bill["Bill editor"]
+    Bills["Bills"]
+    Detail["Detail"]
     SettingsPopup["Settings popup"]
 
-    Ledgers --> Ledger
+    Ledgers --> Bills
     Ledgers --> SettingsPopup
-    Ledger --> Bill
-    Ledger --> SettingsPopup
+    Bills --> Detail
+    Bills --> SettingsPopup
 ```
 
 - compact mode shows one screen at a time (desktop only, narrow windows)
-- ranger mode shows three columns: ledgers, the active ledger, and the active bill editor in adjacent columns
+- ranger mode shows three columns: ledgers, bills, and detail in adjacent columns
 - the settings popup opens as a full-screen overlay in compact mode and as a floating overlay over the columns in ranger mode
 - selection is page state: opening a ledger or bill editor changes the current context, not shared data
 
@@ -33,20 +33,20 @@ The ledgers screen is the entry point of the app. It lists ledgers available on 
 - selecting a ledger changes page context only; it does not mutate shared state
 - in ranger mode this screen remains visible as the first column
 
-### Ledger
+### Bills
 
-The ledger screen shows the effective bills for the selected ledger and the per-ledger settlement summary. It is the main entry into bill editing and ledger settings.
+The bills screen shows the effective bills for the selected ledger and the per-ledger settlement summary. It is the main entry into bill editing and ledger settings.
 
 - renders effective bill DTOs rather than computing projection locally
 - settlement is shown inline below the bill list: minimum transfers to clear the selected ledger's balances
 - opens bill editing from the selected bill context
 - opens the settings popup on the Ledger Settings tab with the current ledger pre-selected
-- opening the settings popup keeps the ledger screen visible behind the overlay
+- opening the settings popup keeps the bills screen visible behind the overlay
 - using the back action clears the active ledger selection
 
-### Bill Editor
+### Detail
 
-The bill editor is used for both create and amend flows. It edits one bill draft against the current ledger context.
+The detail screen is used for both create and amend flows. It edits one bill draft against the current ledger context.
 
 - sends complete bill-save commands back through the bridge
 - performs only local form logic such as amount parsing, share preview, and share-mode handling
@@ -92,7 +92,7 @@ The ledger settings tab manages ledger-scoped users and the device invitation fl
 
 - screens and popups render backend DTOs and send complete commands back through the bridge
 - compact mode swaps the whole active screen, while ranger mode keeps selection visible across columns
-- column one is always the ledgers view; column two is the ledger view; column three is the bill editor
+- column one is always the ledgers view; column two is the bills view; column three is the detail view
 - create-ledger, add-local-user, join-ledger, and add-user flows are overlays
 - the settings popup is an overlay that sits above the column layout
 - status, busy, and error feedback are shared across the app shell
