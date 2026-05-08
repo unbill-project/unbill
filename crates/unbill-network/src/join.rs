@@ -13,7 +13,9 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::broadcast;
 
 use unbill_event::ServiceEvent;
-use unbill_model::{LedgerMeta, NewDevice, NodeId, Timestamp};
+use unbill_model::{LedgerMeta, NewDevice, NodeId, Timestamp, UnbillError};
+
+type Result<T> = std::result::Result<T, UnbillError>;
 use unbill_storage::{LedgerDoc, LedgerStore};
 
 use unbill_storage::{
@@ -37,7 +39,7 @@ pub async fn run_join_host<R, W>(
     events: &broadcast::Sender<ServiceEvent>,
     mut reader: R,
     mut writer: W,
-) -> anyhow::Result<()>
+) -> Result<()>
 where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
@@ -134,7 +136,7 @@ pub async fn run_join_requester<R, W>(
     events: &broadcast::Sender<ServiceEvent>,
     mut reader: R,
     mut writer: W,
-) -> anyhow::Result<()>
+) -> Result<()>
 where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
@@ -164,9 +166,10 @@ where
             let _ = events.send(ServiceEvent::LedgerUpdated { ledger_id });
             Ok(())
         }
-        JoinReply::Err(e) => {
-            anyhow::bail!("join rejected by host: {}", e.reason)
-        }
+        JoinReply::Err(e) => Err(UnbillError::Network(format!(
+            "join rejected by host: {}",
+            e.reason
+        ))),
     }
 }
 

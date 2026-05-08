@@ -328,7 +328,7 @@ impl UnbillService {
             return client
                 .create_invitation(&ledger_id.to_string())
                 .await
-                .map_err(|e| UnbillError::Other(anyhow::anyhow!("{e}")));
+                .map_err(|e| UnbillError::Network(e.to_string()));
         }
 
         #[cfg(feature = "local")]
@@ -356,9 +356,7 @@ impl UnbillService {
         }
 
         #[allow(unreachable_code)]
-        Err(UnbillError::Other(anyhow::anyhow!(
-            "no network feature enabled"
-        )))
+        Err(UnbillError::NoNetworkFeature)
     }
 
     /// Accept a join invite URL and join the ledger hosted by the inviting device.
@@ -372,7 +370,7 @@ impl UnbillService {
             return client
                 .join_ledger(url, local_label)
                 .await
-                .map_err(|e| UnbillError::Other(anyhow::anyhow!("{e}")));
+                .map_err(|e| UnbillError::Network(e.to_string()));
         }
 
         #[cfg(feature = "local")]
@@ -385,24 +383,19 @@ impl UnbillService {
             if let Some(ep) = ep {
                 return ep
                     .join_ledger_inner(host, local_label, request, &self.store, &self.events)
-                    .await
-                    .map_err(UnbillError::Other);
+                    .await;
             }
             let key = self.store.get_secret_key().await?;
-            let ep = UnbillEndpoint::bind(&key)
-                .await
-                .map_err(UnbillError::Other)?;
+            let ep = UnbillEndpoint::bind(&key).await?;
             let result = ep
                 .join_ledger_inner(host, local_label, request, &self.store, &self.events)
                 .await;
             ep.close().await;
-            return result.map_err(UnbillError::Other);
+            return result;
         }
 
         #[allow(unreachable_code)]
-        Err(UnbillError::Other(anyhow::anyhow!(
-            "no network feature enabled"
-        )))
+        Err(UnbillError::NoNetworkFeature)
     }
 
     /// Dial `peer` and run the full sync exchange for all shared ledgers.
@@ -412,7 +405,7 @@ impl UnbillService {
             return client
                 .sync_with_peer(peer.as_str())
                 .await
-                .map_err(|e| UnbillError::Other(anyhow::anyhow!("{e}")));
+                .map_err(|e| UnbillError::Network(e.to_string()));
         }
 
         #[cfg(feature = "local")]
@@ -420,24 +413,17 @@ impl UnbillService {
             use crate::net::UnbillEndpoint;
             let ep = self.endpoint.lock().unwrap().clone();
             if let Some(ep) = ep {
-                return ep
-                    .sync_once_inner(peer, &self.store, &self.events)
-                    .await
-                    .map_err(UnbillError::Other);
+                return ep.sync_once_inner(peer, &self.store, &self.events).await;
             }
             let key = self.store.get_secret_key().await?;
-            let ep = UnbillEndpoint::bind(&key)
-                .await
-                .map_err(UnbillError::Other)?;
+            let ep = UnbillEndpoint::bind(&key).await?;
             let result = ep.sync_once_inner(peer, &self.store, &self.events).await;
             ep.close().await;
-            return result.map_err(UnbillError::Other);
+            return result;
         }
 
         #[allow(unreachable_code)]
-        Err(UnbillError::Other(anyhow::anyhow!(
-            "no network feature enabled"
-        )))
+        Err(UnbillError::NoNetworkFeature)
     }
 
     /// Open an endpoint and accept incoming sync/join/user-transfer connections until
@@ -448,11 +434,7 @@ impl UnbillService {
     pub async fn accept_loop(self: &Arc<Self>) -> Result<()> {
         use crate::net::UnbillEndpoint;
         let key = self.store.get_secret_key().await?;
-        let ep = Arc::new(
-            UnbillEndpoint::bind(&key)
-                .await
-                .map_err(UnbillError::Other)?,
-        );
+        let ep = Arc::new(UnbillEndpoint::bind(&key).await?);
         ep.wait_for_ready().await;
         println!("listening on: {}", ep.node_id());
         *self.endpoint.lock().unwrap() = Some(Arc::clone(&ep));
@@ -461,7 +443,7 @@ impl UnbillService {
             .await;
         *self.endpoint.lock().unwrap() = None;
         ep.close().await;
-        result.map_err(UnbillError::Other)
+        result
     }
 
     // -----------------------------------------------------------------------
@@ -511,17 +493,17 @@ impl UnbillService {
 fn parse_join_url(url: &str) -> Result<(String, NodeId, String)> {
     let path = url
         .strip_prefix("unbill://join/")
-        .ok_or_else(|| UnbillError::Other(anyhow::anyhow!("invalid join URL: {url:?}")))?;
+        .ok_or_else(|| UnbillError::InvalidUrl(format!("invalid join URL: {url:?}")))?;
     let parts: Vec<&str> = path.splitn(3, '/').collect();
     if parts.len() != 3 {
-        return Err(UnbillError::Other(anyhow::anyhow!(
+        return Err(UnbillError::InvalidUrl(format!(
             "invalid join URL (expected ledger_id/host_node_id/token): {url:?}"
         )));
     }
     let ledger_id = parts[0].to_string();
     let host = parts[1]
         .parse::<NodeId>()
-        .map_err(|e| UnbillError::Other(anyhow::anyhow!("invalid host node ID in URL: {e}")))?;
+        .map_err(|e| UnbillError::InvalidUrl(format!("invalid host node ID in URL: {e}")))?;
     let token = parts[2].to_string();
     Ok((ledger_id, host, token))
 }

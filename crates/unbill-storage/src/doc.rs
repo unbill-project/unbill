@@ -39,8 +39,9 @@ impl LedgerDoc {
     }
 
     /// Load a ledger document from stored bytes.
-    pub fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
-        let doc = automerge::AutoCommit::load(bytes)?;
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let doc = automerge::AutoCommit::load(bytes)
+            .map_err(|e| UnbillError::Automerge(e.to_string()))?;
         let (tx, _) = broadcast::channel(64);
         Ok(Self { doc, changes: tx })
     }
@@ -132,7 +133,7 @@ impl LedgerDoc {
         self.doc
             .sync()
             .receive_sync_message(sync_state, msg)
-            .map_err(|e| UnbillError::Other(e.into()))?;
+            .map_err(|e| UnbillError::Automerge(e.to_string()))?;
         let _ = self.changes.send(ChangeEvent::RemoteApplied);
         Ok(())
     }

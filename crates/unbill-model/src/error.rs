@@ -29,8 +29,20 @@ pub enum UnbillError {
     #[error("storage error: {0}")]
     Storage(#[from] StorageError),
 
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
+    #[error("automerge error: {0}")]
+    Automerge(String),
+
+    #[error("reconcile error: {0}")]
+    Reconcile(String),
+
+    #[error("network error: {0}")]
+    Network(String),
+
+    #[error("invalid url: {0}")]
+    InvalidUrl(String),
+
+    #[error("no network feature enabled")]
+    NoNetworkFeature,
 }
 
 #[derive(Debug, Error)]

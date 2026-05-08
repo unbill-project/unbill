@@ -22,7 +22,6 @@ ciborium.workspace = true
 ulid.workspace = true
 iso_currency.workspace = true
 garde.workspace = true
-anyhow.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 

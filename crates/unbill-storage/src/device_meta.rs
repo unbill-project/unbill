@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use unbill_model::{Invitation, UnbillError};
+use unbill_model::{Invitation, StorageError, UnbillError};
 
 use crate::LedgerStore;
 
@@ -15,8 +15,11 @@ const PENDING_INVITATIONS_KEY: &str = "pending_invitations.json";
 pub async fn load_device_labels(store: &dyn LedgerStore) -> Result<HashMap<String, String>> {
     match store.load_device_meta(DEVICE_LABELS_KEY).await? {
         None => Ok(HashMap::new()),
-        Some(bytes) => serde_json::from_slice(&bytes)
-            .map_err(|e| UnbillError::Other(anyhow::anyhow!("device_labels.json: {e}"))),
+        Some(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
+            UnbillError::Storage(StorageError::Serialization(format!(
+                "device_labels.json: {e}"
+            )))
+        }),
     }
 }
 
@@ -24,8 +27,11 @@ pub async fn save_device_labels(
     store: &dyn LedgerStore,
     labels: &HashMap<String, String>,
 ) -> Result<()> {
-    let bytes = serde_json::to_vec(labels)
-        .map_err(|e| UnbillError::Other(anyhow::anyhow!("serialize device_labels: {e}")))?;
+    let bytes = serde_json::to_vec(labels).map_err(|e| {
+        UnbillError::Storage(StorageError::Serialization(format!(
+            "serialize device_labels: {e}"
+        )))
+    })?;
     store.save_device_meta(DEVICE_LABELS_KEY, &bytes).await?;
     Ok(())
 }
@@ -35,8 +41,11 @@ pub async fn load_pending_invitations(
 ) -> Result<HashMap<String, Invitation>> {
     match store.load_device_meta(PENDING_INVITATIONS_KEY).await? {
         None => Ok(HashMap::new()),
-        Some(bytes) => serde_json::from_slice(&bytes)
-            .map_err(|e| UnbillError::Other(anyhow::anyhow!("pending_invitations.json: {e}"))),
+        Some(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
+            UnbillError::Storage(StorageError::Serialization(format!(
+                "pending_invitations.json: {e}"
+            )))
+        }),
     }
 }
 
@@ -44,8 +53,11 @@ pub async fn save_pending_invitations(
     store: &dyn LedgerStore,
     map: &HashMap<String, Invitation>,
 ) -> Result<()> {
-    let bytes = serde_json::to_vec(map)
-        .map_err(|e| UnbillError::Other(anyhow::anyhow!("serialize pending_invitations: {e}")))?;
+    let bytes = serde_json::to_vec(map).map_err(|e| {
+        UnbillError::Storage(StorageError::Serialization(format!(
+            "serialize pending_invitations: {e}"
+        )))
+    })?;
     store
         .save_device_meta(PENDING_INVITATIONS_KEY, &bytes)
         .await?;
