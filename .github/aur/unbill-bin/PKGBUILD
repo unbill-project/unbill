@@ -13,5 +13,7 @@ source_x86_64=("https://github.com/unbill-project/unbill/releases/download/${_ta
 sha256sums_x86_64=('SKIP')
 
 package() {
-    tar -xvf data.tar.gz -C "${pkgdir}"
+    cd "$srcdir"
+    ar x unbill-linux-x86_64.deb
+    bsdtar -xf data.tar.* -C "${pkgdir}"
 }
