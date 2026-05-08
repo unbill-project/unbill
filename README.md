@@ -135,6 +135,22 @@ Use source builds for development, custom modifications, or unreleased commits.
 - Build: `docker build -t unbill-server:local .`.
 - Run: `docker run --rm -p 8080:80 unbill-server:local`.
 
+#### Nix flake
+
+Install directly from the repository without cloning:
+
+```sh
+nix profile install github:unbill-project/unbill#unbill-cli
+nix profile install github:unbill-project/unbill#unbill-tui
+```
+
+Or build locally from the workspace root:
+
+```sh
+nix build .#unbill-cli
+nix build .#unbill-tui
+```
+
 ### Development container option
 
 For a reproducible source-oriented environment, use the repo’s `devenv.nix` and `devenv.yaml`.
