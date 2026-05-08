@@ -23,9 +23,9 @@
         commonArgs = {
           src = craneLib.cleanCargoSource ./.;
           strictDeps = true;
-          # Exclude unbill-tauri (and its gtk/glib/webkit2gtk deps) from the
-          # workspace build. We only care about CLI and TUI here.
-          cargoExtraArgs = "--workspace --exclude unbill-tauri";
+          # Only resolve deps for the two packages we care about, avoiding
+          # gtk/glib/webkit2gtk from unbill-tauri.
+          cargoExtraArgs = "-p unbill-cli -p unbill-tui";
           buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.libiconv
             pkgs.darwin.apple_sdk.frameworks.Security
