@@ -7,7 +7,7 @@ Tauri bridge around `UnbillService` and the default desktop shell for Unbill. It
 - commands bootstrap app state, load ledger detail, create or join ledgers, add users, save bills, create invitations, and trigger sync
 - IDs cross the boundary as strings and are parsed back into typed Rust values before touching core code
 - the desktop app owns exactly one visible `main` window; capability bindings and frontend bootstrap both assume that label remains stable
-- the default desktop frontend is `apps/unbill-ui-leptos`, served by Trunk in development and loaded from its built assets in release builds
+- the default desktop frontend is `apps/unbill-ui-native`, served by Trunk in development and loaded from its built assets in release builds
 - frontend build and development commands are deterministic under the environment Tauri passes to child processes
 - the generated iOS project is reproducible from tracked Tauri configuration and a tracked XcodeGen template
 - iOS debug builds link the Rust static library into the app executable instead of Xcode's separate debug dylib layout

@@ -1,6 +1,6 @@
 # Unbill UI
 
-Shared UI model for all Unbill frontend implementations. Two implementations exist: `unbill-ui-leptos` (Tauri desktop, mouse-driven) and `unbill-tui` (terminal, keyboard-driven). Both follow the same screens, layout, and feature set. They differ only in input method and rendering technology.
+Shared UI model for all Unbill frontend implementations. Two implementations exist: `unbill-ui-native` (Tauri desktop, mouse-driven) and `unbill-tui` (terminal, keyboard-driven). Both follow the same screens, layout, and feature set. They differ only in input method and rendering technology.
 
 ## Navigation
 
