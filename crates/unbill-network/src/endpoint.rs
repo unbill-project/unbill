@@ -17,6 +17,8 @@ use unbill_model::{NodeId, SecretKey};
 use crate::node_id_ext::SecretKeyExt;
 use unbill_storage::LedgerStore;
 
+use iroh::address_lookup::memory::MemoryLookup;
+
 use crate::join::{run_join_host, run_join_requester};
 use crate::node_id_ext::{EndpointIdExt, NodeIdExt};
 use crate::protocol::{ALPN_JOIN, ALPN_SYNC, JoinRequest};
@@ -24,18 +26,34 @@ use crate::sync::run_sync_session;
 
 pub struct UnbillEndpoint {
     inner: iroh::Endpoint,
+    addr_cache: MemoryLookup,
 }
 
 impl UnbillEndpoint {
     /// Bind a new Iroh endpoint using the given device secret key.
     /// Uses the N0 preset: pkarr publishing + DNS address lookup + relay servers.
+    /// A `MemoryLookup` is registered so that peers learned from any connection
+    /// (inbound or outbound) are cached and reachable without a pkarr round-trip.
     pub async fn bind(key: &SecretKey) -> anyhow::Result<Self> {
+        let addr_cache = MemoryLookup::new();
         let inner = iroh::Endpoint::builder(iroh::endpoint::presets::N0)
             .secret_key(key.to_iroh_key())
             .alpns(vec![ALPN_SYNC.to_vec(), ALPN_JOIN.to_vec()])
+            .address_lookup(addr_cache.clone())
             .bind()
             .await?;
-        Ok(Self { inner })
+        Ok(Self { inner, addr_cache })
+    }
+
+    /// Cache the remote peer's `EndpointAddr` after a successful connection so
+    /// that future dials to this peer skip the pkarr lookup.
+    async fn cache_peer(&self, conn: &iroh::endpoint::Connection) {
+        let id = conn.remote_id();
+        if let Some(info) = self.inner.remote_info(id).await {
+            let addr =
+                iroh::EndpointAddr::from_parts(info.id(), info.into_addrs().map(|a| a.into_addr()));
+            self.addr_cache.add_endpoint_info(addr);
+        }
     }
 
     /// This device's `NodeId` as known to the network.
@@ -51,7 +69,7 @@ impl UnbillEndpoint {
     }
 
     /// Close the endpoint gracefully.
-    pub async fn close(self) {
+    pub async fn close(&self) {
         self.inner.close().await;
     }
 
@@ -67,6 +85,7 @@ impl UnbillEndpoint {
     ) -> anyhow::Result<()> {
         let addr = iroh::EndpointAddr::new(peer.to_endpoint_id()?);
         let conn = self.inner.connect(addr, ALPN_SYNC).await?;
+        self.cache_peer(&conn).await;
         let peer_node_id = conn.remote_id().to_node_id();
         let (send, recv) = conn.open_bi().await?;
         run_sync_session(true, peer_node_id, store, events, recv, send).await?;
@@ -88,6 +107,7 @@ impl UnbillEndpoint {
     ) -> anyhow::Result<()> {
         let addr = iroh::EndpointAddr::new(host.to_endpoint_id()?);
         let conn = self.inner.connect(addr, ALPN_JOIN).await?;
+        self.cache_peer(&conn).await;
         let (send, recv) = conn.open_bi().await?;
         run_join_requester(host, local_label, request, store, events, recv, send).await?;
         conn.close(0u32.into(), b"done");
@@ -137,6 +157,7 @@ impl UnbillEndpoint {
                 }
             };
 
+            self.cache_peer(&conn).await;
             let peer = conn.remote_id().to_node_id();
             let store = Arc::clone(&store);
             let events = events.clone();

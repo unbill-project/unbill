@@ -29,6 +29,8 @@ pub struct UnbillService {
     pub(crate) events: broadcast::Sender<ServiceEvent>,
     #[cfg(feature = "remote")]
     pub(crate) server_client: Option<Arc<unbill_server_client::ServerClient>>,
+    #[cfg(feature = "local")]
+    pub(crate) endpoint: std::sync::Mutex<Option<Arc<crate::net::UnbillEndpoint>>>,
 }
 
 impl UnbillService {
@@ -46,6 +48,8 @@ impl UnbillService {
             events,
             #[cfg(feature = "remote")]
             server_client: None,
+            #[cfg(feature = "local")]
+            endpoint: std::sync::Mutex::new(None),
         }))
     }
 
@@ -70,6 +74,8 @@ impl UnbillService {
             server_client: Some(Arc::new(unbill_server_client::ServerClient::new(
                 base_url, api_key,
             ))),
+            #[cfg(feature = "local")]
+            endpoint: std::sync::Mutex::new(None),
         }))
     }
 
@@ -375,6 +381,13 @@ impl UnbillService {
             let (ledger_id, host, token) = parse_join_url(url)?;
             let local_label = (!label.trim().is_empty()).then_some(label.trim().to_owned());
             let request = JoinRequest { token, ledger_id };
+            let ep = self.endpoint.lock().unwrap().clone();
+            if let Some(ep) = ep {
+                return ep
+                    .join_ledger_inner(host, local_label, request, &self.store, &self.events)
+                    .await
+                    .map_err(UnbillError::Other);
+            }
             let key = self.store.get_secret_key().await?;
             let ep = UnbillEndpoint::bind(&key)
                 .await
@@ -405,6 +418,13 @@ impl UnbillService {
         #[cfg(feature = "local")]
         {
             use crate::net::UnbillEndpoint;
+            let ep = self.endpoint.lock().unwrap().clone();
+            if let Some(ep) = ep {
+                return ep
+                    .sync_once_inner(peer, &self.store, &self.events)
+                    .await
+                    .map_err(UnbillError::Other);
+            }
             let key = self.store.get_secret_key().await?;
             let ep = UnbillEndpoint::bind(&key)
                 .await
@@ -428,14 +448,18 @@ impl UnbillService {
     pub async fn accept_loop(self: &Arc<Self>) -> Result<()> {
         use crate::net::UnbillEndpoint;
         let key = self.store.get_secret_key().await?;
-        let ep = UnbillEndpoint::bind(&key)
-            .await
-            .map_err(UnbillError::Other)?;
+        let ep = Arc::new(
+            UnbillEndpoint::bind(&key)
+                .await
+                .map_err(UnbillError::Other)?,
+        );
         ep.wait_for_ready().await;
         println!("listening on: {}", ep.node_id());
+        *self.endpoint.lock().unwrap() = Some(Arc::clone(&ep));
         let result = ep
             .accept_loop_inner(Arc::clone(&self.store), self.events.clone())
             .await;
+        *self.endpoint.lock().unwrap() = None;
         ep.close().await;
         result.map_err(UnbillError::Other)
     }
