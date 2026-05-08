@@ -21,6 +21,7 @@
         craneLib = crane.mkLib pkgs;
 
         commonArgs = {
+          pname = "unbill";
           src = craneLib.cleanCargoSource ./.;
           strictDeps = true;
           # Only resolve deps for the two packages we care about, avoiding
