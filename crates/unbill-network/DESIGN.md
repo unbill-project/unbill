@@ -42,6 +42,7 @@ sequenceDiagram
 ## Rules
 
 - discovery comes from known `NodeId` values in ledgers or invite URLs
+- callers may provide a peer relay URL with a `NodeId` to bypass DNS address discovery for sync and join dials
 - authorization is ledger-scoped and based on the TLS-authenticated `NodeId`
 - all protocols use length-prefixed CBOR framing
 - sync state is session-local and not persisted between connections

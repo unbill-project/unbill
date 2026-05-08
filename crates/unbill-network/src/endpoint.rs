@@ -43,6 +43,15 @@ impl UnbillEndpoint {
         self.inner.id().to_node_id()
     }
 
+    /// The endpoint's current relay URL, if Iroh has selected one.
+    pub fn relay_url(&self) -> Option<String> {
+        self.inner
+            .addr()
+            .relay_urls()
+            .next()
+            .map(ToString::to_string)
+    }
+
     /// Wait until the endpoint has a relay connection — the relay is the
     /// reliable path that enables connectivity before direct addresses are
     /// established via hole-punching.
@@ -66,6 +75,27 @@ impl UnbillEndpoint {
         events: &broadcast::Sender<ServiceEvent>,
     ) -> anyhow::Result<()> {
         let addr = iroh::EndpointAddr::new(peer.to_endpoint_id()?);
+        self.sync_once_addr(addr, store, events).await
+    }
+
+    pub async fn sync_once_with_relay_inner(
+        &self,
+        peer: NodeId,
+        relay_url: &str,
+        store: &Arc<dyn LedgerStore>,
+        events: &broadcast::Sender<ServiceEvent>,
+    ) -> anyhow::Result<()> {
+        let addr =
+            iroh::EndpointAddr::new(peer.to_endpoint_id()?).with_relay_url(relay_url.parse()?);
+        self.sync_once_addr(addr, store, events).await
+    }
+
+    async fn sync_once_addr(
+        &self,
+        addr: iroh::EndpointAddr,
+        store: &Arc<dyn LedgerStore>,
+        events: &broadcast::Sender<ServiceEvent>,
+    ) -> anyhow::Result<()> {
         let conn = self.inner.connect(addr, ALPN_SYNC).await?;
         let peer_node_id = conn.remote_id().to_node_id();
         let (send, recv) = conn.open_bi().await?;
@@ -87,6 +117,34 @@ impl UnbillEndpoint {
         events: &broadcast::Sender<ServiceEvent>,
     ) -> anyhow::Result<()> {
         let addr = iroh::EndpointAddr::new(host.to_endpoint_id()?);
+        self.join_ledger_addr(host, local_label, request, addr, store, events)
+            .await
+    }
+
+    pub async fn join_ledger_with_relay_inner(
+        &self,
+        host: NodeId,
+        relay_url: &str,
+        local_label: Option<String>,
+        request: JoinRequest,
+        store: &Arc<dyn LedgerStore>,
+        events: &broadcast::Sender<ServiceEvent>,
+    ) -> anyhow::Result<()> {
+        let addr =
+            iroh::EndpointAddr::new(host.to_endpoint_id()?).with_relay_url(relay_url.parse()?);
+        self.join_ledger_addr(host, local_label, request, addr, store, events)
+            .await
+    }
+
+    async fn join_ledger_addr(
+        &self,
+        host: NodeId,
+        local_label: Option<String>,
+        request: JoinRequest,
+        addr: iroh::EndpointAddr,
+        store: &Arc<dyn LedgerStore>,
+        events: &broadcast::Sender<ServiceEvent>,
+    ) -> anyhow::Result<()> {
         let conn = self.inner.connect(addr, ALPN_JOIN).await?;
         let (send, recv) = conn.open_bi().await?;
         run_join_requester(host, local_label, request, store, events, recv, send).await?;
@@ -183,4 +241,24 @@ async fn dispatch(
     // stream data was delivered before we exit.
     conn.closed().await;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn relay_address_contains_peer_and_relay() {
+        let peer = NodeId::from_seed(7);
+        let relay_url = "https://relay.example.com/";
+
+        let addr = iroh::EndpointAddr::new(peer.to_endpoint_id().unwrap())
+            .with_relay_url(relay_url.parse().unwrap());
+
+        assert_eq!(addr.id.to_node_id(), peer);
+        assert_eq!(
+            addr.relay_urls().next().map(ToString::to_string),
+            Some(relay_url.to_string())
+        );
+    }
 }

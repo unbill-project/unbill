@@ -339,8 +339,13 @@ pub async fn ledger_join(
     svc: &Arc<UnbillService>,
     url: String,
     label: Option<String>,
+    relay_url: Option<&str>,
 ) -> anyhow::Result<()> {
-    svc.join_ledger(&url, label.unwrap_or_default()).await?;
+    let label = label.unwrap_or_default();
+    match relay_url {
+        Some(relay_url) => svc.join_ledger_via_relay(&url, label, relay_url).await?,
+        None => svc.join_ledger(&url, label).await?,
+    }
     Ok(())
 }
 
@@ -382,11 +387,18 @@ pub async fn ledger_invite(
 // Sync
 // ---------------------------------------------------------------------------
 
-pub async fn sync_once(svc: &Arc<UnbillService>, peer_node_id: &str) -> anyhow::Result<()> {
+pub async fn sync_once(
+    svc: &Arc<UnbillService>,
+    peer_node_id: &str,
+    relay_url: Option<&str>,
+) -> anyhow::Result<()> {
     let peer = peer_node_id
         .parse::<NodeId>()
         .map_err(|e| anyhow!("invalid node ID {peer_node_id:?}: {e}"))?;
-    svc.sync_once(peer).await?;
+    match relay_url {
+        Some(relay_url) => svc.sync_once_via_relay(peer, relay_url).await?,
+        None => svc.sync_once(peer).await?,
+    }
     Ok(())
 }
 

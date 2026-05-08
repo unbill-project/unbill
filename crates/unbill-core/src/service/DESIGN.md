@@ -20,7 +20,7 @@ flowchart LR
 - create, load, and mutate ledgers
 - manage device labels
 - create invitations and consume join flows
-- coordinate sync and surface service events
+- coordinate join and sync, including optional relay-addressed peer dials, and surface service events
 - compute settlement across ledgers for one user
 - detect amendment conflicts in the effective bill set
 

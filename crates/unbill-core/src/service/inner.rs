@@ -360,6 +360,25 @@ impl UnbillService {
     /// URL format: `unbill://join/<ledger_id>/<host_node_id>/<token_hex>`
     /// `label` is an optional device-local nickname for the host device.
     pub async fn join_ledger(self: &Arc<Self>, url: &str, label: String) -> Result<()> {
+        self.join_ledger_inner(url, label, None).await
+    }
+
+    /// Join a ledger through an explicitly supplied host relay URL.
+    pub async fn join_ledger_via_relay(
+        self: &Arc<Self>,
+        url: &str,
+        label: String,
+        relay_url: &str,
+    ) -> Result<()> {
+        self.join_ledger_inner(url, label, Some(relay_url)).await
+    }
+
+    async fn join_ledger_inner(
+        self: &Arc<Self>,
+        url: &str,
+        label: String,
+        relay_url: Option<&str>,
+    ) -> Result<()> {
         #[cfg(feature = "remote")]
         if let Some(client) = self.server_client.as_deref() {
             let local_label = (!label.trim().is_empty()).then_some(label.trim());
@@ -379,9 +398,24 @@ impl UnbillService {
             let ep = UnbillEndpoint::bind(&key)
                 .await
                 .map_err(UnbillError::Other)?;
-            let result = ep
-                .join_ledger_inner(host, local_label, request, &self.store, &self.events)
-                .await;
+            ep.wait_for_ready().await;
+            let result = match relay_url {
+                Some(relay_url) => {
+                    ep.join_ledger_with_relay_inner(
+                        host,
+                        relay_url,
+                        local_label,
+                        request,
+                        &self.store,
+                        &self.events,
+                    )
+                    .await
+                }
+                None => {
+                    ep.join_ledger_inner(host, local_label, request, &self.store, &self.events)
+                        .await
+                }
+            };
             ep.close().await;
             return result.map_err(UnbillError::Other);
         }
@@ -394,6 +428,23 @@ impl UnbillService {
 
     /// Dial `peer` and run the full sync exchange for all shared ledgers.
     pub async fn sync_once(self: &Arc<Self>, peer: NodeId) -> Result<()> {
+        self.sync_once_inner(peer, None).await
+    }
+
+    /// Dial `peer` through an explicitly supplied relay URL and sync all shared ledgers.
+    pub async fn sync_once_via_relay(
+        self: &Arc<Self>,
+        peer: NodeId,
+        relay_url: &str,
+    ) -> Result<()> {
+        self.sync_once_inner(peer, Some(relay_url)).await
+    }
+
+    async fn sync_once_inner(
+        self: &Arc<Self>,
+        peer: NodeId,
+        relay_url: Option<&str>,
+    ) -> Result<()> {
         #[cfg(feature = "remote")]
         if let Some(client) = self.server_client.as_deref() {
             return client
@@ -409,7 +460,14 @@ impl UnbillService {
             let ep = UnbillEndpoint::bind(&key)
                 .await
                 .map_err(UnbillError::Other)?;
-            let result = ep.sync_once_inner(peer, &self.store, &self.events).await;
+            ep.wait_for_ready().await;
+            let result = match relay_url {
+                Some(relay_url) => {
+                    ep.sync_once_with_relay_inner(peer, relay_url, &self.store, &self.events)
+                        .await
+                }
+                None => ep.sync_once_inner(peer, &self.store, &self.events).await,
+            };
             ep.close().await;
             return result.map_err(UnbillError::Other);
         }
@@ -433,6 +491,9 @@ impl UnbillService {
             .map_err(UnbillError::Other)?;
         ep.wait_for_ready().await;
         println!("listening on: {}", ep.node_id());
+        if let Some(relay_url) = ep.relay_url() {
+            eprintln!("relay url: {relay_url}");
+        }
         let result = ep
             .accept_loop_inner(Arc::clone(&self.store), self.events.clone())
             .await;

@@ -11,7 +11,7 @@ Terminal frontend for `UnbillService`. It exists for dogfooding, scripting, and 
 - `user create --ledger-id ...` creates a new user and adds them to a ledger
 - `user add --ledger-id ...` adds an existing user (by ID) to a ledger
 - `user list` lists all unique users across every ledger on this device; `user list --ledger-id ...` lists users in one ledger
-- `sync daemon | once | status` exposes peer-to-peer sync control
+- `sync daemon | once | status` exposes peer-to-peer sync control; `join` and `once` can use a daemon-provided relay URL to avoid DNS discovery
 - `settlement <user_id>` prints the net settlement for one user across every ledger they appear in
 
 ## Rules

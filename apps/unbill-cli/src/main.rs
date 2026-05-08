@@ -94,6 +94,9 @@ pub enum LedgerCmd {
         /// Optional device-local label to remember the host device on this machine.
         #[arg(long)]
         label: Option<String>,
+        /// Relay URL printed by the host's `sync daemon`; bypasses DNS discovery.
+        #[arg(long)]
+        relay_url: Option<String>,
     },
 }
 
@@ -173,7 +176,12 @@ pub enum SyncCmd {
     /// Open the endpoint and wait for incoming sync connections.
     Daemon,
     /// Dial a specific peer by NodeId and sync all shared ledgers.
-    Once { peer_node_id: String },
+    Once {
+        peer_node_id: String,
+        /// Relay URL printed by the peer's `sync daemon`; bypasses DNS discovery.
+        #[arg(long)]
+        relay_url: Option<String>,
+    },
     /// Show sync status.
     Status,
 }
@@ -222,7 +230,11 @@ async fn run() -> anyhow::Result<()> {
             LedgerCmd::Invite { ledger_id } => {
                 commands::ledger_invite(&svc, &ledger_id, json).await
             }
-            LedgerCmd::Join { url, label } => commands::ledger_join(&svc, url, label).await,
+            LedgerCmd::Join {
+                url,
+                label,
+                relay_url,
+            } => commands::ledger_join(&svc, url, label, relay_url.as_deref()).await,
         },
         Command::Bill { sub } => match sub {
             BillCmd::Add {
@@ -284,7 +296,10 @@ async fn run() -> anyhow::Result<()> {
             },
         },
         Command::Sync { sub } => match sub {
-            SyncCmd::Once { peer_node_id } => commands::sync_once(&svc, &peer_node_id).await,
+            SyncCmd::Once {
+                peer_node_id,
+                relay_url,
+            } => commands::sync_once(&svc, &peer_node_id, relay_url.as_deref()).await,
             SyncCmd::Daemon => commands::sync_daemon(&svc).await,
             SyncCmd::Status => bail!("sync status is available from M3"),
         },

@@ -5,6 +5,8 @@
 
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Output, Stdio};
+use std::sync::mpsc;
+use std::time::Duration;
 use tempfile::TempDir;
 
 // ---------------------------------------------------------------------------
@@ -82,6 +84,8 @@ struct Daemon {
     child: Child,
     /// The host's NodeId string — pass to `sync once` to dial this host.
     pub node_id: String,
+    /// The host's current relay URL, used to bypass DNS discovery in sync tests.
+    pub relay_url: Option<String>,
 }
 
 impl Daemon {
@@ -90,8 +94,21 @@ impl Daemon {
             .env("UNBILL_DATA_DIR", env.dir.path())
             .args(["sync", "daemon"])
             .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .spawn()
             .expect("failed to spawn daemon");
+        let stderr = child.stderr.take().unwrap();
+        let (relay_tx, relay_rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let mut reader = BufReader::new(stderr);
+            let mut line = String::new();
+            if reader.read_line(&mut line).is_ok() {
+                let relay_url = line
+                    .strip_prefix("relay url: ")
+                    .map(|s| s.trim().to_string());
+                relay_tx.send(relay_url).ok();
+            }
+        });
         let stdout = child.stdout.take().unwrap();
         let mut reader = BufReader::new(stdout);
         let mut line = String::new();
@@ -103,7 +120,15 @@ impl Daemon {
             .unwrap_or_else(|| panic!("unexpected daemon output: {line:?}"))
             .trim()
             .to_string();
-        Daemon { child, node_id }
+        let relay_url = relay_rx
+            .recv_timeout(Duration::from_secs(10))
+            .ok()
+            .flatten();
+        Daemon {
+            child,
+            node_id,
+            relay_url,
+        }
     }
 }
 
@@ -602,7 +627,19 @@ fn test_join_flow() {
     let url = invite["url"].as_str().unwrap().to_owned();
 
     let daemon = Daemon::spawn(&host);
-    joiner.ok(&["ledger", "join", &url, "--label", "joiner"]);
+    let relay_url = daemon
+        .relay_url
+        .as_deref()
+        .expect("daemon should report a relay URL");
+    joiner.ok(&[
+        "ledger",
+        "join",
+        &url,
+        "--label",
+        "joiner",
+        "--relay-url",
+        relay_url,
+    ]);
     drop(daemon);
 
     let ledgers = joiner.json(&["ledger", "list"]);
@@ -623,7 +660,19 @@ fn test_sync_once_propagates_bills() {
     let invite = host.json(&["ledger", "invite", &lid]);
     let url = invite["url"].as_str().unwrap().to_owned();
     let daemon = Daemon::spawn(&host);
-    joiner.ok(&["ledger", "join", &url, "--label", "joiner"]);
+    let relay_url = daemon
+        .relay_url
+        .as_deref()
+        .expect("daemon should report a relay URL");
+    joiner.ok(&[
+        "ledger",
+        "join",
+        &url,
+        "--label",
+        "joiner",
+        "--relay-url",
+        relay_url,
+    ]);
     drop(daemon);
 
     // Host adds a bill while the joiner is offline.
@@ -631,7 +680,11 @@ fn test_sync_once_propagates_bills() {
 
     // Joiner syncs.
     let daemon = Daemon::spawn(&host);
-    joiner.ok(&["sync", "once", &daemon.node_id]);
+    let relay_url = daemon
+        .relay_url
+        .as_deref()
+        .expect("daemon should report a relay URL");
+    joiner.ok(&["sync", "once", &daemon.node_id, "--relay-url", relay_url]);
     drop(daemon);
 
     // Joiner now sees the bill.

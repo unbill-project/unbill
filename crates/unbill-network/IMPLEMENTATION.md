@@ -5,7 +5,7 @@
 - `protocol.rs` — ALPN constants (`unbill/sync/v1`, `unbill/join/v1`), CBOR message types (`SyncFrame`, `JoinRequest`, `JoinReply`), and length-prefixed framing (`read_msg`, `write_msg`)
 - `sync.rs` — symmetric Automerge sync loop over abstract async streams; operates on `AsyncRead + AsyncWrite` with no Iroh dependency
 - `join.rs` — `run_join_host` and `run_join_requester`: token validation, device append, snapshot transfer; also operates on abstract streams
-- `endpoint.rs` — `UnbillEndpoint` wraps `iroh::Endpoint`, binds with the device secret key via the N0 preset, and dispatches incoming connections by ALPN to the sync or join handlers
+- `endpoint.rs` — `UnbillEndpoint` wraps `iroh::Endpoint`, binds with the device secret key via the N0 preset, exposes the endpoint's current relay URL after readiness, dials join and sync peers either by discovery-only `NodeId` or by explicit relay URL, and dispatches incoming connections by ALPN to the sync or join handlers
 - `node_id_ext.rs` — conversion traits (`NodeIdExt`, `SecretKeyExt`, `IrohSecretKeyExt`, `EndpointIdExt`) between unbill model types and Iroh types
 
 ## Runtime
