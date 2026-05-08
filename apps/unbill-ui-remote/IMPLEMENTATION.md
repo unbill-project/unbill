@@ -60,6 +60,8 @@ All reads from signals inside the event loop use `get_untracked()` to avoid crea
 
 `api.rs` defines async functions that delegate to `UnbillService` and return typed DTO structs. DTOs are plain `serde` structs defined alongside the functions. `main.rs` and `app.rs` call into `api.rs`; no component accesses the service directly.
 
+Timestamp DTOs stay as Unix milliseconds from service state through the API layer. Display formatting happens in `api.rs` by reading the viewer's local calendar date and time from the browser runtime and rendering a zero-padded year/month/day hour:minute value.
+
 ## Navigation and settings
 
 Settings state is a single popup state value holding the active tab and selected ledger ID. In ranger mode the popup overlays three columns. In compact mode it fills the viewport. Responsive mode selection uses the same 1200 px breakpoint and window resize listener as the shared UI model.

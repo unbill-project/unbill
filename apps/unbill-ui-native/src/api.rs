@@ -241,7 +241,30 @@ pub fn format_money(amount_cents: i64, currency: &str) -> String {
 }
 
 pub fn format_timestamp(timestamp_ms: i64) -> String {
-    let seconds = timestamp_ms / 1000;
-    let day = seconds / 86_400;
-    format!("day {day}")
+    let date = js_sys::Date::new(&JsValue::from_f64(timestamp_ms as f64));
+    format_timestamp_parts(
+        date.get_full_year(),
+        date.get_month() + 1,
+        date.get_date(),
+        date.get_hours(),
+        date.get_minutes(),
+    )
+}
+
+fn format_timestamp_parts(year: u32, month: u32, day: u32, hour: u32, minute: u32) -> String {
+    format!("{year:04}/{month:02}/{day:02} {hour:02}:{minute:02}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn timestamp_parts_render_as_zero_padded_local_date_and_time() {
+        assert_eq!(format_timestamp_parts(2026, 5, 7, 9, 3), "2026/05/07 09:03");
+        assert_eq!(
+            format_timestamp_parts(2026, 11, 19, 23, 58),
+            "2026/11/19 23:58"
+        );
+    }
 }

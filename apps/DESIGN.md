@@ -89,6 +89,7 @@ The ledger settings tab manages ledger-scoped users and the device invitation fl
 ### Cross-Screen Behavior
 
 - screens and popups render backend DTOs and send complete commands back through the bridge
+- date details render timestamps as the viewer's local calendar date and time in year/month/day hour:minute syntax
 - compact mode swaps the whole active screen, while ranger mode keeps selection visible across columns
 - column one is always the ledgers view; column two is the bills view; column three is the detail view
 - create-ledger, join-ledger, and add-user flows are overlays

@@ -14,4 +14,6 @@ The stylesheet implements a native utility shell with system typography, full-he
 
 Navigation and utility controls render through a shared icon-button component backed by static Lucide SVG primitives. The component maps app actions to icons, visible hover titles, accessible labels, and hidden text. It is used for topbar navigation, settings and sheet close buttons, per-row sync/share/copy/add utilities, and the bill editor save control. Larger primary workflow actions continue to use text buttons.
 
+Timestamp DTOs stay as Unix milliseconds across the Tauri bridge. The UI API layer formats them for display by asking the browser runtime for the viewer's local calendar date and time, then rendering a zero-padded year/month/day hour:minute value.
+
 Tests live beside the Rust code they cover. Pure UI state helpers are unit-tested in the Leptos crate, while Tauri bridge DTO assembly and command behavior are tested in the Tauri crate.
