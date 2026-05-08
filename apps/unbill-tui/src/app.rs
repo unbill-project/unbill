@@ -3,6 +3,7 @@ use std::sync::Arc;
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyModifiers};
 use futures::StreamExt as _;
 use ratatui::{Terminal, backend::CrosstermBackend};
+use tokio::sync::mpsc;
 use tokio::time::{Duration, interval};
 use unbill_core::model::{
     Bill, BillId, Currency, LedgerId, LedgerMeta, NewBill, NewLedger, NodeId, Share, User,
@@ -44,10 +45,11 @@ pub struct AppState {
     pub sync_status: SyncStatus,
     pub status_message: Option<String>,
     pub should_quit: bool,
+    pub sync_result_tx: mpsc::UnboundedSender<Result<(), String>>,
 }
 
 impl AppState {
-    fn new() -> Self {
+    fn new(sync_result_tx: mpsc::UnboundedSender<Result<(), String>>) -> Self {
         Self {
             focused_pane: Pane::Ledgers,
             ledger_cursor: 0,
@@ -61,6 +63,7 @@ impl AppState {
             sync_status: SyncStatus::Idle,
             status_message: None,
             should_quit: false,
+            sync_result_tx,
         }
     }
 
@@ -77,7 +80,8 @@ pub async fn run(
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     svc: Arc<UnbillService>,
 ) -> anyhow::Result<()> {
-    let mut state = AppState::new();
+    let (sync_result_tx, mut sync_result_rx) = mpsc::unbounded_channel::<Result<(), String>>();
+    let mut state = AppState::new(sync_result_tx);
     let mut events = EventStream::new();
     let mut tick = interval(Duration::from_millis(16));
     let mut svc_events = svc.subscribe();
@@ -113,6 +117,13 @@ pub async fn run(
                     }
                     _ => {}
                 }
+            }
+
+            Some(result) = sync_result_rx.recv() => {
+                state.sync_status = match result {
+                    Ok(()) => SyncStatus::Idle,
+                    Err(e) => SyncStatus::Error(e),
+                };
             }
 
             Some(Ok(ev)) = events.next() => {
@@ -598,21 +609,20 @@ async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<Unb
             Err(e) => state.status_message = Some(format!("join ledger: {e}")),
         },
 
-        PopupAction::SyncOnce { peer_node_id } => {
-            match peer_node_id.parse::<NodeId>() {
-                Ok(peer) => {
-                    state.sync_status = SyncStatus::Syncing;
-                    let svc = Arc::clone(svc);
-                    // Run sync in background; errors surface via ServiceEvent::SyncError.
-                    tokio::spawn(async move {
-                        let _ = svc.sync_once(peer).await;
-                    });
-                }
-                Err(e) => {
-                    state.sync_status = SyncStatus::Error(format!("invalid peer id: {e}"));
-                }
+        PopupAction::SyncOnce { peer_node_id } => match peer_node_id.parse::<NodeId>() {
+            Ok(peer) => {
+                state.sync_status = SyncStatus::Syncing;
+                let svc = Arc::clone(svc);
+                let tx = state.sync_result_tx.clone();
+                tokio::spawn(async move {
+                    let result = svc.sync_once(peer).await.map_err(|e| e.to_string());
+                    let _ = tx.send(result);
+                });
             }
-        }
+            Err(e) => {
+                state.sync_status = SyncStatus::Error(format!("invalid peer id: {e}"));
+            }
+        },
     }
 }
 
