@@ -36,10 +36,14 @@ use crate::node_id_ext::{EndpointIdExt, NodeIdExt};
 use crate::protocol::{ALPN_JOIN, ALPN_SYNC, JoinRequest};
 use crate::sync::run_sync_session;
 
-/// The single relay shared by all unbill endpoints.
-/// All peers register with this relay, so any peer's `EndpointAddr` can be
-/// constructed from their `NodeId` alone — no DNS/pkarr lookup required.
-const UNBILL_RELAY_URL: &str = "https://use1-1.relay.n0.iroh-canary.iroh.link.";
+/// Relays shared by all unbill endpoints.
+/// All peers register with one of these relays, so any peer's `EndpointAddr`
+/// can be constructed from their `NodeId` alone — no DNS/pkarr lookup required.
+const UNBILL_RELAY_URLS: &[&str] = &[
+    "https://use1-1.relay.n0.iroh-canary.iroh.link.",
+    "https://usw1-1.relay.n0.iroh-canary.iroh.link.",
+    "https://euc1-1.relay.n0.iroh-canary.iroh.link.",
+];
 
 pub struct UnbillEndpoint {
     inner: iroh::Endpoint,
@@ -49,12 +53,15 @@ pub struct UnbillEndpoint {
 impl UnbillEndpoint {
     /// Bind a new Iroh endpoint using the given device secret key.
     pub async fn bind(key: &SecretKey) -> anyhow::Result<Self> {
-        let relay_url: iroh::RelayUrl = UNBILL_RELAY_URL.parse()?;
+        let relay_urls: Vec<iroh::RelayUrl> = UNBILL_RELAY_URLS
+            .iter()
+            .map(|s| s.parse())
+            .collect::<Result<_, _>>()?;
         let addr_cache = MemoryLookup::new();
         let inner = iroh::Endpoint::builder(presets::Minimal)
             .secret_key(key.to_iroh_key())
             .alpns(vec![ALPN_SYNC.to_vec(), ALPN_JOIN.to_vec()])
-            .relay_mode(RelayMode::custom([relay_url]))
+            .relay_mode(RelayMode::custom(relay_urls))
             .address_lookup(iroh::address_lookup::PkarrPublisher::n0_dns())
             .address_lookup(MdnsAddressLookup::builder())
             .address_lookup(addr_cache.clone())
@@ -78,8 +85,11 @@ impl UnbillEndpoint {
     /// Since all unbill endpoints register with `UNBILL_RELAY_URL`, the relay
     /// path is always known — no lookup required.
     fn peer_addr(&self, peer: &NodeId) -> anyhow::Result<iroh::EndpointAddr> {
-        let relay_url: iroh::RelayUrl = UNBILL_RELAY_URL.parse()?;
-        Ok(iroh::EndpointAddr::new(peer.to_endpoint_id()?).with_relay_url(relay_url))
+        let mut addr = iroh::EndpointAddr::new(peer.to_endpoint_id()?);
+        for url in UNBILL_RELAY_URLS {
+            addr = addr.with_relay_url(url.parse()?);
+        }
+        Ok(addr)
     }
 
     /// This device's `NodeId` as known to the network.
