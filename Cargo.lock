@@ -7922,7 +7922,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "unbill-ui-leptos"
+name = "unbill-ui-native"
 version = "0.0.2"
 dependencies = [
  "console_error_panic_hook",

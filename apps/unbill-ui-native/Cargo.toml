@@ -1,5 +1,5 @@
 [package]
-name = "unbill-ui-leptos"
+name = "unbill-ui-native"
 description = "Leptos web frontend for unbill."
 version.workspace = true
 edition.workspace = true

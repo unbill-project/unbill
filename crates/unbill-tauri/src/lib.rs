@@ -712,13 +712,13 @@ mod tests {
         assert_eq!(build["devUrl"].as_str(), Some("http://localhost:1420"));
         assert_eq!(
             build["frontendDist"].as_str(),
-            Some("../../apps/unbill-ui-leptos/dist")
+            Some("../../apps/unbill-ui-native/dist")
         );
 
         let before_dev = &build["beforeDevCommand"];
         assert_eq!(
             before_dev["cwd"].as_str(),
-            Some("../../apps/unbill-ui-leptos")
+            Some("../../apps/unbill-ui-native")
         );
         assert_eq!(
             before_dev["script"].as_str(),

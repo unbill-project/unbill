@@ -4,7 +4,7 @@ members = [
     "apps/unbill-cli",
     "apps/unbill-server",
     "apps/unbill-tui",
-    "apps/unbill-ui-leptos",
+    "apps/unbill-ui-native",
     "apps/unbill-ui-remote",
     "crates/unbill-core",
     "crates/unbill-event",

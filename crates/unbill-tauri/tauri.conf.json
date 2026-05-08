@@ -4,16 +4,16 @@
   "identifier": "computer.unbill",
   "build": {
     "beforeDevCommand": {
-      "cwd": "../../apps/unbill-ui-leptos",
+      "cwd": "../../apps/unbill-ui-native",
       "script": "trunk serve --config Trunk.toml --address 0.0.0.0",
       "wait": false
     },
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": {
-      "cwd": "../../apps/unbill-ui-leptos",
+      "cwd": "../../apps/unbill-ui-native",
       "script": "trunk build --config Trunk.toml --release"
     },
-    "frontendDist": "../../apps/unbill-ui-leptos/dist"
+    "frontendDist": "../../apps/unbill-ui-native/dist"
   },
   "app": {
     "withGlobalTauri": true,

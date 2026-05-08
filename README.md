@@ -47,7 +47,7 @@ The repository is centered on one Rust core and a few thin adapters around it.
 - `crates/unbill-core/` — the domain engine: ledger model, storage, sync, settlement, service API
 - `crates/unbill-cli/` — command-line frontend for scripting, dogfooding, and end-to-end verification
 - `crates/unbill-tauri/` — Tauri bridge and desktop shell host for the Rust core
-- `apps/unbill-ui-leptos/` — default desktop UI for compact and multi-column layouts
+- `apps/unbill-ui-native/` — default desktop UI for compact and multi-column layouts
 
 That structure is deliberate. The core owns the rules. Shells adapt the core to different environments without becoming competing implementations of the product.
 
