@@ -43,6 +43,7 @@ const UNBILL_RELAY_URLS: &[&str] = &[
     "https://use1-1.relay.n0.iroh-canary.iroh.link.",
     "https://usw1-1.relay.n0.iroh-canary.iroh.link.",
     "https://euc1-1.relay.n0.iroh-canary.iroh.link.",
+    "https://aps1-1.relay.n0.iroh-canary.iroh.link.",
 ];
 
 pub struct UnbillEndpoint {
