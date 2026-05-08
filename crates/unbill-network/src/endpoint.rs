@@ -1,10 +1,19 @@
 // Iroh endpoint lifecycle and connection dispatch.
 //
 // `UnbillEndpoint` wraps `iroh::Endpoint`, opens it with the device secret key
-// using the N0 preset (pkarr publishing + DNS lookup + default relay servers),
 // and exposes the two runtime modes:
 //   - `sync_once_inner`   — dial one peer and sync.
 //   - `accept_loop_inner` — wait for incoming connections; dispatch by ALPN.
+//
+// Connectivity strategy:
+//   - All endpoints share a single well-known relay (UNBILL_RELAY_URL).
+//     This means any peer's `EndpointAddr` can be constructed from their
+//     NodeId alone — no pkarr/DNS lookup required when dialing.
+//   - mDNS discovers peers on the same LAN so that two devices can connect
+//     directly even when the relay is unreachable (e.g. no internet).
+//   - A `MemoryLookup` caches direct addresses learned from previous
+//     connections to reduce relay traffic after hole-punching succeeds.
+//   - pkarr publishing is kept so interop with other iroh clients works.
 
 use std::sync::Arc;
 
@@ -17,12 +26,20 @@ use unbill_model::{NodeId, SecretKey};
 use crate::node_id_ext::SecretKeyExt;
 use unbill_storage::LedgerStore;
 
+use iroh::RelayMode;
+use iroh::address_lookup::MdnsAddressLookup;
 use iroh::address_lookup::memory::MemoryLookup;
+use iroh::endpoint::presets;
 
 use crate::join::{run_join_host, run_join_requester};
 use crate::node_id_ext::{EndpointIdExt, NodeIdExt};
 use crate::protocol::{ALPN_JOIN, ALPN_SYNC, JoinRequest};
 use crate::sync::run_sync_session;
+
+/// The single relay shared by all unbill endpoints.
+/// All peers register with this relay, so any peer's `EndpointAddr` can be
+/// constructed from their `NodeId` alone — no DNS/pkarr lookup required.
+const UNBILL_RELAY_URL: &str = "https://use1-1.relay.n0.iroh-canary.iroh.link.";
 
 pub struct UnbillEndpoint {
     inner: iroh::Endpoint,
@@ -31,22 +48,23 @@ pub struct UnbillEndpoint {
 
 impl UnbillEndpoint {
     /// Bind a new Iroh endpoint using the given device secret key.
-    /// Uses the N0 preset: pkarr publishing + DNS address lookup + relay servers.
-    /// A `MemoryLookup` is registered so that peers learned from any connection
-    /// (inbound or outbound) are cached and reachable without a pkarr round-trip.
     pub async fn bind(key: &SecretKey) -> anyhow::Result<Self> {
+        let relay_url: iroh::RelayUrl = UNBILL_RELAY_URL.parse()?;
         let addr_cache = MemoryLookup::new();
-        let inner = iroh::Endpoint::builder(iroh::endpoint::presets::N0)
+        let inner = iroh::Endpoint::builder(presets::Minimal)
             .secret_key(key.to_iroh_key())
             .alpns(vec![ALPN_SYNC.to_vec(), ALPN_JOIN.to_vec()])
+            .relay_mode(RelayMode::custom([relay_url]))
+            .address_lookup(iroh::address_lookup::PkarrPublisher::n0_dns())
+            .address_lookup(MdnsAddressLookup::builder())
             .address_lookup(addr_cache.clone())
             .bind()
             .await?;
         Ok(Self { inner, addr_cache })
     }
 
-    /// Cache the remote peer's `EndpointAddr` after a successful connection so
-    /// that future dials to this peer skip the pkarr lookup.
+    /// Cache the remote peer's direct addresses after a successful connection
+    /// so that future dials can use the direct path instead of the relay.
     async fn cache_peer(&self, conn: &iroh::endpoint::Connection) {
         let id = conn.remote_id();
         if let Some(info) = self.inner.remote_info(id).await {
@@ -56,14 +74,20 @@ impl UnbillEndpoint {
         }
     }
 
+    /// Build the `EndpointAddr` for dialing a peer.
+    /// Since all unbill endpoints register with `UNBILL_RELAY_URL`, the relay
+    /// path is always known — no lookup required.
+    fn peer_addr(&self, peer: &NodeId) -> anyhow::Result<iroh::EndpointAddr> {
+        let relay_url: iroh::RelayUrl = UNBILL_RELAY_URL.parse()?;
+        Ok(iroh::EndpointAddr::new(peer.to_endpoint_id()?).with_relay_url(relay_url))
+    }
+
     /// This device's `NodeId` as known to the network.
     pub fn node_id(&self) -> NodeId {
         self.inner.id().to_node_id()
     }
 
-    /// Wait until the endpoint has a relay connection — the relay is the
-    /// reliable path that enables connectivity before direct addresses are
-    /// established via hole-punching.
+    /// Wait until the endpoint has a relay connection.
     pub async fn wait_for_ready(&self) {
         self.inner.online().await;
     }
@@ -83,8 +107,10 @@ impl UnbillEndpoint {
         store: &Arc<dyn LedgerStore>,
         events: &broadcast::Sender<ServiceEvent>,
     ) -> anyhow::Result<()> {
-        let addr = iroh::EndpointAddr::new(peer.to_endpoint_id()?);
-        let conn = self.inner.connect(addr, ALPN_SYNC).await?;
+        let conn = self
+            .inner
+            .connect(self.peer_addr(&peer)?, ALPN_SYNC)
+            .await?;
         self.cache_peer(&conn).await;
         let peer_node_id = conn.remote_id().to_node_id();
         let (send, recv) = conn.open_bi().await?;
@@ -105,8 +131,10 @@ impl UnbillEndpoint {
         store: &Arc<dyn LedgerStore>,
         events: &broadcast::Sender<ServiceEvent>,
     ) -> anyhow::Result<()> {
-        let addr = iroh::EndpointAddr::new(host.to_endpoint_id()?);
-        let conn = self.inner.connect(addr, ALPN_JOIN).await?;
+        let conn = self
+            .inner
+            .connect(self.peer_addr(&host)?, ALPN_JOIN)
+            .await?;
         self.cache_peer(&conn).await;
         let (send, recv) = conn.open_bi().await?;
         run_join_requester(host, local_label, request, store, events, recv, send).await?;
