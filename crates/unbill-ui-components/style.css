@@ -607,6 +607,17 @@
   color: #0f4f49;
 }
 
+.settings-content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.settings-mobile-back {
+  display: none;
+}
+
 .settings-body,
 .sheet-body {
   flex: 1;
@@ -726,5 +737,34 @@
   .button-row .action-button,
   .share-side .action-button {
     flex: 1 1 auto;
+  }
+
+  .settings-sidebar {
+    width: 100%;
+    border-right: none;
+  }
+
+  .settings-sidebar-hidden {
+    display: none;
+  }
+
+  .settings-content-area-hidden {
+    display: none;
+  }
+
+  .settings-mobile-back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 48px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--line-soft);
+    background: var(--bg-subtle);
+    flex-shrink: 0;
+  }
+
+  .settings-nav-item {
+    min-height: 48px;
+    font-size: 0.94rem;
   }
 }

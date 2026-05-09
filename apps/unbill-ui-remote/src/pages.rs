@@ -182,11 +182,13 @@ pub fn SettingsPopup(
     ledgers: Vec<LedgerSummary>,
     devices: Vec<SyncDevice>,
     active_tab: SettingsTab,
+    mobile_in_content: bool,
     selected_ledger_id: Option<String>,
     ledger_detail: Option<LedgerDetail>,
     invitation_url: Option<String>,
     on_close: Callback<()>,
     on_select_tab: Callback<SettingsTab>,
+    on_mobile_back: Callback<()>,
     on_select_ledger: Callback<String>,
     on_join_ledger: Callback<()>,
     on_add_ledger_user: Callback<()>,
@@ -203,6 +205,20 @@ pub fn SettingsPopup(
         "settings-nav-item settings-nav-item-active"
     } else {
         "settings-nav-item"
+    };
+    let sidebar_class = if mobile_in_content {
+        "settings-sidebar settings-sidebar-hidden"
+    } else {
+        "settings-sidebar"
+    };
+    let content_class = if mobile_in_content {
+        "settings-content-area"
+    } else {
+        "settings-content-area settings-content-area-hidden"
+    };
+    let tab_label = match active_tab {
+        SettingsTab::Device => "Device",
+        SettingsTab::Ledger => "Ledger",
     };
     let selected_for_select = selected_ledger_id.clone().unwrap_or_default();
 
@@ -221,24 +237,31 @@ pub fn SettingsPopup(
                 </header>
 
                 <div class="settings-layout">
-                <nav class="settings-sidebar">
-                    <button
-                        type="button"
-                        class=device_tab_class
-                        on:click=move |_| on_select_tab.run(SettingsTab::Device)
-                    >
-                        "Device"
-                    </button>
-                    <button
-                        type="button"
-                        class=ledger_tab_class
-                        on:click=move |_| on_select_tab.run(SettingsTab::Ledger)
-                    >
-                        "Ledger"
-                    </button>
-                </nav>
-
-                <div class="settings-body">
+                    <div class=sidebar_class>
+                        <button
+                            type="button"
+                            class=device_tab_class
+                            on:click=move |_| on_select_tab.run(SettingsTab::Device)
+                        >
+                            "Device"
+                        </button>
+                        <button
+                            type="button"
+                            class=ledger_tab_class
+                            on:click=move |_| on_select_tab.run(SettingsTab::Ledger)
+                        >
+                            "Ledger"
+                        </button>
+                    </div>
+                    <div class=content_class>
+                        <div class="settings-mobile-back">
+                            <IconButton
+                                kind=IconButtonKind::Back
+                                on_press=Callback::new(move |_| on_mobile_back.run(()))
+                            />
+                            <span class="settings-title">{tab_label}</span>
+                        </div>
+                        <div class="settings-body">
                     {if active_tab == SettingsTab::Device {
                         view! {
                             <div class="settings-grid">
@@ -430,7 +453,8 @@ pub fn SettingsPopup(
                         }
                         .into_any()
                     }}
-                </div>
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>
