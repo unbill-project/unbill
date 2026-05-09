@@ -6,6 +6,13 @@
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use unbill_model::UnbillError;
+
+type Result<T> = std::result::Result<T, UnbillError>;
+
+fn net(e: impl std::fmt::Display) -> UnbillError {
+    UnbillError::Network(e.to_string())
+}
 
 // ---------------------------------------------------------------------------
 // ALPN identifiers
@@ -107,38 +114,37 @@ pub enum JoinReply {
 const MAX_MSG_LEN: u32 = 16 * 1024 * 1024;
 
 /// Serialize `msg` as CBOR and write it with a 4-byte big-endian length prefix.
-pub async fn write_msg<T, W>(writer: &mut W, msg: &T) -> anyhow::Result<()>
+pub async fn write_msg<T, W>(writer: &mut W, msg: &T) -> Result<()>
 where
     T: Serialize,
     W: AsyncWrite + Unpin,
 {
     let mut buf = Vec::new();
-    ciborium::into_writer(msg, &mut buf).map_err(|e| anyhow::anyhow!("CBOR encode: {e}"))?;
-    let len =
-        u32::try_from(buf.len()).map_err(|_| anyhow::anyhow!("message too large to frame"))?;
+    ciborium::into_writer(msg, &mut buf).map_err(|e| net(format!("CBOR encode: {e}")))?;
+    let len = u32::try_from(buf.len()).map_err(|_| net("message too large to frame"))?;
     if len > MAX_MSG_LEN {
-        anyhow::bail!("outgoing message too large: {len} bytes");
+        return Err(net(format!("outgoing message too large: {len} bytes")));
     }
-    writer.write_all(&len.to_be_bytes()).await?;
-    writer.write_all(&buf).await?;
+    writer.write_all(&len.to_be_bytes()).await.map_err(net)?;
+    writer.write_all(&buf).await.map_err(net)?;
     Ok(())
 }
 
 /// Read a length-prefixed CBOR frame and deserialize it into `T`.
-pub async fn read_msg<T, R>(reader: &mut R) -> anyhow::Result<T>
+pub async fn read_msg<T, R>(reader: &mut R) -> Result<T>
 where
     T: DeserializeOwned,
     R: AsyncRead + Unpin,
 {
     let mut len_buf = [0u8; 4];
-    reader.read_exact(&mut len_buf).await?;
+    reader.read_exact(&mut len_buf).await.map_err(net)?;
     let len = u32::from_be_bytes(len_buf);
     if len > MAX_MSG_LEN {
-        anyhow::bail!("incoming message too large: {len} bytes");
+        return Err(net(format!("incoming message too large: {len} bytes")));
     }
     let mut buf = vec![0u8; len as usize];
-    reader.read_exact(&mut buf).await?;
-    ciborium::from_reader(buf.as_slice()).map_err(|e| anyhow::anyhow!("CBOR decode: {e}"))
+    reader.read_exact(&mut buf).await.map_err(net)?;
+    ciborium::from_reader(buf.as_slice()).map_err(|e| net(format!("CBOR decode: {e}")))
 }
 
 // ---------------------------------------------------------------------------

@@ -7763,7 +7763,6 @@ dependencies = [
 name = "unbill-core"
 version = "0.0.2"
 dependencies = [
- "anyhow",
  "async-trait",
  "automerge",
  "autosurgeon",
@@ -7794,7 +7793,6 @@ version = "0.0.2"
 name = "unbill-model"
 version = "0.0.2"
 dependencies = [
- "anyhow",
  "automerge",
  "autosurgeon",
  "garde",
@@ -7810,7 +7808,6 @@ dependencies = [
 name = "unbill-network"
 version = "0.0.2"
 dependencies = [
- "anyhow",
  "automerge",
  "ciborium",
  "iroh",
@@ -7861,7 +7858,6 @@ dependencies = [
 name = "unbill-storage"
 version = "0.0.2"
 dependencies = [
- "anyhow",
  "async-trait",
  "automerge",
  "autosurgeon",

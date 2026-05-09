@@ -37,12 +37,12 @@ pub(super) fn init_ledger(
         bills: vec![],
         devices: vec![],
     };
-    reconcile(doc, &ledger).map_err(|e| UnbillError::Other(e.into()))
+    reconcile(doc, &ledger).map_err(|e| UnbillError::Reconcile(e.to_string()))
 }
 
 /// Hydrate the full `Ledger` from the document.
 pub(super) fn get_ledger(doc: &AutoCommit) -> Result<Ledger> {
-    hydrate(doc).map_err(|e| UnbillError::Other(e.into()))
+    hydrate(doc).map_err(|e| UnbillError::Reconcile(e.to_string()))
 }
 
 // ---------------------------------------------------------------------------
@@ -88,7 +88,7 @@ pub(super) fn add_bill(
         created_at: now,
         created_by_device,
     });
-    reconcile(doc, &ledger).map_err(|e| UnbillError::Other(e.into()))?;
+    reconcile(doc, &ledger).map_err(|e| UnbillError::Reconcile(e.to_string()))?;
     Ok(bill_id)
 }
 
@@ -134,7 +134,7 @@ pub(super) fn add_user(doc: &mut AutoCommit, input: NewUser, now: Timestamp) -> 
         display_name: input.display_name,
         added_at: now,
     });
-    reconcile(doc, &ledger).map_err(|e| UnbillError::Other(e.into()))
+    reconcile(doc, &ledger).map_err(|e| UnbillError::Reconcile(e.to_string()))
 }
 
 pub(super) fn list_users(doc: &AutoCommit) -> Result<Vec<User>> {
@@ -155,7 +155,7 @@ pub(super) fn add_device(doc: &mut AutoCommit, input: NewDevice, now: Timestamp)
         node_id: input.node_id,
         added_at: now,
     });
-    reconcile(doc, &ledger).map_err(|e| UnbillError::Other(e.into()))
+    reconcile(doc, &ledger).map_err(|e| UnbillError::Reconcile(e.to_string()))
 }
 
 pub(super) fn list_devices(doc: &AutoCommit) -> Result<Vec<Device>> {

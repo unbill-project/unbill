@@ -21,7 +21,9 @@ use tokio::sync::broadcast;
 use tracing::{info, warn};
 
 use unbill_event::ServiceEvent;
-use unbill_model::{NodeId, SecretKey};
+use unbill_model::{NodeId, SecretKey, UnbillError};
+
+type Result<T> = std::result::Result<T, UnbillError>;
 
 use crate::node_id_ext::SecretKeyExt;
 use unbill_storage::LedgerStore;
@@ -53,11 +55,14 @@ pub struct UnbillEndpoint {
 
 impl UnbillEndpoint {
     /// Bind a new Iroh endpoint using the given device secret key.
-    pub async fn bind(key: &SecretKey) -> anyhow::Result<Self> {
-        let relay_urls: Vec<iroh::RelayUrl> = UNBILL_RELAY_URLS
-            .iter()
-            .map(|s| s.parse())
-            .collect::<Result<_, _>>()?;
+    pub async fn bind(key: &SecretKey) -> Result<Self> {
+        let mut relay_urls: Vec<iroh::RelayUrl> = Vec::new();
+        for s in UNBILL_RELAY_URLS {
+            relay_urls.push(
+                s.parse::<iroh::RelayUrl>()
+                    .map_err(|e| UnbillError::Network(format!("relay URL parse: {e}")))?,
+            );
+        }
         let addr_cache = MemoryLookup::new();
         let inner = iroh::Endpoint::builder(presets::Minimal)
             .secret_key(key.to_iroh_key())
@@ -67,7 +72,8 @@ impl UnbillEndpoint {
             .address_lookup(MdnsAddressLookup::builder())
             .address_lookup(addr_cache.clone())
             .bind()
-            .await?;
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
         Ok(Self { inner, addr_cache })
     }
 
@@ -85,10 +91,16 @@ impl UnbillEndpoint {
     /// Build the `EndpointAddr` for dialing a peer.
     /// Since all unbill endpoints register with `UNBILL_RELAY_URL`, the relay
     /// path is always known — no lookup required.
-    fn peer_addr(&self, peer: &NodeId) -> anyhow::Result<iroh::EndpointAddr> {
-        let mut addr = iroh::EndpointAddr::new(peer.to_endpoint_id()?);
+    fn peer_addr(&self, peer: &NodeId) -> Result<iroh::EndpointAddr> {
+        let mut addr = iroh::EndpointAddr::new(
+            peer.to_endpoint_id()
+                .map_err(|e| UnbillError::Network(e.to_string()))?,
+        );
         for url in UNBILL_RELAY_URLS {
-            addr = addr.with_relay_url(url.parse()?);
+            addr = addr.with_relay_url(
+                url.parse::<iroh::RelayUrl>()
+                    .map_err(|e| UnbillError::Network(format!("relay URL parse: {e}")))?,
+            );
         }
         Ok(addr)
     }
@@ -117,14 +129,18 @@ impl UnbillEndpoint {
         peer: NodeId,
         store: &Arc<dyn LedgerStore>,
         events: &broadcast::Sender<ServiceEvent>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let conn = self
             .inner
             .connect(self.peer_addr(&peer)?, ALPN_SYNC)
-            .await?;
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
         self.cache_peer(&conn).await;
         let peer_node_id = conn.remote_id().to_node_id();
-        let (send, recv) = conn.open_bi().await?;
+        let (send, recv) = conn
+            .open_bi()
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
         run_sync_session(true, peer_node_id, store, events, recv, send).await?;
         conn.close(0u32.into(), b"done");
         Ok(())
@@ -141,13 +157,17 @@ impl UnbillEndpoint {
         request: JoinRequest,
         store: &Arc<dyn LedgerStore>,
         events: &broadcast::Sender<ServiceEvent>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         let conn = self
             .inner
             .connect(self.peer_addr(&host)?, ALPN_JOIN)
-            .await?;
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
         self.cache_peer(&conn).await;
-        let (send, recv) = conn.open_bi().await?;
+        let (send, recv) = conn
+            .open_bi()
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
         run_join_requester(host, local_label, request, store, events, recv, send).await?;
         conn.close(0u32.into(), b"done");
         Ok(())
@@ -161,7 +181,7 @@ impl UnbillEndpoint {
         &self,
         store: Arc<dyn LedgerStore>,
         events: broadcast::Sender<ServiceEvent>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         loop {
             let incoming = match self.inner.accept().await {
                 None => {
@@ -221,21 +241,27 @@ async fn dispatch(
     alpn: &[u8],
     store: Arc<dyn LedgerStore>,
     events: broadcast::Sender<ServiceEvent>,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     match alpn {
         ALPN_SYNC => {
-            let (send, recv) = conn.accept_bi().await?;
+            let (send, recv) = conn
+                .accept_bi()
+                .await
+                .map_err(|e| UnbillError::Network(e.to_string()))?;
             run_sync_session(false, peer, &store, &events, recv, send).await?;
         }
         ALPN_JOIN => {
-            let (send, recv) = conn.accept_bi().await?;
+            let (send, recv) = conn
+                .accept_bi()
+                .await
+                .map_err(|e| UnbillError::Network(e.to_string()))?;
             run_join_host(peer, &store, &events, recv, send).await?;
         }
         other => {
-            anyhow::bail!(
+            return Err(UnbillError::Network(format!(
                 "unknown ALPN from {peer}: {:?}",
                 String::from_utf8_lossy(other)
-            );
+            )));
         }
     }
     // Wait for the initiator to close the connection.  The initiator calls

@@ -11,8 +11,10 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::broadcast;
 
 use unbill_event::ServiceEvent;
-use unbill_model::NodeId;
+use unbill_model::{NodeId, UnbillError};
 use unbill_storage::{LedgerDoc, LedgerStore};
+
+type Result<T> = std::result::Result<T, UnbillError>;
 
 use crate::protocol::{Hello, HelloAck, SyncDone, SyncFrame, SyncMsg, read_msg, write_msg};
 
@@ -43,7 +45,7 @@ pub async fn run_sync_session<R, W>(
     events: &broadcast::Sender<ServiceEvent>,
     mut reader: R,
     mut writer: W,
-) -> anyhow::Result<()>
+) -> Result<()>
 where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
@@ -59,13 +61,23 @@ where
         let frame: SyncFrame = read_msg(&mut reader).await?;
         match frame {
             SyncFrame::HelloAck(ack) => ack.accepted,
-            other => anyhow::bail!("expected HelloAck, got {:?}", other),
+            other => {
+                return Err(UnbillError::Network(format!(
+                    "expected HelloAck, got {:?}",
+                    other
+                )));
+            }
         }
     } else {
         let frame: SyncFrame = read_msg(&mut reader).await?;
         let hello = match frame {
             SyncFrame::Hello(h) => h,
-            other => anyhow::bail!("expected Hello, got {:?}", other),
+            other => {
+                return Err(UnbillError::Network(format!(
+                    "expected Hello, got {:?}",
+                    other
+                )));
+            }
         };
         let mut accepted = Vec::new();
         let mut rejected = Vec::new();
@@ -107,7 +119,7 @@ where
         let doc = store
             .load_ledger(id)
             .await?
-            .ok_or_else(|| anyhow::anyhow!("ledger {id} disappeared"))?;
+            .ok_or_else(|| UnbillError::Network(format!("ledger {id} disappeared")))?;
         docs.insert(id.clone(), doc);
     }
 
@@ -137,9 +149,9 @@ where
             if state.we_done {
                 continue;
             }
-            let doc = docs
-                .get_mut(id)
-                .ok_or_else(|| anyhow::anyhow!("ledger disappeared mid-sync: {id}"))?;
+            let doc = docs.get_mut(id).ok_or_else(|| {
+                UnbillError::Network(format!("ledger disappeared mid-sync: {id}"))
+            })?;
             match doc.generate_sync_message(&mut state.sync_state) {
                 Some(msg) => {
                     write_msg(
@@ -177,26 +189,29 @@ where
         match frame {
             SyncFrame::Msg(m) => {
                 let state = states.get_mut(&m.ledger_id).ok_or_else(|| {
-                    anyhow::anyhow!("sync msg for unknown ledger: {}", m.ledger_id)
+                    UnbillError::Network(format!("sync msg for unknown ledger: {}", m.ledger_id))
                 })?;
                 let msg = automerge::sync::Message::decode(&m.payload)
-                    .map_err(|e| anyhow::anyhow!("bad sync message bytes: {e}"))?;
-                let doc = docs
-                    .get_mut(&m.ledger_id)
-                    .ok_or_else(|| anyhow::anyhow!("ledger disappeared: {}", m.ledger_id))?;
+                    .map_err(|e| UnbillError::Network(format!("bad sync message bytes: {e}")))?;
+                let doc = docs.get_mut(&m.ledger_id).ok_or_else(|| {
+                    UnbillError::Network(format!("ledger disappeared: {}", m.ledger_id))
+                })?;
                 doc.receive_sync_message(&mut state.sync_state, msg)?;
                 if !ledgers_with_remote_changes.contains(&m.ledger_id) {
                     ledgers_with_remote_changes.push(m.ledger_id);
                 }
             }
             SyncFrame::Done(d) => {
-                let state = states
-                    .get_mut(&d.ledger_id)
-                    .ok_or_else(|| anyhow::anyhow!("done for unknown ledger: {}", d.ledger_id))?;
+                let state = states.get_mut(&d.ledger_id).ok_or_else(|| {
+                    UnbillError::Network(format!("done for unknown ledger: {}", d.ledger_id))
+                })?;
                 state.peer_done = true;
             }
             other => {
-                anyhow::bail!("unexpected frame during sync loop: {:?}", other);
+                return Err(UnbillError::Network(format!(
+                    "unexpected frame during sync loop: {:?}",
+                    other
+                )));
             }
         }
     }
