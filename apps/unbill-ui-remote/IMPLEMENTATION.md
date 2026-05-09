@@ -74,7 +74,7 @@ Invitation URLs are written via the browser `navigator.clipboard.writeText` API 
 
 ## Stylesheet
 
-System typography, full-height panes, dense rows, compact toolbars, restrained borders, stable control dimensions. Navigation and utility controls use Lucide SVG icon buttons. Primary workflow actions use text buttons.
+System typography, full-height panes, dense rows, compact toolbars, restrained borders, stable control dimensions. Navigation and utility controls use Lucide SVG icon buttons. Primary workflow actions use text buttons. The app shell and ranger grid carry no padding or gap; screen frame columns sit flush against each other separated by a single-pixel right border on each frame.
 
 ## Dependencies
 

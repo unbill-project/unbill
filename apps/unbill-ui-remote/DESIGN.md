@@ -26,9 +26,21 @@ The server manages device identity. Device Settings shows the server-assigned de
 
 Invitation URLs are copied through the browser `navigator.clipboard` API.
 
+## Screen frame header
+
+Each column's topbar header is supplied by the caller as an optional `AnyView` fragment, following the same convention as the native app. The fragment contains leading, copy, and trailing flex children.
+
+## Settings popup
+
+The settings popup title bar shows only the "Settings" heading. The device ID appears inside the Device Settings tab body.
+
+## Ledger list
+
+The ledgers page renders the ledger rows directly inside the screen content area with no surrounding section card.
+
 ## Visual system
 
-Dense panes, list rows, simple tables, compact toolbars, system typography, Lucide icons.
+Dense panes, list rows, simple tables, compact toolbars, system typography, Lucide icons. Screen frame columns are flush against each other with no gap or padding around the grid.
 
 ## Build tooling
 
