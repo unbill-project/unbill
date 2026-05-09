@@ -262,7 +262,7 @@ pub fn SettingsPopup(
 
                                 <SectionCard title="Ledger import".to_owned()>
                                     <ActionButton
-                                        label="Join Ledger".to_owned()
+                                        label="Paste Invitation".to_owned()
                                         tone=ButtonTone::Secondary
                                         on_press=Callback::new(move |_| on_join_ledger.run(()))
                                     />
