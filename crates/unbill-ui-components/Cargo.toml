@@ -11,4 +11,6 @@ homepage.workspace = true
 leptos = { version = "0.8.14", features = ["csr"] }
 serde = { workspace = true, features = ["derive"] }
 iso_currency = { workspace = true, features = ["iterator"] }
-web-sys = { version = "0.3", features = ["Element", "DomRect", "HtmlInputElement"] }
+js-sys = "0.3"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["Element", "DomRect", "HtmlInputElement", "Window"] }

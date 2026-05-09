@@ -7949,8 +7949,10 @@ name = "unbill-ui-components"
 version = "0.0.2"
 dependencies = [
  "iso_currency",
+ "js-sys",
  "leptos",
  "serde",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 

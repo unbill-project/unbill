@@ -2,7 +2,7 @@ use crate::api::{
     self, AddUserInput, Bill, BillShareInput, CreateUserInput, JoinLedgerInput, LedgerDetail,
     LedgerSummary, SaveBillInput, SyncDevice, User,
 };
-use crate::components::{EmptyColumn, StatusStrip};
+use crate::components::{EmptyColumn, use_toast};
 use crate::pages::{
     AddLedgerUserSheet, BillEditorPage, CreateLedgerSheet, JoinLedgerSheet, LedgerPage,
     LedgersPage, SettingsPopup,
@@ -176,9 +176,8 @@ pub fn App() -> impl IntoView {
     let invitation_url = RwSignal::new(None::<String>);
     let overlay = RwSignal::new(None::<OverlayKind>);
     let bill_editor = RwSignal::new(None::<BillEditorSeed>);
-    let status_message = RwSignal::new(None::<String>);
-    let error_message = RwSignal::new(None::<String>);
     let loading_count = RwSignal::new(0usize);
+    let toast = use_toast();
 
     let load_selected_ledger = move |ledger_id: String| {
         selected_ledger_id.set(Some(ledger_id.clone()));
@@ -187,9 +186,8 @@ pub fn App() -> impl IntoView {
             match api::load_ledger_detail(&ledger_id).await {
                 Ok(detail) => {
                     ledger_detail.set(Some(detail));
-                    error_message.set(None);
                 }
-                Err(error) => error_message.set(Some(error)),
+                Err(error) => toast.error(error),
             }
             loading_count.update(|n| *n = n.saturating_sub(1));
         });
@@ -201,11 +199,10 @@ pub fn App() -> impl IntoView {
             match api::load_ledger_detail(&ledger_id).await {
                 Ok(detail) => {
                     settings_ledger_detail.set(Some(detail));
-                    error_message.set(None);
                 }
                 Err(error) => {
                     settings_ledger_detail.set(None);
-                    error_message.set(Some(error));
+                    toast.error(error);
                 }
             }
             loading_count.update(|n| *n = n.saturating_sub(1));
@@ -250,7 +247,7 @@ pub fn App() -> impl IntoView {
                                     Ok(detail) => settings_ledger_detail.set(Some(detail)),
                                     Err(error) => {
                                         settings_ledger_detail.set(None);
-                                        error_message.set(Some(error));
+                                        toast.error(error);
                                     }
                                 }
                             } else {
@@ -263,7 +260,7 @@ pub fn App() -> impl IntoView {
                                         Ok(detail) => settings_ledger_detail.set(Some(detail)),
                                         Err(error) => {
                                             settings_ledger_detail.set(None);
-                                            error_message.set(Some(error));
+                                            toast.error(error);
                                         }
                                     }
                                 } else {
@@ -279,9 +276,8 @@ pub fn App() -> impl IntoView {
                     ledgers.set(data.ledgers);
                     all_users.set(data.all_users);
                     devices.set(data.devices);
-                    error_message.set(None);
                 }
-                Err(error) => error_message.set(Some(error)),
+                Err(error) => toast.error(error),
             }
             loading_count.update(|n| *n = n.saturating_sub(1));
         });
@@ -300,13 +296,12 @@ pub fn App() -> impl IntoView {
     let open_new_bill = move || {
         if let Some(detail) = ledger_detail.get() {
             if detail.users.is_empty() {
-                error_message.set(Some(
+                toast.error(
                     "Add at least one user to the ledger before creating a bill.".to_owned(),
-                ));
+                );
                 return;
             }
             bill_editor.set(Some(new_bill_seed(detail.summary.currency, &detail.users)));
-            error_message.set(None);
         }
     };
 
@@ -338,8 +333,7 @@ pub fn App() -> impl IntoView {
                 {
                     Ok(_) => {
                         bill_editor.set(None);
-                        status_message.set(Some("Bill saved.".to_owned()));
-                        error_message.set(None);
+                        toast.show("Bill saved.".to_owned());
                         if let Ok(detail) = api::load_ledger_detail(&ledger_id).await {
                             ledgers.update(|list| {
                                 if let Some(entry) =
@@ -352,7 +346,7 @@ pub fn App() -> impl IntoView {
                             ledger_detail.set(Some(detail));
                         }
                     }
-                    Err(error) => error_message.set(Some(error)),
+                    Err(error) => toast.error(error),
                 }
                 loading_count.update(|n| *n = n.saturating_sub(1));
             });
@@ -370,10 +364,9 @@ pub fn App() -> impl IntoView {
                 match api::create_invitation(&ledger_id).await {
                     Ok(url) => {
                         invitation_url.set(Some(url));
-                        status_message.set(Some("Invitation URL generated.".to_owned()));
-                        error_message.set(None);
+                        toast.show("Invitation URL generated.".to_owned());
                     }
-                    Err(error) => error_message.set(Some(error)),
+                    Err(error) => toast.error(error),
                 }
                 loading_count.update(|n| *n = n.saturating_sub(1));
             });
@@ -385,10 +378,9 @@ pub fn App() -> impl IntoView {
             spawn_local(async move {
                 match api::write_clipboard_text(&url).await {
                     Ok(()) => {
-                        status_message.set(Some("Invitation URL copied.".to_owned()));
-                        error_message.set(None);
+                        toast.show("Invitation URL copied.".to_owned());
                     }
-                    Err(error) => error_message.set(Some(error)),
+                    Err(error) => toast.error(error),
                 }
             });
         }
@@ -399,10 +391,9 @@ pub fn App() -> impl IntoView {
             match api::read_clipboard_text().await {
                 Ok(url) if !url.trim().is_empty() => {
                     overlay.set(Some(OverlayKind::JoinLedger { url }));
-                    error_message.set(None);
                 }
-                Ok(_) => error_message.set(Some("Clipboard is empty.".to_owned())),
-                Err(error) => error_message.set(Some(error)),
+                Ok(_) => toast.error("Clipboard is empty.".to_owned()),
+                Err(error) => toast.error(error),
             }
         });
     };
@@ -458,11 +449,10 @@ pub fn App() -> impl IntoView {
         spawn_local(async move {
             match api::sync_once(&peer_node_id).await {
                 Ok(()) => {
-                    status_message.set(Some("Sync completed.".to_owned()));
-                    error_message.set(None);
+                    toast.show("Sync completed.".to_owned());
                     reload_bootstrap();
                 }
-                Err(error) => error_message.set(Some(error)),
+                Err(error) => toast.error(error),
             }
             loading_count.update(|n| *n = n.saturating_sub(1));
         });
@@ -485,10 +475,9 @@ pub fn App() -> impl IntoView {
                                             sort_ledgers(l);
                                         });
                                         open_ledger(summary.ledger_id);
-                                        status_message.set(Some("Ledger created.".to_owned()));
-                                        error_message.set(None);
+                                        toast.show("Ledger created.".to_owned());
                                     }
-                                    Err(error) => error_message.set(Some(error)),
+                                    Err(error) => toast.error(error),
                                 }
                                 loading_count.update(|n| *n = n.saturating_sub(1));
                             });
@@ -509,12 +498,11 @@ pub fn App() -> impl IntoView {
                                     Ok(()) => {
                                         overlay.set(None);
                                         reload_bootstrap();
-                                        status_message.set(Some(
+                                        toast.show(
                                             "Ledger imported onto this device.".to_owned(),
-                                        ));
-                                        error_message.set(None);
+                                        );
                                     }
-                                    Err(error) => error_message.set(Some(error)),
+                                    Err(error) => toast.error(error),
                                 }
                                 loading_count.update(|n| *n = n.saturating_sub(1));
                             });
@@ -545,12 +533,11 @@ pub fn App() -> impl IntoView {
                                         Ok(_) => {
                                             overlay.set(None);
                                             reload_bootstrap();
-                                            status_message.set(Some(
+                                            toast.show(
                                                 "User added to ledger.".to_owned(),
-                                            ));
-                                            error_message.set(None);
+                                            );
                                         }
-                                        Err(error) => error_message.set(Some(error)),
+                                        Err(error) => toast.error(error),
                                     }
                                     loading_count.update(|n| *n = n.saturating_sub(1));
                                 });
@@ -572,10 +559,9 @@ pub fn App() -> impl IntoView {
                                         Ok(_) => {
                                             overlay.set(None);
                                             reload_bootstrap();
-                                            status_message.set(Some("User created.".to_owned()));
-                                            error_message.set(None);
+                                            toast.show("User created.".to_owned());
                                         }
-                                        Err(error) => error_message.set(Some(error)),
+                                        Err(error) => toast.error(error),
                                     }
                                     loading_count.update(|n| *n = n.saturating_sub(1));
                                 });
@@ -665,14 +651,6 @@ pub fn App() -> impl IntoView {
     let render_ranger = move || {
         view! {
             <main class="app-shell">
-                {move || view! {
-                    <StatusStrip
-                        status=status_message.get()
-                        error=error_message.get()
-                        busy={ loading_count.get() != 0 }
-                    />
-                }}
-
                 <div class="safe-content-area">
                     <section class="ranger-app-grid">
                         {move || {
@@ -758,13 +736,6 @@ pub fn App() -> impl IntoView {
             if surface_mode.get() == SurfaceMode::Compact {
                 view! {
                     <main class="app-shell">
-                        {move || view! {
-                            <StatusStrip
-                                status=status_message.get()
-                                error=error_message.get()
-                                busy={ loading_count.get() != 0 }
-                            />
-                        }}
                         <div class="safe-content-area">
                             {move || render_compact_page()}
                             {move || render_settings_popup()}
