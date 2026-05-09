@@ -414,7 +414,6 @@
   width: 1em;
   height: 1em;
   animation: circular-progress-spin 2s linear infinite;
-  transform-origin: center;
 }
 
 .circular-progress-track {
@@ -430,19 +429,29 @@
   stroke-width: 3;
   stroke-linecap: round;
   stroke-dasharray: 75.4;
-  stroke-dashoffset: 66;
-  animation: circular-progress-dash 1.5s ease-in-out infinite;
+  stroke-dashoffset: 74;
   transform-origin: center;
+  animation: circular-progress-dash 1.4s ease-in-out infinite both;
 }
 
 @keyframes circular-progress-spin {
-  to { transform: rotate(360deg); }
+  0%   { transform: rotateZ(0deg); }
+  100% { transform: rotateZ(360deg); }
 }
 
 @keyframes circular-progress-dash {
-  0%   { stroke-dashoffset: 66; }
-  50%  { stroke-dashoffset: 10; }
-  100% { stroke-dashoffset: 66; }
+  0%, 25% {
+    stroke-dashoffset: 74;
+    transform: rotate(0deg);
+  }
+  50%, 75% {
+    stroke-dashoffset: 20;
+    transform: rotate(45deg);
+  }
+  100% {
+    stroke-dashoffset: 74;
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes toast-show {
