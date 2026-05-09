@@ -444,7 +444,7 @@ pub fn App() -> impl IntoView {
         load_settings_ledger(ledger_id);
     };
 
-    let sync_device = move |peer_node_id: String| {
+    let sync_device = move |(peer_node_id, done): (String, Callback<()>)| {
         loading_count.update(|n| *n += 1);
         spawn_local(async move {
             match api::sync_once(&peer_node_id).await {
@@ -454,6 +454,7 @@ pub fn App() -> impl IntoView {
                 }
                 Err(error) => toast.error(error),
             }
+            done.run(());
             loading_count.update(|n| *n = n.saturating_sub(1));
         });
     };
