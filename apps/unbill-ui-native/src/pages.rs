@@ -23,7 +23,6 @@ pub fn LedgersPage(
                 <div class="screen-leading"></div>
                 <div class="screen-copy">
                     <h2 class="screen-title">"Ledgers"</h2>
-                    <p class="screen-subtitle">"This device"</p>
                 </div>
                 <div class="screen-trailing">
                     <IconButton kind=IconButtonKind::More on_press=Callback::new(move |_| on_more.run(())) />
