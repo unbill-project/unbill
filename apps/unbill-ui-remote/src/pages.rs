@@ -5,7 +5,7 @@ use crate::app::{
 };
 use crate::components::{
     ActionButton, ButtonTone, CurrencyCombobox, FieldBlock, IconButton, IconButtonKind, ListRow,
-    ModalSheet, ScreenFrame, SectionCard, TagPill,
+    ModalSheet, ScreenFrame, SectionCard, SettingsNavItem, TagPill,
 };
 use leptos::prelude::*;
 
@@ -196,16 +196,6 @@ pub fn SettingsPopup(
     on_create_invitation: Callback<()>,
     on_copy_invitation: Callback<()>,
 ) -> impl IntoView {
-    let device_tab_class = if active_tab == SettingsTab::Device {
-        "settings-nav-item settings-nav-item-active"
-    } else {
-        "settings-nav-item"
-    };
-    let ledger_tab_class = if active_tab == SettingsTab::Ledger {
-        "settings-nav-item settings-nav-item-active"
-    } else {
-        "settings-nav-item"
-    };
     let sidebar_class = if mobile_in_content {
         "settings-sidebar settings-sidebar-hidden"
     } else {
@@ -238,20 +228,16 @@ pub fn SettingsPopup(
 
                 <div class="settings-layout">
                     <div class=sidebar_class>
-                        <button
-                            type="button"
-                            class=device_tab_class
-                            on:click=move |_| on_select_tab.run(SettingsTab::Device)
-                        >
-                            "Device"
-                        </button>
-                        <button
-                            type="button"
-                            class=ledger_tab_class
-                            on:click=move |_| on_select_tab.run(SettingsTab::Ledger)
-                        >
-                            "Ledger"
-                        </button>
+                        <SettingsNavItem
+                            label="Device"
+                            active=active_tab == SettingsTab::Device
+                            on_press=Callback::new(move |_| on_select_tab.run(SettingsTab::Device))
+                        />
+                        <SettingsNavItem
+                            label="Ledger"
+                            active=active_tab == SettingsTab::Ledger
+                            on_press=Callback::new(move |_| on_select_tab.run(SettingsTab::Ledger))
+                        />
                     </div>
                     <div class=content_class>
                         <div class="settings-mobile-back">
