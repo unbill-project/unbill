@@ -21,7 +21,7 @@ pub(crate) enum SurfaceMode {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SettingsTab {
-    Device,
+    General,
     Ledger,
 }
 
@@ -33,9 +33,9 @@ pub(crate) struct SettingsPopupState {
 }
 
 impl SettingsPopupState {
-    pub(crate) fn open_device() -> Self {
+    pub(crate) fn open_general() -> Self {
         Self {
-            active_tab: SettingsTab::Device,
+            active_tab: SettingsTab::General,
             selected_ledger_id: None,
             mobile_in_content: false,
         }
@@ -407,7 +407,7 @@ pub fn App() -> impl IntoView {
     };
 
     let open_device_settings = move || {
-        settings_popup.set(Some(SettingsPopupState::open_device()));
+        settings_popup.set(Some(SettingsPopupState::open_general()));
         settings_ledger_detail.set(None);
         invitation_url.set(None);
     };
@@ -1025,9 +1025,9 @@ mod tests {
 
     #[test]
     fn opening_device_settings_selects_device_tab_and_does_not_require_ledger() {
-        let state = SettingsPopupState::open_device();
+        let state = SettingsPopupState::open_general();
 
-        assert_eq!(state.active_tab, SettingsTab::Device);
+        assert_eq!(state.active_tab, SettingsTab::General);
         assert_eq!(state.selected_ledger_id, None);
     }
 

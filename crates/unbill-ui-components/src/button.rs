@@ -332,6 +332,16 @@ pub fn TagPill(#[prop(into)] label: String, #[prop(optional)] active: bool) -> i
     view! { <span class=class_name>{label}</span> }
 }
 
+#[component]
+pub fn SettingsNavGroup(#[prop(into)] title: String, children: Children) -> impl IntoView {
+    view! {
+        <div class="tab-group">
+            <p class="tab-group-title">{title}</p>
+            <div class="tab-group-tabs">{children()}</div>
+        </div>
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::IconButtonKind;

@@ -206,7 +206,7 @@ pub fn SettingsPopup(
         "settings-content-area settings-content-area-hidden"
     };
     let tab_label = match active_tab {
-        SettingsTab::Device => "Device",
+        SettingsTab::General => "General",
         SettingsTab::Ledger => "Ledger",
     };
     let selected_for_select = selected_ledger_id.clone().unwrap_or_default();
@@ -228,9 +228,9 @@ pub fn SettingsPopup(
                 <div class="settings-layout">
                     <div class=sidebar_class>
                         <SettingsNavItem
-                            label="Device"
-                            active=active_tab == SettingsTab::Device
-                            on_press=Callback::new(move |_| on_select_tab.run(SettingsTab::Device))
+                            label="General"
+                            active=active_tab == SettingsTab::General
+                            on_press=Callback::new(move |_| on_select_tab.run(SettingsTab::General))
                         />
                         <SettingsNavItem
                             label="Ledger"
@@ -247,7 +247,7 @@ pub fn SettingsPopup(
                             <span class="settings-title">{tab_label}</span>
                         </div>
                         <div class="settings-body">
-                    {if active_tab == SettingsTab::Device {
+                    {if active_tab == SettingsTab::General {
                         view! {
                             <div class="settings-grid">
                                 <SectionCard title="Device".to_owned()>
