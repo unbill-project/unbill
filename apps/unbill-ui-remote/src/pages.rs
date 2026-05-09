@@ -5,7 +5,7 @@ use crate::app::{
 };
 use crate::components::{
     ActionButton, ButtonTone, CurrencyCombobox, FieldBlock, IconButton, IconButtonKind, ListRow,
-    ModalSheet, ScreenFrame, SectionCard, SettingsNavItem, TagPill,
+    ModalSheet, ScreenFrame, SectionCard, SettingsNavGroup, SettingsNavItem, TagPill,
 };
 use leptos::prelude::*;
 
@@ -210,7 +210,7 @@ pub fn SettingsPopup(
         SettingsTab::General => "General",
         SettingsTab::Ledger => "Ledger",
     };
-    let selected_for_select = selected_ledger_id.clone().unwrap_or_default();
+    let selected_id_for_sidebar = selected_ledger_id.clone();
 
     view! {
         <div class="settings-overlay">
@@ -233,11 +233,26 @@ pub fn SettingsPopup(
                             active=active_tab == SettingsTab::General
                             on_press=Callback::new(move |_| on_select_tab.run(SettingsTab::General))
                         />
-                        <SettingsNavItem
-                            label="Ledger"
-                            active=active_tab == SettingsTab::Ledger
-                            on_press=Callback::new(move |_| on_select_tab.run(SettingsTab::Ledger))
-                        />
+                        <SettingsNavGroup title="Ledgers">
+                            {ledgers
+                                .into_iter()
+                                .map(move |ledger| {
+                                    let ledger_id = ledger.ledger_id.clone();
+                                    let is_active = active_tab == SettingsTab::Ledger
+                                        && selected_id_for_sidebar.as_deref() == Some(ledger.ledger_id.as_str());
+                                    view! {
+                                        <SettingsNavItem
+                                            label=ledger.name
+                                            active=is_active
+                                            on_press=Callback::new(move |_| {
+                                                on_select_tab.run(SettingsTab::Ledger);
+                                                on_select_ledger.run(ledger_id.clone());
+                                            })
+                                        />
+                                    }
+                                })
+                                .collect_view()}
+                        </SettingsNavGroup>
                     </div>
                     <div class=content_class>
                         <div class="settings-mobile-back">
@@ -307,33 +322,6 @@ pub fn SettingsPopup(
                     } else {
                         view! {
                             <div class="settings-grid">
-                                <SectionCard title="Ledger".to_owned()>
-                                    {if ledgers.is_empty() {
-                                        view! { <div class="empty-copy">"No ledgers available."</div> }.into_any()
-                                    } else {
-                                        view! {
-                                            <FieldBlock label="Selected ledger".to_owned()>
-                                                <select
-                                                    class="ui-select"
-                                                    prop:value=move || selected_for_select.clone()
-                                                    on:change=move |event| on_select_ledger.run(event_target_value(&event))
-                                                >
-                                                    {ledgers
-                                                        .clone()
-                                                        .into_iter()
-                                                        .map(|ledger| {
-                                                            view! {
-                                                                <option value=ledger.ledger_id>{ledger.name}</option>
-                                                            }
-                                                        })
-                                                        .collect_view()}
-                                                </select>
-                                            </FieldBlock>
-                                        }
-                                        .into_any()
-                                    }}
-                                </SectionCard>
-
                                 {if let Some(detail) = ledger_detail.clone() {
                                     view! {
                                         <SectionCard title="Users".to_owned()>
