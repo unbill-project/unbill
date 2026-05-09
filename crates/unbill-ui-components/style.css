@@ -420,6 +420,13 @@
   font-weight: 650;
 }
 
+.empty-column {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+}
+
 .safe-content-area {
   position: relative;
   flex: 1;

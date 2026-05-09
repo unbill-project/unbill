@@ -3,20 +3,11 @@ use leptos::{ev, prelude::*};
 use crate::button::{IconButton, IconButtonKind};
 
 #[component]
-pub fn EmptyColumn(title: String, detail: String) -> impl IntoView {
-    let header = view! {
-        <div class="screen-copy">
-            <h2 class="screen-title">{title}</h2>
-            <p class="screen-subtitle">{detail}</p>
-        </div>
-    }
-    .into_any();
+pub fn EmptyColumn(detail: String) -> impl IntoView {
     view! {
-        <ScreenFrame header=header>
-            <SectionCard title="No selection".to_owned()>
-                <div class="empty-copy">"Nothing open."</div>
-            </SectionCard>
-        </ScreenFrame>
+        <div class="empty-column">
+            <p class="empty-copy">{detail}</p>
+        </div>
     }
 }
 
