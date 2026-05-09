@@ -10,7 +10,7 @@ use leptos::task::spawn_local;
 use unbill_core::service::UnbillService;
 use unbill_store_http::HttpStore;
 
-use components::{ActionButton, FieldBlock};
+use components::{ActionButton, FieldBlock, ToastProvider};
 
 const API_KEY_STORAGE_KEY: &str = "unbill_api_key";
 
@@ -115,5 +115,5 @@ fn Root() -> impl IntoView {
 
 fn main() {
     console_error_panic_hook::set_once();
-    mount_to_body(|| view! { <Root /> });
+    mount_to_body(|| view! { <ToastProvider><Root /></ToastProvider> });
 }
