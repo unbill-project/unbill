@@ -4,10 +4,13 @@
   min-width: 0;
   min-height: 0;
   height: 100%;
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
+  border-right: 1px solid var(--line-soft);
   background: var(--bg-surface);
   overflow: clip;
+}
+
+.screen-frame:last-child {
+  border-right: none;
 }
 
 .screen-topbar {
@@ -16,7 +19,7 @@
   align-items: center;
   gap: 8px;
   min-height: 52px;
-  padding: 8px;
+  padding: 0 8px;
   border-bottom: 1px solid var(--line-soft);
   background: var(--bg-subtle);
 }
