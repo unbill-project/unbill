@@ -30,9 +30,21 @@ Column one is always the ledgers list. Column two shows the bills view. Column t
 
 Settings is one overlay with Device Settings and Ledger Settings tabs. Opening settings from the global device action activates Device Settings and does not require an active ledger. Opening settings from a ledger activates Ledger Settings and preselects the active ledger. When there is no active ledger, Ledger Settings preselects the first available ledger. Changing the ledger selector inside the overlay changes only overlay state and does not change the visible Bills page selection behind it.
 
+## Screen frame header
+
+Each column's topbar header is supplied by the caller as an optional `AnyView` fragment. The fragment contains three flex children: a leading slot for back or placeholder, a copy slot for the screen title, and a trailing slot for a contextual action. When no header is needed the topbar is omitted entirely.
+
+## Settings popup
+
+The settings popup title bar shows only the "Settings" heading. The device ID appears inside the Device Settings tab body, not in the title bar.
+
+## Ledger list
+
+The ledgers page renders the ledger rows directly inside the screen content area with no surrounding section card.
+
 ## Status strip
 
-A fixed strip above all content shows the latest status or error message and a "Working" chip while any async operation is in flight. Hidden when idle.
+A strip above all content shows the latest status or error message and a "Working" chip while any async operation is in flight. Hidden when idle.
 
 ## Ledger sync actions
 
