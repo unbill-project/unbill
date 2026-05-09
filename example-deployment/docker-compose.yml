@@ -1,0 +1,13 @@
+services:
+  unbill:
+    image: ghcr.io/unbill-project/unbill-server:latest
+    ports:
+      - "80:80"
+    volumes:
+      - unbill-data:/data
+    environment:
+      API_KEY: ${API_KEY}
+    restart: unless-stopped
+
+volumes:
+  unbill-data:
