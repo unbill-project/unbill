@@ -117,6 +117,18 @@ All commands below target the latest stable release only (GitHub "latest"), not 
 - Run image: `docker run --rm -p 8080:80 ghcr.io/unbill-project/unbill-server:latest`
 - Version-pinned tag example: `docker pull ghcr.io/unbill-project/unbill-server:v0.1.0`
 
+A ready-to-use Compose file is provided at `deploy/docker-compose.yml`. It runs the server on port 80 with a named volume for persistent storage:
+
+```sh
+API_KEY=your-secret docker compose -f deploy/docker-compose.yml up -d
+```
+
+To back up the ledger data from the volume:
+
+```sh
+docker run --rm -v unbill-data:/data -v $(pwd):/out alpine cp -r /data /out/unbill-backup
+```
+
 ### 2) Build from source
 
 Use source builds for development, custom modifications, or unreleased commits.
