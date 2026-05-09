@@ -581,18 +581,10 @@
 
 .settings-grid {
   display: flex;
-  flex-direction: row;
-  gap: 8px;
-  align-items: start;
-}
-
-.settings-col {
-  flex: 1;
-  display: flex;
   flex-direction: column;
   gap: 8px;
-  min-width: 0;
 }
+
 
 .result-panel,
 .invite-panel {
@@ -680,10 +672,6 @@
     border-right: none;
   }
 
-  .settings-grid {
-    flex-direction: column;
-    align-items: stretch;
-  }
 }
 
 @media (max-width: 720px) {

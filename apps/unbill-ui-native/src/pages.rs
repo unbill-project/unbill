@@ -240,198 +240,190 @@ pub fn SettingsPopup(
                     {if active_tab == SettingsTab::Device {
                         view! {
                             <div class="settings-grid">
-                                <div class="settings-col">
-                                    <SectionCard title="Device".to_owned()>
-                                        <div class="data-row">
-                                            <div class="row-copy">
-                                                <p class="row-title">"Device ID"</p>
-                                                <p class="row-meta mono-copy">{device_id}</p>
-                                            </div>
+                                <SectionCard title="Device".to_owned()>
+                                    <div class="data-row">
+                                        <div class="row-copy">
+                                            <p class="row-title">"Device ID"</p>
+                                            <p class="row-meta mono-copy">{device_id}</p>
                                         </div>
-                                    </SectionCard>
+                                    </div>
+                                </SectionCard>
 
-                                    <SectionCard title="Ledger import".to_owned()>
-                                        <ActionButton
-                                            label="Paste Invitation".to_owned()
-                                            tone=ButtonTone::Secondary
-                                            on_press=Callback::new(move |_| on_join_ledger.run(()))
-                                        />
-                                    </SectionCard>
-                                </div>
+                                <SectionCard title="Ledger import".to_owned()>
+                                    <ActionButton
+                                        label="Paste Invitation".to_owned()
+                                        tone=ButtonTone::Secondary
+                                        on_press=Callback::new(move |_| on_join_ledger.run(()))
+                                    />
+                                </SectionCard>
 
-                                <div class="settings-col">
-                                    <SectionCard title="Known devices".to_owned()>
-                                        <div class="stack-gap">
-                                            {if devices.is_empty() {
-                                                view! { <div class="empty-copy">"No known devices."</div> }.into_any()
-                                            } else {
-                                                devices
-                                                    .into_iter()
-                                                    .map(|device| {
-                                                        let node_id = device.node_id.clone();
-                                                        let title = if device.label.trim().is_empty() {
-                                                            "Unnamed device".to_owned()
-                                                        } else {
-                                                            device.label
-                                                        };
-                                                        let detail = if device.ledger_names.is_empty() {
-                                                            "No shared ledgers".to_owned()
-                                                        } else {
-                                                            device.ledger_names.join(", ")
-                                                        };
-                                                        view! {
-                                                            <SyncDeviceRow
-                                                                title=title
-                                                                node_id=node_id
-                                                                detail=detail
-                                                                on_sync=on_sync_device
-                                                            />
-                                                        }
-                                                    })
-                                                    .collect_view()
-                                                    .into_any()
-                                            }}
-                                        </div>
-                                    </SectionCard>
-                                </div>
+                                <SectionCard title="Known devices".to_owned()>
+                                    <div class="stack-gap">
+                                        {if devices.is_empty() {
+                                            view! { <div class="empty-copy">"No known devices."</div> }.into_any()
+                                        } else {
+                                            devices
+                                                .into_iter()
+                                                .map(|device| {
+                                                    let node_id = device.node_id.clone();
+                                                    let title = if device.label.trim().is_empty() {
+                                                        "Unnamed device".to_owned()
+                                                    } else {
+                                                        device.label
+                                                    };
+                                                    let detail = if device.ledger_names.is_empty() {
+                                                        "No shared ledgers".to_owned()
+                                                    } else {
+                                                        device.ledger_names.join(", ")
+                                                    };
+                                                    view! {
+                                                        <SyncDeviceRow
+                                                            title=title
+                                                            node_id=node_id
+                                                            detail=detail
+                                                            on_sync=on_sync_device
+                                                        />
+                                                    }
+                                                })
+                                                .collect_view()
+                                                .into_any()
+                                        }}
+                                    </div>
+                                </SectionCard>
                             </div>
                         }
                             .into_any()
                     } else {
                         view! {
                             <div class="settings-grid">
-                                <div class="settings-col">
-                                    <SectionCard title="Ledger".to_owned()>
-                                        {if ledgers.is_empty() {
-                                            view! { <div class="empty-copy">"No ledgers available."</div> }.into_any()
-                                        } else {
-                                            view! {
-                                                <FieldBlock label="Selected ledger".to_owned()>
-                                                    <select
-                                                        class="ui-select"
-                                                        prop:value=move || selected_for_select.clone()
-                                                        on:change=move |event| on_select_ledger.run(event_target_value(&event))
-                                                    >
-                                                        {ledgers
-                                                            .clone()
-                                                            .into_iter()
-                                                            .map(|ledger| {
-                                                                view! {
-                                                                    <option value=ledger.ledger_id>{ledger.name}</option>
-                                                                }
-                                                            })
-                                                            .collect_view()}
-                                                    </select>
-                                                </FieldBlock>
-                                            }
-                                                .into_any()
-                                        }}
-                                    </SectionCard>
-
-                                    {if let Some(detail) = ledger_detail.clone() {
+                                <SectionCard title="Ledger".to_owned()>
+                                    {if ledgers.is_empty() {
+                                        view! { <div class="empty-copy">"No ledgers available."</div> }.into_any()
+                                    } else {
                                         view! {
-                                            <SectionCard title="Users".to_owned()>
-                                                <div class="stack-gap">
-                                                    {if detail.users.is_empty() {
-                                                        view! { <div class="empty-copy">"No users."</div> }.into_any()
-                                                    } else {
-                                                        detail
-                                                            .users
-                                                            .iter()
-                                                            .map(|user| {
-                                                                view! {
-                                                                    <div class="data-row">
-                                                                        <div class="row-copy">
-                                                                            <p class="row-title">{user.display_name.clone()}</p>
-                                                                            <p class="row-meta mono-copy">{user.user_id.clone()}</p>
-                                                                        </div>
-                                                                    </div>
-                                                                }
-                                                            })
-                                                            .collect_view()
-                                                            .into_any()
-                                                    }}
-
-                                                    <ActionButton
-                                                        label="Add User".to_owned()
-                                                        tone=ButtonTone::Secondary
-                                                        on_press=Callback::new(move |_| on_add_ledger_user.run(()))
-                                                    />
-                                                </div>
-                                            </SectionCard>
+                                            <FieldBlock label="Selected ledger".to_owned()>
+                                                <select
+                                                    class="ui-select"
+                                                    prop:value=move || selected_for_select.clone()
+                                                    on:change=move |event| on_select_ledger.run(event_target_value(&event))
+                                                >
+                                                    {ledgers
+                                                        .clone()
+                                                        .into_iter()
+                                                        .map(|ledger| {
+                                                            view! {
+                                                                <option value=ledger.ledger_id>{ledger.name}</option>
+                                                            }
+                                                        })
+                                                        .collect_view()}
+                                                </select>
+                                            </FieldBlock>
                                         }
                                             .into_any()
-                                    } else {
-                                        view! { <div /> }.into_any()
                                     }}
-                                </div>
+                                </SectionCard>
 
-                                <div class="settings-col">
-                                    {if let Some(detail) = ledger_detail {
-                                        let sync_devices = detail.devices.clone();
-                                        view! {
-                                            <SectionCard title="Authorized devices".to_owned()>
-                                                <div class="stack-gap">
-                                                    {if sync_devices.is_empty() {
-                                                        view! { <div class="empty-copy">"No authorized devices."</div> }.into_any()
-                                                    } else {
-                                                        sync_devices
-                                                            .into_iter()
-                                                            .map(|device| {
-                                                                let node_id = device.node_id.clone();
-                                                                let title = if device.label.trim().is_empty() {
-                                                                    "Unnamed device".to_owned()
-                                                                } else {
-                                                                    device.label
-                                                                };
-                                                                view! {
-                                                                    <SyncDeviceRow
-                                                                        title=title
-                                                                        node_id=node_id
-                                                                        on_sync=on_sync_device
-                                                                    />
-                                                                }
-                                                            })
-                                                            .collect_view()
-                                                            .into_any()
-                                                    }}
-                                                </div>
-                                            </SectionCard>
-
-                                            <SectionCard title="Device invitation".to_owned()>
-                                                <div class="stack-gap">
-                                                    <ActionButton
-                                                        label="Create Invitation".to_owned()
-                                                        tone=ButtonTone::Secondary
-                                                        on_press=Callback::new(move |_| on_create_invitation.run(()))
-                                                    />
-
-                                                    {invitation_url
-                                                        .map(|url| {
+                                {if let Some(detail) = ledger_detail.clone() {
+                                    view! {
+                                        <SectionCard title="Users".to_owned()>
+                                            <div class="stack-gap">
+                                                {if detail.users.is_empty() {
+                                                    view! { <div class="empty-copy">"No users."</div> }.into_any()
+                                                } else {
+                                                    detail
+                                                        .users
+                                                        .iter()
+                                                        .map(|user| {
                                                             view! {
-                                                                <div class="result-panel">
-                                                                    <pre class="invite-url">{url.clone()}</pre>
-                                                                    <div class="result-actions">
-                                                                        <IconButton
-                                                                            kind=IconButtonKind::CopyUrl
-                                                                            tone=ButtonTone::Quiet
-                                                                            on_press=Callback::new(move |_| on_copy_invitation.run(()))
-                                                                        />
+                                                                <div class="data-row">
+                                                                    <div class="row-copy">
+                                                                        <p class="row-title">{user.display_name.clone()}</p>
+                                                                        <p class="row-meta mono-copy">{user.user_id.clone()}</p>
                                                                     </div>
                                                                 </div>
                                                             }
-                                                                .into_any()
-                                                        })}
-                                                </div>
-                                            </SectionCard>
-                                        }
-                                            .into_any()
-                                    } else if selected_ledger_id.is_some() {
-                                        view! { <div class="empty-copy">"Loading ledger."</div> }.into_any()
-                                    } else {
-                                        view! { <div class="empty-copy">"Select a ledger."</div> }.into_any()
-                                    }}
-                                </div>
+                                                        })
+                                                        .collect_view()
+                                                        .into_any()
+                                                }}
+
+                                                <ActionButton
+                                                    label="Add User".to_owned()
+                                                    tone=ButtonTone::Secondary
+                                                    on_press=Callback::new(move |_| on_add_ledger_user.run(()))
+                                                />
+                                            </div>
+                                        </SectionCard>
+                                    }
+                                        .into_any()
+                                } else {
+                                    view! { <div /> }.into_any()
+                                }}
+
+                                {if let Some(detail) = ledger_detail {
+                                    let sync_devices = detail.devices.clone();
+                                    view! {
+                                        <SectionCard title="Authorized devices".to_owned()>
+                                            <div class="stack-gap">
+                                                {if sync_devices.is_empty() {
+                                                    view! { <div class="empty-copy">"No authorized devices."</div> }.into_any()
+                                                } else {
+                                                    sync_devices
+                                                        .into_iter()
+                                                        .map(|device| {
+                                                            let node_id = device.node_id.clone();
+                                                            let title = if device.label.trim().is_empty() {
+                                                                "Unnamed device".to_owned()
+                                                            } else {
+                                                                device.label
+                                                            };
+                                                            view! {
+                                                                <SyncDeviceRow
+                                                                    title=title
+                                                                    node_id=node_id
+                                                                    on_sync=on_sync_device
+                                                                />
+                                                            }
+                                                        })
+                                                        .collect_view()
+                                                        .into_any()
+                                                }}
+                                            </div>
+                                        </SectionCard>
+
+                                        <SectionCard title="Device invitation".to_owned()>
+                                            <div class="stack-gap">
+                                                <ActionButton
+                                                    label="Create Invitation".to_owned()
+                                                    tone=ButtonTone::Secondary
+                                                    on_press=Callback::new(move |_| on_create_invitation.run(()))
+                                                />
+
+                                                {invitation_url
+                                                    .map(|url| {
+                                                        view! {
+                                                            <div class="result-panel">
+                                                                <pre class="invite-url">{url.clone()}</pre>
+                                                                <div class="result-actions">
+                                                                    <IconButton
+                                                                        kind=IconButtonKind::CopyUrl
+                                                                        tone=ButtonTone::Quiet
+                                                                        on_press=Callback::new(move |_| on_copy_invitation.run(()))
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                            .into_any()
+                                                    })}
+                                            </div>
+                                        </SectionCard>
+                                    }
+                                        .into_any()
+                                } else if selected_ledger_id.is_some() {
+                                    view! { <div class="empty-copy">"Loading ledger."</div> }.into_any()
+                                } else {
+                                    view! { <div class="empty-copy">"Select a ledger."</div> }.into_any()
+                                }}
                             </div>
                         }
                             .into_any()
