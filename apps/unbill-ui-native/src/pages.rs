@@ -147,6 +147,35 @@ pub fn LedgerPage(
 }
 
 #[component]
+fn SyncDeviceRow(
+    title: String,
+    node_id: String,
+    #[prop(optional, into)] detail: Option<String>,
+    on_sync: Callback<(String, Callback<()>)>,
+) -> impl IntoView {
+    let working = RwSignal::new(false);
+    let done = Callback::new(move |_| working.set(false));
+    view! {
+        <div class="data-row split-row">
+            <div class="row-copy">
+                <p class="row-title">{title}</p>
+                <p class="row-meta mono-copy">{node_id.clone()}</p>
+                {detail.map(|d| view! { <p class="row-detail">{d}</p> })}
+            </div>
+            <IconButton
+                kind=IconButtonKind::Sync
+                tone=ButtonTone::Quiet
+                working=working
+                on_press=Callback::new(move |_| {
+                    working.set(true);
+                    on_sync.run((node_id.clone(), done));
+                })
+            />
+        </div>
+    }
+}
+
+#[component]
 pub fn SettingsPopup(
     device_id: String,
     ledgers: Vec<LedgerSummary>,
@@ -160,7 +189,7 @@ pub fn SettingsPopup(
     on_select_ledger: Callback<String>,
     on_join_ledger: Callback<()>,
     on_add_ledger_user: Callback<()>,
-    on_sync_device: Callback<String>,
+    on_sync_device: Callback<(String, Callback<()>)>,
     on_create_invitation: Callback<()>,
     on_copy_invitation: Callback<()>,
 ) -> impl IntoView {
@@ -240,18 +269,12 @@ pub fn SettingsPopup(
                                                         device.ledger_names.join(", ")
                                                     };
                                                     view! {
-                                                        <div class="data-row split-row">
-                                                            <div class="row-copy">
-                                                                <p class="row-title">{title}</p>
-                                                                <p class="row-meta mono-copy">{node_id.clone()}</p>
-                                                                <p class="row-detail">{detail}</p>
-                                                            </div>
-                                                            <IconButton
-                                                                kind=IconButtonKind::Sync
-                                                                tone=ButtonTone::Quiet
-                                                                on_press=Callback::new(move |_| on_sync_device.run(node_id.clone()))
-                                                            />
-                                                        </div>
+                                                        <SyncDeviceRow
+                                                            title=title
+                                                            node_id=node_id
+                                                            detail=detail
+                                                            on_sync=on_sync_device
+                                                        />
                                                     }
                                                 })
                                                 .collect_view()
@@ -262,7 +285,7 @@ pub fn SettingsPopup(
 
                                 <SectionCard title="Ledger import".to_owned()>
                                     <ActionButton
-                                        label="Join Ledger".to_owned()
+                                        label="Paste Invitation".to_owned()
                                         tone=ButtonTone::Secondary
                                         on_press=Callback::new(move |_| on_join_ledger.run(()))
                                     />
@@ -348,17 +371,11 @@ pub fn SettingsPopup(
                                                                 device.label
                                                             };
                                                             view! {
-                                                                <div class="data-row split-row">
-                                                                    <div class="row-copy">
-                                                                        <p class="row-title">{title}</p>
-                                                                        <p class="row-meta mono-copy">{node_id.clone()}</p>
-                                                                    </div>
-                                                                    <IconButton
-                                                                        kind=IconButtonKind::Sync
-                                                                        tone=ButtonTone::Quiet
-                                                                        on_press=Callback::new(move |_| on_sync_device.run(node_id.clone()))
-                                                                    />
-                                                                </div>
+                                                                <SyncDeviceRow
+                                                                    title=title
+                                                                    node_id=node_id
+                                                                    on_sync=on_sync_device
+                                                                />
                                                             }
                                                         })
                                                         .collect_view()

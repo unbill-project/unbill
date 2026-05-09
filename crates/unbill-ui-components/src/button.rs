@@ -1,5 +1,7 @@
 use leptos::{ev, prelude::*};
 
+use crate::progress::CircularProgress;
+
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub enum ButtonTone {
     #[default]
@@ -188,6 +190,7 @@ impl IconButtonKind {
 pub fn IconButton(
     kind: IconButtonKind,
     #[prop(default = ButtonTone::Quiet)] tone: ButtonTone,
+    #[prop(default = Signal::from(false), into)] working: Signal<bool>,
     #[prop(optional)] on_press: Option<Callback<ev::MouseEvent>>,
 ) -> impl IntoView {
     let label = kind.label();
@@ -200,13 +203,16 @@ pub fn IconButton(
             aria-label=label
             title=label
             data-icon=kind.icon_name()
+            disabled=move || working.get()
             on:click=move |event| {
                 if let Some(handler) = on_press.as_ref() {
                     handler.run(event);
                 }
             }
         >
-            <span class="icon-button-svg" aria-hidden="true">{kind.icon_view()}</span>
+            <span class="icon-button-svg" aria-hidden="true">
+                {move || if working.get() { view! { <CircularProgress /> }.into_any() } else { kind.icon_view() }}
+            </span>
             <span class="sr-only">{label}</span>
         </button>
     }
