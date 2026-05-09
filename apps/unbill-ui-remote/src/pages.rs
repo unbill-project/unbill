@@ -195,14 +195,14 @@ pub fn SettingsPopup(
     on_copy_invitation: Callback<()>,
 ) -> impl IntoView {
     let device_tab_class = if active_tab == SettingsTab::Device {
-        "tab-button tab-button-active"
+        "settings-nav-item settings-nav-item-active"
     } else {
-        "tab-button"
+        "settings-nav-item"
     };
     let ledger_tab_class = if active_tab == SettingsTab::Ledger {
-        "tab-button tab-button-active"
+        "settings-nav-item settings-nav-item-active"
     } else {
-        "tab-button"
+        "settings-nav-item"
     };
     let selected_for_select = selected_ledger_id.clone().unwrap_or_default();
 
@@ -220,22 +220,23 @@ pub fn SettingsPopup(
                     />
                 </header>
 
-                <div class="settings-tabs">
+                <div class="settings-layout">
+                <nav class="settings-sidebar">
                     <button
                         type="button"
                         class=device_tab_class
                         on:click=move |_| on_select_tab.run(SettingsTab::Device)
                     >
-                        "Device Settings"
+                        "Device"
                     </button>
                     <button
                         type="button"
                         class=ledger_tab_class
                         on:click=move |_| on_select_tab.run(SettingsTab::Ledger)
                     >
-                        "Ledger Settings"
+                        "Ledger"
                     </button>
-                </div>
+                </nav>
 
                 <div class="settings-body">
                     {if active_tab == SettingsTab::Device {
@@ -429,6 +430,7 @@ pub fn SettingsPopup(
                         }
                         .into_any()
                     }}
+                </div>
                 </div>
             </section>
         </div>
