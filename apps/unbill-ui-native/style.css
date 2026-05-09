@@ -58,19 +58,14 @@ button {
 .app-shell {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   width: 100%;
   min-height: 100vh;
-  padding: max(10px, var(--sat))
-           max(10px, var(--sar))
-           max(10px, var(--sab))
-           max(10px, var(--sal));
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 .ranger-app-grid {
   display: grid;
   grid-template-columns: minmax(248px, 0.68fr) minmax(420px, 1.12fr) minmax(420px, 1.08fr);
-  gap: 8px;
   flex: 1;
   min-height: 0;
 }
@@ -80,9 +75,5 @@ button {
     height: 100dvh;
     min-height: unset;
     overflow: hidden;
-    padding: max(8px, var(--sat))
-             max(8px, var(--sar))
-             max(8px, var(--sab))
-             max(8px, var(--sal));
   }
 }

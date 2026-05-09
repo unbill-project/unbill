@@ -720,7 +720,6 @@ pub fn App() -> impl IntoView {
                             } else {
                                 view! {
                                     <EmptyColumn
-                                        title="Select a ledger".to_owned()
                                         detail="Choose a ledger to load bills and user state.".to_owned()
                                     />
                                 }
@@ -748,7 +747,6 @@ pub fn App() -> impl IntoView {
                             } else {
                                 view! {
                                     <EmptyColumn
-                                        title="Select a bill".to_owned()
                                         detail="Open a bill or ledger settings from the active ledger.".to_owned()
                                     />
                                 }

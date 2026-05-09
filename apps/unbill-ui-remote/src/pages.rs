@@ -19,39 +19,42 @@ pub fn LedgersPage(
 ) -> impl IntoView {
     view! {
         <ScreenFrame
-            title="Ledgers".to_owned()
-            subtitle="This server".to_owned()
-            trailing={view! { <IconButton kind=IconButtonKind::More on_press=Callback::new(move |_| on_more.run(())) /> }.into_any()}
+            header={view! {
+                <div class="screen-leading"></div>
+                <div class="screen-copy">
+                    <h2 class="screen-title">"Ledgers"</h2>
+                    <p class="screen-subtitle">"This server"</p>
+                </div>
+                <div class="screen-trailing">
+                    <IconButton kind=IconButtonKind::More on_press=Callback::new(move |_| on_more.run(())) />
+                </div>
+            }.into_any()}
             footer={view! { <ActionButton label="New Ledger".to_owned() full_width=true on_press=Callback::new(move |_| on_new_ledger.run(())) /> }.into_any()}
         >
-            <SectionCard
-                title="Ledgers".to_owned()
-            >
-                <div class="stack-gap">
-                    {ledgers
-                        .into_iter()
-                        .map(|ledger| {
-                            let ledger_id = ledger.ledger_id.clone();
-                            let detail = ledger
-                                .latest_bill_at_ms
-                                .map(api::format_timestamp)
-                                .unwrap_or_else(|| "No bills yet".to_owned());
-                            view! {
-                                <ListRow
-                                    title=ledger.name
-                                    meta=format!("{} users · {}", ledger.user_count, ledger.currency)
-                                    detail=detail
-                                    selected=selected_ledger_id
-                                        .as_ref()
-                                        .map(|selected| selected == &ledger_id)
-                                        .unwrap_or(false)
-                                    on_press=Callback::new(move |_| on_select_ledger.run(ledger_id.clone()))
-                                />
-                            }
-                        })
-                        .collect_view()}
-                </div>
-            </SectionCard>
+            <div class="stack-gap">
+                {ledgers
+                    .into_iter()
+                    .map(|ledger| {
+                        let ledger_id = ledger.ledger_id.clone();
+                        let detail = ledger
+                            .latest_bill_at_ms
+                            .map(api::format_timestamp)
+                            .unwrap_or_else(|| "No bills yet".to_owned());
+                        view! {
+                            <ListRow
+                                title=ledger.name
+                                meta=format!("{} users · {}", ledger.user_count, ledger.currency)
+                                detail=detail
+                                selected=selected_ledger_id
+                                    .as_ref()
+                                    .map(|selected| selected == &ledger_id)
+                                    .unwrap_or(false)
+                                on_press=Callback::new(move |_| on_select_ledger.run(ledger_id.clone()))
+                            />
+                        }
+                    })
+                    .collect_view()}
+            </div>
         </ScreenFrame>
     }
 }
@@ -70,10 +73,18 @@ pub fn LedgerPage(
 
     view! {
         <ScreenFrame
-            title=page_title
-            subtitle=currency.clone()
-            leading={view! { <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) /> }.into_any()}
-            trailing={view! { <IconButton kind=IconButtonKind::More on_press=Callback::new(move |_| on_more.run(())) /> }.into_any()}
+            header={view! {
+                <div class="screen-leading">
+                    <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) />
+                </div>
+                <div class="screen-copy">
+                    <h2 class="screen-title">{page_title}</h2>
+                    <p class="screen-subtitle">{currency.clone()}</p>
+                </div>
+                <div class="screen-trailing">
+                    <IconButton kind=IconButtonKind::More on_press=Callback::new(move |_| on_more.run(())) />
+                </div>
+            }.into_any()}
             footer={view! { <ActionButton label="New Bill".to_owned() full_width=true on_press=Callback::new(move |_| on_new_bill.run(())) /> }.into_any()}
         >
             <SectionCard
@@ -173,7 +184,6 @@ pub fn SettingsPopup(
                 <header class="settings-header">
                     <div class="settings-title-block">
                         <h2 class="settings-title">"Settings"</h2>
-                        <p class="settings-subtitle">{device_id.clone()}</p>
                     </div>
                     <IconButton
                         kind=IconButtonKind::Close
@@ -501,10 +511,18 @@ pub fn BillEditorPage(
 
     view! {
         <ScreenFrame
-            title=title
-            subtitle="Bill details".to_owned()
-            leading={view! { <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) /> }.into_any()}
-            trailing={view! { <IconButton kind=IconButtonKind::Save tone=ButtonTone::Secondary on_press=Callback::new(save_click) /> }.into_any()}
+            header={view! {
+                <div class="screen-leading">
+                    <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) />
+                </div>
+                <div class="screen-copy">
+                    <h2 class="screen-title">{title}</h2>
+                    <p class="screen-subtitle">"Bill details"</p>
+                </div>
+                <div class="screen-trailing">
+                    <IconButton kind=IconButtonKind::Save tone=ButtonTone::Secondary on_press=Callback::new(save_click) />
+                </div>
+            }.into_any()}
         >
             <div class="stack-gap">
                 <SectionCard
