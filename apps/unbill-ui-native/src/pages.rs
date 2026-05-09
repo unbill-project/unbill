@@ -30,34 +30,30 @@ pub fn LedgersPage(
             }.into_any()}
             footer={view! { <ActionButton label="New Ledger".to_owned() full_width=true on_press=Callback::new(move |_| on_new_ledger.run(())) /> }.into_any()}
         >
-            <SectionCard
-                title="Ledgers".to_owned()
-            >
-                <div class="stack-gap">
-                    {ledgers
-                        .into_iter()
-                        .map(|ledger| {
-                            let ledger_id = ledger.ledger_id.clone();
-                            let detail = ledger
-                                .latest_bill_at_ms
-                                .map(api::format_timestamp)
-                                .unwrap_or_else(|| "No bills yet".to_owned());
-                            view! {
-                                <ListRow
-                                    title=ledger.name
-                                    meta=format!("{} users · {}", ledger.user_count, ledger.currency)
-                                    detail=detail
-                                    selected=selected_ledger_id
-                                        .as_ref()
-                                        .map(|selected| selected == &ledger_id)
-                                        .unwrap_or(false)
-                                    on_press=Callback::new(move |_| on_select_ledger.run(ledger_id.clone()))
-                                />
-                            }
-                        })
-                        .collect_view()}
-                </div>
-            </SectionCard>
+            <div class="stack-gap">
+                {ledgers
+                    .into_iter()
+                    .map(|ledger| {
+                        let ledger_id = ledger.ledger_id.clone();
+                        let detail = ledger
+                            .latest_bill_at_ms
+                            .map(api::format_timestamp)
+                            .unwrap_or_else(|| "No bills yet".to_owned());
+                        view! {
+                            <ListRow
+                                title=ledger.name
+                                meta=format!("{} users · {}", ledger.user_count, ledger.currency)
+                                detail=detail
+                                selected=selected_ledger_id
+                                    .as_ref()
+                                    .map(|selected| selected == &ledger_id)
+                                    .unwrap_or(false)
+                                on_press=Callback::new(move |_| on_select_ledger.run(ledger_id.clone()))
+                            />
+                        }
+                    })
+                    .collect_view()}
+            </div>
         </ScreenFrame>
     }
 }
