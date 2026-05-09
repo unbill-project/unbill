@@ -184,7 +184,6 @@ pub fn SettingsPopup(
                 <header class="settings-header">
                     <div class="settings-title-block">
                         <h2 class="settings-title">"Settings"</h2>
-                        <p class="settings-subtitle">{device_id.clone()}</p>
                     </div>
                     <IconButton
                         kind=IconButtonKind::Close
