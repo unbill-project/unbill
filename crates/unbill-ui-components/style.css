@@ -172,10 +172,6 @@
 
 .section-card {
   min-width: 0;
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  background: var(--bg-surface);
-  overflow: clip;
 }
 
 .section-header {
@@ -185,7 +181,6 @@
   min-height: 38px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--line-soft);
-  background: var(--bg-subtle);
 }
 
 .section-title {
