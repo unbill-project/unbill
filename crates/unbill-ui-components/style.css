@@ -14,8 +14,7 @@
 }
 
 .screen-topbar {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
   gap: 8px;
   min-height: 52px;
@@ -29,11 +28,13 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
+  flex-shrink: 0;
 }
 
 .screen-copy {
+  flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 .screen-eyebrow,
@@ -635,22 +636,6 @@
 }
 
 @media (max-width: 720px) {
-  .screen-topbar {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .screen-leading {
-    order: 2;
-  }
-
-  .screen-copy {
-    order: 1;
-  }
-
-  .screen-trailing {
-    order: 3;
-  }
-
   .field-grid,
   .share-row,
   .split-row,
