@@ -381,13 +381,12 @@
 
 .toast-container {
   position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 24px;
+  right: 24px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  align-items: center;
+  align-items: flex-end;
   z-index: 9999;
   pointer-events: none;
 }
@@ -412,10 +411,10 @@
 }
 
 @keyframes toast-show {
-  0%   { opacity: 0; transform: translateY(8px); }
+  0%   { opacity: 0; transform: translateY(-8px); }
   4%   { opacity: 1; transform: translateY(0); }
   88%  { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 0; transform: translateY(-8px); }
 }
 
 .empty-column {
