@@ -4,8 +4,15 @@ use crate::button::{IconButton, IconButtonKind};
 
 #[component]
 pub fn EmptyColumn(title: String, detail: String) -> impl IntoView {
+    let header = view! {
+        <div class="screen-copy">
+            <h2 class="screen-title">{title}</h2>
+            <p class="screen-subtitle">{detail}</p>
+        </div>
+    }
+    .into_any();
     view! {
-        <ScreenFrame title=title subtitle=detail>
+        <ScreenFrame header=header>
             <SectionCard title="No selection".to_owned()>
                 <div class="empty-copy">"Nothing open."</div>
             </SectionCard>
@@ -54,35 +61,19 @@ pub fn Sheet(
 
 #[component]
 pub fn ScreenFrame(
-    #[prop(into)] title: String,
-    #[prop(optional, into)] eyebrow: Option<String>,
-    #[prop(optional, into)] subtitle: Option<String>,
-    #[prop(optional)] leading: Option<AnyView>,
-    #[prop(optional)] trailing: Option<AnyView>,
+    #[prop(optional)] header: Option<AnyView>,
     children: Children,
     #[prop(optional)] footer: Option<AnyView>,
 ) -> impl IntoView {
-    let eyebrow_view =
-        eyebrow.map(|text| view! { <p class="screen-eyebrow">{text}</p> }.into_any());
-    let subtitle_view =
-        subtitle.map(|text| view! { <p class="screen-subtitle">{text}</p> }.into_any());
+    let header_view =
+        header.map(|content| view! { <header class="screen-topbar">{content}</header> }.into_any());
     let footer_view =
         footer.map(|content| view! { <footer class="screen-footer">{content}</footer> }.into_any());
 
     view! {
         <section class="screen-frame">
-            <header class="screen-topbar">
-                <div class="screen-leading">{leading}</div>
-                <div class="screen-copy">
-                    {eyebrow_view}
-                    <h2 class="screen-title">{title}</h2>
-                    {subtitle_view}
-                </div>
-                <div class="screen-trailing">{trailing}</div>
-            </header>
-
+            {header_view}
             <div class="screen-content">{children()}</div>
-
             {footer_view}
         </section>
     }

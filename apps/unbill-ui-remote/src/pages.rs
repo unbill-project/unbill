@@ -19,9 +19,16 @@ pub fn LedgersPage(
 ) -> impl IntoView {
     view! {
         <ScreenFrame
-            title="Ledgers".to_owned()
-            subtitle="This server".to_owned()
-            trailing={view! { <IconButton kind=IconButtonKind::More on_press=Callback::new(move |_| on_more.run(())) /> }.into_any()}
+            header={view! {
+                <div class="screen-leading"></div>
+                <div class="screen-copy">
+                    <h2 class="screen-title">"Ledgers"</h2>
+                    <p class="screen-subtitle">"This server"</p>
+                </div>
+                <div class="screen-trailing">
+                    <IconButton kind=IconButtonKind::More on_press=Callback::new(move |_| on_more.run(())) />
+                </div>
+            }.into_any()}
             footer={view! { <ActionButton label="New Ledger".to_owned() full_width=true on_press=Callback::new(move |_| on_new_ledger.run(())) /> }.into_any()}
         >
             <SectionCard
@@ -70,10 +77,18 @@ pub fn LedgerPage(
 
     view! {
         <ScreenFrame
-            title=page_title
-            subtitle=currency.clone()
-            leading={view! { <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) /> }.into_any()}
-            trailing={view! { <IconButton kind=IconButtonKind::More on_press=Callback::new(move |_| on_more.run(())) /> }.into_any()}
+            header={view! {
+                <div class="screen-leading">
+                    <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) />
+                </div>
+                <div class="screen-copy">
+                    <h2 class="screen-title">{page_title}</h2>
+                    <p class="screen-subtitle">{currency.clone()}</p>
+                </div>
+                <div class="screen-trailing">
+                    <IconButton kind=IconButtonKind::More on_press=Callback::new(move |_| on_more.run(())) />
+                </div>
+            }.into_any()}
             footer={view! { <ActionButton label="New Bill".to_owned() full_width=true on_press=Callback::new(move |_| on_new_bill.run(())) /> }.into_any()}
         >
             <SectionCard
@@ -501,10 +516,18 @@ pub fn BillEditorPage(
 
     view! {
         <ScreenFrame
-            title=title
-            subtitle="Bill details".to_owned()
-            leading={view! { <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) /> }.into_any()}
-            trailing={view! { <IconButton kind=IconButtonKind::Save tone=ButtonTone::Secondary on_press=Callback::new(save_click) /> }.into_any()}
+            header={view! {
+                <div class="screen-leading">
+                    <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) />
+                </div>
+                <div class="screen-copy">
+                    <h2 class="screen-title">{title}</h2>
+                    <p class="screen-subtitle">"Bill details"</p>
+                </div>
+                <div class="screen-trailing">
+                    <IconButton kind=IconButtonKind::Save tone=ButtonTone::Secondary on_press=Callback::new(save_click) />
+                </div>
+            }.into_any()}
         >
             <div class="stack-gap">
                 <SectionCard
