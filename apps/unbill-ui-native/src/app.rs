@@ -603,6 +603,7 @@ pub fn App() -> impl IntoView {
                     currency=seed.currency.clone()
                     users=seed.users.clone()
                     seed=seed
+                    show_back=true
                     on_back=Callback::new(move |_| bill_editor.set(None))
                     on_save=Callback::new(save_bill)
                 />
@@ -614,6 +615,7 @@ pub fn App() -> impl IntoView {
             return view! {
                 <LedgerPage
                     detail=detail
+                    show_back=true
                     on_back=Callback::new(move |_| {
                         selected_ledger_id.set(None);
                         ledger_detail.set(None);

@@ -61,6 +61,7 @@ pub fn LedgersPage(
 #[component]
 pub fn LedgerPage(
     detail: LedgerDetail,
+    #[prop(optional)] show_back: bool,
     on_back: Callback<()>,
     on_more: Callback<()>,
     on_open_bill: Callback<String>,
@@ -74,7 +75,7 @@ pub fn LedgerPage(
         <ScreenFrame
             header={view! {
                 <div class="screen-leading">
-                    <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) />
+                    {show_back.then(|| view! { <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) /> })}
                 </div>
                 <div class="screen-copy">
                     <h2 class="screen-title">{page_title}</h2>
@@ -444,6 +445,7 @@ pub fn BillEditorPage(
     currency: String,
     users: Vec<User>,
     seed: BillEditorSeed,
+    #[prop(optional)] show_back: bool,
     on_back: Callback<()>,
     on_save: Callback<BillSaveRequest>,
 ) -> impl IntoView {
@@ -540,7 +542,7 @@ pub fn BillEditorPage(
         <ScreenFrame
             header={view! {
                 <div class="screen-leading">
-                    <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) />
+                    {show_back.then(|| view! { <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) /> })}
                 </div>
                 <div class="screen-copy">
                     <h2 class="screen-title">{title}</h2>
