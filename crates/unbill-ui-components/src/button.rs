@@ -283,6 +283,45 @@ pub fn ListRow(
     }
 }
 
+// Settings sidebar navigation item with chevron
+#[component]
+pub fn SettingsNavItem(
+    #[prop(into)] label: String,
+    #[prop(optional)] active: bool,
+    #[prop(optional)] on_press: Option<Callback<ev::MouseEvent>>,
+) -> impl IntoView {
+    let class_name = if active {
+        "settings-nav-item settings-nav-item-active"
+    } else {
+        "settings-nav-item"
+    };
+    view! {
+        <button
+            type="button"
+            class=class_name
+            on:click=move |event| {
+                if let Some(handler) = on_press.as_ref() {
+                    handler.run(event);
+                }
+            }
+        >
+            <span class="settings-nav-label">{label}</span>
+            <svg
+                class="settings-nav-chevron"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <path d="m9 18 6-6-6-6" />
+            </svg>
+        </button>
+    }
+}
+
 #[component]
 pub fn TagPill(#[prop(into)] label: String, #[prop(optional)] active: bool) -> impl IntoView {
     let class_name = if active {
@@ -291,6 +330,18 @@ pub fn TagPill(#[prop(into)] label: String, #[prop(optional)] active: bool) -> i
         "tag-pill"
     };
     view! { <span class=class_name>{label}</span> }
+}
+
+#[component]
+pub fn SettingsNavGroup(#[prop(into)] title: String, children: Children) -> impl IntoView {
+    view! {
+        <div class="settings-nav-group">
+            <div class="settings-nav-group-header">
+                <span class="settings-nav-group-title">{title}</span>
+            </div>
+            {children()}
+        </div>
+    }
 }
 
 #[cfg(test)]

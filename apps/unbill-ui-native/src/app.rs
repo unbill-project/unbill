@@ -21,7 +21,7 @@ pub(crate) enum SurfaceMode {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SettingsTab {
-    Device,
+    General,
     Ledger,
 }
 
@@ -29,13 +29,15 @@ pub(crate) enum SettingsTab {
 pub(crate) struct SettingsPopupState {
     pub(crate) active_tab: SettingsTab,
     pub(crate) selected_ledger_id: Option<String>,
+    pub(crate) mobile_in_content: bool,
 }
 
 impl SettingsPopupState {
-    pub(crate) fn open_device() -> Self {
+    pub(crate) fn open_general() -> Self {
         Self {
-            active_tab: SettingsTab::Device,
+            active_tab: SettingsTab::General,
             selected_ledger_id: None,
+            mobile_in_content: false,
         }
     }
 
@@ -44,6 +46,7 @@ impl SettingsPopupState {
             active_tab: SettingsTab::Ledger,
             selected_ledger_id: active_ledger_id
                 .or_else(|| ledgers.first().map(|ledger| ledger.ledger_id.clone())),
+            mobile_in_content: true,
         }
     }
 
@@ -53,6 +56,11 @@ impl SettingsPopupState {
 
     pub(crate) fn select_tab(&mut self, tab: SettingsTab) {
         self.active_tab = tab;
+        self.mobile_in_content = true;
+    }
+
+    pub(crate) fn mobile_back(&mut self) {
+        self.mobile_in_content = false;
     }
 }
 
@@ -399,7 +407,7 @@ pub fn App() -> impl IntoView {
     };
 
     let open_device_settings = move || {
-        settings_popup.set(Some(SettingsPopupState::open_device()));
+        settings_popup.set(Some(SettingsPopupState::open_general()));
         settings_ledger_detail.set(None);
         invitation_url.set(None);
     };
@@ -429,6 +437,14 @@ pub fn App() -> impl IntoView {
         settings_popup.update(|popup| {
             if let Some(popup) = popup {
                 popup.select_tab(tab);
+            }
+        });
+    };
+
+    let settings_mobile_back = move |()| {
+        settings_popup.update(|popup| {
+            if let Some(popup) = popup {
+                popup.mobile_back();
             }
         });
     };
@@ -630,6 +646,7 @@ pub fn App() -> impl IntoView {
                     ledgers=ledgers.get()
                     devices=devices.get()
                     active_tab=popup.active_tab
+                    mobile_in_content=popup.mobile_in_content
                     selected_ledger_id=popup.selected_ledger_id
                     ledger_detail=settings_ledger_detail.get()
                     invitation_url=invitation_url.get()
@@ -638,6 +655,7 @@ pub fn App() -> impl IntoView {
                         settings_ledger_detail.set(None);
                     })
                     on_select_tab=Callback::new(select_settings_tab)
+                    on_mobile_back=Callback::new(settings_mobile_back)
                     on_select_ledger=Callback::new(select_settings_ledger)
                     on_join_ledger=Callback::new(move |_| open_join_from_clipboard())
                     on_add_ledger_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddUser)))
@@ -1007,9 +1025,9 @@ mod tests {
 
     #[test]
     fn opening_device_settings_selects_device_tab_and_does_not_require_ledger() {
-        let state = SettingsPopupState::open_device();
+        let state = SettingsPopupState::open_general();
 
-        assert_eq!(state.active_tab, SettingsTab::Device);
+        assert_eq!(state.active_tab, SettingsTab::General);
         assert_eq!(state.selected_ledger_id, None);
     }
 

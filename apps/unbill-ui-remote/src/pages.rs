@@ -5,7 +5,7 @@ use crate::app::{
 };
 use crate::components::{
     ActionButton, ButtonTone, CurrencyCombobox, FieldBlock, IconButton, IconButtonKind, ListRow,
-    ModalSheet, ScreenFrame, SectionCard, TagPill,
+    ModalSheet, ScreenFrame, SectionCard, SettingsNavGroup, SettingsNavItem, TagPill,
 };
 use leptos::prelude::*;
 
@@ -182,11 +182,13 @@ pub fn SettingsPopup(
     ledgers: Vec<LedgerSummary>,
     devices: Vec<SyncDevice>,
     active_tab: SettingsTab,
+    mobile_in_content: bool,
     selected_ledger_id: Option<String>,
     ledger_detail: Option<LedgerDetail>,
     invitation_url: Option<String>,
     on_close: Callback<()>,
     on_select_tab: Callback<SettingsTab>,
+    on_mobile_back: Callback<()>,
     on_select_ledger: Callback<String>,
     on_join_ledger: Callback<()>,
     on_add_ledger_user: Callback<()>,
@@ -194,17 +196,21 @@ pub fn SettingsPopup(
     on_create_invitation: Callback<()>,
     on_copy_invitation: Callback<()>,
 ) -> impl IntoView {
-    let device_tab_class = if active_tab == SettingsTab::Device {
-        "tab-button tab-button-active"
+    let sidebar_class = if mobile_in_content {
+        "settings-sidebar settings-sidebar-hidden"
     } else {
-        "tab-button"
+        "settings-sidebar"
     };
-    let ledger_tab_class = if active_tab == SettingsTab::Ledger {
-        "tab-button tab-button-active"
+    let content_class = if mobile_in_content {
+        "settings-content-area"
     } else {
-        "tab-button"
+        "settings-content-area settings-content-area-hidden"
     };
-    let selected_for_select = selected_ledger_id.clone().unwrap_or_default();
+    let tab_label = match active_tab {
+        SettingsTab::General => "General",
+        SettingsTab::Ledger => "Ledger",
+    };
+    let selected_id_for_sidebar = selected_ledger_id.clone();
 
     view! {
         <div class="settings-overlay">
@@ -220,25 +226,44 @@ pub fn SettingsPopup(
                     />
                 </header>
 
-                <div class="settings-tabs">
-                    <button
-                        type="button"
-                        class=device_tab_class
-                        on:click=move |_| on_select_tab.run(SettingsTab::Device)
-                    >
-                        "Device Settings"
-                    </button>
-                    <button
-                        type="button"
-                        class=ledger_tab_class
-                        on:click=move |_| on_select_tab.run(SettingsTab::Ledger)
-                    >
-                        "Ledger Settings"
-                    </button>
-                </div>
-
-                <div class="settings-body">
-                    {if active_tab == SettingsTab::Device {
+                <div class="settings-layout">
+                    <div class=sidebar_class>
+                        <SettingsNavItem
+                            label="General"
+                            active=active_tab == SettingsTab::General
+                            on_press=Callback::new(move |_| on_select_tab.run(SettingsTab::General))
+                        />
+                        <SettingsNavGroup title="Ledgers">
+                            {ledgers
+                                .into_iter()
+                                .map(move |ledger| {
+                                    let ledger_id = ledger.ledger_id.clone();
+                                    let is_active = active_tab == SettingsTab::Ledger
+                                        && selected_id_for_sidebar.as_deref() == Some(ledger.ledger_id.as_str());
+                                    view! {
+                                        <SettingsNavItem
+                                            label=ledger.name
+                                            active=is_active
+                                            on_press=Callback::new(move |_| {
+                                                on_select_tab.run(SettingsTab::Ledger);
+                                                on_select_ledger.run(ledger_id.clone());
+                                            })
+                                        />
+                                    }
+                                })
+                                .collect_view()}
+                        </SettingsNavGroup>
+                    </div>
+                    <div class=content_class>
+                        <div class="settings-mobile-back">
+                            <IconButton
+                                kind=IconButtonKind::Back
+                                on_press=Callback::new(move |_| on_mobile_back.run(()))
+                            />
+                            <span class="settings-title">{tab_label}</span>
+                        </div>
+                        <div class="settings-body">
+                    {if active_tab == SettingsTab::General {
                         view! {
                             <div class="settings-grid">
                                 <SectionCard title="Device".to_owned()>
@@ -248,6 +273,14 @@ pub fn SettingsPopup(
                                             <p class="row-meta mono-copy">{device_id}</p>
                                         </div>
                                     </div>
+                                </SectionCard>
+
+                                <SectionCard title="Ledger import".to_owned()>
+                                    <ActionButton
+                                        label="Paste Invitation".to_owned()
+                                        tone=ButtonTone::Secondary
+                                        on_press=Callback::new(move |_| on_join_ledger.run(()))
+                                    />
                                 </SectionCard>
 
                                 <SectionCard title="Known devices".to_owned()>
@@ -283,49 +316,13 @@ pub fn SettingsPopup(
                                         }}
                                     </div>
                                 </SectionCard>
-
-                                <SectionCard title="Ledger import".to_owned()>
-                                    <ActionButton
-                                        label="Paste Invitation".to_owned()
-                                        tone=ButtonTone::Secondary
-                                        on_press=Callback::new(move |_| on_join_ledger.run(()))
-                                    />
-                                </SectionCard>
                             </div>
                         }
                         .into_any()
                     } else {
                         view! {
                             <div class="settings-grid">
-                                <SectionCard title="Ledger".to_owned()>
-                                    {if ledgers.is_empty() {
-                                        view! { <div class="empty-copy">"No ledgers available."</div> }.into_any()
-                                    } else {
-                                        view! {
-                                            <FieldBlock label="Selected ledger".to_owned()>
-                                                <select
-                                                    class="ui-select"
-                                                    prop:value=move || selected_for_select.clone()
-                                                    on:change=move |event| on_select_ledger.run(event_target_value(&event))
-                                                >
-                                                    {ledgers
-                                                        .clone()
-                                                        .into_iter()
-                                                        .map(|ledger| {
-                                                            view! {
-                                                                <option value=ledger.ledger_id>{ledger.name}</option>
-                                                            }
-                                                        })
-                                                        .collect_view()}
-                                                </select>
-                                            </FieldBlock>
-                                        }
-                                        .into_any()
-                                    }}
-                                </SectionCard>
-
-                                {if let Some(detail) = ledger_detail {
-                                    let authorized_devices = detail.devices.clone();
+                                {if let Some(detail) = ledger_detail.clone() {
                                     view! {
                                         <SectionCard title="Users".to_owned()>
                                             <div class="stack-gap">
@@ -356,7 +353,15 @@ pub fn SettingsPopup(
                                                 />
                                             </div>
                                         </SectionCard>
+                                    }
+                                    .into_any()
+                                } else {
+                                    view! { <div /> }.into_any()
+                                }}
 
+                                {if let Some(detail) = ledger_detail {
+                                    let authorized_devices = detail.devices.clone();
+                                    view! {
                                         <SectionCard title="Authorized devices".to_owned()>
                                             <div class="stack-gap">
                                                 {if authorized_devices.is_empty() {
@@ -422,6 +427,8 @@ pub fn SettingsPopup(
                         }
                         .into_any()
                     }}
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>

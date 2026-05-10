@@ -1,5 +1,6 @@
 pub use unbill_ui_components::button::{
-    ActionButton, ButtonTone, IconButton, IconButtonKind, ListRow, TagPill,
+    ActionButton, ButtonTone, IconButton, IconButtonKind, ListRow, SettingsNavGroup,
+    SettingsNavItem, TagPill,
 };
 pub use unbill_ui_components::input::CurrencyCombobox;
 pub use unbill_ui_components::layout::{
