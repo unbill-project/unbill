@@ -60,7 +60,21 @@ where
         write_msg(&mut writer, &SyncFrame::Hello(Hello { ledger_ids: my_ids })).await?;
         let frame: SyncFrame = read_msg(&mut reader).await?;
         match frame {
-            SyncFrame::HelloAck(ack) => ack.accepted,
+            SyncFrame::HelloAck(ack) => {
+                // Guard against a malicious responder injecting ledger IDs that
+                // were not in our Hello — we would otherwise attempt to load and
+                // stream ledgers we never proposed.
+                let my_ids_set: std::collections::HashSet<&str> =
+                    my_ids.iter().map(String::as_str).collect();
+                for id in &ack.accepted {
+                    if !my_ids_set.contains(id.as_str()) {
+                        return Err(UnbillError::Network(format!(
+                            "responder accepted ledger {id} that we never proposed"
+                        )));
+                    }
+                }
+                ack.accepted
+            }
             other => {
                 return Err(UnbillError::Network(format!(
                     "expected HelloAck, got {:?}",
