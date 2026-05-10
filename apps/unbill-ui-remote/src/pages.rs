@@ -207,8 +207,12 @@ pub fn SettingsPopup(
         "settings-content-area settings-content-area-hidden"
     };
     let tab_label = match active_tab {
-        SettingsTab::General => "General",
-        SettingsTab::Ledger => "Ledger",
+        SettingsTab::General => "General".to_owned(),
+        SettingsTab::Ledger => ledgers
+            .iter()
+            .find(|l| selected_ledger_id.as_deref() == Some(l.ledger_id.as_str()))
+            .map(|l| l.name.clone())
+            .unwrap_or_else(|| "Ledger".to_owned()),
     };
     let selected_id_for_sidebar = selected_ledger_id.clone();
 
