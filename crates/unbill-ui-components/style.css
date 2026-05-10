@@ -791,6 +791,11 @@
     display: none;
   }
 
+  .settings-nav-item-active {
+    background: transparent;
+    color: var(--text-body);
+  }
+
   .settings-content-area-hidden {
     display: none;
   }

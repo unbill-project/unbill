@@ -46,7 +46,7 @@ impl SettingsPopupState {
             active_tab: SettingsTab::Ledger,
             selected_ledger_id: active_ledger_id
                 .or_else(|| ledgers.first().map(|ledger| ledger.ledger_id.clone())),
-            mobile_in_content: false,
+            mobile_in_content: true,
         }
     }
 
