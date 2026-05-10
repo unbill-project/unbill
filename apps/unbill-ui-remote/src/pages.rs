@@ -62,6 +62,7 @@ pub fn LedgersPage(
 #[component]
 pub fn LedgerPage(
     detail: LedgerDetail,
+    #[prop(optional)] show_back: bool,
     on_back: Callback<()>,
     on_more: Callback<()>,
     on_open_bill: Callback<String>,
@@ -75,7 +76,7 @@ pub fn LedgerPage(
         <ScreenFrame
             header={view! {
                 <div class="screen-leading">
-                    <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) />
+                    {show_back.then(|| view! { <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) /> })}
                 </div>
                 <div class="screen-copy">
                     <h2 class="screen-title">{page_title}</h2>
@@ -207,8 +208,12 @@ pub fn SettingsPopup(
         "settings-content-area settings-content-area-hidden"
     };
     let tab_label = match active_tab {
-        SettingsTab::General => "General",
-        SettingsTab::Ledger => "Ledger",
+        SettingsTab::General => "General".to_owned(),
+        SettingsTab::Ledger => ledgers
+            .iter()
+            .find(|l| selected_ledger_id.as_deref() == Some(l.ledger_id.as_str()))
+            .map(|l| l.name.clone())
+            .unwrap_or_else(|| "Ledger".to_owned()),
     };
     let selected_id_for_sidebar = selected_ledger_id.clone();
 
@@ -441,6 +446,7 @@ pub fn BillEditorPage(
     currency: String,
     users: Vec<User>,
     seed: BillEditorSeed,
+    #[prop(optional)] show_back: bool,
     on_back: Callback<()>,
     on_save: Callback<BillSaveRequest>,
 ) -> impl IntoView {
@@ -537,7 +543,7 @@ pub fn BillEditorPage(
         <ScreenFrame
             header={view! {
                 <div class="screen-leading">
-                    <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) />
+                    {show_back.then(|| view! { <IconButton kind=IconButtonKind::Back on_press=Callback::new(move |_| on_back.run(())) /> })}
                 </div>
                 <div class="screen-copy">
                     <h2 class="screen-title">{title}</h2>
