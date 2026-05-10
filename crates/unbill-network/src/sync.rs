@@ -57,6 +57,8 @@ where
     let accepted: Vec<String> = if is_initiator {
         let metas = store.list_ledgers().await?;
         let my_ids: Vec<String> = metas.iter().map(|m| m.ledger_id.to_string()).collect();
+        // Build the set before moving my_ids into the Hello message.
+        let my_ids_set: std::collections::HashSet<String> = my_ids.iter().cloned().collect();
         write_msg(&mut writer, &SyncFrame::Hello(Hello { ledger_ids: my_ids })).await?;
         let frame: SyncFrame = read_msg(&mut reader).await?;
         match frame {
@@ -64,8 +66,6 @@ where
                 // Guard against a malicious responder injecting ledger IDs that
                 // were not in our Hello — we would otherwise attempt to load and
                 // stream ledgers we never proposed.
-                let my_ids_set: std::collections::HashSet<&str> =
-                    my_ids.iter().map(String::as_str).collect();
                 for id in &ack.accepted {
                     if !my_ids_set.contains(id.as_str()) {
                         return Err(UnbillError::Network(format!(
