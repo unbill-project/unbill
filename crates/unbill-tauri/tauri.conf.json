@@ -5,7 +5,7 @@
   "build": {
     "beforeDevCommand": {
       "cwd": "../../apps/unbill-ui-native",
-      "script": "trunk serve --config Trunk.toml --address 0.0.0.0",
+      "script": "trunk serve --config Trunk.toml",
       "wait": false
     },
     "devUrl": "http://localhost:1420",
