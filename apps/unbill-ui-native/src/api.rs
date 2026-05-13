@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use unbill_ui_components::bill_editor::BillShareInput;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(module = "/src/bridge.js")]
@@ -128,13 +129,6 @@ pub struct SaveBillInput {
     pub payers: Vec<BillShareInput>,
     pub payees: Vec<BillShareInput>,
     pub prev_bill_id: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BillShareInput {
-    pub user_id: String,
-    pub shares: u32,
 }
 
 pub async fn bootstrap_app() -> Result<AppBootstrap, String> {

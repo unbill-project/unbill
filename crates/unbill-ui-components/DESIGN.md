@@ -8,6 +8,7 @@ Reusable Leptos UI components for unbill frontends.
 - All operations that touch external state (loading data, submitting forms, navigating) are passed as `Callback` props. The caller wires them to whatever backend is in use (Tauri, mock, test stub, etc.).
 - Components own only local UI state: expanded/collapsed, hover, validation feedback, pending spinner.
 - Data types used in props and events are defined in this crate. They are plain structs — no domain-model imports.
+- Bill-editor custom share weights are raw draft text until submission and may be simple addition or subtraction expressions that resolve to a positive whole-number weight.
 
 ## Structure
 
@@ -19,6 +20,7 @@ src/
   layout.rs       ScreenFrame, EmptyColumn, SectionCard, FieldBlock, ModalSheet
   status.rs       StatusStrip
   bill.rs         bill-related components
+  bill_editor.rs  bill-editor draft data, validation, and page component
   user.rs         user-related components
   ledger.rs       ledger-related components
   settlement.rs   settlement-related components

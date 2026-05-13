@@ -1,14 +1,17 @@
 use crate::api::{
-    self, AddUserInput, Bill, BillShareInput, CreateUserInput, JoinLedgerInput, LedgerDetail,
-    LedgerSummary, SaveBillInput, SyncDevice, User,
+    self, AddUserInput, Bill, CreateUserInput, JoinLedgerInput, LedgerDetail, LedgerSummary,
+    SaveBillInput, SyncDevice, User,
 };
 use crate::components::{EmptyColumn, use_toast};
 use crate::pages::{
-    AddLedgerUserSheet, BillEditorPage, CreateLedgerSheet, JoinLedgerSheet, LedgerPage,
-    LedgersPage, SettingsPopup,
+    AddLedgerUserSheet, CreateLedgerSheet, JoinLedgerSheet, LedgerPage, LedgersPage, SettingsPopup,
 };
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use unbill_ui_components::bill_editor::{
+    BillEditorExistingBill, BillEditorPage, BillEditorSeed, BillEditorUser, BillSaveRequest,
+    BillShareInput, amend_bill_seed, new_bill_seed,
+};
 use wasm_bindgen::{JsCast, closure::Closure};
 
 const RANGER_BREAKPOINT: f64 = 1200.0;
@@ -131,42 +134,6 @@ pub(crate) enum OverlayKind {
     CreateLedger,
     JoinLedger { url: String },
     AddUser,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ShareMode {
-    Equal,
-    Custom,
-}
-
-#[derive(Clone, PartialEq)]
-pub(crate) struct BillShareDraft {
-    pub(crate) user_id: String,
-    pub(crate) display_name: String,
-    pub(crate) included: bool,
-    pub(crate) shares: u32,
-}
-
-#[derive(Clone, PartialEq)]
-pub(crate) struct BillEditorSeed {
-    pub(crate) currency: String,
-    pub(crate) users: Vec<User>,
-    pub(crate) prev_bill_id: Option<String>,
-    pub(crate) description: String,
-    pub(crate) payer_mode: ShareMode,
-    pub(crate) payer_rows: Vec<BillShareDraft>,
-    pub(crate) amount_text: String,
-    pub(crate) share_mode: ShareMode,
-    pub(crate) share_rows: Vec<BillShareDraft>,
-}
-
-#[derive(Clone, PartialEq)]
-pub(crate) struct BillSaveRequest {
-    pub(crate) prev_bill_id: Option<String>,
-    pub(crate) description: String,
-    pub(crate) payers: Vec<BillShareInput>,
-    pub(crate) amount_cents: i64,
-    pub(crate) shares: Vec<BillShareInput>,
 }
 
 #[component]
@@ -309,7 +276,8 @@ pub fn App() -> impl IntoView {
                 );
                 return;
             }
-            bill_editor.set(Some(new_bill_seed(detail.summary.currency, &detail.users)));
+            let users = bill_editor_users(&detail.users);
+            bill_editor.set(Some(new_bill_seed(detail.summary.currency, &users)));
         }
     };
 
@@ -317,10 +285,12 @@ pub fn App() -> impl IntoView {
         if let Some(detail) = ledger_detail.get()
             && let Some(bill) = detail.bills.iter().find(|item| item.id == bill_id)
         {
+            let users = bill_editor_users(&detail.users);
+            let bill = bill_editor_existing_bill(bill);
             bill_editor.set(Some(amend_bill_seed(
-                bill,
+                &bill,
                 detail.summary.currency,
-                &detail.users,
+                &users,
             )));
         }
     };
@@ -601,7 +571,6 @@ pub fn App() -> impl IntoView {
                         "New Bill".to_owned()
                     }
                     currency=seed.currency.clone()
-                    users=seed.users.clone()
                     seed=seed
                     show_back=true
                     on_back=Callback::new(move |_| bill_editor.set(None))
@@ -726,7 +695,6 @@ pub fn App() -> impl IntoView {
                                             "New Bill".to_owned()
                                         }
                                         currency=seed.currency.clone()
-                                        users=seed.users.clone()
                                         seed=seed
                                         on_back=Callback::new(move |_| bill_editor.set(None))
                                         on_save=Callback::new(save_bill)
@@ -829,183 +797,38 @@ fn sort_ledgers(ledgers: &mut [LedgerSummary]) {
     );
 }
 
-fn new_bill_seed(currency: String, users: &[User]) -> BillEditorSeed {
-    BillEditorSeed {
-        currency,
-        users: users.to_vec(),
-        prev_bill_id: None,
-        description: String::new(),
-        payer_mode: ShareMode::Equal,
-        payer_rows: users
-            .iter()
-            .enumerate()
-            .map(|(i, user)| BillShareDraft {
-                user_id: user.user_id.clone(),
-                display_name: user.display_name.clone(),
-                included: i == 0,
-                shares: 1,
-            })
-            .collect(),
-        amount_text: String::new(),
-        share_mode: ShareMode::Equal,
-        share_rows: users
-            .iter()
-            .map(|user| BillShareDraft {
-                user_id: user.user_id.clone(),
-                display_name: user.display_name.clone(),
-                included: true,
-                shares: 1,
-            })
-            .collect(),
-    }
+fn bill_editor_users(users: &[User]) -> Vec<BillEditorUser> {
+    users
+        .iter()
+        .map(|user| BillEditorUser {
+            user_id: user.user_id.clone(),
+            display_name: user.display_name.clone(),
+        })
+        .collect()
 }
 
-fn amend_bill_seed(bill: &Bill, currency: String, users: &[User]) -> BillEditorSeed {
-    let payers_by_user = bill
-        .payers
-        .iter()
-        .map(|share| (share.user_id.clone(), share.shares))
-        .collect::<std::collections::HashMap<_, _>>();
-    let payees_by_user = bill
-        .payees
-        .iter()
-        .map(|share| (share.user_id.clone(), share.shares))
-        .collect::<std::collections::HashMap<_, _>>();
-
-    let payer_mode = if payers_by_user.values().all(|&s| s == 1) {
-        ShareMode::Equal
-    } else {
-        ShareMode::Custom
-    };
-    let share_mode = if payees_by_user.values().all(|&s| s == 1) {
-        ShareMode::Equal
-    } else {
-        ShareMode::Custom
-    };
-
-    BillEditorSeed {
-        currency,
-        users: users.to_vec(),
-        prev_bill_id: Some(bill.id.clone()),
+fn bill_editor_existing_bill(bill: &Bill) -> BillEditorExistingBill {
+    BillEditorExistingBill {
+        id: bill.id.clone(),
+        amount_cents: bill.amount_cents,
         description: bill.description.clone(),
-        payer_mode,
-        payer_rows: users
+        payers: bill
+            .payers
             .iter()
-            .map(|user| BillShareDraft {
-                user_id: user.user_id.clone(),
-                display_name: user.display_name.clone(),
-                included: payers_by_user.contains_key(&user.user_id),
-                shares: payers_by_user.get(&user.user_id).copied().unwrap_or(1),
+            .map(|share| BillShareInput {
+                user_id: share.user_id.clone(),
+                shares: share.shares,
             })
             .collect(),
-        amount_text: format!(
-            "{}.{:02}",
-            bill.amount_cents / 100,
-            bill.amount_cents.abs() % 100
-        ),
-        share_mode,
-        share_rows: users
+        payees: bill
+            .payees
             .iter()
-            .map(|user| BillShareDraft {
-                user_id: user.user_id.clone(),
-                display_name: user.display_name.clone(),
-                included: payees_by_user.contains_key(&user.user_id),
-                shares: payees_by_user.get(&user.user_id).copied().unwrap_or(1),
+            .map(|share| BillShareInput {
+                user_id: share.user_id.clone(),
+                shares: share.shares,
             })
             .collect(),
     }
-}
-
-pub(crate) fn parse_amount_text(input: &str) -> Result<i64, String> {
-    let trimmed = input.trim();
-    if trimmed.is_empty() {
-        return Err("Enter an amount before saving.".to_owned());
-    }
-    if trimmed.starts_with('-') {
-        return Err("Amount must be zero or greater.".to_owned());
-    }
-
-    let mut parts = trimmed.split('.');
-    let units = parts
-        .next()
-        .unwrap_or_default()
-        .parse::<i64>()
-        .map_err(|_| "Amount must use digits and an optional decimal point.".to_owned())?;
-    let cents = match parts.next() {
-        None => 0,
-        Some(raw) => {
-            if parts.next().is_some() {
-                return Err("Amount can contain only one decimal point.".to_owned());
-            }
-            let padded = if raw.len() == 1 {
-                format!("{raw}0")
-            } else {
-                raw.to_owned()
-            };
-            if padded.len() != 2 {
-                return Err("Amount must use at most two decimal places.".to_owned());
-            }
-            padded
-                .parse::<i64>()
-                .map_err(|_| "Amount cents must be numeric.".to_owned())?
-        }
-    };
-
-    Ok(units * 100 + cents)
-}
-
-pub(crate) fn share_lookup_shares(share_rows: &[BillShareDraft], user_id: &str) -> u32 {
-    share_rows
-        .iter()
-        .find(|share_row| share_row.user_id == user_id)
-        .map(|share_row| share_row.shares)
-        .unwrap_or(1)
-}
-
-pub(crate) fn derived_share_preview(
-    amount_cents: i64,
-    share_mode: ShareMode,
-    share_rows: &[BillShareDraft],
-) -> Vec<(String, i64)> {
-    let active = share_rows
-        .iter()
-        .filter(|share_row| share_row.included)
-        .map(|share_row| {
-            (
-                share_row.user_id.clone(),
-                if share_mode == ShareMode::Equal {
-                    1
-                } else {
-                    share_row.shares
-                },
-            )
-        })
-        .collect::<Vec<_>>();
-
-    let total_shares = active.iter().map(|(_, shares)| *shares as i64).sum::<i64>();
-    if total_shares == 0 {
-        return Vec::new();
-    }
-
-    let mut allocations = active
-        .iter()
-        .map(|(user_id, shares)| {
-            (
-                user_id.clone(),
-                amount_cents * *shares as i64 / total_shares,
-            )
-        })
-        .collect::<Vec<_>>();
-    let assigned = allocations.iter().map(|(_, amount)| *amount).sum::<i64>();
-    let mut remainder = amount_cents - assigned;
-    for (_, amount) in allocations.iter_mut() {
-        if remainder == 0 {
-            break;
-        }
-        *amount += 1;
-        remainder -= 1;
-    }
-    allocations
 }
 
 #[cfg(test)]

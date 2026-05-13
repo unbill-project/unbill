@@ -10,6 +10,8 @@ Responsive mode selection uses a pure width helper: widths below 1200 px render 
 
 Device Settings renders the device ID, saved local users, known peer devices across local ledgers, saved-user share/import actions, and ledger join actions. Ledger Settings renders a ledger selector, ledger users, saved-user picker for adding users to the selected ledger, authorized peer devices, and ledger invitation actions. Each peer row triggers the shared one-shot sync bridge command.
 
+The bill editor page, draft model, split preview, and save-time validation live in `unbill-ui-components::bill_editor`. This app adapts native DTOs into the shared editor seed and maps the returned save request into the Tauri bridge input.
+
 The stylesheet implements a native utility shell with system typography, full-height panes, dense rows, compact toolbars, restrained borders, and stable control dimensions. Screen frame columns sit flush against each other separated only by a single-pixel right border on each frame (omitted on the last child). The topbar uses a flex row with the copy slot growing to fill available space; leading and trailing slots do not shrink. Safe area insets are applied as padding on `.app-shell` using `env(safe-area-inset-*)` so device notches and home indicators are respected without per-component overrides.
 
 Navigation and utility controls render through a shared icon-button component backed by static Lucide SVG primitives. The component maps app actions to icons, visible hover titles, accessible labels, and hidden text. It is used for topbar navigation, settings and sheet close buttons, per-row sync/share/copy/add utilities, and the bill editor save control. Larger primary workflow actions continue to use text buttons.

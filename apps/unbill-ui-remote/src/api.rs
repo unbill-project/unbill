@@ -7,6 +7,7 @@ use unbill_core::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, UserId,
 };
 use unbill_core::service::UnbillService;
+use unbill_ui_components::bill_editor::BillShareInput;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
 
@@ -135,13 +136,6 @@ pub struct SaveBillInput {
     pub payers: Vec<BillShareInput>,
     pub payees: Vec<BillShareInput>,
     pub prev_bill_id: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BillShareInput {
-    pub user_id: String,
-    pub shares: u32,
 }
 
 // ---------------------------------------------------------------------------
