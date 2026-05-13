@@ -632,11 +632,79 @@ fn parse_required_share_weight(input: &str, error: &str) -> Result<u32, String> 
 }
 
 fn parse_share_weight(input: &str) -> Option<u32> {
-    input
-        .trim()
-        .parse::<u32>()
-        .ok()
-        .filter(|shares| *shares > 0)
+    parse_share_weight_expression(input)
+        .filter(|shares| *shares > 0 && *shares <= u32::MAX as i64)
+        .map(|shares| shares as u32)
+}
+
+fn parse_share_weight_expression(input: &str) -> Option<i64> {
+    let mut parser = ShareWeightParser::new(input);
+    let value = parser.parse_expression()?;
+    parser.finish().then_some(value)
+}
+
+struct ShareWeightParser<'a> {
+    input: &'a str,
+    position: usize,
+}
+
+impl<'a> ShareWeightParser<'a> {
+    fn new(input: &'a str) -> Self {
+        Self { input, position: 0 }
+    }
+
+    fn parse_expression(&mut self) -> Option<i64> {
+        let mut total = self.parse_number()?;
+
+        loop {
+            self.skip_whitespace();
+            let Some(operator) = self.peek_byte() else {
+                return Some(total);
+            };
+
+            match operator {
+                b'+' => {
+                    self.position += 1;
+                    total = total.checked_add(self.parse_number()?)?;
+                }
+                b'-' => {
+                    self.position += 1;
+                    total = total.checked_sub(self.parse_number()?)?;
+                }
+                _ => return None,
+            }
+        }
+    }
+
+    fn parse_number(&mut self) -> Option<i64> {
+        self.skip_whitespace();
+        let start = self.position;
+
+        while matches!(self.peek_byte(), Some(byte) if byte.is_ascii_digit()) {
+            self.position += 1;
+        }
+
+        if self.position == start {
+            return None;
+        }
+
+        self.input[start..self.position].parse::<i64>().ok()
+    }
+
+    fn finish(&mut self) -> bool {
+        self.skip_whitespace();
+        self.position == self.input.len()
+    }
+
+    fn skip_whitespace(&mut self) {
+        while matches!(self.peek_byte(), Some(byte) if byte.is_ascii_whitespace()) {
+            self.position += 1;
+        }
+    }
+
+    fn peek_byte(&self) -> Option<u8> {
+        self.input.as_bytes().get(self.position).copied()
+    }
 }
 
 fn format_cents_for_input(amount_cents: i64) -> String {
@@ -740,6 +808,19 @@ mod tests {
     }
 
     #[test]
+    fn custom_share_preview_evaluates_addition_and_subtraction() {
+        let rows = vec![
+            bill_share_draft("alice", true, "1 + 2"),
+            bill_share_draft("bob", true, "5-1"),
+        ];
+
+        assert_eq!(
+            derived_share_preview(700, ShareMode::Custom, &rows),
+            vec![("alice".to_owned(), 300), ("bob".to_owned(), 400)]
+        );
+    }
+
+    #[test]
     fn bill_save_request_rejects_invalid_custom_payer_shares_when_submitted() {
         let payer_rows = vec![bill_share_draft("alice", true, "")];
         let share_rows = vec![bill_share_draft("alice", true, "1")];
@@ -759,6 +840,69 @@ mod tests {
             Err(error) => error,
         };
         assert_eq!(error, "Custom payer shares must be positive whole numbers.");
+    }
+
+    #[test]
+    fn bill_save_request_evaluates_share_arithmetic_when_submitted() {
+        let payer_rows = vec![bill_share_draft("alice", true, "1+1")];
+        let share_rows = vec![
+            bill_share_draft("alice", true, "4 - 1"),
+            bill_share_draft("bob", true, "2+2"),
+        ];
+
+        let request = build_bill_save_request(
+            None,
+            "Lunch".to_owned(),
+            ShareMode::Custom,
+            &payer_rows,
+            "21.00",
+            ShareMode::Custom,
+            &share_rows,
+        )
+        .expect("valid share arithmetic should submit");
+
+        assert_eq!(
+            request.payers,
+            vec![BillShareInput {
+                user_id: "alice".to_owned(),
+                shares: 2,
+            }]
+        );
+        assert_eq!(
+            request.shares,
+            vec![
+                BillShareInput {
+                    user_id: "alice".to_owned(),
+                    shares: 3,
+                },
+                BillShareInput {
+                    user_id: "bob".to_owned(),
+                    shares: 4,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn bill_save_request_rejects_share_arithmetic_without_positive_result() {
+        let payer_rows = vec![bill_share_draft("alice", true, "1")];
+        let share_rows = vec![bill_share_draft("alice", true, "2-2")];
+
+        let result = build_bill_save_request(
+            None,
+            "Lunch".to_owned(),
+            ShareMode::Equal,
+            &payer_rows,
+            "21.00",
+            ShareMode::Custom,
+            &share_rows,
+        );
+
+        let error = match result {
+            Ok(_) => panic!("non-positive share arithmetic should fail on submission"),
+            Err(error) => error,
+        };
+        assert_eq!(error, "Custom shares must be positive whole numbers.");
     }
 
     #[test]
