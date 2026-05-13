@@ -50,6 +50,7 @@ The detail screen is used for both create and amend flows. It edits one bill dra
 
 - sends complete bill-save commands back through the bridge
 - performs only local form logic such as amount parsing, share preview, and share-mode handling
+- keeps draft field values editable as raw input and reports validation errors only when the user confirms the save
 - uses ledger users from the backend as the selectable bill participants
 - new-bill mode seeds the draft from the current ledger users with equal shares
 - amend mode seeds the draft from the selected bill and preserves its effective participant set

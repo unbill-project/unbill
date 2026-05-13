@@ -56,6 +56,8 @@ All reads from signals inside the event loop use `get_untracked()` to avoid crea
 
 `BillEditorSeed` carries a snapshot of `currency` and `users` taken at the moment the editor is opened. `BillEditorPage` reads only `bill_editor`, not `ledger_detail`, so background refreshes to `ledger_detail` do not destroy or reset the open form.
 
+The bill editor page, draft model, split preview, and save-time validation live in `unbill-ui-components::bill_editor`. This app adapts server DTOs into the shared editor seed and maps the returned save request into the remote service input.
+
 ## API layer
 
 `api.rs` defines async functions that delegate to `UnbillService` and return typed DTO structs. DTOs are plain `serde` structs defined alongside the functions. `main.rs` and `app.rs` call into `api.rs`; no component accesses the service directly.

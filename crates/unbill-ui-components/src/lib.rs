@@ -1,4 +1,5 @@
 pub mod bill;
+pub mod bill_editor;
 pub mod button;
 pub mod input;
 pub mod layout;

@@ -19,6 +19,7 @@ src/
   layout.rs       ScreenFrame, EmptyColumn, SectionCard, FieldBlock, ModalSheet
   status.rs       StatusStrip
   bill.rs         bill-related components
+  bill_editor.rs  bill-editor draft data, validation, and page component
   user.rs         user-related components
   ledger.rs       ledger-related components
   settlement.rs   settlement-related components
