@@ -157,6 +157,7 @@ impl DerefMut for InMemoryStoreGuard {
 
 /// Newtype wrapping `Arc<tokio::sync::Mutex<InMemoryStore>>` so that
 /// [`LockableStore`] can be implemented without violating the orphan rule.
+#[derive(Clone)]
 pub struct LockedInMemoryStore(Arc<tokio::sync::Mutex<InMemoryStore>>);
 
 impl LockedInMemoryStore {
@@ -175,5 +176,47 @@ impl LockableStore for LockedInMemoryStore {
 
     async fn lock(&self) -> Result<InMemoryStoreGuard> {
         Ok(InMemoryStoreGuard(Arc::clone(&self.0).lock_owned().await))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use unbill_storage::LockableStore;
+
+    #[tokio::test]
+    async fn test_lock_guard_derefs_to_ledger_store() {
+        let store = LockedInMemoryStore::new(InMemoryStore::default());
+        let guard = store.lock().await.unwrap();
+        let ledgers = guard.list_ledgers().await.unwrap();
+        assert!(ledgers.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_lock_is_exclusive() {
+        let store = LockedInMemoryStore::new(InMemoryStore::default());
+        let store2 = store.clone();
+
+        let guard = store.lock().await.unwrap();
+
+        let task = tokio::spawn(async move { store2.lock().await.unwrap() });
+
+        // Yield so the spawned task gets a chance to attempt the lock.
+        tokio::task::yield_now().await;
+        assert!(
+            !task.is_finished(),
+            "second lock should block while first guard is held"
+        );
+
+        drop(guard);
+
+        tokio::time::timeout(std::time::Duration::from_secs(1), task)
+            .await
+            .expect("lock should be released within timeout")
+            .unwrap();
     }
 }

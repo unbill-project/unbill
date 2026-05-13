@@ -3,6 +3,7 @@
 pub mod path;
 pub use path::{UNBILL_PATH, UnbillPath};
 
+use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 
 use async_trait::async_trait;
@@ -10,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use rand::TryRng as _;
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
-use unbill_storage::{LedgerDoc, LedgerStore, StorageResult as Result};
+use unbill_storage::{LedgerDoc, LedgerStore, LockableStore, StorageResult as Result};
 
 pub struct FsStore {
     root: PathBuf,
@@ -186,6 +187,60 @@ impl LedgerStore for FsStore {
     }
 }
 
+// ---------------------------------------------------------------------------
+// LockableStore
+// ---------------------------------------------------------------------------
+
+/// Exclusive valued lock guard over an [`FsStore`].
+///
+/// Holds an OS-level exclusive file lock on `<root>/.lock` for the duration
+/// of the guard's lifetime. Dropping the guard releases the lock.
+pub struct FsStoreGuard {
+    store: FsStore,
+    _lock_file: std::fs::File,
+}
+
+impl Deref for FsStoreGuard {
+    type Target = dyn LedgerStore + 'static;
+    fn deref(&self) -> &(dyn LedgerStore + 'static) {
+        &self.store
+    }
+}
+
+impl DerefMut for FsStoreGuard {
+    fn deref_mut(&mut self) -> &mut (dyn LedgerStore + 'static) {
+        &mut self.store
+    }
+}
+
+#[async_trait]
+impl LockableStore for FsStore {
+    type Guard<'a>
+        = FsStoreGuard
+    where
+        Self: 'a;
+
+    async fn lock(&self) -> Result<FsStoreGuard> {
+        let root = self.root.clone();
+        let lock_file = tokio::task::spawn_blocking(move || -> std::io::Result<std::fs::File> {
+            std::fs::create_dir_all(&root)?;
+            let file = std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .open(root.join(".lock"))?;
+            file.lock()?;
+            Ok(file)
+        })
+        .await
+        .map_err(|e| StorageError::Serialization(e.to_string()))??;
+
+        Ok(FsStoreGuard {
+            store: FsStore::new(self.root.clone()),
+            _lock_file: lock_file,
+        })
+    }
+}
+
 async fn atomic_write(path: PathBuf, bytes: &[u8]) -> Result<()> {
     let tmp = path.with_extension("tmp");
     tokio::fs::write(&tmp, bytes).await?;
@@ -279,5 +334,57 @@ mod tests {
             .unwrap();
         let loaded = store.load_device_meta("device_key.bin").await.unwrap();
         assert_eq!(loaded.as_deref(), Some(b"secret".as_ref()));
+    }
+
+    #[tokio::test]
+    async fn test_lock_creates_sentinel_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = FsStore::new(dir.path().to_path_buf());
+        let _guard = store.lock().await.unwrap();
+        assert!(dir.path().join(".lock").exists());
+    }
+
+    #[tokio::test]
+    async fn test_lock_sentinel_persists_after_drop() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = FsStore::new(dir.path().to_path_buf());
+        let guard = store.lock().await.unwrap();
+        drop(guard);
+        // The file stays; only the OS lock on it is released.
+        assert!(dir.path().join(".lock").exists());
+    }
+
+    #[tokio::test]
+    async fn test_lock_is_exclusive() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = FsStore::new(dir.path().to_path_buf());
+        let guard = store.lock().await.unwrap();
+
+        // Open a second file descriptor on the same sentinel and try a
+        // non-blocking exclusive lock — it must fail while the guard is live.
+        let lock_path = dir.path().join(".lock");
+        let f = std::fs::OpenOptions::new()
+            .write(true)
+            .open(&lock_path)
+            .unwrap();
+        assert!(
+            f.try_lock().is_err(),
+            "second fd should not acquire the lock while the guard is held"
+        );
+
+        drop(guard);
+
+        // After the guard is dropped the OS lock is gone; f can now lock.
+        f.try_lock()
+            .expect("second fd should acquire the lock after the guard is dropped");
+    }
+
+    #[tokio::test]
+    async fn test_lock_guard_derefs_to_ledger_store() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = FsStore::new(dir.path().to_path_buf());
+        let guard = store.lock().await.unwrap();
+        let ledgers = guard.list_ledgers().await.unwrap();
+        assert!(ledgers.is_empty());
     }
 }
