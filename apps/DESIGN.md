@@ -73,6 +73,7 @@ The device settings tab owns local-only device concerns such as known peer devic
 - shows the device ID (read-only)
 - sync actions target known peer devices gathered from backend state
 - join-ledger action accepts an inbound `unbill://join/…` URL to import a ledger from a peer device
+- clipboard prefill is a convenience for join-ledger only; clipboard errors must still leave the manual invitation entry flow available
 - invitation URLs and device labels remain local client concerns
 - this tab does not require an active ledger selection
 

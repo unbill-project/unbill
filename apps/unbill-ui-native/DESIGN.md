@@ -53,3 +53,5 @@ Ledger detail data includes the peer devices authorized for that ledger. The Led
 ## User actions
 
 Device Settings shows the local device ID, known sync peers, and join actions. Ledger Settings adds ledger users by presenting the picker of users from all ledgers on the device (excluding those already in the selected ledger) alongside a create-new option. Ledger invitation URLs live in overlay state and are copied through the Tauri clipboard bridge.
+
+The native join action may prefill the invitation field from the Tauri clipboard bridge, but clipboard availability is never required for joining. If clipboard read fails or returns empty text, the same join sheet remains available for manual paste.
