@@ -136,6 +136,31 @@ pub(crate) enum OverlayKind {
     AddUser,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct JoinInvitationIntent {
+    pub(crate) initial_url: String,
+    pub(crate) error_message: Option<String>,
+}
+
+pub(crate) fn join_invitation_intent_from_clipboard(
+    clipboard_text: Result<String, String>,
+) -> JoinInvitationIntent {
+    match clipboard_text {
+        Ok(url) if !url.trim().is_empty() => JoinInvitationIntent {
+            initial_url: url,
+            error_message: None,
+        },
+        Ok(_) => JoinInvitationIntent {
+            initial_url: String::new(),
+            error_message: Some("Clipboard is empty.".to_owned()),
+        },
+        Err(error) => JoinInvitationIntent {
+            initial_url: String::new(),
+            error_message: Some(error),
+        },
+    }
+}
+
 #[component]
 pub fn App() -> impl IntoView {
     let surface_mode = RwSignal::new(surface_mode_from_window());
@@ -366,12 +391,12 @@ pub fn App() -> impl IntoView {
 
     let open_join_from_clipboard = move || {
         spawn_local(async move {
-            match api::read_clipboard_text().await {
-                Ok(url) if !url.trim().is_empty() => {
-                    overlay.set(Some(OverlayKind::JoinLedger { url }));
-                }
-                Ok(_) => toast.error("Clipboard is empty.".to_owned()),
-                Err(error) => toast.error(error),
+            let intent = join_invitation_intent_from_clipboard(api::read_clipboard_text().await);
+            overlay.set(Some(OverlayKind::JoinLedger {
+                url: intent.initial_url,
+            }));
+            if let Some(error) = intent.error_message {
+                toast.error(error);
             }
         });
     };
@@ -918,6 +943,31 @@ mod tests {
 
         assert_eq!(page_selection.as_deref(), Some("ledger-a"));
         assert_eq!(popup.selected_ledger_id.as_deref(), Some("ledger-b"));
+    }
+
+    #[test]
+    fn join_invitation_sheet_prefills_clipboard_url_when_available() {
+        let intent =
+            join_invitation_intent_from_clipboard(Ok("unbill://join/invitation".to_owned()));
+
+        assert_eq!(intent.initial_url, "unbill://join/invitation");
+        assert_eq!(intent.error_message, None);
+    }
+
+    #[test]
+    fn join_invitation_sheet_opens_empty_when_clipboard_is_empty() {
+        let intent = join_invitation_intent_from_clipboard(Ok("   ".to_owned()));
+
+        assert_eq!(intent.initial_url, "");
+        assert_eq!(intent.error_message.as_deref(), Some("Clipboard is empty."));
+    }
+
+    #[test]
+    fn join_invitation_sheet_opens_empty_when_clipboard_read_errors() {
+        let intent = join_invitation_intent_from_clipboard(Err("permission denied".to_owned()));
+
+        assert_eq!(intent.initial_url, "");
+        assert_eq!(intent.error_message.as_deref(), Some("permission denied"));
     }
 
     #[test]
