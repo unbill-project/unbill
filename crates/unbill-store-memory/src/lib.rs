@@ -1,13 +1,15 @@
 // In-memory LedgerStore implementation for unit tests.
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::ops::{Deref, DerefMut};
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use rand::TryRng as _;
+use tokio::sync::OwnedMutexGuard;
 
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
-use unbill_storage::{LedgerDoc, LedgerStore, StorageResult as Result};
+use unbill_storage::{LedgerDoc, LedgerStore, LockableStore, StorageResult as Result};
 
 #[derive(Default)]
 pub struct InMemoryStore {
@@ -130,5 +132,48 @@ impl LedgerStore for InMemoryStore {
             .try_into()
             .map_err(|_| StorageError::Serialization("device_key.bin: wrong length".into()))?;
         Ok(SecretKey::from_bytes(arr))
+    }
+}
+
+/// Exclusive valued lock guard over an [`InMemoryStore`].
+///
+/// Holds a `tokio` owned mutex guard and derefs to `dyn LedgerStore`.
+pub struct InMemoryStoreGuard(OwnedMutexGuard<InMemoryStore>);
+
+impl Deref for InMemoryStoreGuard {
+    type Target = dyn LedgerStore + 'static;
+    fn deref(&self) -> &(dyn LedgerStore + 'static) {
+        let r: &(dyn LedgerStore + 'static) = &*self.0;
+        r
+    }
+}
+
+impl DerefMut for InMemoryStoreGuard {
+    fn deref_mut(&mut self) -> &mut (dyn LedgerStore + 'static) {
+        let r: &mut (dyn LedgerStore + 'static) = &mut *self.0;
+        r
+    }
+}
+
+/// Newtype wrapping `Arc<tokio::sync::Mutex<InMemoryStore>>` so that
+/// [`LockableStore`] can be implemented without violating the orphan rule.
+pub struct LockedInMemoryStore(Arc<tokio::sync::Mutex<InMemoryStore>>);
+
+impl LockedInMemoryStore {
+    pub fn new(store: InMemoryStore) -> Self {
+        Self(Arc::new(tokio::sync::Mutex::new(store)))
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+impl LockableStore for LockedInMemoryStore {
+    type Guard<'a>
+        = InMemoryStoreGuard
+    where
+        Self: 'a;
+
+    async fn lock(&self) -> Result<InMemoryStoreGuard> {
+        Ok(InMemoryStoreGuard(Arc::clone(&self.0).lock_owned().await))
     }
 }
