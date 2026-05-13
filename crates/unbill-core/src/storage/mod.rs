@@ -1,3 +1,3 @@
 // Persistence layer. See storage/DESIGN.md before implementing.
 
-pub use unbill_storage::{LedgerStore, StorageResult};
+pub use unbill_storage::{LedgerStore, LockableStore, StorageLockGuard, StorageResult};

@@ -1,10 +1,32 @@
 use async_trait::async_trait;
+use std::ops::{Deref, DerefMut};
 
 use unbill_model::{LedgerMeta, NodeId, SecretKey, StorageError};
 
 use crate::LedgerDoc;
 
 pub type StorageResult<T> = std::result::Result<T, StorageError>;
+
+/// A valued lock guard that owns the entire storage layer and exposes it via
+/// [`Deref`] and [`DerefMut`].
+///
+/// "Valued" means the guard holds the store by value rather than by reference
+/// into a mutex. Implementors may commit pending state on drop.
+pub trait StorageLockGuard<T: ?Sized>: Deref<Target = T> + DerefMut {}
+
+impl<G, T: ?Sized> StorageLockGuard<T> for G where G: Deref<Target = T> + DerefMut {}
+
+/// A type that can hand out an exclusive valued lock over the full
+/// [`LedgerStore`] it wraps.
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+pub trait LockableStore {
+    type Guard<'a>: StorageLockGuard<dyn LedgerStore> + 'a
+    where
+        Self: 'a;
+
+    async fn lock(&self) -> StorageResult<Self::Guard<'_>>;
+}
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
