@@ -45,6 +45,7 @@ pub struct LedgerDetail {
     pub users: Vec<User>,
     pub devices: Vec<SyncDevice>,
     pub bills: Vec<Bill>,
+    pub conflicts: Vec<ConflictGroup>,
     pub settlement: Vec<Transaction>,
 }
 
@@ -92,6 +93,13 @@ pub struct Bill {
     pub prev: Vec<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictGroup {
+    pub conflicting: Vec<Bill>,
+    pub ancestors: Vec<Bill>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateLedgerInput {
@@ -129,6 +137,14 @@ pub struct SaveBillInput {
     pub payers: Vec<BillShareInput>,
     pub payees: Vec<BillShareInput>,
     pub prev_bill_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolveConflictInput {
+    pub ledger_id: String,
+    pub selected_bill_id: String,
+    pub conflicting_bill_ids: Vec<String>,
 }
 
 pub async fn bootstrap_app() -> Result<AppBootstrap, String> {
@@ -169,6 +185,10 @@ pub async fn join_ledger(input: JoinLedgerInput) -> Result<(), String> {
 
 pub async fn save_bill(input: SaveBillInput) -> Result<String, String> {
     invoke("save_bill", &serde_json::json!({ "input": input })).await
+}
+
+pub async fn resolve_conflict(input: ResolveConflictInput) -> Result<String, String> {
+    invoke("resolve_conflict", &serde_json::json!({ "input": input })).await
 }
 
 pub async fn sync_once(peer_node_id: &str) -> Result<(), String> {

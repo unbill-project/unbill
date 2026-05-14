@@ -1,6 +1,6 @@
 use crate::api::{
-    self, AddUserInput, Bill, CreateUserInput, LedgerDetail, LedgerSummary, SaveBillInput,
-    SyncDevice, User,
+    self, AddUserInput, Bill, CreateUserInput, LedgerDetail, LedgerSummary, ResolveConflictInput,
+    SaveBillInput, SyncDevice, User,
 };
 use crate::components::{EmptyColumn, use_toast};
 use crate::pages::{
@@ -371,6 +371,26 @@ pub fn App() -> impl IntoView {
         }
     };
 
+    let resolve_conflict =
+        move |(selected_bill_id, conflicting_bill_ids): (String, Vec<String>)| {
+            if let Some(ledger_id) = selected_ledger_id.get() {
+                loading_count.update(|n| *n += 1);
+                spawn_local(async move {
+                    match api::resolve_conflict(ResolveConflictInput {
+                        ledger_id,
+                        selected_bill_id,
+                        conflicting_bill_ids,
+                    })
+                    .await
+                    {
+                        Ok(_) => toast.show("Conflict resolved.".to_owned()),
+                        Err(error) => toast.error(error),
+                    }
+                    loading_count.update(|n| *n = n.saturating_sub(1));
+                });
+            }
+        };
+
     let create_invitation = move || {
         if let Some(ledger_id) = settings_popup
             .get()
@@ -603,6 +623,7 @@ pub fn App() -> impl IntoView {
                     on_more=Callback::new(move |_| open_ledger_settings())
                     on_open_bill=Callback::new(open_bill_amend)
                     on_new_bill=Callback::new(move |_| open_new_bill())
+                    on_resolve_conflict=Callback::new(resolve_conflict)
                 />
             }
             .into_any();
@@ -683,6 +704,7 @@ pub fn App() -> impl IntoView {
                                         on_more=Callback::new(move |_| open_ledger_settings())
                                         on_open_bill=Callback::new(open_bill_amend)
                                         on_new_bill=Callback::new(move |_| open_new_bill())
+                                        on_resolve_conflict=Callback::new(resolve_conflict)
                                     />
                                 }
                                 .into_any()

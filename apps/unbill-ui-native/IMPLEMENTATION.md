@@ -2,7 +2,7 @@
 
 The Leptos app is a client-side rendered Tauri frontend. `main.rs` mounts `App`, `app.rs` owns navigation state and async bridge calls, `pages.rs` defines screen-level components, `components.rs` contains reusable UI pieces, and `api.rs` mirrors the JSON DTOs returned by Tauri commands.
 
-The app keeps backend data in signals: bootstrap state for the device ID, ledgers, local users, and known devices; selected ledger detail for bills, users, settlement, and ledger-scoped sync peers; settings ledger detail for overlay-only ledger selection; and transient overlay state for create, join, invite, saved-user import/share, and editor flows. Mutating actions call the bridge, show shared status or error feedback, refresh bootstrap state, and refresh selected ledger detail only when the visible active ledger could have changed.
+The app keeps backend data in signals: bootstrap state for the device ID, ledgers, local users, and known devices; selected ledger detail for bills, users, conflict groups, settlement, and ledger-scoped sync peers; settings ledger detail for overlay-only ledger selection; and transient overlay state for create, join, invite, saved-user import/share, conflict selection, and editor flows. Mutating actions call the bridge, show shared status or error feedback, refresh bootstrap state, and refresh selected ledger detail only when the visible active ledger could have changed.
 
 Settings state is represented as a single popup state with an active tab and selected ledger ID. In ranger mode the popup overlays the three columns. In compact mode the popup fills the viewport while the normal compact page priority remains unchanged behind it.
 
@@ -13,6 +13,8 @@ Device Settings renders the device ID, saved local users, known peer devices acr
 The native join action attempts to prefill the join sheet from the platform clipboard. Empty clipboard text or clipboard read failures are surfaced through the shared toast feedback, but the join sheet still opens with an editable invitation URL field so users can paste manually.
 
 The bill editor page, draft model, split preview, and save-time validation live in `unbill-ui-components::bill_editor`. This app adapts native DTOs into the shared editor seed and maps the returned save request into the Tauri bridge input.
+
+Conflict groups are included in the ledger detail DTO assembled by the Tauri bridge. The native UI renders them above settlement, stores the selected bill per group in Leptos state, and sends a conflict resolution command that names the selected bill and the full competing bill set. The Tauri backend validates the selection against the detected group, copies the selected bill fields into a merge amendment, and persists it through the service layer.
 
 The stylesheet implements a native utility shell with system typography, full-height panes, dense rows, compact toolbars, restrained borders, and stable control dimensions. Screen frame columns sit flush against each other separated only by a single-pixel right border on each frame (omitted on the last child). The topbar uses a flex row with the copy slot growing to fill available space; leading and trailing slots do not shrink. Safe area insets are applied as padding on `.app-shell` using `env(safe-area-inset-*)` so device notches and home indicators are respected without per-component overrides.
 
