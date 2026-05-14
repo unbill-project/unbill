@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
@@ -42,6 +42,7 @@ struct LedgerDetailDto {
     users: Vec<UserDto>,
     devices: Vec<SyncDeviceDto>,
     bills: Vec<BillDto>,
+    conflicts: Vec<ConflictGroupDto>,
     settlement: Vec<TransactionDto>,
 }
 
@@ -79,6 +80,13 @@ struct BillDto {
     payers: Vec<ShareDto>,
     payees: Vec<ShareDto>,
     prev: Vec<String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ConflictGroupDto {
+    conflicting: Vec<BillDto>,
+    ancestors: Vec<BillDto>,
 }
 
 #[derive(Clone, Serialize)]
@@ -133,6 +141,14 @@ struct SaveBillInput {
     payers: Vec<BillShareInput>,
     payees: Vec<BillShareInput>,
     prev_bill_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ResolveConflictInput {
+    ledger_id: String,
+    selected_bill_id: String,
+    conflicting_bill_ids: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -306,6 +322,16 @@ async fn save_bill(
         .map_err(stringify_error)?;
 
     Ok(bill_id.to_string())
+}
+
+#[tauri::command]
+async fn resolve_conflict(
+    input: ResolveConflictInput,
+    state: State<'_, AppState>,
+) -> std::result::Result<String, String> {
+    resolve_conflict_inner(&state.service, input)
+        .await
+        .map_err(stringify_error)
 }
 
 #[tauri::command]
@@ -522,6 +548,7 @@ async fn load_ledger_detail_inner(
     .await?;
     let users = service.list_users(ledger_id).await?;
     let bills = service.list_bills(ledger_id).await?;
+    let conflicts = service.detect_conflicts(ledger_id).await?;
 
     let user_name_lookup: std::collections::HashMap<UserId, String> = users
         .iter()
@@ -548,14 +575,67 @@ async fn load_ledger_detail_inner(
 
     let user_dtos = users.into_iter().map(UserDto::from).collect::<Vec<_>>();
     let bill_dtos = map_bills_from(bills, &user_name_lookup);
+    let conflict_dtos = map_conflicts_from(conflicts, &user_name_lookup);
 
     Ok(LedgerDetailDto {
         summary,
         users: user_dtos,
         devices,
         bills: bill_dtos,
+        conflicts: conflict_dtos,
         settlement,
     })
+}
+
+async fn resolve_conflict_inner(
+    service: &Arc<UnbillService>,
+    input: ResolveConflictInput,
+) -> Result<String> {
+    let ledger_id = parse_ledger_id(&input.ledger_id)?;
+    let selected_bill_id = parse_bill_id(&input.selected_bill_id)?;
+    let requested_conflicting_ids = input
+        .conflicting_bill_ids
+        .iter()
+        .map(|id| parse_bill_id(id))
+        .collect::<Result<BTreeSet<_>>>()?;
+
+    if !requested_conflicting_ids.contains(&selected_bill_id) {
+        anyhow::bail!("selected bill is not part of the conflict");
+    }
+
+    let conflicts = service.detect_conflicts(ledger_id).await?;
+    let group = conflicts
+        .into_iter()
+        .find(|group| {
+            group
+                .conflicting
+                .iter()
+                .map(|bill| bill.id)
+                .collect::<BTreeSet<_>>()
+                == requested_conflicting_ids
+        })
+        .with_context(|| "conflict group is no longer current")?;
+
+    let selected_bill = group
+        .conflicting
+        .into_iter()
+        .find(|bill| bill.id == selected_bill_id)
+        .with_context(|| "selected bill is no longer a current conflicting bill")?;
+
+    let merge_id = service
+        .add_bill(
+            ledger_id,
+            NewBill {
+                amount_cents: selected_bill.amount_cents,
+                description: selected_bill.description,
+                payers: selected_bill.payers,
+                payees: selected_bill.payees,
+                prev: requested_conflicting_ids.into_iter().collect(),
+            },
+        )
+        .await?;
+
+    Ok(merge_id.to_string())
 }
 
 async fn summarize_ledger(
@@ -584,29 +664,59 @@ fn map_bills_from(
     let mut items = bills
         .into_vec()
         .into_iter()
-        .map(|bill| {
-            let to_share_dto = |share: unbill_core::model::Share| ShareDto {
-                display_name: user_lookup
-                    .get(&share.user_id)
-                    .cloned()
-                    .unwrap_or_else(|| share.user_id.to_string()),
-                user_id: share.user_id.to_string(),
-                shares: share.shares,
-            };
-            BillDto {
-                id: bill.id.to_string(),
-                amount_cents: bill.amount_cents,
-                description: bill.description,
-                created_at_ms: bill.created_at.as_millis(),
-                payers: bill.payers.into_iter().map(to_share_dto).collect(),
-                payees: bill.payees.into_iter().map(to_share_dto).collect(),
-                prev: bill.prev.into_iter().map(|prev| prev.to_string()).collect(),
-            }
-        })
+        .map(|bill| bill_to_dto(bill, user_lookup))
         .collect::<Vec<_>>();
 
     items.sort_by_key(|item| std::cmp::Reverse(item.created_at_ms));
     items
+}
+
+fn map_conflicts_from(
+    conflicts: Vec<unbill_core::service::ConflictGroup>,
+    user_lookup: &std::collections::HashMap<UserId, String>,
+) -> Vec<ConflictGroupDto> {
+    conflicts
+        .into_iter()
+        .map(|group| ConflictGroupDto {
+            conflicting: map_bill_vec(group.conflicting, user_lookup),
+            ancestors: map_bill_vec(group.ancestors, user_lookup),
+        })
+        .collect()
+}
+
+fn map_bill_vec(
+    bills: Vec<unbill_core::model::Bill>,
+    user_lookup: &std::collections::HashMap<UserId, String>,
+) -> Vec<BillDto> {
+    let mut items = bills
+        .into_iter()
+        .map(|bill| bill_to_dto(bill, user_lookup))
+        .collect::<Vec<_>>();
+    items.sort_by_key(|item| std::cmp::Reverse(item.created_at_ms));
+    items
+}
+
+fn bill_to_dto(
+    bill: unbill_core::model::Bill,
+    user_lookup: &std::collections::HashMap<UserId, String>,
+) -> BillDto {
+    let to_share_dto = |share: unbill_core::model::Share| ShareDto {
+        display_name: user_lookup
+            .get(&share.user_id)
+            .cloned()
+            .unwrap_or_else(|| share.user_id.to_string()),
+        user_id: share.user_id.to_string(),
+        shares: share.shares,
+    };
+    BillDto {
+        id: bill.id.to_string(),
+        amount_cents: bill.amount_cents,
+        description: bill.description,
+        created_at_ms: bill.created_at.as_millis(),
+        payers: bill.payers.into_iter().map(to_share_dto).collect(),
+        payees: bill.payees.into_iter().map(to_share_dto).collect(),
+        prev: bill.prev.into_iter().map(|prev| prev.to_string()).collect(),
+    }
 }
 
 fn parse_ledger_id(value: &str) -> Result<LedgerId> {
@@ -683,6 +793,7 @@ pub fn run() {
             create_invitation,
             join_ledger,
             save_bill,
+            resolve_conflict,
             sync_once,
             preview_bill_split
         ])
@@ -722,7 +833,7 @@ mod tests {
         );
         assert_eq!(
             before_dev["script"].as_str(),
-            Some("trunk serve --config Trunk.toml --address 0.0.0.0")
+            Some("trunk serve --config Trunk.toml")
         );
     }
 
@@ -796,6 +907,60 @@ mod tests {
         assert_eq!(detail.devices[0].node_id, kitchen.device_id().to_string());
         assert_eq!(detail.devices[0].label, "Kitchen iPad");
         assert_eq!(detail.devices[0].ledger_names, vec!["Groceries"]);
+    }
+
+    #[tokio::test]
+    async fn ledger_detail_includes_conflicting_bills_and_ancestors() {
+        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
+            .await
+            .unwrap();
+        let (ledger_id, _base_id, left_id, right_id) = create_conflicted_ledger(&service).await;
+
+        let detail = super::load_ledger_detail_inner(&service, ledger_id)
+            .await
+            .unwrap();
+
+        assert_eq!(detail.conflicts.len(), 1);
+        let group = &detail.conflicts[0];
+        let conflicting_ids = group
+            .conflicting
+            .iter()
+            .map(|bill| bill.id.clone())
+            .collect::<Vec<_>>();
+        assert!(conflicting_ids.contains(&left_id.to_string()));
+        assert!(conflicting_ids.contains(&right_id.to_string()));
+        assert_eq!(group.ancestors.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn resolving_conflict_keeps_selected_bill_and_clears_group() {
+        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
+            .await
+            .unwrap();
+        let (ledger_id, _base_id, left_id, right_id) = create_conflicted_ledger(&service).await;
+
+        let merge_id = super::resolve_conflict_inner(
+            &service,
+            super::ResolveConflictInput {
+                ledger_id: ledger_id.to_string(),
+                selected_bill_id: right_id.to_string(),
+                conflicting_bill_ids: vec![left_id.to_string(), right_id.to_string()],
+            },
+        )
+        .await
+        .unwrap();
+
+        let conflicts = service.detect_conflicts(ledger_id).await.unwrap();
+        assert!(conflicts.is_empty());
+        let bills = service.list_bills(ledger_id).await.unwrap().into_vec();
+        let merge_bill = bills
+            .iter()
+            .find(|bill| bill.id.to_string() == merge_id)
+            .unwrap();
+        assert_eq!(merge_bill.description, "Right branch");
+        assert_eq!(merge_bill.amount_cents, 1500);
+        assert!(merge_bill.prev.contains(&left_id));
+        assert!(merge_bill.prev.contains(&right_id));
     }
 
     #[tokio::test]
@@ -919,5 +1084,70 @@ mod tests {
         let bootstrap = super::bootstrap_app_inner(&service).await.unwrap();
 
         assert_eq!(bootstrap.all_users.len(), 2);
+    }
+
+    async fn create_conflicted_ledger(
+        service: &Arc<UnbillService>,
+    ) -> (super::LedgerId, super::BillId, super::BillId, super::BillId) {
+        let ledger_id = service
+            .create_ledger(super::NewLedger {
+                name: "Kitchen".to_owned(),
+                currency: super::Currency::from_code("USD").unwrap(),
+            })
+            .await
+            .unwrap();
+        let user = service
+            .create_user(
+                ledger_id,
+                super::NewUserName {
+                    display_name: "Ada".to_owned(),
+                },
+            )
+            .await
+            .unwrap();
+        let shares = vec![super::Share {
+            user_id: user.user_id,
+            shares: 1,
+        }];
+        let base_id = service
+            .add_bill(
+                ledger_id,
+                super::NewBill {
+                    amount_cents: 1000,
+                    description: "Original".to_owned(),
+                    payers: shares.clone(),
+                    payees: shares.clone(),
+                    prev: Vec::new(),
+                },
+            )
+            .await
+            .unwrap();
+        let left_id = service
+            .add_bill(
+                ledger_id,
+                super::NewBill {
+                    amount_cents: 1200,
+                    description: "Left branch".to_owned(),
+                    payers: shares.clone(),
+                    payees: shares.clone(),
+                    prev: vec![base_id],
+                },
+            )
+            .await
+            .unwrap();
+        let right_id = service
+            .add_bill(
+                ledger_id,
+                super::NewBill {
+                    amount_cents: 1500,
+                    description: "Right branch".to_owned(),
+                    payers: shares.clone(),
+                    payees: shares,
+                    prev: vec![base_id],
+                },
+            )
+            .await
+            .unwrap();
+        (ledger_id, base_id, left_id, right_id)
     }
 }

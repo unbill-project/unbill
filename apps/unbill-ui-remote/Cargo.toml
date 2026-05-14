@@ -22,3 +22,6 @@ web-sys = { version = "0.3", features = ["Clipboard", "Event", "EventTarget", "M
 tokio = { version = "1", default-features = false, features = ["sync"] }
 getrandom3 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 getrandom4 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
+
+[dev-dependencies]
+unbill-store-memory = { path = "../../crates/unbill-store-memory" }

@@ -17,7 +17,7 @@ App-level state in `app.rs` is split into granular `RwSignal`s so that each piec
 | `device_id` | `String` | Server-assigned device ID. Read-only display. |
 | `ledgers` | `Vec<LedgerSummary>` | All ledgers, sorted by most-recent bill then name. |
 | `all_users` | `Vec<User>` | Union of users across all ledgers. Used by the add-user picker. |
-| `ledger_detail` | `Option<LedgerDetail>` | Bills, users, devices, and settlement for the currently selected ledger. |
+| `ledger_detail` | `Option<LedgerDetail>` | Bills, conflict groups, users, devices, and settlement for the currently selected ledger. |
 | `settings_ledger_detail` | `Option<LedgerDetail>` | Same shape, but for the ledger selected inside the Settings popup — independent so Settings can browse ledgers without changing the main view. |
 
 **Navigation / overlay signals** (owned entirely by the UI layer):
@@ -57,6 +57,8 @@ All reads from signals inside the event loop use `get_untracked()` to avoid crea
 `BillEditorSeed` carries a snapshot of `currency` and `users` taken at the moment the editor is opened. `BillEditorPage` reads only `bill_editor`, not `ledger_detail`, so background refreshes to `ledger_detail` do not destroy or reset the open form.
 
 The bill editor page, draft model, split preview, and save-time validation live in `unbill-ui-components::bill_editor`. This app adapts server DTOs into the shared editor seed and maps the returned save request into the remote service input.
+
+Conflict groups are loaded with ledger detail through the same service wrapper as bills and settlement. The remote UI renders them above settlement, stores the selected bill per group in Leptos state, and resolves a group by sending the selected bill plus the full competing bill set to the API layer. The API layer validates the selection against the current detected group, copies the selected bill fields into a merge amendment, and persists it through `UnbillService`.
 
 ## API layer
 
