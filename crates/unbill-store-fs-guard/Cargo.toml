@@ -1,6 +1,6 @@
 [package]
-name = "unbill-store-memory"
-description = "In-memory LedgerStore implementation for unbill — primarily for tests."
+name = "unbill-store-fs-guard"
+description = "Generic OS file-lock–based LockableStore guard for any LedgerStore."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,9 +11,8 @@ homepage.workspace = true
 unbill-storage = { path = "../unbill-storage" }
 unbill-model = { path = "../unbill-model" }
 async-trait.workspace = true
-iroh.workspace = true
-rand.workspace = true
+tokio.workspace = true
 
 [dev-dependencies]
-unbill-store-memory-guard = { path = "../unbill-store-memory-guard" }
-tokio = { workspace = true }
+unbill-store-fs = { path = "../unbill-store-fs" }
+tempfile = "3"

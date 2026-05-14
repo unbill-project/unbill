@@ -1,0 +1,21 @@
+[package]
+name = "unbill-store-memory-guard"
+description = "Generic mutex-based LockableStore guard for any LedgerStore."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+unbill-storage = { path = "../unbill-storage" }
+async-trait.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tokio = { version = "1", default-features = false, features = ["sync"] }
+
+[dev-dependencies]
+unbill-store-memory = { path = "../unbill-store-memory" }
