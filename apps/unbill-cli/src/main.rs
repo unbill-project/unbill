@@ -6,8 +6,7 @@ use std::sync::Arc;
 use anyhow::bail;
 use clap::Parser;
 use unbill_core::service::UnbillService;
-use unbill_store_fs::FsStore;
-use unbill_store_fs::UNBILL_PATH;
+use unbill_store_fs::{FsStore, LockedFsStore, UNBILL_PATH};
 
 mod commands;
 mod output;
@@ -201,7 +200,10 @@ async fn run() -> anyhow::Result<()> {
 
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
 
-    let store = Arc::new(FsStore::new(data_dir.clone()));
+    let store = Arc::new(LockedFsStore::new(
+        FsStore::new(data_dir.clone()),
+        data_dir.join(".unbill.lock"),
+    ));
     let svc = UnbillService::open(store).await?;
 
     match cli.command {

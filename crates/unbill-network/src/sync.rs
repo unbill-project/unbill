@@ -12,7 +12,7 @@ use tokio::sync::broadcast;
 
 use unbill_event::ServiceEvent;
 use unbill_model::{NodeId, UnbillError};
-use unbill_storage::{LedgerDoc, LedgerStore};
+use unbill_storage::{LedgerDoc, LockableStore};
 
 type Result<T> = std::result::Result<T, UnbillError>;
 
@@ -38,24 +38,26 @@ struct LedgerSyncState {
 ///
 /// Ledger documents are loaded from the store at the start of the session and
 /// held in memory only for its duration. Nothing is cached between sessions.
-pub async fn run_sync_session<R, W>(
+pub async fn run_sync_session<R, W, S>(
     is_initiator: bool,
     peer_node_id: NodeId,
-    store: &Arc<dyn LedgerStore>,
+    store: &Arc<S>,
     events: &broadcast::Sender<ServiceEvent>,
     mut reader: R,
     mut writer: W,
 ) -> Result<()>
 where
-    R: AsyncRead + Unpin,
-    W: AsyncWrite + Unpin,
+    R: AsyncRead + Unpin + Send,
+    W: AsyncWrite + Unpin + Send,
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
 {
     // -----------------------------------------------------------------------
     // Step 1: Hello / HelloAck handshake
     // -----------------------------------------------------------------------
 
     let accepted: Vec<String> = if is_initiator {
-        let metas = store.list_ledgers().await?;
+        let metas = store.lock().await?.list_ledgers().await?;
         let my_ids: Vec<String> = metas.iter().map(|m| m.ledger_id.to_string()).collect();
         // Build the set before moving my_ids into the Hello message.
         let my_ids_set: std::collections::HashSet<String> = my_ids.iter().cloned().collect();
@@ -96,7 +98,7 @@ where
         let mut accepted = Vec::new();
         let mut rejected = Vec::new();
         for id in &hello.ledger_ids {
-            let doc = match store.load_ledger(id).await {
+            let doc = match store.lock().await?.load_ledger(id).await {
                 Ok(Some(doc)) => doc,
                 _ => {
                     rejected.push(id.clone());
@@ -131,6 +133,8 @@ where
     let mut docs: HashMap<String, LedgerDoc> = HashMap::new();
     for id in &accepted {
         let doc = store
+            .lock()
+            .await?
             .load_ledger(id)
             .await?
             .ok_or_else(|| UnbillError::Network(format!("ledger {id} disappeared")))?;
@@ -236,7 +240,7 @@ where
 
     for id in &ledgers_with_remote_changes {
         if let Some(doc) = docs.get_mut(id) {
-            store.save_ledger(id, doc).await?;
+            store.lock().await?.save_ledger(id, doc).await?;
             let _ = events.send(ServiceEvent::LedgerUpdated {
                 ledger_id: id.clone(),
             });
@@ -257,14 +261,16 @@ mod tests {
     use tokio::sync::broadcast;
 
     use unbill_event::ServiceEvent;
-    use unbill_model::{Currency, LedgerId, NewBill, NewDevice, NodeId, Share, Timestamp, UserId};
-    use unbill_storage::{LedgerDoc, LedgerStore};
-    use unbill_store_memory::InMemoryStore;
+    use unbill_model::{
+        Currency, LedgerId, LedgerMeta, NewBill, NewDevice, NodeId, Share, Timestamp, UserId,
+    };
+    use unbill_storage::{LedgerDoc, LedgerStore, LockableStore};
+    use unbill_store_memory::LockedInMemoryStore;
 
     use super::run_sync_session;
 
-    fn make_store() -> Arc<InMemoryStore> {
-        Arc::new(InMemoryStore::default())
+    fn make_store() -> Arc<LockedInMemoryStore> {
+        Arc::new(LockedInMemoryStore::default())
     }
 
     fn make_events() -> broadcast::Sender<ServiceEvent> {
@@ -279,7 +285,7 @@ mod tests {
     async fn save_doc(store: &dyn LedgerStore, doc: &mut LedgerDoc) {
         let ledger = doc.get_ledger().unwrap();
         let id = ledger.ledger_id.to_string();
-        let meta = unbill_model::LedgerMeta {
+        let meta = LedgerMeta {
             ledger_id: ledger.ledger_id,
             name: ledger.name.clone(),
             currency: ledger.currency,
@@ -292,8 +298,8 @@ mod tests {
 
     /// Run sync between two stores over an in-process duplex channel.
     async fn sync_pair(
-        store_a: Arc<dyn LedgerStore>,
-        store_b: Arc<dyn LedgerStore>,
+        store_a: Arc<LockedInMemoryStore>,
+        store_b: Arc<LockedInMemoryStore>,
         peer_a: NodeId,
         peer_b: NodeId,
     ) {
@@ -327,9 +333,8 @@ mod tests {
         let node_a = NodeId::from_seed(1);
         let node_b = NodeId::from_seed(2);
 
-        // A has a ledger that authorizes B; B has no ledgers.
-        let store_a: Arc<dyn LedgerStore> = make_store();
-        let store_b: Arc<dyn LedgerStore> = make_store();
+        let store_a = make_store();
+        let store_b = make_store();
 
         let mut doc_a =
             LedgerDoc::new(LedgerId::new(), "Test".to_string(), usd(), Timestamp::now()).unwrap();
@@ -341,7 +346,10 @@ mod tests {
                 Timestamp::now(),
             )
             .unwrap();
-        save_doc(&*store_a, &mut doc_a).await;
+        {
+            let guard = store_a.lock().await.unwrap();
+            save_doc(&*guard, &mut doc_a).await;
+        }
 
         sync_pair(store_a, store_b, node_a, node_b).await;
         // No panic = both sides closed cleanly with empty accepted list.
@@ -425,16 +433,36 @@ mod tests {
             )
             .unwrap();
 
-        let store_a: Arc<dyn LedgerStore> = make_store();
-        let store_b: Arc<dyn LedgerStore> = make_store();
-        save_doc(&*store_a, &mut doc_a).await;
-        save_doc(&*store_b, &mut doc_b).await;
+        let store_a = make_store();
+        let store_b = make_store();
+        {
+            let guard = store_a.lock().await.unwrap();
+            save_doc(&*guard, &mut doc_a).await;
+        }
+        {
+            let guard = store_b.lock().await.unwrap();
+            save_doc(&*guard, &mut doc_b).await;
+        }
 
         sync_pair(Arc::clone(&store_a), Arc::clone(&store_b), node_a, node_b).await;
 
         // Load final state from stores.
-        let doc_a_final = store_a.load_ledger(&ledger_id).await.unwrap().unwrap();
-        let doc_b_final = store_b.load_ledger(&ledger_id).await.unwrap().unwrap();
+        let doc_a_final = store_a
+            .lock()
+            .await
+            .unwrap()
+            .load_ledger(&ledger_id)
+            .await
+            .unwrap()
+            .unwrap();
+        let doc_b_final = store_b
+            .lock()
+            .await
+            .unwrap()
+            .load_ledger(&ledger_id)
+            .await
+            .unwrap()
+            .unwrap();
 
         let bills_a = doc_a_final.list_bills().unwrap();
         let bills_b = doc_b_final.list_bills().unwrap();
@@ -455,8 +483,8 @@ mod tests {
         let node_b = NodeId::from_seed(2);
 
         // A's ledger does NOT authorize B.
-        let store_a: Arc<dyn LedgerStore> = make_store();
-        let store_b: Arc<dyn LedgerStore> = make_store();
+        let store_a = make_store();
+        let store_b = make_store();
 
         let mut doc_a = LedgerDoc::new(
             LedgerId::new(),
@@ -466,7 +494,10 @@ mod tests {
         )
         .unwrap();
         let id = doc_a.get_ledger().unwrap().ledger_id.to_string();
-        save_doc(&*store_a, &mut doc_a).await;
+        {
+            let guard = store_a.lock().await.unwrap();
+            save_doc(&*guard, &mut doc_a).await;
+        }
 
         // B has the same ledger ID.
         let mut doc_b = LedgerDoc::new(
@@ -477,7 +508,13 @@ mod tests {
         )
         .unwrap();
         // Manually set the same ID by saving with A's id key.
-        store_b.save_ledger(&id, &mut doc_b).await.unwrap();
+        store_b
+            .lock()
+            .await
+            .unwrap()
+            .save_ledger(&id, &mut doc_b)
+            .await
+            .unwrap();
 
         sync_pair(store_a, store_b, node_a, node_b).await;
         // No panic — A just rejects the ledger.

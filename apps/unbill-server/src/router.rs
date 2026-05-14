@@ -15,13 +15,15 @@ use tower_http::trace::TraceLayer;
 use unbill_core::LedgerDoc;
 use unbill_core::model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
 use unbill_core::service::UnbillService;
+use unbill_core::storage::LockableStore;
+use unbill_store_fs::LockedFsStore;
 
 // ---------------------------------------------------------------------------
 // Shared state
 // ---------------------------------------------------------------------------
 
 pub struct AppState {
-    pub service: Arc<UnbillService>,
+    pub service: Arc<UnbillService<LockedFsStore>>,
     pub api_key: String,
 }
 
@@ -156,7 +158,11 @@ async fn save_ledger_meta(
         updated_at: Timestamp::from_millis(body.updated_at_ms),
     };
 
-    match state.service.store().save_ledger_meta(&meta).await {
+    let guard = match state.service.store().lock().await {
+        Ok(g) => g,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+    match guard.save_ledger_meta(&meta).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -173,10 +179,16 @@ async fn sync_ledger(
         Err(e) => return (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
     };
 
-    let mut doc = match state.service.store().load_ledger(&id).await {
-        Ok(Some(doc)) => doc,
-        Ok(None) => LedgerDoc::empty(),
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    let mut doc = {
+        let guard = match state.service.store().lock().await {
+            Ok(g) => g,
+            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        };
+        match guard.load_ledger(&id).await {
+            Ok(Some(doc)) => doc,
+            Ok(None) => LedgerDoc::empty(),
+            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        }
     };
 
     let mut sync_state = automerge::sync::State::new();
@@ -184,10 +196,14 @@ async fn sync_ledger(
         return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
     }
 
-    if !doc.is_empty()
-        && let Err(e) = state.service.store().save_ledger(&id, &mut doc).await
-    {
-        return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
+    if !doc.is_empty() {
+        let guard = match state.service.store().lock().await {
+            Ok(g) => g,
+            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        };
+        if let Err(e) = guard.save_ledger(&id, &mut doc).await {
+            return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
+        }
     }
 
     match doc.generate_sync_message(&mut sync_state) {
@@ -202,7 +218,11 @@ async fn sync_ledger(
 }
 
 async fn delete_ledger(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Response {
-    match state.service.store().delete_ledger(&id).await {
+    let guard = match state.service.store().lock().await {
+        Ok(g) => g,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+    match guard.delete_ledger(&id).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -221,7 +241,11 @@ async fn load_device_meta(State(state): State<Arc<AppState>>, Path(key): Path<St
     if !valid_device_key(&key) {
         return StatusCode::BAD_REQUEST.into_response();
     }
-    match state.service.store().load_device_meta(&key).await {
+    let guard = match state.service.store().lock().await {
+        Ok(g) => g,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+    match guard.load_device_meta(&key).await {
         Ok(Some(bytes)) => (
             StatusCode::OK,
             [("content-type", "application/octet-stream")],
@@ -241,7 +265,11 @@ async fn save_device_meta(
     if !valid_device_key(&key) {
         return StatusCode::BAD_REQUEST.into_response();
     }
-    match state.service.store().save_device_meta(&key, &body).await {
+    let guard = match state.service.store().lock().await {
+        Ok(g) => g,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    };
+    match guard.save_device_meta(&key, &body).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -309,8 +337,11 @@ mod tests {
     const API_KEY: &str = "secret";
 
     async fn make_app(dir: &std::path::Path) -> Router {
-        use unbill_store_fs::FsStore;
-        let store = Arc::new(FsStore::new(dir.to_path_buf()));
+        use unbill_store_fs::{FsStore, LockedFsStore};
+        let store = Arc::new(LockedFsStore::new(
+            FsStore::new(dir.to_path_buf()),
+            dir.join(".unbill.lock"),
+        ));
         let service = UnbillService::open(store).await.unwrap();
         let state = Arc::new(AppState {
             service,

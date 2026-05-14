@@ -50,6 +50,9 @@ impl MetaJson {
 // HttpStore
 // ---------------------------------------------------------------------------
 
+pub type LockedHttpStore = unbill_store_memory_guard::LockedStore<HttpStore>;
+
+#[derive(Clone)]
 pub struct HttpStore {
     client: Client,
     base_url: String,

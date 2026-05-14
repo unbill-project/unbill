@@ -7890,11 +7890,9 @@ name = "unbill-store-fs-guard"
 version = "0.0.2"
 dependencies = [
  "async-trait",
- "tempfile",
  "tokio",
  "unbill-model",
  "unbill-storage",
- "unbill-store-fs",
 ]
 
 [[package]]
@@ -7910,6 +7908,7 @@ dependencies = [
  "tracing",
  "unbill-model",
  "unbill-storage",
+ "unbill-store-memory-guard",
  "wiremock",
 ]
 
@@ -7933,7 +7932,6 @@ dependencies = [
  "async-trait",
  "tokio",
  "unbill-storage",
- "unbill-store-memory",
 ]
 
 [[package]]

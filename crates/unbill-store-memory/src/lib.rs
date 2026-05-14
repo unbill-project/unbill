@@ -9,6 +9,8 @@ use rand::TryRng as _;
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
 use unbill_storage::{LedgerDoc, LedgerStore, StorageResult as Result};
 
+pub type LockedInMemoryStore = unbill_store_memory_guard::LockedStore<InMemoryStore>;
+
 #[derive(Default)]
 pub struct InMemoryStore {
     inner: Mutex<Inner>,
@@ -141,11 +143,10 @@ impl LedgerStore for InMemoryStore {
 mod tests {
     use super::*;
     use unbill_storage::LockableStore;
-    use unbill_store_memory_guard::LockedStore;
 
     #[tokio::test]
     async fn test_lock_guard_derefs_to_ledger_store() {
-        let store = LockedStore::new(InMemoryStore::default());
+        let store = LockedInMemoryStore::default();
         let guard = store.lock().await.unwrap();
         let ledgers = guard.list_ledgers().await.unwrap();
         assert!(ledgers.is_empty());
@@ -153,7 +154,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_lock_is_exclusive() {
-        let store = LockedStore::new(InMemoryStore::default());
+        let store = LockedInMemoryStore::default();
         let store2 = store.clone();
 
         let guard = store.lock().await.unwrap();

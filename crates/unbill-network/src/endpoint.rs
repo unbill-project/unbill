@@ -26,7 +26,7 @@ use unbill_model::{NodeId, SecretKey, UnbillError};
 type Result<T> = std::result::Result<T, UnbillError>;
 
 use crate::node_id_ext::SecretKeyExt;
-use unbill_storage::LedgerStore;
+use unbill_storage::LockableStore;
 
 use iroh::RelayMode;
 use iroh::address_lookup::MdnsAddressLookup;
@@ -124,12 +124,16 @@ impl UnbillEndpoint {
     // Initiator: sync once
     // -----------------------------------------------------------------------
 
-    pub async fn sync_once_inner(
+    pub async fn sync_once_inner<S>(
         &self,
         peer: NodeId,
-        store: &Arc<dyn LedgerStore>,
+        store: &Arc<S>,
         events: &broadcast::Sender<ServiceEvent>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        S: LockableStore + Send + Sync + 'static,
+        for<'a> S::Guard<'a>: Send,
+    {
         let conn = self
             .inner
             .connect(self.peer_addr(&peer)?, ALPN_SYNC)
@@ -150,14 +154,18 @@ impl UnbillEndpoint {
     // Initiator: join a ledger
     // -----------------------------------------------------------------------
 
-    pub async fn join_ledger_inner(
+    pub async fn join_ledger_inner<S>(
         &self,
         host: NodeId,
         local_label: Option<String>,
         request: JoinRequest,
-        store: &Arc<dyn LedgerStore>,
+        store: &Arc<S>,
         events: &broadcast::Sender<ServiceEvent>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        S: LockableStore + Send + Sync + 'static,
+        for<'a> S::Guard<'a>: Send,
+    {
         let conn = self
             .inner
             .connect(self.peer_addr(&host)?, ALPN_JOIN)
@@ -177,11 +185,15 @@ impl UnbillEndpoint {
     // Responder: accept loop
     // -----------------------------------------------------------------------
 
-    pub async fn accept_loop_inner(
+    pub async fn accept_loop_inner<S>(
         &self,
-        store: Arc<dyn LedgerStore>,
+        store: Arc<S>,
         events: broadcast::Sender<ServiceEvent>,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        S: LockableStore + Send + Sync + 'static,
+        for<'a> S::Guard<'a>: Send,
+    {
         loop {
             let incoming = match self.inner.accept().await {
                 None => {
@@ -235,13 +247,17 @@ impl UnbillEndpoint {
 // Dispatch incoming connection to the right protocol handler
 // ---------------------------------------------------------------------------
 
-async fn dispatch(
+async fn dispatch<S>(
     conn: iroh::endpoint::Connection,
     peer: NodeId,
     alpn: &[u8],
-    store: Arc<dyn LedgerStore>,
+    store: Arc<S>,
     events: broadcast::Sender<ServiceEvent>,
-) -> Result<()> {
+) -> Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     match alpn {
         ALPN_SYNC => {
             let (send, recv) = conn

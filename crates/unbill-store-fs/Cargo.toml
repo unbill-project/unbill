@@ -10,6 +10,7 @@ homepage.workspace = true
 [dependencies]
 unbill-storage = { path = "../unbill-storage" }
 unbill-model = { path = "../unbill-model" }
+unbill-store-fs-guard = { path = "../unbill-store-fs-guard" }
 anyhow.workspace = true
 async-trait.workspace = true
 directories.workspace = true
@@ -21,6 +22,5 @@ tokio.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-unbill-store-fs-guard = { path = "../unbill-store-fs-guard" }
 tempfile = "3"
 tokio = { workspace = true, features = ["test-util"] }

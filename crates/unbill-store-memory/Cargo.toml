@@ -10,10 +10,10 @@ homepage.workspace = true
 [dependencies]
 unbill-storage = { path = "../unbill-storage" }
 unbill-model = { path = "../unbill-model" }
+unbill-store-memory-guard = { path = "../unbill-store-memory-guard" }
 async-trait.workspace = true
 iroh.workspace = true
 rand.workspace = true
 
 [dev-dependencies]
-unbill-store-memory-guard = { path = "../unbill-store-memory-guard" }
 tokio = { workspace = true }

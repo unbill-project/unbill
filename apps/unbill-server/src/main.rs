@@ -6,7 +6,7 @@ use tracing::info;
 
 use unbill_core::service::UnbillService;
 use unbill_server::{AppState, build_router};
-use unbill_store_fs::FsStore;
+use unbill_store_fs::{FsStore, LockedFsStore};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,7 +21,10 @@ async fn main() -> Result<()> {
     let data_dir = unbill_store_fs::UNBILL_PATH
         .ensure_data_dir()
         .context("failed to resolve data directory")?;
-    let store = Arc::new(FsStore::new(data_dir));
+    let store = Arc::new(LockedFsStore::new(
+        FsStore::new(data_dir.clone()),
+        data_dir.join(".unbill.lock"),
+    ));
     let service = UnbillService::open(store)
         .await
         .context("failed to open service")?;

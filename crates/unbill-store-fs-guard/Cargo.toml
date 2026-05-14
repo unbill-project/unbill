@@ -12,7 +12,3 @@ unbill-storage = { path = "../unbill-storage" }
 unbill-model = { path = "../unbill-model" }
 async-trait.workspace = true
 tokio.workspace = true
-
-[dev-dependencies]
-unbill-store-fs = { path = "../unbill-store-fs" }
-tempfile = "3"

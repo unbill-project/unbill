@@ -12,6 +12,8 @@ use rand::TryRng as _;
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
 use unbill_storage::{LedgerDoc, LedgerStore, StorageResult as Result};
 
+pub type LockedFsStore = unbill_store_fs_guard::FileLockedStore<FsStore>;
+
 #[derive(Clone)]
 pub struct FsStore {
     root: PathBuf,
@@ -285,36 +287,30 @@ mod tests {
     #[tokio::test]
     async fn test_lock_creates_sentinel_file() {
         let dir = tempfile::tempdir().unwrap();
-        let locked = unbill_store_fs_guard::FileLockedStore::new(
-            FsStore::new(dir.path().to_path_buf()),
-            dir.path().join(".lock"),
-        );
+        let root = dir.path().to_path_buf();
+        let locked = LockedFsStore::new(FsStore::new(root.clone()), root.join(".unbill.lock"));
         let _guard = locked.lock().await.unwrap();
-        assert!(dir.path().join(".lock").exists());
+        assert!(dir.path().join(".unbill.lock").exists());
     }
 
     #[tokio::test]
     async fn test_lock_sentinel_persists_after_drop() {
         let dir = tempfile::tempdir().unwrap();
-        let locked = unbill_store_fs_guard::FileLockedStore::new(
-            FsStore::new(dir.path().to_path_buf()),
-            dir.path().join(".lock"),
-        );
+        let root = dir.path().to_path_buf();
+        let locked = LockedFsStore::new(FsStore::new(root.clone()), root.join(".unbill.lock"));
         let guard = locked.lock().await.unwrap();
         drop(guard);
-        assert!(dir.path().join(".lock").exists());
+        assert!(dir.path().join(".unbill.lock").exists());
     }
 
     #[tokio::test]
     async fn test_lock_is_exclusive() {
         let dir = tempfile::tempdir().unwrap();
-        let locked = unbill_store_fs_guard::FileLockedStore::new(
-            FsStore::new(dir.path().to_path_buf()),
-            dir.path().join(".lock"),
-        );
+        let root = dir.path().to_path_buf();
+        let locked = LockedFsStore::new(FsStore::new(root.clone()), root.join(".unbill.lock"));
         let guard = locked.lock().await.unwrap();
 
-        let lock_path = dir.path().join(".lock");
+        let lock_path = dir.path().join(".unbill.lock");
         let f = std::fs::OpenOptions::new()
             .write(true)
             .open(&lock_path)
@@ -333,10 +329,8 @@ mod tests {
     #[tokio::test]
     async fn test_lock_guard_derefs_to_ledger_store() {
         let dir = tempfile::tempdir().unwrap();
-        let locked = unbill_store_fs_guard::FileLockedStore::new(
-            FsStore::new(dir.path().to_path_buf()),
-            dir.path().join(".lock"),
-        );
+        let root = dir.path().to_path_buf();
+        let locked = LockedFsStore::new(FsStore::new(root.clone()), root.join(".unbill.lock"));
         let guard = locked.lock().await.unwrap();
         let ledgers = guard.list_ledgers().await.unwrap();
         assert!(ledgers.is_empty());

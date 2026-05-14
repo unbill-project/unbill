@@ -46,6 +46,12 @@ impl<T: LedgerStore + 'static> LockedStore<T> {
     }
 }
 
+impl<T: LedgerStore + Default + 'static> Default for LockedStore<T> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl<T: LedgerStore + 'static> LockableStore for LockedStore<T> {
@@ -56,48 +62,5 @@ impl<T: LedgerStore + 'static> LockableStore for LockedStore<T> {
 
     async fn lock(&self) -> StorageResult<StoreGuard<T>> {
         Ok(StoreGuard(Arc::clone(&self.0).lock_owned().await))
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use unbill_storage::LockableStore;
-    use unbill_store_memory::InMemoryStore;
-
-    #[tokio::test]
-    async fn test_lock_guard_derefs_to_ledger_store() {
-        let store = LockedStore::new(InMemoryStore::default());
-        let guard = store.lock().await.unwrap();
-        let ledgers = guard.list_ledgers().await.unwrap();
-        assert!(ledgers.is_empty());
-    }
-
-    #[tokio::test]
-    async fn test_lock_is_exclusive() {
-        let store = LockedStore::new(InMemoryStore::default());
-        let store2 = store.clone();
-
-        let guard = store.lock().await.unwrap();
-
-        let task = tokio::spawn(async move { store2.lock().await.unwrap() });
-
-        // Yield so the spawned task gets a chance to attempt the lock.
-        tokio::task::yield_now().await;
-        assert!(
-            !task.is_finished(),
-            "second lock should block while first guard is held"
-        );
-
-        drop(guard);
-
-        tokio::time::timeout(std::time::Duration::from_secs(1), task)
-            .await
-            .expect("lock should be released within timeout")
-            .unwrap();
     }
 }

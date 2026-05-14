@@ -7,19 +7,20 @@ use unbill_core::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, UserId,
 };
 use unbill_core::service::UnbillService;
+use unbill_store_http::LockedHttpStore;
 use unbill_ui_components::bill_editor::BillShareInput;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
 
 thread_local! {
-    static SERVICE: RefCell<Option<Arc<UnbillService>>> = const { RefCell::new(None) };
+    static SERVICE: RefCell<Option<Arc<UnbillService<LockedHttpStore>>>> = const { RefCell::new(None) };
 }
 
-pub fn init(service: Arc<UnbillService>) {
+pub fn init(service: Arc<UnbillService<LockedHttpStore>>) {
     SERVICE.with(|cell| *cell.borrow_mut() = Some(service));
 }
 
-fn get_service() -> Result<Arc<UnbillService>, String> {
+fn get_service() -> Result<Arc<UnbillService<LockedHttpStore>>, String> {
     SERVICE.with(|cell| {
         cell.borrow()
             .clone()
@@ -385,7 +386,7 @@ pub async fn write_clipboard_text(text: &str) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 
 async fn load_all_sync_devices(
-    svc: &Arc<UnbillService>,
+    svc: &Arc<UnbillService<LockedHttpStore>>,
     metas: &[unbill_core::model::LedgerMeta],
 ) -> Result<Vec<SyncDevice>, String> {
     use std::collections::BTreeMap;
@@ -428,7 +429,7 @@ async fn load_all_sync_devices(
 }
 
 async fn summarize_ledger(
-    svc: &Arc<UnbillService>,
+    svc: &Arc<UnbillService<LockedHttpStore>>,
     meta: unbill_core::model::LedgerMeta,
 ) -> Result<LedgerSummary, String> {
     let lid = meta.ledger_id;
@@ -447,7 +448,7 @@ async fn summarize_ledger(
 }
 
 async fn load_devices_for_ledger(
-    svc: &Arc<UnbillService>,
+    svc: &Arc<UnbillService<LockedHttpStore>>,
     ledger_id: LedgerId,
     local_node_id: &str,
     device_labels: &HashMap<String, String>,

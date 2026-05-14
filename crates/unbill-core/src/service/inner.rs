@@ -16,15 +16,19 @@ use crate::model::{
 #[cfg(feature = "local")]
 use crate::model::{Invitation, InviteToken};
 use crate::settlement;
-use crate::storage::LedgerStore;
 use unbill_event::ServiceEvent;
 use unbill_storage::LedgerDoc;
+use unbill_storage::LockableStore;
 use unbill_storage::{load_device_labels, save_device_labels};
 #[cfg(feature = "local")]
 use unbill_storage::{load_pending_invitations, save_pending_invitations};
 
-pub struct UnbillService {
-    pub(crate) store: Arc<dyn LedgerStore>,
+pub struct UnbillService<S>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
+    pub(crate) store: Arc<S>,
     pub(crate) device_id: NodeId,
     pub(crate) events: broadcast::Sender<ServiceEvent>,
     #[cfg(feature = "remote")]
@@ -33,14 +37,18 @@ pub struct UnbillService {
     pub(crate) endpoint: std::sync::Mutex<Option<Arc<crate::net::UnbillEndpoint>>>,
 }
 
-impl UnbillService {
+impl<S> UnbillService<S>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     /// Open the service: initialize device identity via the store, then open.
     ///
     /// All store-backed data (ledgers, pending invitations, pending user
     /// tokens, local users) is loaded on demand and never cached in memory.
-    pub async fn open(store: Arc<dyn LedgerStore>) -> Result<Arc<Self>> {
-        store.create_secret_key().await?;
-        let device_id = store.get_device_id().await?;
+    pub async fn open(store: Arc<S>) -> Result<Arc<Self>> {
+        store.lock().await?.create_secret_key().await?;
+        let device_id = store.lock().await?.get_device_id().await?;
         let (events, _) = broadcast::channel(256);
         Ok(Arc::new(Self {
             store,
@@ -61,11 +69,11 @@ impl UnbillService {
     /// via `unbill-server-client`.
     #[cfg(feature = "remote")]
     pub async fn open_remote(
-        store: Arc<dyn LedgerStore>,
+        store: Arc<S>,
         base_url: String,
         api_key: String,
     ) -> Result<Arc<Self>> {
-        let device_id = store.get_device_id().await?;
+        let device_id = store.lock().await?.get_device_id().await?;
         let (events, _) = broadcast::channel(256);
         Ok(Arc::new(Self {
             store,
@@ -105,8 +113,10 @@ impl UnbillService {
             created_at: now,
             updated_at: now,
         };
-        self.store.save_ledger_meta(&meta).await?;
+        self.store.lock().await?.save_ledger_meta(&meta).await?;
         self.store
+            .lock()
+            .await?
             .save_ledger(&ledger_id.to_string(), &mut doc)
             .await?;
 
@@ -114,11 +124,15 @@ impl UnbillService {
     }
 
     pub async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
-        Ok(self.store.list_ledgers().await?)
+        Ok(self.store.lock().await?.list_ledgers().await?)
     }
 
     pub async fn delete_ledger(&self, ledger_id: LedgerId) -> Result<()> {
-        self.store.delete_ledger(&ledger_id.to_string()).await?;
+        self.store
+            .lock()
+            .await?
+            .delete_ledger(&ledger_id.to_string())
+            .await?;
         Ok(())
     }
 
@@ -133,6 +147,8 @@ impl UnbillService {
         let mut doc = self.load_doc(ledger_id).await?;
         let bill_id = doc.add_bill(input, self.device_id.clone(), Timestamp::now())?;
         self.store
+            .lock()
+            .await?
             .save_ledger(&ledger_id.to_string(), &mut doc)
             .await?;
         self.touch_meta(ledger_id).await?;
@@ -157,6 +173,8 @@ impl UnbillService {
         let mut doc = self.load_doc(ledger_id).await?;
         doc.add_user(input, Timestamp::now())?;
         self.store
+            .lock()
+            .await?
             .save_ledger(&ledger_id.to_string(), &mut doc)
             .await?;
         self.touch_meta(ledger_id).await?;
@@ -186,6 +204,8 @@ impl UnbillService {
             now,
         )?;
         self.store
+            .lock()
+            .await?
             .save_ledger(&ledger_id.to_string(), &mut doc)
             .await?;
         self.touch_meta(ledger_id).await?;
@@ -205,7 +225,8 @@ impl UnbillService {
     pub async fn list_all_users(&self) -> Result<Vec<User>> {
         let mut seen = std::collections::HashSet::new();
         let mut result = Vec::new();
-        for meta in self.store.list_ledgers().await? {
+        let metas = self.store.lock().await?.list_ledgers().await?;
+        for meta in metas {
             let doc = self.load_doc(meta.ledger_id).await?;
             for user in doc.list_users()? {
                 if seen.insert(user.user_id) {
@@ -224,6 +245,8 @@ impl UnbillService {
         let mut doc = self.load_doc(ledger_id).await?;
         doc.add_device(input, Timestamp::now())?;
         self.store
+            .lock()
+            .await?
             .save_ledger(&ledger_id.to_string(), &mut doc)
             .await?;
         self.touch_meta(ledger_id).await?;
@@ -235,11 +258,13 @@ impl UnbillService {
     }
 
     pub async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
-        load_device_labels(&*self.store).await
+        let guard = self.store.lock().await?;
+        load_device_labels(&*guard).await
     }
 
     pub async fn set_device_label(&self, node_id: NodeId, label: String) -> Result<()> {
-        let mut labels = load_device_labels(&*self.store).await?;
+        let guard = self.store.lock().await?;
+        let mut labels = load_device_labels(&*guard).await?;
         let key = node_id.to_string();
         let trimmed = label.trim();
         if trimmed.is_empty() {
@@ -247,7 +272,7 @@ impl UnbillService {
         } else {
             labels.insert(key, trimmed.to_owned());
         }
-        save_device_labels(&*self.store, &labels).await
+        save_device_labels(&*guard, &labels).await
     }
 
     // -----------------------------------------------------------------------
@@ -265,7 +290,8 @@ impl UnbillService {
             std::collections::HashMap<UserId, i64>,
         > = std::collections::HashMap::new();
 
-        for meta in self.store.list_ledgers().await? {
+        let metas = self.store.lock().await?.list_ledgers().await?;
+        for meta in metas {
             let doc = self.load_doc(meta.ledger_id).await?;
             let users = doc.list_users()?;
             // Only aggregate ledgers where this user is active.
@@ -345,9 +371,10 @@ impl UnbillService {
                 expires_at: Timestamp::from_millis(now.as_millis() + 24 * 3600 * 1000),
             };
             {
-                let mut map = load_pending_invitations(&*self.store).await?;
+                let guard = self.store.lock().await?;
+                let mut map = load_pending_invitations(&*guard).await?;
                 map.insert(token.to_string(), invitation);
-                save_pending_invitations(&*self.store, &map).await?;
+                save_pending_invitations(&*guard, &map).await?;
             }
             return Ok(format!(
                 "unbill://join/{}/{}/{}",
@@ -385,7 +412,7 @@ impl UnbillService {
                     .join_ledger_inner(host, local_label, request, &self.store, &self.events)
                     .await;
             }
-            let key = self.store.get_secret_key().await?;
+            let key = self.store.lock().await?.get_secret_key().await?;
             let ep = UnbillEndpoint::bind(&key).await?;
             let result = ep
                 .join_ledger_inner(host, local_label, request, &self.store, &self.events)
@@ -415,7 +442,7 @@ impl UnbillService {
             if let Some(ep) = ep {
                 return ep.sync_once_inner(peer, &self.store, &self.events).await;
             }
-            let key = self.store.get_secret_key().await?;
+            let key = self.store.lock().await?.get_secret_key().await?;
             let ep = UnbillEndpoint::bind(&key).await?;
             let result = ep.sync_once_inner(peer, &self.store, &self.events).await;
             ep.close().await;
@@ -433,7 +460,7 @@ impl UnbillService {
     #[cfg(feature = "local")]
     pub async fn accept_loop(self: &Arc<Self>) -> Result<()> {
         use crate::net::UnbillEndpoint;
-        let key = self.store.get_secret_key().await?;
+        let key = self.store.lock().await?.get_secret_key().await?;
         let ep = Arc::new(UnbillEndpoint::bind(&key).await?);
         ep.wait_for_ready().await;
         println!("listening on: {}", ep.node_id());
@@ -454,7 +481,7 @@ impl UnbillService {
         self.device_id.clone()
     }
 
-    pub fn store(&self) -> &Arc<dyn LedgerStore> {
+    pub fn store(&self) -> &Arc<S> {
         &self.store
     }
 
@@ -468,6 +495,8 @@ impl UnbillService {
 
     async fn load_doc(&self, ledger_id: LedgerId) -> Result<LedgerDoc> {
         self.store
+            .lock()
+            .await?
             .load_ledger(&ledger_id.to_string())
             .await?
             .ok_or_else(|| UnbillError::LedgerNotFound(ledger_id.to_string()))
@@ -475,10 +504,10 @@ impl UnbillService {
 
     /// Update `updated_at` in the stored metadata for a ledger.
     async fn touch_meta(&self, ledger_id: LedgerId) -> Result<()> {
-        let mut metas = self.store.list_ledgers().await?;
+        let mut metas = self.store.lock().await?.list_ledgers().await?;
         if let Some(meta) = metas.iter_mut().find(|m| m.ledger_id == ledger_id) {
             meta.updated_at = Timestamp::now();
-            self.store.save_ledger_meta(meta).await?;
+            self.store.lock().await?.save_ledger_meta(meta).await?;
         }
         Ok(())
     }
@@ -516,13 +545,13 @@ fn parse_join_url(url: &str) -> Result<(String, NodeId, String)> {
 mod tests {
     use super::*;
     use crate::model::{BillId, NewLedger, Share};
-    use unbill_store_memory::InMemoryStore;
+    use unbill_store_memory::LockedInMemoryStore;
 
-    fn mem_store() -> Arc<dyn LedgerStore> {
-        Arc::new(InMemoryStore::default())
+    fn mem_store() -> Arc<LockedInMemoryStore> {
+        Arc::new(LockedInMemoryStore::default())
     }
 
-    async fn open() -> Arc<UnbillService> {
+    async fn open() -> Arc<UnbillService<LockedInMemoryStore>> {
         UnbillService::open(mem_store()).await.unwrap()
     }
 
@@ -552,7 +581,7 @@ mod tests {
         }
     }
 
-    async fn seed_users(svc: &UnbillService, ledger_id: LedgerId) {
+    async fn seed_users(svc: &UnbillService<LockedInMemoryStore>, ledger_id: LedgerId) {
         for (n, name) in [(1u128, "Alice"), (2, "Bob")] {
             svc.add_user(
                 ledger_id,

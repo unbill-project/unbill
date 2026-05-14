@@ -16,7 +16,7 @@ use unbill_event::ServiceEvent;
 use unbill_model::{LedgerMeta, NewDevice, NodeId, Timestamp, UnbillError};
 
 type Result<T> = std::result::Result<T, UnbillError>;
-use unbill_storage::{LedgerDoc, LedgerStore};
+use unbill_storage::{LedgerDoc, LockableStore};
 
 use unbill_storage::{
     load_device_labels, load_pending_invitations, save_device_labels, save_pending_invitations,
@@ -33,9 +33,9 @@ use crate::protocol::{JoinError, JoinReply, JoinRequest, JoinResponse, read_msg,
 ///
 /// The joining device's `NodeId` must be supplied by the caller from the
 /// TLS-verified Iroh connection — it is NOT read from the message body.
-pub async fn run_join_host<R, W>(
+pub async fn run_join_host<R, W, S>(
     peer_node_id: NodeId,
-    store: &Arc<dyn LedgerStore>,
+    store: &Arc<S>,
     events: &broadcast::Sender<ServiceEvent>,
     mut reader: R,
     mut writer: W,
@@ -43,14 +43,17 @@ pub async fn run_join_host<R, W>(
 where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
 {
     let req: JoinRequest = read_msg(&mut reader).await?;
 
     // Load and consume (remove) the token whether valid or not, to prevent replays.
     let invitation = {
-        let mut map = load_pending_invitations(&**store).await?;
+        let guard = store.lock().await?;
+        let mut map = load_pending_invitations(&*guard).await?;
         let inv = map.remove(&req.token);
-        save_pending_invitations(&**store, &map).await?;
+        save_pending_invitations(&*guard, &map).await?;
         inv
     };
 
@@ -90,7 +93,7 @@ where
         return Ok(());
     }
 
-    let doc = store.load_ledger(&req.ledger_id).await?;
+    let doc = store.lock().await?.load_ledger(&req.ledger_id).await?;
     let Some(mut doc) = doc else {
         write_msg(
             &mut writer,
@@ -108,7 +111,11 @@ where
         },
         Timestamp::now(),
     )?;
-    store.save_ledger(&req.ledger_id, &mut doc).await?;
+    store
+        .lock()
+        .await?
+        .save_ledger(&req.ledger_id, &mut doc)
+        .await?;
     let _ = events.send(ServiceEvent::LedgerUpdated {
         ledger_id: req.ledger_id,
     });
@@ -128,11 +135,11 @@ where
 // ---------------------------------------------------------------------------
 
 /// Send a `JoinRequest`, and on success persist the received ledger to the store.
-pub async fn run_join_requester<R, W>(
+pub async fn run_join_requester<R, W, S>(
     host_node_id: NodeId,
     local_label: Option<String>,
     request: JoinRequest,
-    store: &Arc<dyn LedgerStore>,
+    store: &Arc<S>,
     events: &broadcast::Sender<ServiceEvent>,
     mut reader: R,
     mut writer: W,
@@ -140,6 +147,8 @@ pub async fn run_join_requester<R, W>(
 where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
 {
     write_msg(&mut writer, &request).await?;
 
@@ -156,12 +165,17 @@ where
                 created_at: ledger.created_at,
                 updated_at: Timestamp::now(),
             };
-            store.save_ledger_meta(&meta).await?;
-            store.save_ledger(&ledger_id, &mut doc).await?;
+            store.lock().await?.save_ledger_meta(&meta).await?;
+            store
+                .lock()
+                .await?
+                .save_ledger(&ledger_id, &mut doc)
+                .await?;
             if let Some(label) = local_label {
-                let mut device_labels = load_device_labels(&**store).await?;
+                let guard = store.lock().await?;
+                let mut device_labels = load_device_labels(&*guard).await?;
                 device_labels.insert(host_node_id.to_string(), label);
-                save_device_labels(&**store, &device_labels).await?;
+                save_device_labels(&*guard, &device_labels).await?;
             }
             let _ = events.send(ServiceEvent::LedgerUpdated { ledger_id });
             Ok(())
@@ -188,16 +202,16 @@ mod tests {
     use unbill_model::{
         Currency, Invitation, InviteToken, LedgerId, LedgerMeta, NewDevice, NodeId, Timestamp,
     };
-    use unbill_storage::{LedgerDoc, LedgerStore};
-    use unbill_store_memory::InMemoryStore;
+    use unbill_storage::{LedgerDoc, LockableStore};
+    use unbill_store_memory::LockedInMemoryStore;
 
     use unbill_storage::{load_device_labels, load_pending_invitations, save_pending_invitations};
 
     use super::{run_join_host, run_join_requester};
     use crate::protocol::JoinRequest;
 
-    fn make_store() -> Arc<InMemoryStore> {
-        Arc::new(InMemoryStore::default())
+    fn make_store() -> Arc<LockedInMemoryStore> {
+        Arc::new(LockedInMemoryStore::default())
     }
 
     fn make_events() -> broadcast::Sender<ServiceEvent> {
@@ -236,7 +250,7 @@ mod tests {
         let ledger_id = doc.get_ledger().unwrap().ledger_id;
         let ledger_id_str = ledger_id.to_string();
 
-        let host_store: Arc<dyn LedgerStore> = make_store();
+        let host_store = make_store();
 
         // Save ledger doc and meta to the store.
         let meta = LedgerMeta {
@@ -246,23 +260,23 @@ mod tests {
             created_at: Timestamp::now(),
             updated_at: Timestamp::now(),
         };
-        host_store.save_ledger_meta(&meta).await.unwrap();
-        host_store
-            .save_ledger(&ledger_id_str, &mut doc)
-            .await
-            .unwrap();
+        {
+            let guard = host_store.lock().await.unwrap();
+            guard.save_ledger_meta(&meta).await.unwrap();
+            guard.save_ledger(&ledger_id_str, &mut doc).await.unwrap();
+        }
 
         // Save the invitation to the store.
         let token = InviteToken::generate();
         let invitation = make_invitation(meta.ledger_id, host_node.clone(), &token);
-        save_pending_invitations(
-            &*host_store,
-            &HashMap::from([(token.to_string(), invitation)]),
-        )
-        .await
-        .unwrap();
+        {
+            let guard = host_store.lock().await.unwrap();
+            save_pending_invitations(&*guard, &HashMap::from([(token.to_string(), invitation)]))
+                .await
+                .unwrap();
+        }
 
-        let joiner_store: Arc<dyn LedgerStore> = make_store();
+        let joiner_store = make_store();
 
         let (stream_host, stream_joiner) = tokio::io::duplex(64 * 1024);
         let (host_read, host_write) = tokio::io::split(stream_host);
@@ -313,7 +327,13 @@ mod tests {
         task_joiner.await.unwrap();
 
         // Joiner has the ledger in its store.
-        let joiner_doc = joiner_store.load_ledger(&ledger_id_str).await.unwrap();
+        let joiner_doc = joiner_store
+            .lock()
+            .await
+            .unwrap()
+            .load_ledger(&ledger_id_str)
+            .await
+            .unwrap();
         assert!(joiner_doc.is_some(), "joiner should have the ledger");
         let joiner_doc = joiner_doc.unwrap();
         let devices = joiner_doc.list_devices().unwrap();
@@ -328,7 +348,10 @@ mod tests {
             "host device entry should still be present without relying on a synced label"
         );
 
-        let device_labels = load_device_labels(&*joiner_store).await.unwrap();
+        let device_labels = {
+            let guard = joiner_store.lock().await.unwrap();
+            load_device_labels(&*guard).await.unwrap()
+        };
         assert_eq!(
             device_labels
                 .get(&host_node.to_string())
@@ -337,7 +360,10 @@ mod tests {
         );
 
         // Token was consumed.
-        let remaining = load_pending_invitations(&*host_store).await.unwrap();
+        let remaining = {
+            let guard = host_store.lock().await.unwrap();
+            load_pending_invitations(&*guard).await.unwrap()
+        };
         assert!(remaining.is_empty(), "token should have been consumed");
     }
 
@@ -350,13 +376,16 @@ mod tests {
         let ledger_id_str = doc.get_ledger().unwrap().ledger_id.to_string();
 
         // No invitations saved to store.
-        let host_store: Arc<dyn LedgerStore> = make_store();
+        let host_store = make_store();
         host_store
+            .lock()
+            .await
+            .unwrap()
             .save_ledger(&ledger_id_str, &mut doc)
             .await
             .unwrap();
 
-        let joiner_store: Arc<dyn LedgerStore> = make_store();
+        let joiner_store = make_store();
 
         let (stream_host, stream_joiner) = tokio::io::duplex(64 * 1024);
         let (host_read, host_write) = tokio::io::split(stream_host);
@@ -402,7 +431,13 @@ mod tests {
         task_joiner.await.unwrap();
 
         // Joiner got nothing.
-        let joiner_doc = joiner_store.load_ledger(&ledger_id_str).await.unwrap();
+        let joiner_doc = joiner_store
+            .lock()
+            .await
+            .unwrap()
+            .load_ledger(&ledger_id_str)
+            .await
+            .unwrap();
         assert!(joiner_doc.is_none(), "joiner should have no ledgers");
     }
 }

@@ -8,8 +8,7 @@ use crossterm::{
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 use unbill_core::service::UnbillService;
-use unbill_store_fs::FsStore;
-use unbill_store_fs::UNBILL_PATH;
+use unbill_store_fs::{FsStore, LockedFsStore, UNBILL_PATH};
 
 mod app;
 mod pane;
@@ -28,7 +27,10 @@ async fn main() -> Result<()> {
         .init();
 
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
-    let store = Arc::new(FsStore::new(data_dir));
+    let store = Arc::new(LockedFsStore::new(
+        FsStore::new(data_dir.clone()),
+        data_dir.join(".unbill.lock"),
+    ));
     let svc = UnbillService::open(store).await?;
 
     enable_raw_mode()?;

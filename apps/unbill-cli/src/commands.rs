@@ -9,6 +9,7 @@ use unbill_core::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
 };
 use unbill_core::service::UnbillService;
+use unbill_core::storage::LockableStore;
 
 use crate::output::{
     bill_out, conflict_group_out, device_out, fmt_amount, ledger_out, parse_amount, print_json,
@@ -31,7 +32,11 @@ fn parse_bill_id(s: &str) -> anyhow::Result<BillId> {
 // Init
 // ---------------------------------------------------------------------------
 
-pub async fn init(svc: &UnbillService, json: bool) -> anyhow::Result<()> {
+pub async fn init<S>(svc: &UnbillService<S>, json: bool) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let id = svc.device_id().to_string();
     if json {
         print_json(&serde_json::json!({ "device_id": id }))?;
@@ -45,11 +50,15 @@ pub async fn init(svc: &UnbillService, json: bool) -> anyhow::Result<()> {
 // Device
 // ---------------------------------------------------------------------------
 
-pub async fn device_show(
-    svc: &UnbillService,
+pub async fn device_show<S>(
+    svc: &UnbillService<S>,
     data_dir: &std::path::Path,
     json: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let id = svc.device_id().to_string();
     let dir = data_dir.display().to_string();
     if json {
@@ -65,12 +74,16 @@ pub async fn device_show(
 // Ledger
 // ---------------------------------------------------------------------------
 
-pub async fn ledger_create(
-    svc: &UnbillService,
+pub async fn ledger_create<S>(
+    svc: &UnbillService<S>,
     name: String,
     currency: String,
     json: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let currency = Currency::from_code(&currency)
         .ok_or_else(|| anyhow::anyhow!("unknown currency code: {currency}"))?;
     let id = svc.create_ledger(NewLedger { name, currency }).await?;
@@ -82,7 +95,11 @@ pub async fn ledger_create(
     Ok(())
 }
 
-pub async fn ledger_list(svc: &UnbillService, json: bool) -> anyhow::Result<()> {
+pub async fn ledger_list<S>(svc: &UnbillService<S>, json: bool) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let ledgers = svc.list_ledgers().await?;
     if json {
         print_json(&ledgers.iter().map(ledger_out).collect::<Vec<_>>())?;
@@ -97,7 +114,15 @@ pub async fn ledger_list(svc: &UnbillService, json: bool) -> anyhow::Result<()> 
     Ok(())
 }
 
-pub async fn ledger_show(svc: &UnbillService, ledger_id: &str, json: bool) -> anyhow::Result<()> {
+pub async fn ledger_show<S>(
+    svc: &UnbillService<S>,
+    ledger_id: &str,
+    json: bool,
+) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let lid = parse_ledger_id(ledger_id)?;
     let ledgers = svc.list_ledgers().await?;
     let meta = ledgers
@@ -123,7 +148,11 @@ pub async fn ledger_show(svc: &UnbillService, ledger_id: &str, json: bool) -> an
     Ok(())
 }
 
-pub async fn ledger_delete(svc: &UnbillService, ledger_id: &str) -> anyhow::Result<()> {
+pub async fn ledger_delete<S>(svc: &UnbillService<S>, ledger_id: &str) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     svc.delete_ledger(parse_ledger_id(ledger_id)?).await?;
     Ok(())
 }
@@ -132,15 +161,19 @@ pub async fn ledger_delete(svc: &UnbillService, ledger_id: &str) -> anyhow::Resu
 // Bills
 // ---------------------------------------------------------------------------
 
-pub async fn bill_add(
-    svc: &UnbillService,
+pub async fn bill_add<S>(
+    svc: &UnbillService<S>,
     ledger_id: &str,
     payer: &str,
     amount: &str,
     description: String,
     share_users: Vec<String>,
     json: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let lid = parse_ledger_id(ledger_id)?;
     let payer_id = parse_user_id(payer)?;
     let amount_cents = parse_amount(amount)?;
@@ -185,7 +218,11 @@ pub async fn bill_add(
     Ok(())
 }
 
-pub async fn bill_list(svc: &UnbillService, ledger_id: &str, json: bool) -> anyhow::Result<()> {
+pub async fn bill_list<S>(svc: &UnbillService<S>, ledger_id: &str, json: bool) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let bills = svc.list_bills(parse_ledger_id(ledger_id)?).await?;
     if json {
         print_json(&bills.iter().map(bill_out).collect::<Vec<_>>())?;
@@ -208,8 +245,8 @@ pub async fn bill_list(svc: &UnbillService, ledger_id: &str, json: bool) -> anyh
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn bill_amend(
-    svc: &UnbillService,
+pub async fn bill_amend<S>(
+    svc: &UnbillService<S>,
     ledger_id: &str,
     prev: Vec<String>,
     payer: &str,
@@ -217,7 +254,11 @@ pub async fn bill_amend(
     description: String,
     share_users: Vec<String>,
     json: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let lid = parse_ledger_id(ledger_id)?;
     let prev_ids = prev
         .iter()
@@ -260,12 +301,16 @@ pub async fn bill_amend(
 // Users
 // ---------------------------------------------------------------------------
 
-pub async fn user_create(
-    svc: &UnbillService,
+pub async fn user_create<S>(
+    svc: &UnbillService<S>,
     ledger_id: &str,
     display_name: String,
     json: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let user = svc
         .create_user(parse_ledger_id(ledger_id)?, NewUserName { display_name })
         .await?;
@@ -278,7 +323,11 @@ pub async fn user_create(
     Ok(())
 }
 
-pub async fn all_user_list(svc: &UnbillService, json: bool) -> anyhow::Result<()> {
+pub async fn all_user_list<S>(svc: &UnbillService<S>, json: bool) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let users = svc.list_all_users().await?;
     if json {
         print_json(&users.iter().map(user_out).collect::<Vec<_>>())?;
@@ -294,12 +343,16 @@ pub async fn all_user_list(svc: &UnbillService, json: bool) -> anyhow::Result<()
     Ok(())
 }
 
-pub async fn ledger_user_add(
-    svc: &UnbillService,
+pub async fn ledger_user_add<S>(
+    svc: &UnbillService<S>,
     ledger_id: &str,
     user_id: &str,
     name: String,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     svc.add_user(
         parse_ledger_id(ledger_id)?,
         NewUser {
@@ -311,11 +364,15 @@ pub async fn ledger_user_add(
     Ok(())
 }
 
-pub async fn ledger_user_list(
-    svc: &UnbillService,
+pub async fn ledger_user_list<S>(
+    svc: &UnbillService<S>,
     ledger_id: &str,
     json: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let users = svc.list_users(parse_ledger_id(ledger_id)?).await?;
     if json {
         print_json(&users.iter().map(user_out).collect::<Vec<_>>())?;
@@ -335,20 +392,28 @@ pub async fn ledger_user_list(
 // Ledger invite / join
 // ---------------------------------------------------------------------------
 
-pub async fn ledger_join(
-    svc: &Arc<UnbillService>,
+pub async fn ledger_join<S>(
+    svc: &Arc<UnbillService<S>>,
     url: String,
     label: Option<String>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     svc.join_ledger(&url, label.unwrap_or_default()).await?;
     Ok(())
 }
 
-pub async fn ledger_devices(
-    svc: &UnbillService,
+pub async fn ledger_devices<S>(
+    svc: &UnbillService<S>,
     ledger_id: &str,
     json: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let devices = svc.list_devices(parse_ledger_id(ledger_id)?).await?;
     if json {
         print_json(&devices.iter().map(device_out).collect::<Vec<_>>())?;
@@ -364,11 +429,15 @@ pub async fn ledger_devices(
     Ok(())
 }
 
-pub async fn ledger_invite(
-    svc: &Arc<UnbillService>,
+pub async fn ledger_invite<S>(
+    svc: &Arc<UnbillService<S>>,
     ledger_id: &str,
     json: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let url = svc.create_invitation(parse_ledger_id(ledger_id)?).await?;
     if json {
         print_json(&serde_json::json!({ "url": url }))?;
@@ -382,7 +451,11 @@ pub async fn ledger_invite(
 // Sync
 // ---------------------------------------------------------------------------
 
-pub async fn sync_once(svc: &Arc<UnbillService>, peer_node_id: &str) -> anyhow::Result<()> {
+pub async fn sync_once<S>(svc: &Arc<UnbillService<S>>, peer_node_id: &str) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let peer = peer_node_id
         .parse::<NodeId>()
         .map_err(|e| anyhow!("invalid node ID {peer_node_id:?}: {e}"))?;
@@ -390,7 +463,11 @@ pub async fn sync_once(svc: &Arc<UnbillService>, peer_node_id: &str) -> anyhow::
     Ok(())
 }
 
-pub async fn sync_daemon(svc: &Arc<UnbillService>) -> anyhow::Result<()> {
+pub async fn sync_daemon<S>(svc: &Arc<UnbillService<S>>) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     svc.accept_loop().await?;
     Ok(())
 }
@@ -399,11 +476,15 @@ pub async fn sync_daemon(svc: &Arc<UnbillService>) -> anyhow::Result<()> {
 // Conflicts
 // ---------------------------------------------------------------------------
 
-pub async fn bill_conflicts(
-    svc: &UnbillService,
+pub async fn bill_conflicts<S>(
+    svc: &UnbillService<S>,
     ledger_id: &str,
     json: bool,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let groups = svc.detect_conflicts(parse_ledger_id(ledger_id)?).await?;
     if json {
         print_json(&groups.iter().map(conflict_group_out).collect::<Vec<_>>())?;
@@ -441,7 +522,11 @@ pub async fn bill_conflicts(
 // Settlement
 // ---------------------------------------------------------------------------
 
-pub async fn settlement(svc: &UnbillService, user_id: &str, json: bool) -> anyhow::Result<()> {
+pub async fn settlement<S>(svc: &UnbillService<S>, user_id: &str, json: bool) -> anyhow::Result<()>
+where
+    S: LockableStore + Send + Sync + 'static,
+    for<'a> S::Guard<'a>: Send,
+{
     let settlements = svc
         .compute_settlement_for_user(parse_user_id(user_id)?)
         .await?;
