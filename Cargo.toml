@@ -6,9 +6,10 @@ members = [
     "apps/unbill-tui",
     "apps/unbill-ui-native",
     "apps/unbill-ui-remote",
+    "crates/unbill-asymmetric-channel",
     "crates/unbill-core",
     "crates/unbill-event",
-    "crates/unbill-network",
+    "crates/unbill-symmetric-channel",
     "crates/unbill-model",
     "crates/unbill-storage",
     "crates/unbill-store-fs",
@@ -69,12 +70,19 @@ dashmap = "6"
 directories = "6.0.0"
 
 # HTTP client
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream"] }
 
 # HTTP server
 axum = "0.8"
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["trace"] }
+
+# Streams / async utilities
+tokio-stream = "0.1"
+futures-util = "0.3"
+
+# RPC
+tarpc = { version = "0.37", features = ["full"] }
 
 # Testing
 proptest = "1"

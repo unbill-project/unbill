@@ -1,6 +1,6 @@
 [package]
-name = "unbill-network"
-description = "P2P networking layer for unbill — Iroh endpoint, sync and join protocols."
+name = "unbill-symmetric-channel"
+description = "Symmetric channel for unbill — Iroh endpoint, device-to-device sync and join protocols."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

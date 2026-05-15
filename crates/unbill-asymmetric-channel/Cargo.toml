@@ -1,0 +1,43 @@
+[package]
+name = "unbill-asymmetric-channel"
+description = "Asymmetric channel trait for unbill — the device-to-console protocol contract."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[features]
+# In-process implementation wrapping UnbillService directly.
+local = ["dep:unbill-core", "dep:automerge"]
+# Axum HTTP server that exposes a Device over HTTP + SSE.
+http-server = ["dep:axum", "dep:tower-http", "dep:tokio-stream", "dep:serde_json", "dep:futures-util"]
+# reqwest HTTP client that implements Device by calling the HTTP server.
+http-client = ["dep:reqwest", "dep:tokio-stream", "dep:serde_json", "dep:futures-util"]
+# tarpc RPC server + client.
+rpc = ["dep:tarpc", "dep:tokio-stream", "dep:serde_json", "dep:futures-util"]
+
+[dependencies]
+unbill-model = { path = "../unbill-model" }
+async-trait.workspace = true
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["sync", "rt"] }
+
+# local
+unbill-core = { path = "../unbill-core", features = ["local"], optional = true }
+automerge = { workspace = true, optional = true }
+
+# http-server
+axum = { workspace = true, optional = true }
+tower-http = { workspace = true, optional = true }
+
+# http-client
+reqwest = { workspace = true, optional = true }
+
+# shared http
+serde_json = { workspace = true, optional = true }
+tokio-stream = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
+
+# rpc
+tarpc = { workspace = true, optional = true }

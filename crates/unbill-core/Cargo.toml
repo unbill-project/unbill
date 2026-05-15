@@ -11,7 +11,7 @@ homepage.workspace = true
 unbill-model = { path = "../unbill-model" }
 unbill-event = { path = "../unbill-event" }
 unbill-storage = { path = "../unbill-storage" }
-unbill-network = { path = "../unbill-network", optional = true }
+unbill-symmetric-channel = { path = "../unbill-symmetric-channel", optional = true }
 unbill-server-client = { path = "../unbill-server-client", optional = true }
 automerge.workspace = true
 autosurgeon.workspace = true
@@ -32,7 +32,7 @@ tokio = { workspace = true }
 tokio = { version = "1", default-features = false, features = ["sync"] }
 
 [features]
-local = ["dep:unbill-network"]
+local = ["dep:unbill-symmetric-channel"]
 remote = ["dep:unbill-server-client"]
 
 [dev-dependencies]
