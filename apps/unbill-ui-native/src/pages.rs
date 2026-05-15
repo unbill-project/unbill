@@ -1,8 +1,9 @@
-use crate::api::{self, LedgerDetail, LedgerSummary, SyncDevice, User};
+use crate::api::{self, Bill, LedgerDetail, LedgerSummary, SyncDevice, User};
 use crate::app::SettingsTab;
 use crate::components::{
-    ActionButton, ButtonTone, CurrencyCombobox, FieldBlock, IconButton, IconButtonKind, ListRow,
-    ModalSheet, ScreenFrame, SectionCard, SettingsNavGroup, SettingsNavItem,
+    ActionButton, ButtonTone, ConflictBillItem, ConflictGroupView, CurrencyCombobox, FieldBlock,
+    IconButton, IconButtonKind, ListRow, ModalSheet, ScreenFrame, SectionCard, SettingsNavGroup,
+    SettingsNavItem,
 };
 use leptos::prelude::*;
 
@@ -63,10 +64,12 @@ pub fn LedgerPage(
     on_more: Callback<()>,
     on_open_bill: Callback<String>,
     on_new_bill: Callback<()>,
+    on_resolve_conflict: Callback<(String, Vec<String>)>,
 ) -> impl IntoView {
     let page_title = detail.summary.name.clone();
     let currency = detail.summary.currency.clone();
     let settlement_currency = currency.clone();
+    let conflict_currency = currency.clone();
 
     view! {
         <ScreenFrame
@@ -84,6 +87,38 @@ pub fn LedgerPage(
             }.into_any()}
             footer={view! { <ActionButton label="New Bill".to_owned() full_width=true on_press=Callback::new(move |_| on_new_bill.run(())) /> }.into_any()}
         >
+            {if detail.conflicts.is_empty() {
+                view! { <div /> }.into_any()
+            } else {
+                view! {
+                    <SectionCard title="Conflicts".to_owned()>
+                        <div class="stack-gap">
+                            {detail
+                                .conflicts
+                                .into_iter()
+                                .enumerate()
+                                .map(|(index, group)| {
+                                    let bills = group
+                                        .conflicting
+                                        .iter()
+                                        .map(|bill| conflict_bill_item(bill, &conflict_currency))
+                                        .collect::<Vec<_>>();
+                                    view! {
+                                        <ConflictGroupView
+                                            index=index
+                                            bills=bills
+                                            ancestor_count=group.ancestors.len()
+                                            on_commit=on_resolve_conflict
+                                        />
+                                    }
+                                })
+                                .collect_view()}
+                        </div>
+                    </SectionCard>
+                }
+                    .into_any()
+            }}
+
             <SectionCard
                 title="Suggested transfers".to_owned()
             >
@@ -141,6 +176,41 @@ pub fn LedgerPage(
                 </div>
             </SectionCard>
         </ScreenFrame>
+    }
+}
+
+fn conflict_bill_item(bill: &Bill, currency: &str) -> ConflictBillItem {
+    let payer_names = bill
+        .payers
+        .iter()
+        .map(|share| share.display_name.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let detail = format!(
+        "{} · {}",
+        api::format_timestamp(bill.created_at_ms),
+        api::format_money(bill.amount_cents, currency)
+    );
+    ConflictBillItem {
+        id: bill.id.clone(),
+        title: bill_title(bill),
+        meta: format!(
+            "Paid by {}",
+            if payer_names.is_empty() {
+                "unknown"
+            } else {
+                payer_names.as_str()
+            }
+        ),
+        detail,
+    }
+}
+
+fn bill_title(bill: &Bill) -> String {
+    if bill.description.is_empty() {
+        "Untitled bill".to_owned()
+    } else {
+        bill.description.clone()
     }
 }
 

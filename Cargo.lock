@@ -8155,6 +8155,7 @@ dependencies = [
  "tokio",
  "unbill-core",
  "unbill-store-http",
+ "unbill-store-memory",
  "unbill-ui-components",
  "wasm-bindgen",
  "wasm-bindgen-futures",

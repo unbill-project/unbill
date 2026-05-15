@@ -16,6 +16,7 @@ Reusable Leptos UI components for unbill frontends.
 src/
   lib.rs          re-exports all public modules
   button.rs       ActionButton, IconButton, ListRow, TagPill
+  conflict.rs     conflict selection and commit panel
   input.rs        CurrencyCombobox
   layout.rs       ScreenFrame, EmptyColumn, SectionCard, FieldBlock, ModalSheet
   status.rs       StatusStrip
@@ -33,6 +34,10 @@ src/
 **SectionCard** groups related form fields or list items under a title. It has no background or border of its own — only a horizontal separator between the header row and the content body.
 
 **EmptyColumn** renders a single short text centered in the available space. It has no title, card, or decorative wrapper.
+
+## Conflict Components
+
+Conflict components render frontend-prepared conflict bill items. They do not know how conflicts are detected or resolved. The caller supplies display text for each competing bill and receives the selected bill ID plus the full competing bill ID set when the operator commits a choice.
 
 ## Rules
 

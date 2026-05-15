@@ -2,6 +2,7 @@ pub use unbill_ui_components::button::{
     ActionButton, ButtonTone, IconButton, IconButtonKind, ListRow, SettingsNavGroup,
     SettingsNavItem,
 };
+pub use unbill_ui_components::conflict::{ConflictBillItem, ConflictGroupView};
 pub use unbill_ui_components::input::CurrencyCombobox;
 pub use unbill_ui_components::layout::{
     EmptyColumn, FieldBlock, ModalSheet, ScreenFrame, SectionCard,
