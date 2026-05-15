@@ -7907,8 +7907,8 @@ dependencies = [
  "tarpc",
  "tokio",
  "tokio-stream",
+ "unbill-device",
  "unbill-model",
- "unbill-service",
 ]
 
 [[package]]
@@ -7953,6 +7953,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "unbill-device"
+version = "0.0.2"
+dependencies = [
+ "async-trait",
+ "automerge",
+ "tokio",
+ "unbill-event",
+ "unbill-model",
+ "unbill-storage",
+ "unbill-symmetric-channel",
+]
+
+[[package]]
 name = "unbill-event"
 version = "0.0.2"
 
@@ -7989,19 +8002,6 @@ dependencies = [
  "tracing-subscriber",
  "unbill-console",
  "unbill-store-fs",
-]
-
-[[package]]
-name = "unbill-service"
-version = "0.0.2"
-dependencies = [
- "async-trait",
- "automerge",
- "tokio",
- "unbill-event",
- "unbill-model",
- "unbill-storage",
- "unbill-symmetric-channel",
 ]
 
 [[package]]

@@ -18,7 +18,7 @@
 
 ### Role crates
 
-- `crates/unbill-service/` — device-side service; owns the store, sym channel endpoint, and implements the asym channel server side
+- `crates/unbill-device/` — device-side service; owns the store, sym channel endpoint, and implements the asym channel server side
 - `crates/unbill-console/` — console-side library: CRDT document operations, settlement, conflict detection
 
 ### UI crates

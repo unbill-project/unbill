@@ -137,7 +137,7 @@ The system also avoids a server-backed recovery or authority model. Sync helps p
 
 The repository is organized around two roles — **device** and **console** — connected by channels. Each role and each channel has its own crate.
 
-- `unbill-service` — device-side service: owns the ledger store, sym channel endpoint, and asym channel server implementation
+- `unbill-device` — device-side service: owns the ledger store, sym channel endpoint, and asym channel server implementation
 - `unbill-console` — console-side library: CRDT document projection, settlement, and conflict detection
 - `unbill-asymmetric-channel` — the `AsymChannel` trait and its concrete implementations (in-process, RPC, HTTP)
 - `unbill-symmetric-channel` — device-to-device Iroh transport, sync and join protocols

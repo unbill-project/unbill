@@ -9,7 +9,7 @@
 
 ## LocalAsymChannel
 
-`LocalAsymChannel::open` creates a `UnbillService` and a separate `broadcast::Sender<AsymChannelEvent>`. A `tokio::spawn` background task converts `ServiceEvent` to `AsymChannelEvent` and fans them out. `accept_loop` delegates directly to `UnbillService::accept_loop`.
+`LocalAsymChannel::open` creates a `UnbillDevice` and a separate `broadcast::Sender<AsymChannelEvent>`. A `tokio::spawn` background task converts `ServiceEvent` to `AsymChannelEvent` and fans them out. `accept_loop` delegates directly to `UnbillDevice::accept_loop`.
 
 ## RPC implementation
 
@@ -22,6 +22,6 @@ The tarpc service uses `String` for error returns so all types are serializable.
 ## Dependencies
 
 - `unbill-model` — domain types
-- `unbill-service` (feature `local`) — `UnbillService`
+- `unbill-device` (feature `local`) — `UnbillDevice`
 - `tarpc` (feature `rpc`) — RPC framework
 - `reqwest` (feature `http`) — HTTP client

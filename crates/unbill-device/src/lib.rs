@@ -1,4 +1,4 @@
-// unbill-service: device-side implementation of the AsymChannel contract.
+// unbill-device: device-side implementation of the AsymChannel contract.
 //
 // Holds a local LedgerStore and provides invitation management, peer sync,
 // and the Automerge sync server-side handler.  Does not know about the
@@ -16,14 +16,14 @@ use unbill_model::{Invitation, InviteToken, LedgerId, NodeId, Timestamp};
 use unbill_storage::{LedgerDoc, load_pending_invitations, save_pending_invitations};
 use unbill_symmetric_channel::{JoinRequest, UnbillEndpoint};
 
-pub struct UnbillService {
+pub struct UnbillDevice {
     store: Arc<dyn LedgerStore>,
     device_id: NodeId,
     endpoint: Mutex<Option<Arc<UnbillEndpoint>>>,
     events: broadcast::Sender<ServiceEvent>,
 }
 
-impl UnbillService {
+impl UnbillDevice {
     pub async fn open(store: Arc<dyn LedgerStore>) -> Result<Arc<Self>> {
         store.create_secret_key().await?;
         let device_id = store.get_device_id().await?;

@@ -1,12 +1,12 @@
-# unbill-service — Implementation
+# unbill-device — Implementation
 
 ## Layout
 
-`lib.rs` contains the entire crate: `UnbillService`, its `open` constructor, and all public methods. There are no sub-modules.
+`lib.rs` contains the entire crate: `UnbillDevice`, its `open` constructor, and all public methods. There are no sub-modules.
 
 ## Key types
 
-- `UnbillService` — holds `Arc<dyn LedgerStore>`, `NodeId`, `Mutex<Option<Arc<UnbillEndpoint>>>`, and a `broadcast::Sender<ServiceEvent>`
+- `UnbillDevice` — holds `Arc<dyn LedgerStore>`, `NodeId`, `Mutex<Option<Arc<UnbillEndpoint>>>`, and a `broadcast::Sender<ServiceEvent>`
 - `ServiceEvent` — re-exported from `unbill-event`; broadcasted after any ledger state change
 
 ## Notable behaviors
@@ -25,4 +25,4 @@
 
 ## Testing
 
-Integration tests use `unbill-store-memory` to exercise the full `UnbillService` surface without touching disk or the network.
+Integration tests use `unbill-store-memory` to exercise the full `UnbillDevice` surface without touching disk or the network.

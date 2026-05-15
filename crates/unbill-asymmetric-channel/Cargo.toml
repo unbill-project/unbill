@@ -8,8 +8,8 @@ repository.workspace = true
 homepage.workspace = true
 
 [features]
-# In-process implementation backed by unbill-service.
-local = ["dep:unbill-service", "tokio/rt"]
+# In-process implementation backed by unbill-device.
+local = ["dep:unbill-device", "tokio/rt"]
 # HTTP client calling unbill-server.
 http = ["dep:reqwest", "dep:serde_json"]
 # tarpc RPC server + client.
@@ -22,7 +22,7 @@ serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["sync"] }
 
 # local
-unbill-service = { path = "../unbill-service", optional = true }
+unbill-device = { path = "../unbill-device", optional = true }
 
 # http
 automerge = { workspace = true, optional = true }

@@ -1,5 +1,5 @@
 [package]
-name = "unbill-service"
+name = "unbill-device"
 description = "Device-side service for unbill — implements the AsymChannel contract over a local store."
 version.workspace = true
 edition.workspace = true

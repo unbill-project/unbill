@@ -1,24 +1,24 @@
-// LocalAsymChannel: in-process AsymChannel backed by unbill-service.
+// LocalAsymChannel: in-process AsymChannel backed by unbill-device.
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio::sync::broadcast;
+use unbill_device::ServiceEvent;
+use unbill_device::{LedgerStore, UnbillDevice};
 use unbill_model::error::Result;
 use unbill_model::{LedgerId, NodeId};
-use unbill_service::ServiceEvent;
-use unbill_service::{LedgerStore, UnbillService};
 
 use crate::{AsymChannel, AsymChannelEvent};
 
 pub struct LocalAsymChannel {
-    service: Arc<UnbillService>,
+    service: Arc<UnbillDevice>,
     events: broadcast::Sender<AsymChannelEvent>,
 }
 
 impl LocalAsymChannel {
     pub async fn open<S: LedgerStore + Send + Sync + 'static>(store: Arc<S>) -> Result<Arc<Self>> {
-        let service = UnbillService::open(store).await?;
+        let service = UnbillDevice::open(store).await?;
         let (events, _) = broadcast::channel(256);
 
         // Forward ServiceEvents into the AsymChannelEvent broadcast.
@@ -41,7 +41,7 @@ impl LocalAsymChannel {
         Ok(Arc::new(Self { service, events }))
     }
 
-    pub fn service(&self) -> &Arc<UnbillService> {
+    pub fn service(&self) -> &Arc<UnbillDevice> {
         &self.service
     }
 
