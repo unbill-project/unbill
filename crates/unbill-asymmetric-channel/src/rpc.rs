@@ -229,20 +229,46 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
     }
 }
 
+/// Binds a local socket at `path`, removing any stale file first.
+/// Deletes the socket file on drop.
+struct LocalSocketGuard {
+    listener: LocalSocketListener,
+    path: std::path::PathBuf,
+}
+
+impl LocalSocketGuard {
+    fn bind(path: &Path) -> std::io::Result<Self> {
+        // Remove stale socket from a previous run.
+        if let Err(e) = std::fs::remove_file(path) {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                return Err(e);
+            }
+        }
+        let name = path.to_fs_name::<GenericFilePath>()?;
+        let listener = ListenerOptions::new().name(name).create_tokio()?;
+        Ok(Self {
+            listener,
+            path: path.to_owned(),
+        })
+    }
+}
+
+impl Drop for LocalSocketGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
 /// Serve an `AsymChannel` over tarpc on the given local socket path.
 /// Each accepted connection gets its own event queue and subscriber task.
 pub async fn serve<C>(channel: Arc<C>, path: &Path) -> std::io::Result<()>
 where
     C: AsymChannel + 'static,
 {
-    let name = path.to_fs_name::<GenericFilePath>()?;
-    let listener = ListenerOptions::new()
-        .name(name)
-        .reclaim_name(true)
-        .create_tokio()?;
+    let guard = LocalSocketGuard::bind(path)?;
 
     loop {
-        let stream = listener.accept().await?;
+        let stream = guard.listener.accept().await?;
         let channel = Arc::clone(&channel);
         let queue: Arc<Mutex<Vec<WireEvent>>> = Arc::new(Mutex::new(Vec::new()));
 
