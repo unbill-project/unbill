@@ -5,11 +5,15 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, State};
 use unbill_asymmetric_channel::AsymChannel;
+#[cfg(mobile)]
 use unbill_asymmetric_channel::local::LocalAsymChannel;
+#[cfg(not(mobile))]
+use unbill_asymmetric_channel::rpc::RpcAsymChannel;
 use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
 };
 use unbill_console::service::UnbillConsole;
+#[cfg(mobile)]
 use unbill_store_fs::FsStore;
 
 struct AppState {
@@ -761,31 +765,34 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             #[cfg(mobile)]
-            let root =
-                app.path()
+            let service = tauri::async_runtime::block_on(async {
+                let root = app
+                    .path()
                     .app_data_dir()
-                    .map_err(|error| -> Box<dyn std::error::Error> {
-                        Box::new(std::io::Error::other(error.to_string()))
-                    })?;
+                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+                let store = Arc::new(FsStore::new(root));
+                let channel = LocalAsymChannel::open(store)
+                    .await
+                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+                let accept = Arc::clone(&channel);
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = accept.accept_loop().await {
+                        tracing::error!("accept loop stopped: {e}");
+                    }
+                });
+                Ok::<_, std::io::Error>(UnbillConsole::open(channel as Arc<dyn AsymChannel>))
+            })
+            .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
+
             #[cfg(not(mobile))]
-            let root = unbill_store_fs::UNBILL_PATH.ensure_data_dir().map_err(
-                |error| -> Box<dyn std::error::Error> {
-                    Box::new(std::io::Error::other(error.to_string()))
-                },
-            )?;
-            let store = Arc::new(FsStore::new(root));
-            let channel = tauri::async_runtime::block_on(LocalAsymChannel::open(store)).map_err(
-                |error| -> Box<dyn std::error::Error> {
-                    Box::new(std::io::Error::other(error.to_string()))
-                },
-            )?;
-            let accept_channel = Arc::clone(&channel);
-            tauri::async_runtime::spawn(async move {
-                if let Err(error) = accept_channel.accept_loop().await {
-                    tracing::error!("accept loop stopped: {error}");
-                }
-            });
-            let service = UnbillConsole::open(channel as Arc<dyn AsymChannel>);
+            let service = tauri::async_runtime::block_on(async {
+                let socket = unbill_store_fs::UNBILL_PATH
+                    .socket_path()
+                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+                let channel = RpcAsymChannel::connect(&socket).await?;
+                Ok::<_, std::io::Error>(UnbillConsole::open(channel as Arc<dyn AsymChannel>))
+            })
+            .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
 
             app.manage(AppState { service });
             Ok(())
