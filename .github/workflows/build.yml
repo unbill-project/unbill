@@ -49,19 +49,21 @@ jobs:
           key: ${{ matrix.target }}
 
       - name: Build release binaries
-        run: cargo build --release --target ${{ matrix.target }} -p unbill-cli -p unbill-tui
+        run: cargo build --release --target ${{ matrix.target }} -p unbill-cli -p unbill-tui -p unbill-daemon
 
       - name: Stage binaries (unix)
         if: runner.os != 'Windows'
         run: |
           cp target/${{ matrix.target }}/release/unbill-cli unbill-cli-${{ matrix.suffix }}
           cp target/${{ matrix.target }}/release/unbill-tui unbill-tui-${{ matrix.suffix }}
+          cp target/${{ matrix.target }}/release/unbill-daemon unbill-daemon-${{ matrix.suffix }}
 
       - name: Stage binaries (windows)
         if: runner.os == 'Windows'
         run: |
           cp target/${{ matrix.target }}/release/unbill-cli.exe unbill-cli-${{ matrix.suffix }}.exe
           cp target/${{ matrix.target }}/release/unbill-tui.exe unbill-tui-${{ matrix.suffix }}.exe
+          cp target/${{ matrix.target }}/release/unbill-daemon.exe unbill-daemon-${{ matrix.suffix }}.exe
 
       - uses: actions/upload-artifact@v4
         with:
@@ -69,6 +71,7 @@ jobs:
           path: |
             unbill-cli-${{ matrix.suffix }}*
             unbill-tui-${{ matrix.suffix }}*
+            unbill-daemon-${{ matrix.suffix }}*
 
   build-tauri:
     name: Build Tauri (${{ matrix.suffix }})
