@@ -12,15 +12,15 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tower_http::trace::TraceLayer;
 
-use unbill_console::model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
-use unbill_console::service::UnbillConsole;
+use unbill_device::UnbillDevice;
+use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
 
 // ---------------------------------------------------------------------------
 // Shared state
 // ---------------------------------------------------------------------------
 
 pub struct AppState {
-    pub service: Arc<UnbillConsole>,
+    pub service: Arc<UnbillDevice>,
     pub api_key: String,
 }
 
@@ -114,7 +114,7 @@ fn valid_device_key(key: &str) -> bool {
 // ---------------------------------------------------------------------------
 
 async fn list_ledgers(State(state): State<Arc<AppState>>) -> Response {
-    match state.service.list_ledgers().await {
+    match state.service.store().list_ledgers().await {
         Ok(metas) => {
             let json: Vec<MetaJson> = metas.into_iter().map(meta_to_json).collect();
             Json(json).into_response()
@@ -153,7 +153,7 @@ async fn save_ledger_meta(
         updated_at: Timestamp::from_millis(body.updated_at_ms),
     };
 
-    match state.service.save_ledger_meta(&meta).await {
+    match state.service.store().save_ledger_meta(&meta).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -194,7 +194,7 @@ async fn load_device_meta(State(state): State<Arc<AppState>>, Path(key): Path<St
     if !valid_device_key(&key) {
         return StatusCode::BAD_REQUEST.into_response();
     }
-    match state.service.load_device_meta(&key).await {
+    match state.service.store().load_device_meta(&key).await {
         Ok(Some(bytes)) => (
             StatusCode::OK,
             [("content-type", "application/octet-stream")],
@@ -214,7 +214,7 @@ async fn save_device_meta(
     if !valid_device_key(&key) {
         return StatusCode::BAD_REQUEST.into_response();
     }
-    match state.service.save_device_meta(&key, body.to_vec()).await {
+    match state.service.store().save_device_meta(&key, &body).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -246,7 +246,7 @@ async fn sync_with_peer(
     Path(node_id): Path<String>,
 ) -> Response {
     let peer = NodeId::new(node_id);
-    match state.service.sync_once(peer).await {
+    match state.service.trigger_peer_sync(peer).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -256,7 +256,7 @@ async fn sync_with_peer(
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn meta_to_json(m: unbill_console::model::LedgerMeta) -> MetaJson {
+fn meta_to_json(m: LedgerMeta) -> MetaJson {
     MetaJson {
         ledger_id: m.ledger_id.to_string(),
         name: m.name,
@@ -282,13 +282,12 @@ mod tests {
     const API_KEY: &str = "secret";
 
     async fn make_app(dir: &std::path::Path) -> Router {
-        use unbill_asymmetric_channel::local::LocalAsymChannel;
+        use unbill_device::UnbillDevice;
         use unbill_store_fs::FsStore;
         let store = Arc::new(FsStore::new(dir.to_path_buf()));
-        let channel = LocalAsymChannel::open(store).await.unwrap();
-        let service = UnbillConsole::open(channel);
+        let device = UnbillDevice::open(store).await.unwrap();
         let state = Arc::new(AppState {
-            service,
+            service: device,
             api_key: API_KEY.to_owned(),
         });
         build_router(state)
@@ -425,25 +424,24 @@ mod tests {
 
     #[tokio::test]
     async fn test_sync_converges_with_server() {
-        use unbill_console::LedgerDoc;
-        use unbill_console::model::{Currency, LedgerId, Timestamp};
+        use unbill_device::{LedgerStore as _, UnbillDevice};
+        use unbill_model::{Currency, LedgerId, Timestamp};
+        use unbill_store_fs::FsStore;
 
         let dir = tempfile::tempdir().unwrap();
-        let store = Arc::new(unbill_store_fs::FsStore::new(dir.path().to_path_buf()));
-        let channel = unbill_asymmetric_channel::local::LocalAsymChannel::open(Arc::clone(&store))
+        let store = Arc::new(FsStore::new(dir.path().to_path_buf()));
+        let device = UnbillDevice::open(Arc::clone(&store) as Arc<dyn unbill_device::LedgerStore>)
             .await
             .unwrap();
         let app = {
-            let svc = UnbillConsole::open(
-                Arc::clone(&channel) as Arc<dyn unbill_asymmetric_channel::AsymChannel>
-            );
             let state = Arc::new(AppState {
-                service: svc,
+                service: Arc::clone(&device),
                 api_key: API_KEY.to_owned(),
             });
             build_router(state)
         };
 
+        use unbill_storage::LedgerDoc;
         let ledger_id = LedgerId::from_u128(1);
         let id_str = ledger_id.to_string();
         let mut server_doc = LedgerDoc::new(
@@ -453,12 +451,7 @@ mod tests {
             Timestamp::from_millis(1000),
         )
         .unwrap();
-        channel
-            .service()
-            .store()
-            .save_ledger(&id_str, &mut server_doc)
-            .await
-            .unwrap();
+        store.save_ledger(&id_str, &mut server_doc).await.unwrap();
 
         let mut client_doc = LedgerDoc::empty();
         let mut sync_state = automerge::sync::State::new();

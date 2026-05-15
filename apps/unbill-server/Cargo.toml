@@ -16,8 +16,9 @@ name = "unbill_server"
 path = "src/lib.rs"
 
 [dependencies]
-unbill-console = { path = "../../crates/unbill-console" }
-unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["local"] }
+unbill-device = { path = "../../crates/unbill-device" }
+unbill-model = { path = "../../crates/unbill-model" }
+unbill-storage = { path = "../../crates/unbill-storage" }
 unbill-store-fs = { path = "../../crates/unbill-store-fs" }
 tokio.workspace = true
 anyhow.workspace = true
@@ -31,7 +32,6 @@ serde_json.workspace = true
 automerge.workspace = true
 
 [dev-dependencies]
-unbill-storage = { path = "../../crates/unbill-storage" }
 tokio = { workspace = true, features = ["test-util"] }
 tower = { workspace = true, features = ["util"] }
 http-body-util = "0.1"

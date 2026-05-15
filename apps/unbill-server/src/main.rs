@@ -4,8 +4,7 @@ use anyhow::{Context, Result};
 use tokio::net::TcpListener;
 use tracing::info;
 
-use unbill_asymmetric_channel::local::LocalAsymChannel;
-use unbill_console::service::UnbillConsole;
+use unbill_device::UnbillDevice;
 use unbill_server::{AppState, build_router};
 use unbill_store_fs::FsStore;
 
@@ -23,21 +22,23 @@ async fn main() -> Result<()> {
         .ensure_data_dir()
         .context("failed to resolve data directory")?;
     let store = Arc::new(FsStore::new(data_dir));
-    let channel = LocalAsymChannel::open(store)
+    let device = UnbillDevice::open(store)
         .await
-        .context("failed to open channel")?;
+        .context("failed to open device")?;
 
-    info!("device node_id={}", channel.service().device_id());
+    info!("device node_id={}", device.device_id());
 
-    let accept_channel = Arc::clone(&channel);
+    let accept_device = Arc::clone(&device);
     tokio::spawn(async move {
-        if let Err(e) = accept_channel.accept_loop().await {
+        if let Err(e) = accept_device.accept_loop().await {
             tracing::error!("accept loop exited: {e}");
         }
     });
 
-    let service = UnbillConsole::open(channel);
-    let state = Arc::new(AppState { service, api_key });
+    let state = Arc::new(AppState {
+        service: device,
+        api_key,
+    });
     let router = build_router(state);
 
     let addr = format!("0.0.0.0:{port}");
