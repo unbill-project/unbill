@@ -4,10 +4,10 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, State};
-use unbill_core::model::{
+use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
 };
-use unbill_core::service::UnbillService;
+use unbill_console::service::UnbillService;
 use unbill_store_fs::FsStore;
 
 struct AppState {
@@ -362,8 +362,12 @@ fn preview_bill_split(
         .collect::<Result<Vec<_>>>()
         .map_err(stringify_error)?;
 
-    let split =
-        unbill_core::settlement::compute_bill_split(&payers, &payees, input.amount_cents, bill_id);
+    let split = unbill_console::settlement::compute_bill_split(
+        &payers,
+        &payees,
+        input.amount_cents,
+        bill_id,
+    );
     Ok(BillSplitPreviewDto {
         payer_amounts: split
             .payer_amounts
@@ -640,7 +644,7 @@ async fn resolve_conflict_inner(
 
 async fn summarize_ledger(
     service: &Arc<UnbillService>,
-    meta: unbill_core::model::LedgerMeta,
+    meta: unbill_console::model::LedgerMeta,
 ) -> Result<LedgerSummaryDto> {
     let users = service.list_users(meta.ledger_id).await?;
     let bills = service.list_bills(meta.ledger_id).await?;
@@ -658,7 +662,7 @@ async fn summarize_ledger(
 }
 
 fn map_bills_from(
-    bills: unbill_core::model::EffectiveBills,
+    bills: unbill_console::model::EffectiveBills,
     user_lookup: &std::collections::HashMap<UserId, String>,
 ) -> Vec<BillDto> {
     let mut items = bills
@@ -672,7 +676,7 @@ fn map_bills_from(
 }
 
 fn map_conflicts_from(
-    conflicts: Vec<unbill_core::service::ConflictGroup>,
+    conflicts: Vec<unbill_console::service::ConflictGroup>,
     user_lookup: &std::collections::HashMap<UserId, String>,
 ) -> Vec<ConflictGroupDto> {
     conflicts
@@ -685,7 +689,7 @@ fn map_conflicts_from(
 }
 
 fn map_bill_vec(
-    bills: Vec<unbill_core::model::Bill>,
+    bills: Vec<unbill_console::model::Bill>,
     user_lookup: &std::collections::HashMap<UserId, String>,
 ) -> Vec<BillDto> {
     let mut items = bills
@@ -697,10 +701,10 @@ fn map_bill_vec(
 }
 
 fn bill_to_dto(
-    bill: unbill_core::model::Bill,
+    bill: unbill_console::model::Bill,
     user_lookup: &std::collections::HashMap<UserId, String>,
 ) -> BillDto {
-    let to_share_dto = |share: unbill_core::model::Share| ShareDto {
+    let to_share_dto = |share: unbill_console::model::Share| ShareDto {
         display_name: user_lookup
             .get(&share.user_id)
             .cloned()
@@ -738,8 +742,8 @@ fn stringify_error(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
 
-impl From<unbill_core::model::User> for UserDto {
-    fn from(value: unbill_core::model::User) -> Self {
+impl From<unbill_console::model::User> for UserDto {
+    fn from(value: unbill_console::model::User) -> Self {
         Self {
             user_id: value.user_id.to_string(),
             display_name: value.display_name,
@@ -806,8 +810,8 @@ mod tests {
     use std::sync::Arc;
 
     use serde_json::Value;
-    use unbill_core::model::{NewDevice, UserId};
-    use unbill_core::service::UnbillService;
+    use unbill_console::model::{NewDevice, UserId};
+    use unbill_console::service::UnbillService;
     use unbill_store_memory::InMemoryStore;
 
     fn tauri_config() -> Value {

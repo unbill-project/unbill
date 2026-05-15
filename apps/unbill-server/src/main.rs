@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use tokio::net::TcpListener;
 use tracing::info;
 
-use unbill_core::service::UnbillService;
+use unbill_console::service::UnbillService;
 use unbill_server::{AppState, build_router};
 use unbill_store_fs::FsStore;
 

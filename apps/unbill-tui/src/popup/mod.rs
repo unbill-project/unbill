@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Clear, Paragraph},
 };
 
-use unbill_core::model::{LedgerId, NewBill, NewUser, NewUserName};
+use unbill_console::model::{LedgerId, NewBill, NewUser, NewUserName};
 
 pub mod confirm;
 pub mod create_ledger;

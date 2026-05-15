@@ -5,10 +5,10 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use unbill_core::model::{
+use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
 };
-use unbill_core::service::UnbillService;
+use unbill_console::service::UnbillService;
 
 use crate::output::{
     bill_out, conflict_group_out, device_out, fmt_amount, ledger_out, parse_amount, print_json,

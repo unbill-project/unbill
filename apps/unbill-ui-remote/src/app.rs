@@ -272,7 +272,7 @@ pub fn App() -> impl IntoView {
         use tokio::sync::broadcast::error::RecvError;
         loop {
             match events.recv().await {
-                Ok(unbill_core::service::ServiceEvent::LedgerUpdated { ledger_id }) => {
+                Ok(unbill_console::service::ServiceEvent::LedgerUpdated { ledger_id }) => {
                     if let Ok(summary) = api::load_ledger_summary(&ledger_id).await {
                         ledgers.update(|list| {
                             if let Some(entry) = list.iter_mut().find(|l| l.ledger_id == ledger_id)

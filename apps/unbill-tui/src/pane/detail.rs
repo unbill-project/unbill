@@ -4,8 +4,8 @@ use ratatui::{
     style::{Color, Modifier, Style},
     widgets::{Block, Paragraph},
 };
-use unbill_core::model::{BillId, LedgerId, Share, User, UserId};
-use unbill_core::settlement::compute_bill_split;
+use unbill_console::model::{BillId, LedgerId, Share, User, UserId};
+use unbill_console::settlement::compute_bill_split;
 
 use crate::app::AppState;
 use crate::pane::Pane;

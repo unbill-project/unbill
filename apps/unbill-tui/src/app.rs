@@ -5,10 +5,10 @@ use futures::StreamExt as _;
 use ratatui::{Terminal, backend::CrosstermBackend};
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval};
-use unbill_core::model::{
+use unbill_console::model::{
     Bill, BillId, Currency, LedgerId, LedgerMeta, NewBill, NewLedger, NodeId, Share, User,
 };
-use unbill_core::service::{ServiceEvent, SettlementTransaction, UnbillService};
+use unbill_console::service::{ServiceEvent, SettlementTransaction, UnbillService};
 
 use crate::pane::Pane;
 use crate::pane::detail::{BillEditor, EditorSection, ParticipantRow};

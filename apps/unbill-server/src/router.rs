@@ -12,9 +12,9 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tower_http::trace::TraceLayer;
 
-use unbill_core::LedgerDoc;
-use unbill_core::model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
-use unbill_core::service::UnbillService;
+use unbill_console::LedgerDoc;
+use unbill_console::model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
+use unbill_console::service::UnbillService;
 
 // ---------------------------------------------------------------------------
 // Shared state
@@ -283,7 +283,7 @@ async fn sync_with_peer(
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn meta_to_json(m: unbill_core::model::LedgerMeta) -> MetaJson {
+fn meta_to_json(m: unbill_console::model::LedgerMeta) -> MetaJson {
     MetaJson {
         ledger_id: m.ledger_id.to_string(),
         name: m.name,
@@ -450,8 +450,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_sync_converges_with_server() {
-        use unbill_core::LedgerDoc;
-        use unbill_core::model::{Currency, LedgerId, Timestamp};
+        use unbill_console::LedgerDoc;
+        use unbill_console::model::{Currency, LedgerId, Timestamp};
 
         let dir = tempfile::tempdir().unwrap();
         let app = make_app(dir.path()).await;
@@ -466,7 +466,7 @@ mod tests {
         )
         .unwrap();
         {
-            use unbill_core::storage::LedgerStore as _;
+            use unbill_console::storage::LedgerStore as _;
             use unbill_store_fs::FsStore;
             let store = FsStore::new(dir.path().to_path_buf());
             store.save_ledger(&id_str, &mut server_doc).await.unwrap();

@@ -1,6 +1,6 @@
 [package]
-name = "unbill-core"
-description = "The core library for unbill — CRDT ledger, persistence, and P2P sync."
+name = "unbill-console"
+description = "The console library for unbill — CRDT ledger operations and P2P sync."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

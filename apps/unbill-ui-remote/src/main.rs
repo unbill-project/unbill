@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use unbill_core::service::UnbillService;
+use unbill_console::service::UnbillService;
 use unbill_store_http::HttpStore;
 
 use components::{ActionButton, FieldBlock, ToastProvider};

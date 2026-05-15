@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use anyhow::bail;
 use clap::Parser;
-use unbill_core::service::UnbillService;
+use unbill_console::service::UnbillService;
 use unbill_store_fs::FsStore;
 use unbill_store_fs::UNBILL_PATH;
 

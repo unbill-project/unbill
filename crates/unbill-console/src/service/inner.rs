@@ -13,23 +13,17 @@ use crate::model::{
     BillId, Currency, Device, EffectiveBills, LedgerId, LedgerMeta, NewBill, NewDevice, NewLedger,
     NewUser, NewUserName, NodeId, Timestamp, User, UserId,
 };
-#[cfg(feature = "local")]
-use crate::model::{Invitation, InviteToken};
 
 use crate::settlement;
 use crate::storage::LedgerStore;
 use unbill_event::ServiceEvent;
 use unbill_storage::LedgerDoc;
 use unbill_storage::{load_device_labels, save_device_labels};
-#[cfg(feature = "local")]
-use unbill_storage::{load_pending_invitations, save_pending_invitations};
 
 pub struct UnbillService {
     pub(crate) store: Arc<dyn LedgerStore>,
     pub(crate) device_id: NodeId,
     pub(crate) events: broadcast::Sender<ServiceEvent>,
-    #[cfg(feature = "local")]
-    pub(crate) endpoint: std::sync::Mutex<Option<Arc<crate::net::UnbillEndpoint>>>,
 }
 
 impl UnbillService {
@@ -45,9 +39,17 @@ impl UnbillService {
             store,
             device_id,
             events,
-            #[cfg(feature = "local")]
-            endpoint: std::sync::Mutex::new(None),
         }))
+    }
+
+    /// Open using a remote store (e.g. `HttpStore`). `base_url` and `api_key`
+    /// are accepted for forward-compatibility and currently ignored.
+    pub async fn open_remote(
+        store: Arc<dyn LedgerStore>,
+        _base_url: String,
+        _api_key: String,
+    ) -> Result<Arc<Self>> {
+        Self::open(store).await
     }
 
     // -----------------------------------------------------------------------

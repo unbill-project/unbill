@@ -11,7 +11,7 @@ homepage.workspace = true
 console_error_panic_hook = "0.1"
 leptos = { version = "0.8.14", features = ["csr"] }
 unbill-ui-components = { path = "../../crates/unbill-ui-components" }
-unbill-core = { path = "../../crates/unbill-core", features = ["remote"] }
+unbill-console = { path = "../../crates/unbill-console" }
 unbill-store-http = { path = "../../crates/unbill-store-http" }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

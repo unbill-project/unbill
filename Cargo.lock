@@ -7907,8 +7907,10 @@ dependencies = [
  "tarpc",
  "tokio",
  "tokio-stream",
- "unbill-core",
+ "unbill-event",
  "unbill-model",
+ "unbill-storage",
+ "unbill-symmetric-channel",
 ]
 
 [[package]]
@@ -7923,12 +7925,12 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "unbill-core",
+ "unbill-console",
  "unbill-store-fs",
 ]
 
 [[package]]
-name = "unbill-core"
+name = "unbill-console"
 version = "0.0.2"
 dependencies = [
  "async-trait",
@@ -7987,7 +7989,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
- "unbill-core",
+ "unbill-console",
  "unbill-store-fs",
 ]
 
@@ -8079,7 +8081,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "unbill-core",
+ "unbill-console",
  "unbill-store-fs",
  "unbill-store-memory",
 ]
@@ -8094,7 +8096,7 @@ dependencies = [
  "ratatui",
  "tokio",
  "tracing-subscriber",
- "unbill-core",
+ "unbill-console",
  "unbill-store-fs",
 ]
 
@@ -8137,7 +8139,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "unbill-core",
+ "unbill-console",
  "unbill-store-http",
  "unbill-store-memory",
  "unbill-ui-components",

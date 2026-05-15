@@ -3,10 +3,10 @@ use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
-use unbill_core::model::{
+use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, UserId,
 };
-use unbill_core::service::UnbillService;
+use unbill_console::service::UnbillService;
 use unbill_ui_components::bill_editor::BillShareInput;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
@@ -158,7 +158,7 @@ pub struct ResolveConflictInput {
 // API functions
 // ---------------------------------------------------------------------------
 
-pub fn subscribe() -> tokio::sync::broadcast::Receiver<unbill_core::service::ServiceEvent> {
+pub fn subscribe() -> tokio::sync::broadcast::Receiver<unbill_console::service::ServiceEvent> {
     get_service().expect("service not initialized").subscribe()
 }
 
@@ -346,7 +346,7 @@ pub async fn join_ledger(url: String, label: String) -> Result<(), String> {
 pub async fn sync_device(node_id: String) -> Result<(), String> {
     use std::str::FromStr;
     let svc = get_service()?;
-    let peer = unbill_core::model::NodeId::from_str(&node_id)
+    let peer = unbill_console::model::NodeId::from_str(&node_id)
         .map_err(|e| format!("invalid node id: {e}"))?;
     svc.sync_once(peer).await.map_err(|e| e.to_string())
 }
@@ -358,7 +358,7 @@ pub async fn save_bill(input: SaveBillInput) -> Result<String, String> {
         .payers
         .into_iter()
         .map(|item| {
-            parse_user_id(&item.user_id).map(|user_id| unbill_core::model::Share {
+            parse_user_id(&item.user_id).map(|user_id| unbill_console::model::Share {
                 user_id,
                 shares: item.shares,
             })
@@ -368,7 +368,7 @@ pub async fn save_bill(input: SaveBillInput) -> Result<String, String> {
         .payees
         .into_iter()
         .map(|item| {
-            parse_user_id(&item.user_id).map(|user_id| unbill_core::model::Share {
+            parse_user_id(&item.user_id).map(|user_id| unbill_console::model::Share {
                 user_id,
                 shares: item.shares,
             })
@@ -470,7 +470,7 @@ pub async fn write_clipboard_text(text: &str) -> Result<(), String> {
 
 async fn load_all_sync_devices(
     svc: &Arc<UnbillService>,
-    metas: &[unbill_core::model::LedgerMeta],
+    metas: &[unbill_console::model::LedgerMeta],
 ) -> Result<Vec<SyncDevice>, String> {
     use std::collections::BTreeMap;
     let local_node_id = svc.device_id().to_string();
@@ -513,7 +513,7 @@ async fn load_all_sync_devices(
 
 async fn summarize_ledger(
     svc: &Arc<UnbillService>,
-    meta: unbill_core::model::LedgerMeta,
+    meta: unbill_console::model::LedgerMeta,
 ) -> Result<LedgerSummary, String> {
     let lid = meta.ledger_id;
     let users = svc.list_users(lid).await.map_err(|e| e.to_string())?;
@@ -557,7 +557,7 @@ async fn load_devices_for_ledger(
 }
 
 fn map_bills(
-    bills: unbill_core::model::EffectiveBills,
+    bills: unbill_console::model::EffectiveBills,
     user_lookup: &HashMap<UserId, String>,
 ) -> Vec<Bill> {
     let mut items = bills
@@ -570,7 +570,7 @@ fn map_bills(
 }
 
 fn map_conflicts(
-    conflicts: Vec<unbill_core::service::ConflictGroup>,
+    conflicts: Vec<unbill_console::service::ConflictGroup>,
     user_lookup: &HashMap<UserId, String>,
 ) -> Vec<ConflictGroup> {
     conflicts
@@ -583,7 +583,7 @@ fn map_conflicts(
 }
 
 fn map_bill_vec(
-    bills: Vec<unbill_core::model::Bill>,
+    bills: Vec<unbill_console::model::Bill>,
     user_lookup: &HashMap<UserId, String>,
 ) -> Vec<Bill> {
     let mut items = bills
@@ -594,8 +594,8 @@ fn map_bill_vec(
     items
 }
 
-fn bill_to_dto(bill: unbill_core::model::Bill, user_lookup: &HashMap<UserId, String>) -> Bill {
-    let to_share = |share: unbill_core::model::Share| Share {
+fn bill_to_dto(bill: unbill_console::model::Bill, user_lookup: &HashMap<UserId, String>) -> Bill {
+    let to_share = |share: unbill_console::model::Share| Share {
         display_name: user_lookup
             .get(&share.user_id)
             .cloned()
@@ -614,7 +614,7 @@ fn bill_to_dto(bill: unbill_core::model::Bill, user_lookup: &HashMap<UserId, Str
     }
 }
 
-fn user_to_dto(user: unbill_core::model::User) -> User {
+fn user_to_dto(user: unbill_console::model::User) -> User {
     User {
         user_id: user.user_id.to_string(),
         display_name: user.display_name,
@@ -661,8 +661,8 @@ fn format_timestamp_parts(year: u32, month: u32, day: u32, hour: u32, minute: u3
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use unbill_core::model::{NewBill, NewLedger, NewUserName, Share};
-    use unbill_core::service::UnbillService;
+    use unbill_console::model::{NewBill, NewLedger, NewUserName, Share};
+    use unbill_console::service::UnbillService;
     use unbill_store_memory::InMemoryStore;
 
     #[test]

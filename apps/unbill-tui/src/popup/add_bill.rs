@@ -5,7 +5,7 @@ use ratatui::{
     style::{Color, Modifier, Style},
     widgets::Paragraph,
 };
-use unbill_core::model::{LedgerId, NewBill, Share, User};
+use unbill_console::model::{LedgerId, NewBill, Share, User};
 
 use super::{
     PopupAction, PopupOutcome, PopupView, TextInput, render_popup_base, render_text_field,
