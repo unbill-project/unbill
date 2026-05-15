@@ -14,7 +14,7 @@ path = "src/main.rs"
 [dependencies]
 unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["local", "rpc"] }
 unbill-store-fs = { path = "../../crates/unbill-store-fs" }
-tokio.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

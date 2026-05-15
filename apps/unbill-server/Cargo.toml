@@ -19,7 +19,7 @@ path = "src/lib.rs"
 unbill-device = { path = "../../crates/unbill-device" }
 unbill-model = { path = "../../crates/unbill-model" }
 unbill-store-fs = { path = "../../crates/unbill-store-fs" }
-tokio.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
@@ -32,7 +32,7 @@ serde.workspace = true
 unbill-storage = { path = "../../crates/unbill-storage" }
 automerge.workspace = true
 serde_json.workspace = true
-tokio = { workspace = true, features = ["test-util"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
 tower = { workspace = true, features = ["util"] }
 http-body-util = "0.1"
 tempfile = "3"

@@ -28,7 +28,6 @@ struct JoinBody {
 }
 
 #[derive(Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
 struct MetaJson {
     ledger_id: String,
     name: String,
@@ -97,7 +96,8 @@ impl HttpAsymChannel {
     }
 }
 
-#[async_trait]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 impl AsymChannel for HttpAsymChannel {
     fn device_id(&self) -> NodeId {
         self.device_node_id.clone()

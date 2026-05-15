@@ -25,7 +25,7 @@ thiserror.workspace = true
 tracing.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["rt"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 tokio = { version = "1", default-features = false, features = ["sync"] }
@@ -35,5 +35,5 @@ tokio = { version = "1", default-features = false, features = ["sync"] }
 unbill-model = { path = "../unbill-model", features = ["test-helpers"] }
 unbill-store-memory = { path = "../unbill-store-memory" }
 proptest.workspace = true
-tokio = { workspace = true, features = ["test-util"] }
+tokio = { workspace = true, features = ["rt", "macros", "test-util"] }
 tempfile = "3"

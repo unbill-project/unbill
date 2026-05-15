@@ -12,7 +12,7 @@ unbill-model = { path = "../unbill-model" }
 unbill-storage = { path = "../unbill-storage" }
 unbill-event = { path = "../unbill-event" }
 iroh.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["rt", "io-util"] }
 serde.workspace = true
 serde_json.workspace = true
 ciborium.workspace = true
@@ -22,4 +22,4 @@ tracing.workspace = true
 [dev-dependencies]
 unbill-model = { path = "../unbill-model", features = ["test-helpers"] }
 unbill-store-memory = { path = "../unbill-store-memory" }
-tokio = { workspace = true, features = ["test-util"] }
+tokio = { workspace = true, features = ["rt", "macros", "io-util", "test-util"] }

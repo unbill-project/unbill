@@ -17,14 +17,35 @@ pub enum AsymChannelEvent {
     LedgerUpdated { ledger_id: LedgerId },
 }
 
+// On wasm32 (single-threaded), relax Send + Sync requirements so that
+// browser-native futures (reqwest / JsFuture, which contain !Send Rc) compile.
+#[cfg(not(target_arch = "wasm32"))]
+pub trait MaybeSend: Send {}
+#[cfg(not(target_arch = "wasm32"))]
+impl<T: Send> MaybeSend for T {}
+#[cfg(target_arch = "wasm32")]
+pub trait MaybeSend {}
+#[cfg(target_arch = "wasm32")]
+impl<T> MaybeSend for T {}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub trait MaybeSync: Sync {}
+#[cfg(not(target_arch = "wasm32"))]
+impl<T: Sync> MaybeSync for T {}
+#[cfg(target_arch = "wasm32")]
+pub trait MaybeSync {}
+#[cfg(target_arch = "wasm32")]
+impl<T> MaybeSync for T {}
+
 /// The asymmetric channel between a device and a console.
 ///
 /// Control plane: invite / join / peer sync (request-response).
 /// Data plane: one round of Automerge sync per call.
 /// Metadata plane: ledger list, ledger meta, device meta.
 /// Subscription: broadcast receiver the device pushes into when state changes.
-#[async_trait]
-pub trait AsymChannel: Send + Sync {
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+pub trait AsymChannel: MaybeSend + MaybeSync {
     // --- Identity ---
 
     /// Return the device's node ID.
