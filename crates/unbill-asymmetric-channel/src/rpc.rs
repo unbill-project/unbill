@@ -15,9 +15,50 @@ use tarpc::server::{BaseChannel, Channel as _};
 use tarpc::tokio_serde::formats::Json;
 use tokio::sync::broadcast;
 use unbill_model::error::{Result, UnbillError};
-use unbill_model::{LedgerId, NodeId};
+use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
 
 use crate::{AsymChannel, AsymChannelEvent};
+
+/// Default address the daemon listens on.
+pub const DEFAULT_ADDR: &str = "127.0.0.1:47843";
+
+// ---------------------------------------------------------------------------
+// Wire types
+// ---------------------------------------------------------------------------
+
+/// Serializable mirror of `LedgerMeta` (Currency has no serde impl).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct WireLedgerMeta {
+    pub ledger_id: LedgerId,
+    pub name: String,
+    pub currency: String,
+    pub created_at_ms: i64,
+    pub updated_at_ms: i64,
+}
+
+impl WireLedgerMeta {
+    fn from_meta(m: &LedgerMeta) -> Self {
+        Self {
+            ledger_id: m.ledger_id,
+            name: m.name.clone(),
+            currency: m.currency.code().to_owned(),
+            created_at_ms: m.created_at.as_millis(),
+            updated_at_ms: m.updated_at.as_millis(),
+        }
+    }
+
+    fn into_meta(self) -> Result<LedgerMeta> {
+        let currency = Currency::from_code(&self.currency)
+            .ok_or_else(|| UnbillError::Network(format!("unknown currency {:?}", self.currency)))?;
+        Ok(LedgerMeta {
+            ledger_id: self.ledger_id,
+            name: self.name,
+            currency,
+            created_at: Timestamp::from_millis(self.created_at_ms),
+            updated_at: Timestamp::from_millis(self.updated_at_ms),
+        })
+    }
+}
 
 // ---------------------------------------------------------------------------
 // tarpc service definition
@@ -25,13 +66,18 @@ use crate::{AsymChannel, AsymChannelEvent};
 
 #[tarpc::service]
 pub trait AsymChannelService {
+    async fn get_device_id() -> String;
     async fn create_invitation(ledger_id: LedgerId) -> std::result::Result<String, String>;
-    async fn join_ledger(url: String) -> std::result::Result<(), String>;
+    async fn join_ledger(url: String, label: Option<String>) -> std::result::Result<(), String>;
     async fn trigger_peer_sync(peer: NodeId) -> std::result::Result<(), String>;
     async fn asym_sync(
         ledger_id: LedgerId,
         bytes: Vec<u8>,
     ) -> std::result::Result<Option<Vec<u8>>, String>;
+    async fn list_ledgers() -> std::result::Result<Vec<WireLedgerMeta>, String>;
+    async fn save_ledger_meta(meta: WireLedgerMeta) -> std::result::Result<(), String>;
+    async fn load_device_meta(key: String) -> std::result::Result<Option<Vec<u8>>, String>;
+    async fn save_device_meta(key: String, bytes: Vec<u8>) -> std::result::Result<(), String>;
     /// Poll and drain pending device events for this connection.
     async fn poll_events() -> Vec<WireEvent>;
 }
@@ -66,14 +112,26 @@ impl From<WireEvent> for AsymChannelEvent {
 // Server
 // ---------------------------------------------------------------------------
 
-#[derive(Clone)]
 struct AsymChannelServiceServer<C: AsymChannel> {
     channel: Arc<C>,
     /// Per-connection event queue populated by a background subscriber task.
     event_queue: Arc<Mutex<Vec<WireEvent>>>,
 }
 
-impl<C: AsymChannel + Clone> AsymChannelService for AsymChannelServiceServer<C> {
+impl<C: AsymChannel> Clone for AsymChannelServiceServer<C> {
+    fn clone(&self) -> Self {
+        Self {
+            channel: Arc::clone(&self.channel),
+            event_queue: Arc::clone(&self.event_queue),
+        }
+    }
+}
+
+impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
+    async fn get_device_id(self, _ctx: tarpc::context::Context) -> String {
+        self.channel.device_id().to_string()
+    }
+
     async fn create_invitation(
         self,
         _ctx: tarpc::context::Context,
@@ -89,9 +147,10 @@ impl<C: AsymChannel + Clone> AsymChannelService for AsymChannelServiceServer<C> 
         self,
         _ctx: tarpc::context::Context,
         url: String,
+        label: Option<String>,
     ) -> std::result::Result<(), String> {
         self.channel
-            .join_ledger(url)
+            .join_ledger(url, label)
             .await
             .map_err(|e| e.to_string())
     }
@@ -119,6 +178,52 @@ impl<C: AsymChannel + Clone> AsymChannelService for AsymChannelServiceServer<C> 
             .map_err(|e| e.to_string())
     }
 
+    async fn list_ledgers(
+        self,
+        _ctx: tarpc::context::Context,
+    ) -> std::result::Result<Vec<WireLedgerMeta>, String> {
+        self.channel
+            .list_ledgers()
+            .await
+            .map(|v| v.iter().map(WireLedgerMeta::from_meta).collect())
+            .map_err(|e| e.to_string())
+    }
+
+    async fn save_ledger_meta(
+        self,
+        _ctx: tarpc::context::Context,
+        meta: WireLedgerMeta,
+    ) -> std::result::Result<(), String> {
+        let meta = meta.into_meta().map_err(|e| e.to_string())?;
+        self.channel
+            .save_ledger_meta(&meta)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    async fn load_device_meta(
+        self,
+        _ctx: tarpc::context::Context,
+        key: String,
+    ) -> std::result::Result<Option<Vec<u8>>, String> {
+        self.channel
+            .load_device_meta(&key)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    async fn save_device_meta(
+        self,
+        _ctx: tarpc::context::Context,
+        key: String,
+        bytes: Vec<u8>,
+    ) -> std::result::Result<(), String> {
+        self.channel
+            .save_device_meta(&key, bytes)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
     async fn poll_events(self, _ctx: tarpc::context::Context) -> Vec<WireEvent> {
         std::mem::take(&mut *self.event_queue.lock().unwrap())
     }
@@ -128,7 +233,7 @@ impl<C: AsymChannel + Clone> AsymChannelService for AsymChannelServiceServer<C> 
 /// Each accepted connection gets its own event queue and subscriber task.
 pub async fn serve<C>(channel: Arc<C>, addr: SocketAddr) -> std::io::Result<()>
 where
-    C: AsymChannel + Clone + 'static,
+    C: AsymChannel + 'static,
 {
     let listener = tarpc::serde_transport::tcp::listen(&addr, Json::default).await?;
     listener
@@ -175,6 +280,7 @@ where
 /// Polls `poll_events` in a background task to feed the broadcast channel.
 pub struct RpcAsymChannel {
     client: AsymChannelServiceClient,
+    device_node_id: NodeId,
     events: broadcast::Sender<AsymChannelEvent>,
 }
 
@@ -184,9 +290,16 @@ impl RpcAsymChannel {
         let client =
             AsymChannelServiceClient::new(tarpc::client::Config::default(), transport).spawn();
 
+        let id_str = client
+            .get_device_id(tarpc::context::current())
+            .await
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        let device_node_id = NodeId::new(id_str);
+
         let (tx, _) = broadcast::channel(256);
         let rpc = Arc::new(Self {
             client: client.clone(),
+            device_node_id,
             events: tx,
         });
 
@@ -209,6 +322,10 @@ impl RpcAsymChannel {
 
 #[async_trait]
 impl AsymChannel for RpcAsymChannel {
+    fn device_id(&self) -> NodeId {
+        self.device_node_id.clone()
+    }
+
     async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String> {
         self.client
             .create_invitation(tarpc::context::current(), ledger_id)
@@ -217,9 +334,9 @@ impl AsymChannel for RpcAsymChannel {
             .map_err(UnbillError::Network)
     }
 
-    async fn join_ledger(&self, url: String) -> Result<()> {
+    async fn join_ledger(&self, url: String, label: Option<String>) -> Result<()> {
         self.client
-            .join_ledger(tarpc::context::current(), url)
+            .join_ledger(tarpc::context::current(), url, label)
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?
             .map_err(UnbillError::Network)
@@ -236,6 +353,41 @@ impl AsymChannel for RpcAsymChannel {
     async fn asym_sync(&self, ledger_id: LedgerId, bytes: Vec<u8>) -> Result<Option<Vec<u8>>> {
         self.client
             .asym_sync(tarpc::context::current(), ledger_id, bytes)
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)
+    }
+
+    async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
+        self.client
+            .list_ledgers(tarpc::context::current())
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)?
+            .into_iter()
+            .map(WireLedgerMeta::into_meta)
+            .collect()
+    }
+
+    async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
+        self.client
+            .save_ledger_meta(tarpc::context::current(), WireLedgerMeta::from_meta(meta))
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)
+    }
+
+    async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>> {
+        self.client
+            .load_device_meta(tarpc::context::current(), key.to_owned())
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)
+    }
+
+    async fn save_device_meta(&self, key: &str, bytes: Vec<u8>) -> Result<()> {
+        self.client
+            .save_device_meta(tarpc::context::current(), key.to_owned(), bytes)
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?
             .map_err(UnbillError::Network)

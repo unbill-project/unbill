@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "apps/unbill-cli",
+    "apps/unbill-daemon",
     "apps/unbill-server",
     "apps/unbill-tui",
     "apps/unbill-ui-native",

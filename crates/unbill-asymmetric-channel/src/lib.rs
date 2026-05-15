@@ -33,7 +33,7 @@ pub trait AsymChannel: Send + Sync {
     // --- Control plane ---
 
     async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String>;
-    async fn join_ledger(&self, url: String) -> Result<()>;
+    async fn join_ledger(&self, url: String, label: Option<String>) -> Result<()>;
     async fn trigger_peer_sync(&self, peer: NodeId) -> Result<()>;
 
     // --- Data plane ---

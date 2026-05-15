@@ -13,7 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 unbill-console = { path = "../../crates/unbill-console" }
-unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["local"] }
+unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["rpc"] }
 unbill-store-fs = { path = "../../crates/unbill-store-fs" }
 tokio.workspace = true
 anyhow.workspace = true

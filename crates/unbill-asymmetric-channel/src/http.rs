@@ -24,6 +24,7 @@ struct InvitationJson {
 #[derive(Serialize)]
 struct JoinBody {
     url: String,
+    label: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -119,12 +120,12 @@ impl AsymChannel for HttpAsymChannel {
         Ok(body.url)
     }
 
-    async fn join_ledger(&self, url: String) -> Result<()> {
+    async fn join_ledger(&self, url: String, label: Option<String>) -> Result<()> {
         let resp = self
             .auth(
                 self.client
                     .post(self.url("/ledgers/join"))
-                    .json(&JoinBody { url }),
+                    .json(&JoinBody { url, label }),
             )
             .send()
             .await

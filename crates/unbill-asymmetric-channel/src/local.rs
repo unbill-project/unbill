@@ -60,8 +60,8 @@ impl AsymChannel for LocalAsymChannel {
         self.service.create_invitation(ledger_id).await
     }
 
-    async fn join_ledger(&self, url: String) -> Result<()> {
-        self.service.join_ledger(&url, None).await
+    async fn join_ledger(&self, url: String, label: Option<String>) -> Result<()> {
+        self.service.join_ledger(&url, label).await
     }
 
     async fn trigger_peer_sync(&self, peer: NodeId) -> Result<()> {

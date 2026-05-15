@@ -310,8 +310,8 @@ impl UnbillConsole {
         self.channel.create_invitation(ledger_id).await
     }
 
-    pub async fn join_ledger(&self, url: &str) -> Result<()> {
-        self.channel.join_ledger(url.to_owned()).await
+    pub async fn join_ledger(&self, url: &str, label: Option<String>) -> Result<()> {
+        self.channel.join_ledger(url.to_owned(), label).await
     }
 
     pub async fn sync_once(&self, peer: NodeId) -> Result<()> {
@@ -429,7 +429,7 @@ mod tests {
         async fn create_invitation(&self, _: LedgerId) -> Result<String> {
             unimplemented!()
         }
-        async fn join_ledger(&self, _: String) -> Result<()> {
+        async fn join_ledger(&self, _: String, _: Option<String>) -> Result<()> {
             unimplemented!()
         }
         async fn trigger_peer_sync(&self, _: NodeId) -> Result<()> {

@@ -124,6 +124,7 @@ struct AddUserInput {
 #[serde(rename_all = "camelCase")]
 struct JoinLedgerInput {
     url: String,
+    label: Option<String>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -264,7 +265,7 @@ async fn join_ledger(
 ) -> std::result::Result<(), String> {
     state
         .service
-        .join_ledger(&input.url)
+        .join_ledger(&input.url, input.label)
         .await
         .map_err(stringify_error)
 }

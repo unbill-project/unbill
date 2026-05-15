@@ -1,13 +1,10 @@
 // unbill-cli: command-line frontend for UnbillConsole.
 // All business logic lives in unbill-core; this file is pure dispatch + I/O.
 
-use std::sync::Arc;
-
 use anyhow::bail;
 use clap::Parser;
-use unbill_asymmetric_channel::local::LocalAsymChannel;
+use unbill_asymmetric_channel::rpc::{DEFAULT_ADDR, RpcAsymChannel};
 use unbill_console::service::UnbillConsole;
-use unbill_store_fs::FsStore;
 use unbill_store_fs::UNBILL_PATH;
 
 mod commands;
@@ -89,6 +86,9 @@ pub enum LedgerCmd {
     /// Join a ledger using an unbill://join/... URL.
     Join {
         url: String,
+        /// Optional local label for this device on the joined ledger.
+        #[arg(long)]
+        label: Option<String>,
     },
 }
 
@@ -194,8 +194,10 @@ async fn run() -> anyhow::Result<()> {
 
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
 
-    let store = Arc::new(FsStore::new(data_dir.clone()));
-    let channel = LocalAsymChannel::open(store).await?;
+    let addr = DEFAULT_ADDR.parse()?;
+    let channel = RpcAsymChannel::connect(addr)
+        .await
+        .map_err(|e| anyhow::anyhow!("cannot connect to unbill-daemon: {e}"))?;
     let svc = UnbillConsole::open(channel);
 
     match cli.command {
@@ -215,7 +217,7 @@ async fn run() -> anyhow::Result<()> {
             LedgerCmd::Invite { ledger_id } => {
                 commands::ledger_invite(&svc, &ledger_id, json).await
             }
-            LedgerCmd::Join { url } => commands::ledger_join(&svc, url).await,
+            LedgerCmd::Join { url, label } => commands::ledger_join(&svc, url, label).await,
         },
         Command::Bill { sub } => match sub {
             BillCmd::Add {

@@ -328,8 +328,12 @@ pub async fn ledger_user_list(
 // Ledger invite / join
 // ---------------------------------------------------------------------------
 
-pub async fn ledger_join(svc: &UnbillConsole, url: String) -> anyhow::Result<()> {
-    svc.join_ledger(&url).await?;
+pub async fn ledger_join(
+    svc: &UnbillConsole,
+    url: String,
+    label: Option<String>,
+) -> anyhow::Result<()> {
+    svc.join_ledger(&url, label).await?;
     Ok(())
 }
 

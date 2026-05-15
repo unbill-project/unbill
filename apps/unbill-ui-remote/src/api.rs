@@ -336,9 +336,11 @@ pub async fn create_invitation(ledger_id: &str) -> Result<String, String> {
         .map_err(|e| e.to_string())
 }
 
-pub async fn join_ledger(url: String) -> Result<(), String> {
+pub async fn join_ledger(url: String, label: Option<String>) -> Result<(), String> {
     let svc = get_service()?;
-    svc.join_ledger(&url).await.map_err(|e| e.to_string())
+    svc.join_ledger(&url, label)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn sync_device(node_id: String) -> Result<(), String> {

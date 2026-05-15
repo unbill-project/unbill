@@ -7954,6 +7954,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "unbill-daemon"
+version = "0.0.2"
+dependencies = [
+ "anyhow",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "unbill-asymmetric-channel",
+ "unbill-store-fs",
+]
+
+[[package]]
 name = "unbill-device"
 version = "0.0.2"
 dependencies = [
@@ -8113,7 +8125,6 @@ dependencies = [
  "tracing-subscriber",
  "unbill-asymmetric-channel",
  "unbill-console",
- "unbill-store-fs",
 ]
 
 [[package]]

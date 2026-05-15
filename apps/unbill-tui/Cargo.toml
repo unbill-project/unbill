@@ -14,8 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 unbill-console = { path = "../../crates/unbill-console" }
-unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["local"] }
-unbill-store-fs = { path = "../../crates/unbill-store-fs" }
+unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["rpc"] }
 ratatui = "0.29"
 crossterm = { version = "0.28", features = ["event-stream"] }
 tokio = { workspace = true }

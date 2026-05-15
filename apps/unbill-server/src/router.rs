@@ -44,6 +44,7 @@ pub struct MetaJson {
 #[derive(Debug, Deserialize)]
 struct JoinBody {
     url: String,
+    label: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -233,7 +234,7 @@ async fn create_invitation(State(state): State<Arc<AppState>>, Path(id): Path<St
 
 /// `POST /ledgers/join` — Join a ledger hosted by another device.
 async fn join_ledger(State(state): State<Arc<AppState>>, Json(body): Json<JoinBody>) -> Response {
-    match state.service.join_ledger(&body.url).await {
+    match state.service.join_ledger(&body.url, body.label).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -452,15 +453,12 @@ mod tests {
             Timestamp::from_millis(1000),
         )
         .unwrap();
-        {
-            use unbill_storage::LedgerStore as _;
-            channel
-                .service()
-                .store()
-                .save_ledger(&id_str, &mut server_doc)
-                .await
-                .unwrap();
-        }
+        channel
+            .service()
+            .store()
+            .save_ledger(&id_str, &mut server_doc)
+            .await
+            .unwrap();
 
         let mut client_doc = LedgerDoc::empty();
         let mut sync_state = automerge::sync::State::new();
