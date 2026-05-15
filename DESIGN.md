@@ -6,37 +6,37 @@ Unbill is a decentralized expense ledger for small trusted groups. Each ledger i
 
 The project exists to make shared expense tracking durable without requiring a hosted service. A ledger should remain usable when a device is offline, when one participant is temporarily unavailable, and when there is no central operator coordinating state. The system is meant for groups that already trust each other enough to share a bill log and reconcile payments outside the app.
 
-The design favors a small number of concepts that compose cleanly: ledgers, users, devices, bills, and projections derived from those records. The aim is for the whole system to stay understandable from the model upward.
+The design favors a small number of concepts that compose cleanly: devices, consoles, channels, ledgers, users, and bills. The aim is for the whole system to stay understandable from the model upward.
 
 ## System View
 
 ```mermaid
 flowchart LR
-    UI["UI shell"]
-    CLI["CLI"]
-    TUI["TUI"]
-    Tauri["Tauri bridge"]
-    Service["UnbillService"]
-    Doc["LedgerDoc"]
-    Store["LedgerStore"]
-    Net["Iroh sync"]
-    Settlement["Settlement"]
-    Conflict["Conflict detection"]
+    subgraph Consoles["Consoles (user-facing)"]
+        CLI["CLI"]
+        TUI["TUI"]
+        Tauri["Tauri"]
+        Web["Web"]
+    end
 
-    UI --> Tauri
-    CLI --> Service
-    TUI --> Service
-    Tauri --> Service
-    Service --> Doc
-    Service --> Store
-    Service --> Net
-    Service --> Settlement
-    Service --> Conflict
-    Net --> Store
-    Net --> Doc
+    AsymCh["Asym channel\n(device ↔ console)"]
+
+    subgraph DeviceNode["Device"]
+        Service["device service"]
+        Store["LedgerStore"]
+        Service --> Store
+    end
+
+    SymCh["Sym channel\n(device ↔ device)"]
+    Peer["Peer device"]
+
+    Consoles --> AsymCh
+    AsymCh --> Service
+    Service --> SymCh
+    SymCh <--> Peer
 ```
 
-The codebase is organized around one domain engine and several adapters. Shells ask the service to perform work. The service loads or saves ledger state, coordinates sync, and returns typed results. No shell owns its own version of bill logic, projection, or settlement.
+Consoles ask the device to perform work through the asym channel. The device persists ledger state, runs the sym channel sync loop, and broadcasts events back to connected consoles.
 
 ## Core model
 
@@ -45,7 +45,7 @@ The codebase is organized around one domain engine and several adapters. Shells 
 - `Device` — an authorized sync peer identified by `NodeId`; append-only and ledger-scoped
 - `Bill` — an expense entry with payer shares, payee shares, amount, and optional `prev` links to superseded bills
 - effective bills — bills not named by another bill's `prev`
-- invitation tokens — short-lived values used for device join or saved-user transfer; not part of shared ledger state
+- invitation tokens — short-lived values used for device join; not part of shared ledger state
 
 The shared ledger stores only durable collaborative state. Local preferences and convenience data stay outside it so peers do not have to converge on UI choices or machine-specific metadata.
 
@@ -73,11 +73,11 @@ This split is one of the key design choices in unbill. Shared state is the minim
 ## Principles
 
 - Offline first. Local work never depends on network availability.
-- Core first. The Rust core defines model, storage, sync, and settlement; shells stay thin.
+- Device/console split. The device owns storage and sync; the console owns display and user interaction. They communicate through the asym channel.
 - CRDTs over consensus. State is derived from observed operations rather than from a single authoritative device.
 - Append-only shared state. Users, devices, and bills are added rather than edited in place.
 - Deterministic projection. The UI renders derived state from the shared log.
-- Narrow trust model. v1 assumes honest members of a small group.
+- Narrow trust model. All joined members are treated as equally trusted.
 
 These principles keep the codebase biased toward recoverable, mergeable state. If a device falls behind, reconnects later, or uses a different shell, the result should still be the same effective ledger.
 
@@ -129,13 +129,24 @@ A conflict is resolved by creating a new amendment bill whose `prev` includes ev
 - Synced state excludes UI state, caches, device labels, and other local metadata.
 - Devices are authorized per ledger and are not bound to specific users.
 - Saved users are device-local records; ledger users are shared ledger records.
-- unbill has no telemetry, analytics, hosted account system, or server-backed authority model
+- unbill has no telemetry, analytics, hosted account system, or server-backed authority model.
 
 The system also avoids a server-backed recovery or authority model. Sync helps peers converge, but no peer becomes the permanent owner of a ledger once others have a copy.
 
 ## Architecture View
 
-The repository is organized around one core engine and several thin shells. `unbill-core` owns the model and rules. The CLI, Tauri bridge, and UI applications adapt that core to different environments. This keeps business logic in one place and makes the system easier to reason about, test, and evolve.
+The repository is organized around two roles — **device** and **console** — connected by channels. Each role and each channel has its own crate.
+
+- `unbill-service` — device-side service: owns the ledger store, sym channel endpoint, and asym channel server implementation
+- `unbill-console` — console-side library: CRDT document projection, settlement, and conflict detection
+- `unbill-asymmetric-channel` — the `AsymChannel` trait and its concrete implementations (in-process, RPC, HTTP)
+- `unbill-symmetric-channel` — device-to-device Iroh transport, sync and join protocols
+- `unbill-storage` / `unbill-store-*` — `LedgerStore` trait and its backends
+- `unbill-model` — shared domain types with no logic
+- `unbill-event` — event types for service broadcasts
+- `unbill-tauri`, `unbill-ui-components` — Tauri bridge and shared Leptos UI components
+
+Applications: `unbill-cli`, `unbill-tui`, `unbill-server`, `unbill-ui-native`, `unbill-ui-remote`.
 
 ## Security
 

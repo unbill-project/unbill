@@ -1,4 +1,4 @@
-# unbill-network
+# unbill-symmetric-channel
 
 Peer-to-peer transport for existing peers, device join, and saved-user transfer. All network I/O goes through Iroh, and each device is identified by its `NodeId`.
 

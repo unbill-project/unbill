@@ -1,14 +1,14 @@
-# Unbill Core — Implementation
+# unbill-console — Implementation
 
 ## Modules
 
-- `service/` — `UnbillService` orchestration and events
+- `service/` — `UnbillService` orchestration and events (transitional; will become `UnbillConsole`)
 - `settlement/` — balance math and transaction reduction
 - `conflict/` — Union-Find conflict detection over effective bills
 - `storage/` — thin re-export of `LedgerStore` and `StorageResult` from `unbill-storage`
-- `net/` — thin re-export of `UnbillEndpoint`, join, and sync from `unbill-network` (behind the `network` feature flag)
+- `net/` — thin re-export of `UnbillEndpoint` and protocol helpers from `unbill-symmetric-channel` (behind the `local` feature flag)
 
-Domain types (`unbill-model`), CRDT document (`unbill-storage::LedgerDoc`), and service events (`unbill-event`) are provided by dedicated crates and re-exported from `unbill-core` for convenience.
+Domain types (`unbill-model`), CRDT document (`unbill-storage::LedgerDoc`), and service events (`unbill-event`) are provided by dedicated crates and re-exported from `unbill-console` for convenience.
 
 ## Runtime
 

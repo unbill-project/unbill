@@ -1,4 +1,4 @@
-# unbill-network — Implementation
+# unbill-symmetric-channel — Implementation
 
 ## Layout
 
@@ -10,7 +10,7 @@
 
 ## Runtime
 
-`UnbillEndpoint` owns the Iroh endpoint and exposes two entry points: `sync_once` dials a peer and runs the sync session; `accept_loop` waits for incoming connections and dispatches each one by ALPN. Sessions load the relevant ledgers from the store, apply remote changes, save touched docs, and broadcast `ServiceEvent` on the provided channel.
+`UnbillEndpoint` owns the Iroh endpoint and exposes two entry points: `sync_once_inner` dials a peer and runs the sync session; `accept_loop_inner` waits for incoming connections and dispatches each one by ALPN. Sessions load the relevant ledgers from the store, apply remote changes, save touched docs, and broadcast `ServiceEvent` on the provided channel.
 
 ## Testing
 

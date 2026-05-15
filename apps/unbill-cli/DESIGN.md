@@ -17,7 +17,7 @@ Terminal frontend for `UnbillService`. It exists for dogfooding, scripting, and 
 ## Rules
 
 - the CLI owns parsing, formatting, and exit codes only
-- storage, validation, sync, and settlement stay in `unbill-core`
+- storage, validation, sync, and settlement stay in `unbill-console`
 - IDs and node identities are treated as opaque input strings until parsed by the CLI or core
 - `--json` is the stable machine-readable surface for scripts and end-to-end tests
 

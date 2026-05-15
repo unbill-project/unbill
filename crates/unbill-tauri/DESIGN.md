@@ -1,6 +1,6 @@
 # Unbill Tauri
 
-Tauri bridge around `UnbillService` and the default desktop shell for Unbill. It exposes async commands and frontend-ready DTOs without adding new business logic.
+Tauri bridge that wires the desktop shell to `UnbillService` and the default desktop shell for Unbill. It exposes async commands and frontend-ready DTOs without adding new business logic.
 
 ## Contract
 
@@ -17,7 +17,7 @@ The current boundary is command-first. `UnbillService` has an internal `ServiceE
 
 ## Rules
 
-- one shared `UnbillService` instance lives in Tauri state
+- one shared `UnbillService` (from `unbill-console`) instance lives in Tauri state; it will migrate to a `LocalAsymChannel` as the asym channel layer matures
 - command handlers stay async and return user-facing error strings
 - this crate is an IPC boundary, not a domain layer
 - Tauri config stays aligned with the capability files: the window label used by capabilities must exist in `tauri.conf.json`

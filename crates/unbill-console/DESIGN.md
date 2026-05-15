@@ -1,30 +1,32 @@
-# Unbill Core
+# unbill-console
 
-The core crate defines the shared ledger semantics, settlement rules, and conflict detection. Every frontend depends on it; none reimplement its domain logic.
+The console-side library for unbill. It provides the CRDT document operations, settlement math, and conflict detection that every console (UI, TUI, CLI) uses to project ledger state for the user.
 
 ## Structure
 
 ```mermaid
 flowchart TB
-    Service["service/"]
+    Service["service/\n(UnbillService — transitional)"]
     Settlement["settlement/"]
     Conflict["conflict/"]
     Storage["unbill-storage"]
-    Network["unbill-network"]
+    SymNet["unbill-symmetric-channel\n(via net/ re-export, feature local)"]
     Model["unbill-model"]
     Event["unbill-event"]
 
     Service --> Settlement
     Service --> Conflict
     Service --> Storage
-    Service --> Network
+    Service --> SymNet
     Service --> Model
     Service --> Event
     Settlement --> Model
     Conflict --> Model
 ```
 
-`service/` is the public entry point. `settlement/` and `conflict/` are pure logic modules. Storage, networking, domain types, and events live in dedicated crates that this crate composes.
+`service/` is the current public entry point. `settlement/` and `conflict/` are pure logic modules. Storage, networking, domain types, and events live in dedicated crates that this crate composes.
+
+The `service/` module contains `UnbillService` in its current transitional form. As the asym channel layer matures, this will be restructured into `UnbillConsole` — a console facade that drives an `AsymChannel` rather than owning a store directly.
 
 ## Surface
 
@@ -32,7 +34,7 @@ flowchart TB
 
 ## Invariants
 
-- IDs are typed newtypes and stay opaque outside the core.
+- IDs are typed newtypes and stay opaque outside the crate.
 - Ledger currency is fixed at creation.
 - Bills are append-only; amendment creates a new bill whose `prev` supersedes earlier bills.
 - Bill participants must already exist in the ledger.
@@ -44,5 +46,5 @@ flowchart TB
 ## Boundaries
 
 - no CLI parsing, Tauri wiring, or UI state
-- storage and transport are abstracted behind the `LedgerStore` trait and `unbill-network`
+- storage and transport are abstracted behind the `LedgerStore` trait and `unbill-symmetric-channel`
 - ledger semantics, projection, and settlement stay in this crate
