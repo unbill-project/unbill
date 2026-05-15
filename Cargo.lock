@@ -7907,10 +7907,8 @@ dependencies = [
  "tarpc",
  "tokio",
  "tokio-stream",
- "unbill-event",
  "unbill-model",
- "unbill-storage",
- "unbill-symmetric-channel",
+ "unbill-service",
 ]
 
 [[package]]
@@ -7991,6 +7989,19 @@ dependencies = [
  "tracing-subscriber",
  "unbill-console",
  "unbill-store-fs",
+]
+
+[[package]]
+name = "unbill-service"
+version = "0.0.2"
+dependencies = [
+ "async-trait",
+ "automerge",
+ "tokio",
+ "unbill-event",
+ "unbill-model",
+ "unbill-storage",
+ "unbill-symmetric-channel",
 ]
 
 [[package]]

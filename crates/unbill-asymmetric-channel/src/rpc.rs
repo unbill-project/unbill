@@ -67,13 +67,13 @@ impl From<WireEvent> for AsymChannelEvent {
 // ---------------------------------------------------------------------------
 
 #[derive(Clone)]
-struct AsymChannelServiceServer {
-    channel: Arc<dyn AsymChannel>,
+struct AsymChannelServiceServer<C: AsymChannel> {
+    channel: Arc<C>,
     /// Per-connection event queue populated by a background subscriber task.
     event_queue: Arc<Mutex<Vec<WireEvent>>>,
 }
 
-impl AsymChannelService for AsymChannelServiceServer {
+impl<C: AsymChannel + Clone> AsymChannelService for AsymChannelServiceServer<C> {
     async fn create_invitation(
         self,
         _ctx: tarpc::context::Context,
@@ -126,7 +126,10 @@ impl AsymChannelService for AsymChannelServiceServer {
 
 /// Serve an `AsymChannel` over tarpc on the given address.
 /// Each accepted connection gets its own event queue and subscriber task.
-pub async fn serve(channel: Arc<dyn AsymChannel>, addr: SocketAddr) -> std::io::Result<()> {
+pub async fn serve<C>(channel: Arc<C>, addr: SocketAddr) -> std::io::Result<()>
+where
+    C: AsymChannel + Clone + 'static,
+{
     let listener = tarpc::serde_transport::tcp::listen(&addr, Json::default).await?;
     listener
         .filter_map(|r| future::ready(r.ok()))

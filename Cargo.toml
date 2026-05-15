@@ -7,6 +7,7 @@ members = [
     "apps/unbill-ui-native",
     "apps/unbill-ui-remote",
     "crates/unbill-asymmetric-channel",
+    "crates/unbill-service",
     "crates/unbill-console",
     "crates/unbill-event",
     "crates/unbill-symmetric-channel",
