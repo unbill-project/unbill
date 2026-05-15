@@ -12,8 +12,8 @@ homepage.workspace = true
 local = ["dep:unbill-device", "tokio/rt"]
 # HTTP client calling unbill-server.
 http = ["dep:reqwest", "dep:serde_json"]
-# tarpc RPC server + client.
-rpc = ["dep:tarpc", "dep:tokio-stream", "dep:serde_json", "dep:futures-util", "tokio/rt"]
+# tarpc RPC server + client over interprocess local sockets.
+rpc = ["dep:tarpc", "dep:interprocess", "dep:tokio-util", "dep:tokio-stream", "dep:serde_json", "dep:futures-util", "tokio/rt"]
 
 [dependencies]
 unbill-model = { path = "../unbill-model" }
@@ -35,5 +35,7 @@ serde_json = { workspace = true, optional = true }
 
 # rpc
 tokio-stream = { workspace = true, optional = true }
+tokio-util = { version = "0.7", features = ["codec"], optional = true }
 futures-util = { workspace = true, optional = true }
 tarpc = { workspace = true, optional = true }
+interprocess = { version = "2", features = ["tokio"], optional = true }

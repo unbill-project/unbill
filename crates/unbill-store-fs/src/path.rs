@@ -39,6 +39,15 @@ impl UnbillPath {
             .context("could not resolve data directory")
     }
 
+    /// Path of the Unix/named-pipe socket the daemon listens on.
+    /// Respects `UNBILL_SOCKET` env override.
+    pub fn socket_path(&self) -> Result<PathBuf> {
+        if let Some(path) = std::env::var_os("UNBILL_SOCKET") {
+            return Ok(PathBuf::from(path));
+        }
+        Ok(self.data_dir()?.join("unbill.sock"))
+    }
+
     pub fn ensure_data_dir(&self) -> Result<PathBuf> {
         let path = self.data_dir()?;
         std::fs::create_dir_all(&path)

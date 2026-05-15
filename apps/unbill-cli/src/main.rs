@@ -3,7 +3,7 @@
 
 use anyhow::bail;
 use clap::Parser;
-use unbill_asymmetric_channel::rpc::{DEFAULT_ADDR, RpcAsymChannel};
+use unbill_asymmetric_channel::rpc::RpcAsymChannel;
 use unbill_console::service::UnbillConsole;
 use unbill_store_fs::UNBILL_PATH;
 
@@ -194,8 +194,8 @@ async fn run() -> anyhow::Result<()> {
 
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
 
-    let addr = DEFAULT_ADDR.parse()?;
-    let channel = RpcAsymChannel::connect(addr)
+    let socket = UNBILL_PATH.socket_path()?;
+    let channel = RpcAsymChannel::connect(&socket)
         .await
         .map_err(|e| anyhow::anyhow!("cannot connect to unbill-daemon: {e}"))?;
     let svc = UnbillConsole::open(channel);

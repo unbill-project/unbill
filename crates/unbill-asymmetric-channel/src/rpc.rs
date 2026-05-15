@@ -4,23 +4,23 @@
 // Event subscription uses a per-connection queue populated by a background
 // task; the client polls it at a fixed interval and feeds its own broadcast.
 
-use std::net::SocketAddr;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use futures_util::{StreamExt as _, future};
+use futures_util::StreamExt as _;
+use interprocess::local_socket::tokio::prelude::*;
+use interprocess::local_socket::{GenericFilePath, ListenerOptions};
 use serde::{Deserialize, Serialize};
 use tarpc::server::{BaseChannel, Channel as _};
 use tarpc::tokio_serde::formats::Json;
 use tokio::sync::broadcast;
+use tokio_util::codec::LengthDelimitedCodec;
 use unbill_model::error::{Result, UnbillError};
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
 
 use crate::{AsymChannel, AsymChannelEvent};
-
-/// Default address the daemon listens on.
-pub const DEFAULT_ADDR: &str = "127.0.0.1:47843";
 
 // ---------------------------------------------------------------------------
 // Wire types
@@ -229,47 +229,52 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
     }
 }
 
-/// Serve an `AsymChannel` over tarpc on the given address.
+/// Serve an `AsymChannel` over tarpc on the given local socket path.
 /// Each accepted connection gets its own event queue and subscriber task.
-pub async fn serve<C>(channel: Arc<C>, addr: SocketAddr) -> std::io::Result<()>
+pub async fn serve<C>(channel: Arc<C>, path: &Path) -> std::io::Result<()>
 where
     C: AsymChannel + 'static,
 {
-    let listener = tarpc::serde_transport::tcp::listen(&addr, Json::default).await?;
-    listener
-        .filter_map(|r| future::ready(r.ok()))
-        .for_each(|transport| {
-            let channel = Arc::clone(&channel);
-            let queue: Arc<Mutex<Vec<WireEvent>>> = Arc::new(Mutex::new(Vec::new()));
+    let name = path.to_fs_name::<GenericFilePath>()?;
+    let listener = ListenerOptions::new()
+        .name(name)
+        .reclaim_name(true)
+        .create_tokio()?;
 
-            // Background task: subscribe and push events into this connection's queue.
-            let mut rx = channel.subscribe_to_server();
-            let q2 = Arc::clone(&queue);
-            tokio::spawn(async move {
-                loop {
-                    match rx.recv().await {
-                        Ok(evt) => q2.lock().unwrap().push(WireEvent::from(evt)),
-                        Err(broadcast::error::RecvError::Lagged(_)) => continue,
-                        Err(broadcast::error::RecvError::Closed) => break,
-                    }
+    loop {
+        let stream = listener.accept().await?;
+        let channel = Arc::clone(&channel);
+        let queue: Arc<Mutex<Vec<WireEvent>>> = Arc::new(Mutex::new(Vec::new()));
+
+        // Background task: subscribe and push events into this connection's queue.
+        let mut rx = channel.subscribe_to_server();
+        let q2 = Arc::clone(&queue);
+        tokio::spawn(async move {
+            loop {
+                match rx.recv().await {
+                    Ok(evt) => q2.lock().unwrap().push(WireEvent::from(evt)),
+                    Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(broadcast::error::RecvError::Closed) => break,
                 }
-            });
+            }
+        });
 
-            let server = AsymChannelServiceServer {
-                channel,
-                event_queue: queue,
-            };
-            tokio::spawn(
-                BaseChannel::with_defaults(transport)
-                    .execute(server.serve())
-                    .for_each(|f| async move {
-                        tokio::spawn(f);
-                    }),
-            );
-            future::ready(())
-        })
-        .await;
-    Ok(())
+        let transport = tarpc::serde_transport::new(
+            LengthDelimitedCodec::builder().new_framed(stream),
+            Json::default(),
+        );
+        let server = AsymChannelServiceServer {
+            channel,
+            event_queue: queue,
+        };
+        tokio::spawn(
+            BaseChannel::with_defaults(transport)
+                .execute(server.serve())
+                .for_each(|f| async move {
+                    tokio::spawn(f);
+                }),
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -285,8 +290,13 @@ pub struct RpcAsymChannel {
 }
 
 impl RpcAsymChannel {
-    pub async fn connect(addr: SocketAddr) -> std::io::Result<Arc<Self>> {
-        let transport = tarpc::serde_transport::tcp::connect(addr, Json::default).await?;
+    pub async fn connect(path: &Path) -> std::io::Result<Arc<Self>> {
+        let name = path.to_fs_name::<GenericFilePath>()?;
+        let stream = LocalSocketStream::connect(name).await?;
+        let transport = tarpc::serde_transport::new(
+            LengthDelimitedCodec::builder().new_framed(stream),
+            Json::default(),
+        );
         let client =
             AsymChannelServiceClient::new(tarpc::client::Config::default(), transport).spawn();
 

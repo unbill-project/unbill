@@ -6,8 +6,9 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
-use unbill_asymmetric_channel::rpc::{DEFAULT_ADDR, RpcAsymChannel};
+use unbill_asymmetric_channel::rpc::RpcAsymChannel;
 use unbill_console::service::UnbillConsole;
+use unbill_store_fs::UNBILL_PATH;
 
 mod app;
 mod pane;
@@ -25,8 +26,8 @@ async fn main() -> Result<()> {
         .with_writer(std::io::stderr)
         .init();
 
-    let addr = DEFAULT_ADDR.parse()?;
-    let channel = RpcAsymChannel::connect(addr)
+    let socket = UNBILL_PATH.socket_path()?;
+    let channel = RpcAsymChannel::connect(&socket)
         .await
         .map_err(|e| anyhow::anyhow!("cannot connect to unbill-daemon: {e}"))?;
     let svc = UnbillConsole::open(channel);
