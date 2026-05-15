@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use anyhow::bail;
 use clap::Parser;
+use unbill_asymmetric_channel::local::LocalAsymChannel;
 use unbill_console::service::UnbillConsole;
 use unbill_store_fs::FsStore;
 use unbill_store_fs::UNBILL_PATH;
@@ -77,9 +78,6 @@ pub enum LedgerCmd {
     Show {
         ledger_id: String,
     },
-    Delete {
-        ledger_id: String,
-    },
     /// List all devices authorized to sync this ledger.
     Devices {
         ledger_id: String,
@@ -91,9 +89,6 @@ pub enum LedgerCmd {
     /// Join a ledger using an unbill://join/... URL.
     Join {
         url: String,
-        /// Optional device-local label to remember the host device on this machine.
-        #[arg(long)]
-        label: Option<String>,
     },
 }
 
@@ -170,8 +165,6 @@ pub enum UserCmd {
 
 #[derive(clap::Subcommand)]
 pub enum SyncCmd {
-    /// Open the endpoint and wait for incoming sync connections.
-    Daemon,
     /// Dial a specific peer by NodeId and sync all shared ledgers.
     Once { peer_node_id: String },
     /// Show sync status.
@@ -202,7 +195,8 @@ async fn run() -> anyhow::Result<()> {
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
 
     let store = Arc::new(FsStore::new(data_dir.clone()));
-    let svc = UnbillConsole::open(store).await?;
+    let channel = LocalAsymChannel::open(store).await?;
+    let svc = UnbillConsole::open(channel);
 
     match cli.command {
         Command::Init => commands::init(&svc, json).await,
@@ -215,14 +209,13 @@ async fn run() -> anyhow::Result<()> {
             }
             LedgerCmd::List => commands::ledger_list(&svc, json).await,
             LedgerCmd::Show { ledger_id } => commands::ledger_show(&svc, &ledger_id, json).await,
-            LedgerCmd::Delete { ledger_id } => commands::ledger_delete(&svc, &ledger_id).await,
             LedgerCmd::Devices { ledger_id } => {
                 commands::ledger_devices(&svc, &ledger_id, json).await
             }
             LedgerCmd::Invite { ledger_id } => {
                 commands::ledger_invite(&svc, &ledger_id, json).await
             }
-            LedgerCmd::Join { url, label } => commands::ledger_join(&svc, url, label).await,
+            LedgerCmd::Join { url } => commands::ledger_join(&svc, url).await,
         },
         Command::Bill { sub } => match sub {
             BillCmd::Add {
@@ -285,7 +278,6 @@ async fn run() -> anyhow::Result<()> {
         },
         Command::Sync { sub } => match sub {
             SyncCmd::Once { peer_node_id } => commands::sync_once(&svc, &peer_node_id).await,
-            SyncCmd::Daemon => commands::sync_daemon(&svc).await,
             SyncCmd::Status => bail!("sync status is available from M3"),
         },
         Command::Settlement { user_id } => commands::settlement(&svc, &user_id, json).await,

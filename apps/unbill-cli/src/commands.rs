@@ -2,8 +2,6 @@
 // Each function takes the service and any parsed arguments, performs the
 // operation, and prints the result. Nothing here touches storage directly.
 
-use std::sync::Arc;
-
 use anyhow::anyhow;
 use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
@@ -120,11 +118,6 @@ pub async fn ledger_show(svc: &UnbillConsole, ledger_id: &str, json: bool) -> an
         println!("Bills:    {}", bills.0.len());
         println!("Users:    {}", users.len());
     }
-    Ok(())
-}
-
-pub async fn ledger_delete(svc: &UnbillConsole, ledger_id: &str) -> anyhow::Result<()> {
-    svc.delete_ledger(parse_ledger_id(ledger_id)?).await?;
     Ok(())
 }
 
@@ -335,12 +328,8 @@ pub async fn ledger_user_list(
 // Ledger invite / join
 // ---------------------------------------------------------------------------
 
-pub async fn ledger_join(
-    svc: &Arc<UnbillConsole>,
-    url: String,
-    label: Option<String>,
-) -> anyhow::Result<()> {
-    svc.join_ledger(&url, label.unwrap_or_default()).await?;
+pub async fn ledger_join(svc: &UnbillConsole, url: String) -> anyhow::Result<()> {
+    svc.join_ledger(&url).await?;
     Ok(())
 }
 
@@ -364,11 +353,7 @@ pub async fn ledger_devices(
     Ok(())
 }
 
-pub async fn ledger_invite(
-    svc: &Arc<UnbillConsole>,
-    ledger_id: &str,
-    json: bool,
-) -> anyhow::Result<()> {
+pub async fn ledger_invite(svc: &UnbillConsole, ledger_id: &str, json: bool) -> anyhow::Result<()> {
     let url = svc.create_invitation(parse_ledger_id(ledger_id)?).await?;
     if json {
         print_json(&serde_json::json!({ "url": url }))?;
@@ -382,16 +367,11 @@ pub async fn ledger_invite(
 // Sync
 // ---------------------------------------------------------------------------
 
-pub async fn sync_once(svc: &Arc<UnbillConsole>, peer_node_id: &str) -> anyhow::Result<()> {
+pub async fn sync_once(svc: &UnbillConsole, peer_node_id: &str) -> anyhow::Result<()> {
     let peer = peer_node_id
         .parse::<NodeId>()
         .map_err(|e| anyhow!("invalid node ID {peer_node_id:?}: {e}"))?;
     svc.sync_once(peer).await?;
-    Ok(())
-}
-
-pub async fn sync_daemon(svc: &Arc<UnbillConsole>) -> anyhow::Result<()> {
-    svc.accept_loop().await?;
     Ok(())
 }
 

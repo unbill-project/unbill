@@ -8,7 +8,6 @@ use ratatui::{
 
 use unbill_console::model::{LedgerId, NewBill, NewUser, NewUserName};
 
-pub mod confirm;
 pub mod create_ledger;
 pub mod invite;
 pub mod settings;
@@ -39,9 +38,6 @@ pub enum PopupAction {
     CreateLedger {
         name: String,
         currency: String,
-    },
-    DeleteLedger {
-        ledger_id: LedgerId,
     },
     AddBill {
         ledger_id: LedgerId,

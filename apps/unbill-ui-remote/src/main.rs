@@ -7,8 +7,9 @@ use std::sync::Arc;
 
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use unbill_asymmetric_channel::AsymChannel;
+use unbill_asymmetric_channel::http::HttpAsymChannel;
 use unbill_console::service::UnbillConsole;
-use unbill_store_http::HttpStore;
 
 use components::{ActionButton, FieldBlock, ToastProvider};
 
@@ -38,10 +39,10 @@ fn write_stored_key(key: &str) {
 
 async fn init_service(api_key: String) -> Result<(), String> {
     let base_url = server_base_url();
-    let store = Arc::new(HttpStore::new(base_url.clone(), api_key.clone()));
-    let service = UnbillConsole::open_remote(store, base_url, api_key)
+    let channel = HttpAsymChannel::open(base_url, api_key)
         .await
         .map_err(|e| e.to_string())?;
+    let service = UnbillConsole::open(Arc::new(channel) as Arc<dyn AsymChannel>);
     api::init(service);
     Ok(())
 }

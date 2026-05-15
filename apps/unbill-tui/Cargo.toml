@@ -13,7 +13,8 @@ description = "Terminal UI for unbill."
 path = "src/main.rs"
 
 [dependencies]
-unbill-console = { path = "../../crates/unbill-console", features = ["local"] }
+unbill-console = { path = "../../crates/unbill-console" }
+unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["local"] }
 unbill-store-fs = { path = "../../crates/unbill-store-fs" }
 ratatui = "0.29"
 crossterm = { version = "0.28", features = ["event-stream"] }

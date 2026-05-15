@@ -12,7 +12,7 @@ console_error_panic_hook = "0.1"
 leptos = { version = "0.8.14", features = ["csr"] }
 unbill-ui-components = { path = "../../crates/unbill-ui-components" }
 unbill-console = { path = "../../crates/unbill-console" }
-unbill-store-http = { path = "../../crates/unbill-store-http" }
+unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["http"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 js-sys = "0.3"
@@ -24,4 +24,5 @@ getrandom3 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 getrandom4 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
 
 [dev-dependencies]
+unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["local"] }
 unbill-store-memory = { path = "../../crates/unbill-store-memory" }

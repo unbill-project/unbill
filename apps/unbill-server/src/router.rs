@@ -7,12 +7,11 @@ use axum::{
     http::{HeaderMap, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::{delete, get, post, put},
+    routing::{get, post, put},
 };
 use serde::{Deserialize, Serialize};
 use tower_http::trace::TraceLayer;
 
-use unbill_console::LedgerDoc;
 use unbill_console::model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
 use unbill_console::service::UnbillConsole;
 
@@ -45,8 +44,6 @@ pub struct MetaJson {
 #[derive(Debug, Deserialize)]
 struct JoinBody {
     url: String,
-    #[serde(default)]
-    label: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -66,7 +63,6 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/ledgers/{id}/invitations", post(create_invitation))
         .route("/ledgers/join", post(join_ledger))
         .route("/peers/{node_id}/sync", post(sync_with_peer))
-        .route("/ledgers/{id}", delete(delete_ledger))
         .route("/device/id", get(get_device_id))
         .route("/device/{key}", get(load_device_meta).put(save_device_meta))
         .layer(middleware::from_fn_with_state(state.clone(), auth))
@@ -156,7 +152,7 @@ async fn save_ledger_meta(
         updated_at: Timestamp::from_millis(body.updated_at_ms),
     };
 
-    match state.service.store().save_ledger_meta(&meta).await {
+    match state.service.save_ledger_meta(&meta).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -168,42 +164,18 @@ async fn sync_ledger(
     Path(id): Path<String>,
     body: Bytes,
 ) -> Response {
-    let client_msg = match automerge::sync::Message::decode(&body) {
-        Ok(m) => m,
+    let ledger_id = match LedgerId::from_string(&id) {
+        Ok(id) => id,
         Err(e) => return (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
     };
-
-    let mut doc = match state.service.store().load_ledger(&id).await {
-        Ok(Some(doc)) => doc,
-        Ok(None) => LedgerDoc::empty(),
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-    };
-
-    let mut sync_state = automerge::sync::State::new();
-    if let Err(e) = doc.receive_sync_message(&mut sync_state, client_msg) {
-        return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
-    }
-
-    if !doc.is_empty()
-        && let Err(e) = state.service.store().save_ledger(&id, &mut doc).await
-    {
-        return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
-    }
-
-    match doc.generate_sync_message(&mut sync_state) {
-        Some(msg) => (
+    match state.service.asym_sync(ledger_id, body.to_vec()).await {
+        Ok(Some(resp)) => (
             StatusCode::OK,
             [("content-type", "application/octet-stream")],
-            msg.encode(),
+            resp,
         )
             .into_response(),
-        None => StatusCode::NO_CONTENT.into_response(),
-    }
-}
-
-async fn delete_ledger(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Response {
-    match state.service.store().delete_ledger(&id).await {
-        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Ok(None) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
@@ -221,7 +193,7 @@ async fn load_device_meta(State(state): State<Arc<AppState>>, Path(key): Path<St
     if !valid_device_key(&key) {
         return StatusCode::BAD_REQUEST.into_response();
     }
-    match state.service.store().load_device_meta(&key).await {
+    match state.service.load_device_meta(&key).await {
         Ok(Some(bytes)) => (
             StatusCode::OK,
             [("content-type", "application/octet-stream")],
@@ -241,7 +213,7 @@ async fn save_device_meta(
     if !valid_device_key(&key) {
         return StatusCode::BAD_REQUEST.into_response();
     }
-    match state.service.store().save_device_meta(&key, &body).await {
+    match state.service.save_device_meta(&key, body.to_vec()).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -261,7 +233,7 @@ async fn create_invitation(State(state): State<Arc<AppState>>, Path(id): Path<St
 
 /// `POST /ledgers/join` — Join a ledger hosted by another device.
 async fn join_ledger(State(state): State<Arc<AppState>>, Json(body): Json<JoinBody>) -> Response {
-    match state.service.join_ledger(&body.url, body.label).await {
+    match state.service.join_ledger(&body.url).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -309,9 +281,11 @@ mod tests {
     const API_KEY: &str = "secret";
 
     async fn make_app(dir: &std::path::Path) -> Router {
+        use unbill_asymmetric_channel::local::LocalAsymChannel;
         use unbill_store_fs::FsStore;
         let store = Arc::new(FsStore::new(dir.to_path_buf()));
-        let service = UnbillConsole::open(store).await.unwrap();
+        let channel = LocalAsymChannel::open(store).await.unwrap();
+        let service = UnbillConsole::open(channel);
         let state = Arc::new(AppState {
             service,
             api_key: API_KEY.to_owned(),
@@ -454,7 +428,20 @@ mod tests {
         use unbill_console::model::{Currency, LedgerId, Timestamp};
 
         let dir = tempfile::tempdir().unwrap();
-        let app = make_app(dir.path()).await;
+        let store = Arc::new(unbill_store_fs::FsStore::new(dir.path().to_path_buf()));
+        let channel = unbill_asymmetric_channel::local::LocalAsymChannel::open(Arc::clone(&store))
+            .await
+            .unwrap();
+        let app = {
+            let svc = UnbillConsole::open(
+                Arc::clone(&channel) as Arc<dyn unbill_asymmetric_channel::AsymChannel>
+            );
+            let state = Arc::new(AppState {
+                service: svc,
+                api_key: API_KEY.to_owned(),
+            });
+            build_router(state)
+        };
 
         let ledger_id = LedgerId::from_u128(1);
         let id_str = ledger_id.to_string();
@@ -466,10 +453,13 @@ mod tests {
         )
         .unwrap();
         {
-            use unbill_console::storage::LedgerStore as _;
-            use unbill_store_fs::FsStore;
-            let store = FsStore::new(dir.path().to_path_buf());
-            store.save_ledger(&id_str, &mut server_doc).await.unwrap();
+            use unbill_storage::LedgerStore as _;
+            channel
+                .service()
+                .store()
+                .save_ledger(&id_str, &mut server_doc)
+                .await
+                .unwrap();
         }
 
         let mut client_doc = LedgerDoc::empty();
@@ -500,29 +490,6 @@ mod tests {
         }
 
         assert_eq!(client_doc.get_ledger().unwrap().name, "Groceries");
-    }
-
-    // --- delete ledger ------------------------------------------------------
-
-    #[tokio::test]
-    async fn test_delete_ledger_is_idempotent() {
-        let dir = tempfile::tempdir().unwrap();
-        let app = make_app(dir.path()).await;
-
-        let del = || {
-            Request::builder()
-                .method(Method::DELETE)
-                .uri("/api/v1/ledgers/00000000000000000000000001")
-                .header("Authorization", format!("Bearer {API_KEY}"))
-                .body(Body::empty())
-                .unwrap()
-        };
-
-        let resp = app.clone().oneshot(del()).await.unwrap();
-        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
-
-        let resp = app.oneshot(del()).await.unwrap();
-        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
     }
 
     // --- device meta --------------------------------------------------------

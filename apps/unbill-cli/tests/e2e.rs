@@ -267,15 +267,6 @@ fn test_ledger_show_reports_bill_and_user_counts() {
 }
 
 #[test]
-fn test_delete_ledger_removes_it_from_list() {
-    let env = Env::new();
-    let id = create_ledger(&env);
-    env.ok(&["ledger", "delete", &id]);
-    let list = env.json(&["ledger", "list"]);
-    assert!(list.as_array().unwrap().is_empty());
-}
-
-#[test]
 fn test_invalid_currency_is_rejected() {
     let env = Env::new();
     let stderr = env.fail(&["ledger", "create", "Bad", "ZZZ"]);

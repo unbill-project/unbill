@@ -7923,6 +7923,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "unbill-asymmetric-channel",
  "unbill-console",
  "unbill-store-fs",
 ]
@@ -7945,11 +7946,11 @@ dependencies = [
  "tokio",
  "tracing",
  "ulid",
+ "unbill-asymmetric-channel",
  "unbill-event",
  "unbill-model",
  "unbill-storage",
  "unbill-store-memory",
- "unbill-symmetric-channel",
 ]
 
 [[package]]
@@ -8000,7 +8001,9 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "unbill-asymmetric-channel",
  "unbill-console",
+ "unbill-storage",
  "unbill-store-fs",
 ]
 
@@ -8092,6 +8095,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "unbill-asymmetric-channel",
  "unbill-console",
  "unbill-store-fs",
  "unbill-store-memory",
@@ -8107,6 +8111,7 @@ dependencies = [
  "ratatui",
  "tokio",
  "tracing-subscriber",
+ "unbill-asymmetric-channel",
  "unbill-console",
  "unbill-store-fs",
 ]
@@ -8150,8 +8155,8 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "unbill-asymmetric-channel",
  "unbill-console",
- "unbill-store-http",
  "unbill-store-memory",
  "unbill-ui-components",
  "wasm-bindgen",

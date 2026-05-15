@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use tokio::sync::broadcast;
 use unbill_model::error::Result;
-use unbill_model::{LedgerId, NodeId};
+use unbill_model::{LedgerId, LedgerMeta, NodeId};
 
 #[cfg(feature = "http")]
 pub mod http;
@@ -21,9 +21,15 @@ pub enum AsymChannelEvent {
 ///
 /// Control plane: invite / join / peer sync (request-response).
 /// Data plane: one round of Automerge sync per call.
+/// Metadata plane: ledger list, ledger meta, device meta.
 /// Subscription: broadcast receiver the device pushes into when state changes.
 #[async_trait]
 pub trait AsymChannel: Send + Sync {
+    // --- Identity ---
+
+    /// Return the device's node ID.
+    fn device_id(&self) -> NodeId;
+
     // --- Control plane ---
 
     async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String>;
@@ -35,6 +41,13 @@ pub trait AsymChannel: Send + Sync {
     /// One round of Automerge sync. The console sends its sync message bytes;
     /// the device responds with its own, or `None` if it has nothing new.
     async fn asym_sync(&self, ledger_id: LedgerId, bytes: Vec<u8>) -> Result<Option<Vec<u8>>>;
+
+    // --- Metadata plane ---
+
+    async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>>;
+    async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()>;
+    async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>>;
+    async fn save_device_meta(&self, key: &str, bytes: Vec<u8>) -> Result<()>;
 
     // --- Event subscription ---
 

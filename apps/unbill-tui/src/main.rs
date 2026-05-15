@@ -7,6 +7,7 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
+use unbill_asymmetric_channel::local::LocalAsymChannel;
 use unbill_console::service::UnbillConsole;
 use unbill_store_fs::FsStore;
 use unbill_store_fs::UNBILL_PATH;
@@ -29,7 +30,8 @@ async fn main() -> Result<()> {
 
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
     let store = Arc::new(FsStore::new(data_dir));
-    let svc = UnbillConsole::open(store).await?;
+    let channel = LocalAsymChannel::open(store).await?;
+    let svc = UnbillConsole::open(channel);
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();

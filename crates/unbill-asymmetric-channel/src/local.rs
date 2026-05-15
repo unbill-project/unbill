@@ -7,7 +7,7 @@ use tokio::sync::broadcast;
 use unbill_device::ServiceEvent;
 use unbill_device::{LedgerStore, UnbillDevice};
 use unbill_model::error::Result;
-use unbill_model::{LedgerId, NodeId};
+use unbill_model::{LedgerId, LedgerMeta, NodeId, UnbillError};
 
 use crate::{AsymChannel, AsymChannelEvent};
 
@@ -52,6 +52,10 @@ impl LocalAsymChannel {
 
 #[async_trait]
 impl AsymChannel for LocalAsymChannel {
+    fn device_id(&self) -> NodeId {
+        self.service.device_id()
+    }
+
     async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String> {
         self.service.create_invitation(ledger_id).await
     }
@@ -66,6 +70,38 @@ impl AsymChannel for LocalAsymChannel {
 
     async fn asym_sync(&self, ledger_id: LedgerId, bytes: Vec<u8>) -> Result<Option<Vec<u8>>> {
         self.service.asym_sync(ledger_id, bytes).await
+    }
+
+    async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
+        self.service
+            .store()
+            .list_ledgers()
+            .await
+            .map_err(UnbillError::Storage)
+    }
+
+    async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
+        self.service
+            .store()
+            .save_ledger_meta(meta)
+            .await
+            .map_err(UnbillError::Storage)
+    }
+
+    async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>> {
+        self.service
+            .store()
+            .load_device_meta(key)
+            .await
+            .map_err(UnbillError::Storage)
+    }
+
+    async fn save_device_meta(&self, key: &str, bytes: Vec<u8>) -> Result<()> {
+        self.service
+            .store()
+            .save_device_meta(key, &bytes)
+            .await
+            .map_err(UnbillError::Storage)
     }
 
     fn subscribe_to_server(&self) -> broadcast::Receiver<AsymChannelEvent> {

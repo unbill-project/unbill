@@ -125,7 +125,6 @@ pub struct AddUserInput {
 #[serde(rename_all = "camelCase")]
 pub struct JoinLedgerInput {
     pub url: String,
-    pub label: String,
 }
 
 #[derive(Clone, Debug, Serialize)]

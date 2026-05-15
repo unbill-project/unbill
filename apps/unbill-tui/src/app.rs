@@ -15,7 +15,6 @@ use crate::pane::detail::{BillEditor, EditorSection, ParticipantRow};
 use crate::popup::PopupView;
 use crate::popup::{
     PopupAction, PopupOutcome,
-    confirm::ConfirmPopup,
     create_ledger::CreateLedgerPopup,
     invite::InviteResultPopup,
     settings::{SettingsPopup, TopTab},
@@ -231,17 +230,7 @@ async fn handle_ledger_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
             state.popup = Some(Box::new(CreateLedgerPopup::new()));
         }
         KeyCode::Char('d') => {
-            if let Some(ledger_id) = state.current_ledger_id() {
-                let name = state
-                    .ledgers
-                    .get(state.ledger_cursor)
-                    .map(|l| l.name.clone())
-                    .unwrap_or_default();
-                state.popup = Some(Box::new(ConfirmPopup::new(
-                    format!("Delete ledger \"{}\"?", name),
-                    PopupAction::DeleteLedger { ledger_id },
-                )));
-            }
+            // delete ledger removed
         }
         KeyCode::Char('S') => {
             open_settings_popup(TopTab::Device, state, svc).await;
@@ -554,19 +543,6 @@ async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<Unb
             }
         }
 
-        PopupAction::DeleteLedger { ledger_id } => match svc.delete_ledger(ledger_id).await {
-            Ok(_) => {
-                refresh_ledgers(svc, state).await;
-                state.ledger_cursor = state
-                    .ledger_cursor
-                    .min(state.ledgers.len().saturating_sub(1));
-                refresh_bills(svc, state).await;
-                refresh_users(svc, state).await;
-                refresh_settlement(svc, state).await;
-            }
-            Err(e) => state.status_message = Some(format!("delete ledger: {e}")),
-        },
-
         PopupAction::AddBill { ledger_id, bill } => match svc.add_bill(ledger_id, bill).await {
             Ok(_) => {
                 refresh_bills(svc, state).await;
@@ -599,7 +575,7 @@ async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<Unb
             Err(e) => state.status_message = Some(format!("invite: {e}")),
         },
 
-        PopupAction::JoinLedger { url } => match svc.join_ledger(&url, String::new()).await {
+        PopupAction::JoinLedger { url } => match svc.join_ledger(&url).await {
             Ok(_) => {
                 refresh_ledgers(svc, state).await;
                 refresh_bills(svc, state).await;

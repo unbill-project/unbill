@@ -336,11 +336,9 @@ pub async fn create_invitation(ledger_id: &str) -> Result<String, String> {
         .map_err(|e| e.to_string())
 }
 
-pub async fn join_ledger(url: String, label: String) -> Result<(), String> {
+pub async fn join_ledger(url: String) -> Result<(), String> {
     let svc = get_service()?;
-    svc.join_ledger(&url, label)
-        .await
-        .map_err(|e| e.to_string())
+    svc.join_ledger(&url).await.map_err(|e| e.to_string())
 }
 
 pub async fn sync_device(node_id: String) -> Result<(), String> {
@@ -661,9 +659,18 @@ fn format_timestamp_parts(year: u32, month: u32, day: u32, hour: u32, minute: u3
 mod tests {
     use super::*;
     use std::sync::Arc;
+    use unbill_asymmetric_channel::AsymChannel;
+    use unbill_asymmetric_channel::local::LocalAsymChannel;
     use unbill_console::model::{NewBill, NewLedger, NewUserName, Share};
     use unbill_console::service::UnbillConsole;
     use unbill_store_memory::InMemoryStore;
+
+    async fn open_console() -> Arc<UnbillConsole> {
+        let channel = LocalAsymChannel::open(Arc::new(InMemoryStore::default()))
+            .await
+            .unwrap();
+        UnbillConsole::open(channel as Arc<dyn AsymChannel>)
+    }
 
     #[test]
     fn timestamp_parts_render_as_zero_padded_local_date_and_time() {
@@ -676,9 +683,7 @@ mod tests {
 
     #[tokio::test]
     async fn ledger_detail_includes_conflicting_bills_and_ancestors() {
-        let service = UnbillConsole::open(Arc::new(InMemoryStore::default()))
-            .await
-            .unwrap();
+        let service = open_console().await;
         let (ledger_id, _base_id, left_id, right_id) = create_conflicted_ledger(&service).await;
 
         let detail = load_ledger_detail_from_service(&service, ledger_id)
@@ -699,9 +704,7 @@ mod tests {
 
     #[tokio::test]
     async fn resolving_conflict_keeps_selected_bill_and_clears_group() {
-        let service = UnbillConsole::open(Arc::new(InMemoryStore::default()))
-            .await
-            .unwrap();
+        let service = open_console().await;
         let (ledger_id, _base_id, left_id, right_id) = create_conflicted_ledger(&service).await;
 
         let merge_id = resolve_conflict_with_service(
