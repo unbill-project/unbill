@@ -15,7 +15,6 @@ members = [
     "crates/unbill-model",
     "crates/unbill-storage",
     "crates/unbill-store-fs",
-    "crates/unbill-store-http",
     "crates/unbill-store-memory",
     "crates/unbill-tauri",
     "crates/unbill-ui-components",

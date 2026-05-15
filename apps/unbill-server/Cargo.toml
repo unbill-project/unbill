@@ -18,7 +18,6 @@ path = "src/lib.rs"
 [dependencies]
 unbill-device = { path = "../../crates/unbill-device" }
 unbill-model = { path = "../../crates/unbill-model" }
-unbill-storage = { path = "../../crates/unbill-storage" }
 unbill-store-fs = { path = "../../crates/unbill-store-fs" }
 tokio.workspace = true
 anyhow.workspace = true
@@ -28,10 +27,11 @@ axum.workspace = true
 tower.workspace = true
 tower-http.workspace = true
 serde.workspace = true
-serde_json.workspace = true
-automerge.workspace = true
 
 [dev-dependencies]
+unbill-storage = { path = "../../crates/unbill-storage" }
+automerge.workspace = true
+serde_json.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 tower = { workspace = true, features = ["util"] }
 http-body-util = "0.1"
