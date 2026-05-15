@@ -7900,7 +7900,6 @@ version = "0.0.2"
 dependencies = [
  "async-trait",
  "automerge",
- "axum",
  "futures-util",
  "reqwest",
  "serde",
@@ -7908,7 +7907,6 @@ dependencies = [
  "tarpc",
  "tokio",
  "tokio-stream",
- "tower-http",
  "unbill-core",
  "unbill-model",
 ]
@@ -7949,7 +7947,6 @@ dependencies = [
  "ulid",
  "unbill-event",
  "unbill-model",
- "unbill-server-client",
  "unbill-storage",
  "unbill-store-memory",
  "unbill-symmetric-channel",
@@ -7992,19 +7989,6 @@ dependencies = [
  "tracing-subscriber",
  "unbill-core",
  "unbill-store-fs",
-]
-
-[[package]]
-name = "unbill-server-client"
-version = "0.0.2"
-dependencies = [
- "reqwest",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "wiremock",
 ]
 
 [[package]]

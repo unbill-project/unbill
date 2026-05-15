@@ -3,10 +3,8 @@ use tokio::sync::broadcast;
 use unbill_model::error::Result;
 use unbill_model::{LedgerId, NodeId};
 
-#[cfg(feature = "http-client")]
-pub mod http_client;
-#[cfg(feature = "http-server")]
-pub mod http_server;
+#[cfg(feature = "http")]
+pub mod http;
 #[cfg(feature = "local")]
 pub mod local;
 #[cfg(feature = "rpc")]

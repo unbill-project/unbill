@@ -9,35 +9,29 @@ homepage.workspace = true
 
 [features]
 # In-process implementation wrapping UnbillService directly.
-local = ["dep:unbill-core", "dep:automerge"]
-# Axum HTTP server that exposes a Device over HTTP + SSE.
-http-server = ["dep:axum", "dep:tower-http", "dep:tokio-stream", "dep:serde_json", "dep:futures-util"]
-# reqwest HTTP client that implements Device by calling the HTTP server.
-http-client = ["dep:reqwest", "dep:tokio-stream", "dep:serde_json", "dep:futures-util"]
+local = ["dep:unbill-core", "dep:automerge", "tokio/rt"]
+# HTTP client calling unbill-server.
+http = ["dep:reqwest", "dep:serde_json"]
 # tarpc RPC server + client.
-rpc = ["dep:tarpc", "dep:tokio-stream", "dep:serde_json", "dep:futures-util"]
+rpc = ["dep:tarpc", "dep:tokio-stream", "dep:serde_json", "dep:futures-util", "tokio/rt"]
 
 [dependencies]
 unbill-model = { path = "../unbill-model" }
 async-trait.workspace = true
 serde = { workspace = true, features = ["derive"] }
-tokio = { workspace = true, features = ["sync", "rt"] }
+tokio = { workspace = true, features = ["sync"] }
 
 # local
 unbill-core = { path = "../unbill-core", features = ["local"], optional = true }
 automerge = { workspace = true, optional = true }
 
-# http-server
-axum = { workspace = true, optional = true }
-tower-http = { workspace = true, optional = true }
-
 # http-client
 reqwest = { workspace = true, optional = true }
 
-# shared http
+# http-client + rpc
 serde_json = { workspace = true, optional = true }
-tokio-stream = { workspace = true, optional = true }
-futures-util = { workspace = true, optional = true }
 
 # rpc
+tokio-stream = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
 tarpc = { workspace = true, optional = true }
