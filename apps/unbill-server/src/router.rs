@@ -284,7 +284,7 @@ mod tests {
     async fn make_app(dir: &std::path::Path) -> Router {
         use unbill_device::UnbillDevice;
         use unbill_store_fs::FsStore;
-        let store = Arc::new(FsStore::new(dir.to_path_buf()));
+        let store = Arc::new(FsStore::open(dir.to_path_buf()).unwrap());
         let device = UnbillDevice::open(store).await.unwrap();
         let state = Arc::new(AppState {
             service: device,
@@ -429,7 +429,7 @@ mod tests {
         use unbill_store_fs::FsStore;
 
         let dir = tempfile::tempdir().unwrap();
-        let store = Arc::new(FsStore::new(dir.path().to_path_buf()));
+        let store = Arc::new(FsStore::open(dir.path().to_path_buf()).unwrap());
         let device = UnbillDevice::open(Arc::clone(&store) as Arc<dyn unbill_device::LedgerStore>)
             .await
             .unwrap();

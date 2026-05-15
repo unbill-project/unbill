@@ -14,11 +14,35 @@ use unbill_storage::{LedgerDoc, LedgerStore, StorageResult as Result};
 
 pub struct FsStore {
     root: PathBuf,
+    /// Holds `<root>/unbill.lock` open with an exclusive advisory lock for
+    /// the lifetime of this store, preventing two processes from sharing the
+    /// same data directory simultaneously.
+    _lock: std::fs::File,
 }
 
 impl FsStore {
-    pub fn new(root: PathBuf) -> Self {
-        Self { root }
+    /// Open the store at `root`, creating the directory if needed.
+    ///
+    /// Returns `Err` if another process already holds the directory lock.
+    pub fn open(root: PathBuf) -> std::io::Result<Self> {
+        std::fs::create_dir_all(&root)?;
+        let lock_file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(root.join("unbill.lock"))?;
+        lock_file.try_lock().map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::WouldBlock,
+                format!(
+                    "another process already holds the lock on {}",
+                    root.display()
+                ),
+            )
+        })?;
+        Ok(Self {
+            root,
+            _lock: lock_file,
+        })
     }
 
     fn ledger_dir(&self, ledger_id: &str) -> PathBuf {
@@ -223,10 +247,21 @@ mod tests {
         .unwrap()
     }
 
+    #[test]
+    fn second_open_on_same_dir_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let _first = FsStore::open(dir.path().to_path_buf()).unwrap();
+        let second = FsStore::open(dir.path().to_path_buf());
+        assert!(
+            second.is_err(),
+            "expected second open to fail while first holds the lock"
+        );
+    }
+
     #[tokio::test]
     async fn test_save_and_list_ledger_meta() {
         let dir = tempfile::tempdir().unwrap();
-        let store = FsStore::new(dir.path().to_path_buf());
+        let store = FsStore::open(dir.path().to_path_buf()).unwrap();
         assert!(store.list_ledgers().await.unwrap().is_empty());
         let meta = make_meta("Groceries");
         store.save_ledger_meta(&meta).await.unwrap();
@@ -238,7 +273,7 @@ mod tests {
     #[tokio::test]
     async fn test_save_and_load_ledger_round_trip() {
         let dir = tempfile::tempdir().unwrap();
-        let store = FsStore::new(dir.path().to_path_buf());
+        let store = FsStore::open(dir.path().to_path_buf()).unwrap();
         let id = LedgerId::from_u128(1).to_string();
         assert!(store.load_ledger(&id).await.unwrap().is_none());
         let mut doc = make_doc("Test");
@@ -250,7 +285,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_ledger() {
         let dir = tempfile::tempdir().unwrap();
-        let store = FsStore::new(dir.path().to_path_buf());
+        let store = FsStore::open(dir.path().to_path_buf()).unwrap();
         let meta = make_meta("ToDelete");
         store.save_ledger_meta(&meta).await.unwrap();
         let id = meta.ledger_id.to_string();
@@ -265,7 +300,7 @@ mod tests {
     #[tokio::test]
     async fn test_device_meta_round_trip() {
         let dir = tempfile::tempdir().unwrap();
-        let store = FsStore::new(dir.path().to_path_buf());
+        let store = FsStore::open(dir.path().to_path_buf()).unwrap();
         assert!(
             store
                 .load_device_meta("device_key.bin")

@@ -17,7 +17,7 @@ async fn main() -> Result<()> {
 
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
     let socket = UNBILL_PATH.socket_path()?;
-    let store = Arc::new(FsStore::new(data_dir));
+    let store = Arc::new(FsStore::open(data_dir)?);
     let channel = LocalAsymChannel::open(store).await?;
 
     tracing::info!("unbill-daemon listening on {}", socket.display());

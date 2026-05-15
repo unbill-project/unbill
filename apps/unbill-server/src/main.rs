@@ -21,7 +21,7 @@ async fn main() -> Result<()> {
     let data_dir = unbill_store_fs::UNBILL_PATH
         .ensure_data_dir()
         .context("failed to resolve data directory")?;
-    let store = Arc::new(FsStore::new(data_dir));
+    let store = Arc::new(FsStore::open(data_dir).context("failed to open data directory")?);
     let device = UnbillDevice::open(store)
         .await
         .context("failed to open device")?;
