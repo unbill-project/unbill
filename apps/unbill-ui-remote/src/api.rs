@@ -6,20 +6,20 @@ use serde::{Deserialize, Serialize};
 use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, UserId,
 };
-use unbill_console::service::UnbillService;
+use unbill_console::service::UnbillConsole;
 use unbill_ui_components::bill_editor::BillShareInput;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
 
 thread_local! {
-    static SERVICE: RefCell<Option<Arc<UnbillService>>> = const { RefCell::new(None) };
+    static SERVICE: RefCell<Option<Arc<UnbillConsole>>> = const { RefCell::new(None) };
 }
 
-pub fn init(service: Arc<UnbillService>) {
+pub fn init(service: Arc<UnbillConsole>) {
     SERVICE.with(|cell| *cell.borrow_mut() = Some(service));
 }
 
-fn get_service() -> Result<Arc<UnbillService>, String> {
+fn get_service() -> Result<Arc<UnbillConsole>, String> {
     SERVICE.with(|cell| {
         cell.borrow()
             .clone()
@@ -228,7 +228,7 @@ pub async fn load_ledger_detail(ledger_id: &str) -> Result<LedgerDetail, String>
 }
 
 async fn load_ledger_detail_from_service(
-    svc: &Arc<UnbillService>,
+    svc: &Arc<UnbillConsole>,
     lid: LedgerId,
 ) -> Result<LedgerDetail, String> {
     let meta = svc
@@ -400,7 +400,7 @@ pub async fn resolve_conflict(input: ResolveConflictInput) -> Result<String, Str
 }
 
 async fn resolve_conflict_with_service(
-    svc: &Arc<UnbillService>,
+    svc: &Arc<UnbillConsole>,
     input: ResolveConflictInput,
 ) -> Result<String, String> {
     let ledger_id = parse_ledger_id(&input.ledger_id)?;
@@ -469,7 +469,7 @@ pub async fn write_clipboard_text(text: &str) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 
 async fn load_all_sync_devices(
-    svc: &Arc<UnbillService>,
+    svc: &Arc<UnbillConsole>,
     metas: &[unbill_console::model::LedgerMeta],
 ) -> Result<Vec<SyncDevice>, String> {
     use std::collections::BTreeMap;
@@ -512,7 +512,7 @@ async fn load_all_sync_devices(
 }
 
 async fn summarize_ledger(
-    svc: &Arc<UnbillService>,
+    svc: &Arc<UnbillConsole>,
     meta: unbill_console::model::LedgerMeta,
 ) -> Result<LedgerSummary, String> {
     let lid = meta.ledger_id;
@@ -531,7 +531,7 @@ async fn summarize_ledger(
 }
 
 async fn load_devices_for_ledger(
-    svc: &Arc<UnbillService>,
+    svc: &Arc<UnbillConsole>,
     ledger_id: LedgerId,
     local_node_id: &str,
     device_labels: &HashMap<String, String>,
@@ -662,7 +662,7 @@ mod tests {
     use super::*;
     use std::sync::Arc;
     use unbill_console::model::{NewBill, NewLedger, NewUserName, Share};
-    use unbill_console::service::UnbillService;
+    use unbill_console::service::UnbillConsole;
     use unbill_store_memory::InMemoryStore;
 
     #[test]
@@ -676,7 +676,7 @@ mod tests {
 
     #[tokio::test]
     async fn ledger_detail_includes_conflicting_bills_and_ancestors() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
+        let service = UnbillConsole::open(Arc::new(InMemoryStore::default()))
             .await
             .unwrap();
         let (ledger_id, _base_id, left_id, right_id) = create_conflicted_ledger(&service).await;
@@ -699,7 +699,7 @@ mod tests {
 
     #[tokio::test]
     async fn resolving_conflict_keeps_selected_bill_and_clears_group() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
+        let service = UnbillConsole::open(Arc::new(InMemoryStore::default()))
             .await
             .unwrap();
         let (ledger_id, _base_id, left_id, right_id) = create_conflicted_ledger(&service).await;
@@ -729,7 +729,7 @@ mod tests {
     }
 
     async fn create_conflicted_ledger(
-        service: &Arc<UnbillService>,
+        service: &Arc<UnbillConsole>,
     ) -> (LedgerId, BillId, BillId, BillId) {
         let ledger_id = service
             .create_ledger(NewLedger {

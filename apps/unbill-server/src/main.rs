@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use tokio::net::TcpListener;
 use tracing::info;
 
-use unbill_console::service::UnbillService;
+use unbill_console::service::UnbillConsole;
 use unbill_server::{AppState, build_router};
 use unbill_store_fs::FsStore;
 
@@ -22,7 +22,7 @@ async fn main() -> Result<()> {
         .ensure_data_dir()
         .context("failed to resolve data directory")?;
     let store = Arc::new(FsStore::new(data_dir));
-    let service = UnbillService::open(store)
+    let service = UnbillConsole::open(store)
         .await
         .context("failed to open service")?;
 

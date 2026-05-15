@@ -8,7 +8,7 @@ use tokio::time::{Duration, interval};
 use unbill_console::model::{
     Bill, BillId, Currency, LedgerId, LedgerMeta, NewBill, NewLedger, NodeId, Share, User,
 };
-use unbill_console::service::{ServiceEvent, SettlementTransaction, UnbillService};
+use unbill_console::service::{ServiceEvent, SettlementTransaction, UnbillConsole};
 
 use crate::pane::Pane;
 use crate::pane::detail::{BillEditor, EditorSection, ParticipantRow};
@@ -78,7 +78,7 @@ impl AppState {
 
 pub async fn run(
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
-    svc: Arc<UnbillService>,
+    svc: Arc<UnbillConsole>,
 ) -> anyhow::Result<()> {
     let (sync_result_tx, mut sync_result_rx) = mpsc::unbounded_channel::<Result<(), String>>();
     let mut state = AppState::new(sync_result_tx);
@@ -145,7 +145,7 @@ pub async fn run(
 // Key routing
 // ---------------------------------------------------------------------------
 
-async fn handle_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillService>) {
+async fn handle_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillConsole>) {
     // Global quit shortcuts.
     if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
         state.should_quit = true;
@@ -194,7 +194,7 @@ async fn handle_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillService
     }
 }
 
-async fn handle_ledger_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillService>) {
+async fn handle_ledger_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillConsole>) {
     match key.code {
         KeyCode::Char('j') | KeyCode::Down if !state.ledgers.is_empty() => {
             state.ledger_cursor = (state.ledger_cursor + 1).min(state.ledgers.len() - 1);
@@ -250,7 +250,7 @@ async fn handle_ledger_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
     }
 }
 
-async fn handle_bills_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillService>) {
+async fn handle_bills_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillConsole>) {
     match key.code {
         KeyCode::Char('j') | KeyCode::Down if !state.bills.is_empty() => {
             state.bill_cursor = (state.bill_cursor + 1).min(state.bills.len() - 1);
@@ -320,7 +320,7 @@ fn handle_detail_key(key: KeyEvent, state: &mut AppState) {
     }
 }
 
-async fn handle_editor_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillService>) {
+async fn handle_editor_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillConsole>) {
     {
         let editor = match state.bill_editor.as_mut() {
             Some(e) => e,
@@ -460,7 +460,7 @@ fn retreat_section(s: EditorSection) -> EditorSection {
     }
 }
 
-async fn try_confirm_editor(state: &mut AppState, svc: &Arc<UnbillService>) {
+async fn try_confirm_editor(state: &mut AppState, svc: &Arc<UnbillConsole>) {
     let result = {
         let editor = match state.bill_editor.as_ref() {
             Some(e) => e,
@@ -534,7 +534,7 @@ async fn try_confirm_editor(state: &mut AppState, svc: &Arc<UnbillService>) {
 // Action execution
 // ---------------------------------------------------------------------------
 
-async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<UnbillService>) {
+async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<UnbillConsole>) {
     match action {
         PopupAction::CreateLedger { name, currency } => {
             let result = Currency::from_code(&currency)
@@ -630,7 +630,7 @@ async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<Unb
 // Settings popup opener
 // ---------------------------------------------------------------------------
 
-async fn open_settings_popup(tab: TopTab, state: &mut AppState, svc: &Arc<UnbillService>) {
+async fn open_settings_popup(tab: TopTab, state: &mut AppState, svc: &Arc<UnbillConsole>) {
     let device_id = svc.device_id().to_string();
     let all_users = match svc.list_all_users().await {
         Ok(u) => u,
@@ -659,7 +659,7 @@ async fn open_settings_popup(tab: TopTab, state: &mut AppState, svc: &Arc<Unbill
 // Data refresh helpers
 // ---------------------------------------------------------------------------
 
-pub async fn refresh_ledgers(svc: &Arc<UnbillService>, state: &mut AppState) {
+pub async fn refresh_ledgers(svc: &Arc<UnbillConsole>, state: &mut AppState) {
     match svc.list_ledgers().await {
         Ok(ledgers) => {
             state.ledgers = ledgers;
@@ -671,7 +671,7 @@ pub async fn refresh_ledgers(svc: &Arc<UnbillService>, state: &mut AppState) {
     }
 }
 
-pub async fn refresh_bills(svc: &Arc<UnbillService>, state: &mut AppState) {
+pub async fn refresh_bills(svc: &Arc<UnbillConsole>, state: &mut AppState) {
     if let Some(ledger_id) = state.current_ledger_id() {
         match svc.list_bills(ledger_id).await {
             Ok(effective) => {
@@ -693,7 +693,7 @@ pub async fn refresh_bills(svc: &Arc<UnbillService>, state: &mut AppState) {
     }
 }
 
-pub async fn refresh_users(svc: &Arc<UnbillService>, state: &mut AppState) {
+pub async fn refresh_users(svc: &Arc<UnbillConsole>, state: &mut AppState) {
     if let Some(ledger_id) = state.current_ledger_id() {
         match svc.list_users(ledger_id).await {
             Ok(users) => state.users = users,
@@ -704,7 +704,7 @@ pub async fn refresh_users(svc: &Arc<UnbillService>, state: &mut AppState) {
     }
 }
 
-pub async fn refresh_settlement(svc: &Arc<UnbillService>, state: &mut AppState) {
+pub async fn refresh_settlement(svc: &Arc<UnbillConsole>, state: &mut AppState) {
     if let Some(ledger_id) = state.current_ledger_id() {
         match svc.settle_ledger(ledger_id).await {
             Ok(s) => state.settlement = s.transactions,

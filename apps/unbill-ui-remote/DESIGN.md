@@ -8,7 +8,7 @@ Browser-only web frontend that connects to a running `unbill-server` instance ov
 
 ## API layer
 
-At startup the app creates an `HttpStore` pointing at the server base URL, then opens an `UnbillService` over it. `src/api.rs` wraps `UnbillService` calls and maps results to plain DTO structs consumed by the component layer. All HTTP communication is handled inside `unbill-store-http`; the app layer makes no raw HTTP requests.
+At startup the app creates an `HttpStore` pointing at the server base URL, then opens an `UnbillConsole` over it. `src/api.rs` wraps `UnbillConsole` calls and maps results to plain DTO structs consumed by the component layer. All HTTP communication is handled inside `unbill-store-http`; the app layer makes no raw HTTP requests.
 
 The server base URL is baked in at build time via the `UNBILL_SERVER_URL` environment variable, defaulting to an empty string (same-origin).
 

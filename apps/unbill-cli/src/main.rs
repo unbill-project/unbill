@@ -1,11 +1,11 @@
-// unbill-cli: command-line frontend for UnbillService.
+// unbill-cli: command-line frontend for UnbillConsole.
 // All business logic lives in unbill-core; this file is pure dispatch + I/O.
 
 use std::sync::Arc;
 
 use anyhow::bail;
 use clap::Parser;
-use unbill_console::service::UnbillService;
+use unbill_console::service::UnbillConsole;
 use unbill_store_fs::FsStore;
 use unbill_store_fs::UNBILL_PATH;
 
@@ -202,7 +202,7 @@ async fn run() -> anyhow::Result<()> {
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
 
     let store = Arc::new(FsStore::new(data_dir.clone()));
-    let svc = UnbillService::open(store).await?;
+    let svc = UnbillConsole::open(store).await?;
 
     match cli.command {
         Command::Init => commands::init(&svc, json).await,

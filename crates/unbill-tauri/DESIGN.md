@@ -1,6 +1,6 @@
 # Unbill Tauri
 
-Tauri bridge that wires the desktop shell to `UnbillService` and the default desktop shell for Unbill. It exposes async commands and frontend-ready DTOs without adding new business logic.
+Tauri bridge that wires the desktop shell to `UnbillConsole` and the default desktop shell for Unbill. It exposes async commands and frontend-ready DTOs without adding new business logic.
 
 ## Contract
 
@@ -13,11 +13,11 @@ Tauri bridge that wires the desktop shell to `UnbillService` and the default des
 - iOS debug builds link the Rust static library into the app executable instead of Xcode's separate debug dylib layout
 - iOS native frameworks required by Rust dependencies are declared in Tauri configuration
 
-The current boundary is command-first. `UnbillService` has an internal `ServiceEvent` stream, but a stable frontend event contract is not yet the primary design surface of this crate.
+The current boundary is command-first. `UnbillConsole` has an internal `ServiceEvent` stream, but a stable frontend event contract is not yet the primary design surface of this crate.
 
 ## Rules
 
-- one shared `UnbillService` (from `unbill-console`) instance lives in Tauri state; it will migrate to a `LocalAsymChannel` as the asym channel layer matures
+- one shared `UnbillConsole` (from `unbill-console`) instance lives in Tauri state; it will migrate to a `LocalAsymChannel` as the asym channel layer matures
 - command handlers stay async and return user-facing error strings
 - this crate is an IPC boundary, not a domain layer
 - Tauri config stays aligned with the capability files: the window label used by capabilities must exist in `tauri.conf.json`

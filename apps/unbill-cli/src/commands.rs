@@ -8,7 +8,7 @@ use anyhow::anyhow;
 use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
 };
-use unbill_console::service::UnbillService;
+use unbill_console::service::UnbillConsole;
 
 use crate::output::{
     bill_out, conflict_group_out, device_out, fmt_amount, ledger_out, parse_amount, print_json,
@@ -31,7 +31,7 @@ fn parse_bill_id(s: &str) -> anyhow::Result<BillId> {
 // Init
 // ---------------------------------------------------------------------------
 
-pub async fn init(svc: &UnbillService, json: bool) -> anyhow::Result<()> {
+pub async fn init(svc: &UnbillConsole, json: bool) -> anyhow::Result<()> {
     let id = svc.device_id().to_string();
     if json {
         print_json(&serde_json::json!({ "device_id": id }))?;
@@ -46,7 +46,7 @@ pub async fn init(svc: &UnbillService, json: bool) -> anyhow::Result<()> {
 // ---------------------------------------------------------------------------
 
 pub async fn device_show(
-    svc: &UnbillService,
+    svc: &UnbillConsole,
     data_dir: &std::path::Path,
     json: bool,
 ) -> anyhow::Result<()> {
@@ -66,7 +66,7 @@ pub async fn device_show(
 // ---------------------------------------------------------------------------
 
 pub async fn ledger_create(
-    svc: &UnbillService,
+    svc: &UnbillConsole,
     name: String,
     currency: String,
     json: bool,
@@ -82,7 +82,7 @@ pub async fn ledger_create(
     Ok(())
 }
 
-pub async fn ledger_list(svc: &UnbillService, json: bool) -> anyhow::Result<()> {
+pub async fn ledger_list(svc: &UnbillConsole, json: bool) -> anyhow::Result<()> {
     let ledgers = svc.list_ledgers().await?;
     if json {
         print_json(&ledgers.iter().map(ledger_out).collect::<Vec<_>>())?;
@@ -97,7 +97,7 @@ pub async fn ledger_list(svc: &UnbillService, json: bool) -> anyhow::Result<()> 
     Ok(())
 }
 
-pub async fn ledger_show(svc: &UnbillService, ledger_id: &str, json: bool) -> anyhow::Result<()> {
+pub async fn ledger_show(svc: &UnbillConsole, ledger_id: &str, json: bool) -> anyhow::Result<()> {
     let lid = parse_ledger_id(ledger_id)?;
     let ledgers = svc.list_ledgers().await?;
     let meta = ledgers
@@ -123,7 +123,7 @@ pub async fn ledger_show(svc: &UnbillService, ledger_id: &str, json: bool) -> an
     Ok(())
 }
 
-pub async fn ledger_delete(svc: &UnbillService, ledger_id: &str) -> anyhow::Result<()> {
+pub async fn ledger_delete(svc: &UnbillConsole, ledger_id: &str) -> anyhow::Result<()> {
     svc.delete_ledger(parse_ledger_id(ledger_id)?).await?;
     Ok(())
 }
@@ -133,7 +133,7 @@ pub async fn ledger_delete(svc: &UnbillService, ledger_id: &str) -> anyhow::Resu
 // ---------------------------------------------------------------------------
 
 pub async fn bill_add(
-    svc: &UnbillService,
+    svc: &UnbillConsole,
     ledger_id: &str,
     payer: &str,
     amount: &str,
@@ -185,7 +185,7 @@ pub async fn bill_add(
     Ok(())
 }
 
-pub async fn bill_list(svc: &UnbillService, ledger_id: &str, json: bool) -> anyhow::Result<()> {
+pub async fn bill_list(svc: &UnbillConsole, ledger_id: &str, json: bool) -> anyhow::Result<()> {
     let bills = svc.list_bills(parse_ledger_id(ledger_id)?).await?;
     if json {
         print_json(&bills.iter().map(bill_out).collect::<Vec<_>>())?;
@@ -209,7 +209,7 @@ pub async fn bill_list(svc: &UnbillService, ledger_id: &str, json: bool) -> anyh
 
 #[allow(clippy::too_many_arguments)]
 pub async fn bill_amend(
-    svc: &UnbillService,
+    svc: &UnbillConsole,
     ledger_id: &str,
     prev: Vec<String>,
     payer: &str,
@@ -261,7 +261,7 @@ pub async fn bill_amend(
 // ---------------------------------------------------------------------------
 
 pub async fn user_create(
-    svc: &UnbillService,
+    svc: &UnbillConsole,
     ledger_id: &str,
     display_name: String,
     json: bool,
@@ -278,7 +278,7 @@ pub async fn user_create(
     Ok(())
 }
 
-pub async fn all_user_list(svc: &UnbillService, json: bool) -> anyhow::Result<()> {
+pub async fn all_user_list(svc: &UnbillConsole, json: bool) -> anyhow::Result<()> {
     let users = svc.list_all_users().await?;
     if json {
         print_json(&users.iter().map(user_out).collect::<Vec<_>>())?;
@@ -295,7 +295,7 @@ pub async fn all_user_list(svc: &UnbillService, json: bool) -> anyhow::Result<()
 }
 
 pub async fn ledger_user_add(
-    svc: &UnbillService,
+    svc: &UnbillConsole,
     ledger_id: &str,
     user_id: &str,
     name: String,
@@ -312,7 +312,7 @@ pub async fn ledger_user_add(
 }
 
 pub async fn ledger_user_list(
-    svc: &UnbillService,
+    svc: &UnbillConsole,
     ledger_id: &str,
     json: bool,
 ) -> anyhow::Result<()> {
@@ -336,7 +336,7 @@ pub async fn ledger_user_list(
 // ---------------------------------------------------------------------------
 
 pub async fn ledger_join(
-    svc: &Arc<UnbillService>,
+    svc: &Arc<UnbillConsole>,
     url: String,
     label: Option<String>,
 ) -> anyhow::Result<()> {
@@ -345,7 +345,7 @@ pub async fn ledger_join(
 }
 
 pub async fn ledger_devices(
-    svc: &UnbillService,
+    svc: &UnbillConsole,
     ledger_id: &str,
     json: bool,
 ) -> anyhow::Result<()> {
@@ -365,7 +365,7 @@ pub async fn ledger_devices(
 }
 
 pub async fn ledger_invite(
-    svc: &Arc<UnbillService>,
+    svc: &Arc<UnbillConsole>,
     ledger_id: &str,
     json: bool,
 ) -> anyhow::Result<()> {
@@ -382,7 +382,7 @@ pub async fn ledger_invite(
 // Sync
 // ---------------------------------------------------------------------------
 
-pub async fn sync_once(svc: &Arc<UnbillService>, peer_node_id: &str) -> anyhow::Result<()> {
+pub async fn sync_once(svc: &Arc<UnbillConsole>, peer_node_id: &str) -> anyhow::Result<()> {
     let peer = peer_node_id
         .parse::<NodeId>()
         .map_err(|e| anyhow!("invalid node ID {peer_node_id:?}: {e}"))?;
@@ -390,7 +390,7 @@ pub async fn sync_once(svc: &Arc<UnbillService>, peer_node_id: &str) -> anyhow::
     Ok(())
 }
 
-pub async fn sync_daemon(svc: &Arc<UnbillService>) -> anyhow::Result<()> {
+pub async fn sync_daemon(svc: &Arc<UnbillConsole>) -> anyhow::Result<()> {
     svc.accept_loop().await?;
     Ok(())
 }
@@ -400,7 +400,7 @@ pub async fn sync_daemon(svc: &Arc<UnbillService>) -> anyhow::Result<()> {
 // ---------------------------------------------------------------------------
 
 pub async fn bill_conflicts(
-    svc: &UnbillService,
+    svc: &UnbillConsole,
     ledger_id: &str,
     json: bool,
 ) -> anyhow::Result<()> {
@@ -441,7 +441,7 @@ pub async fn bill_conflicts(
 // Settlement
 // ---------------------------------------------------------------------------
 
-pub async fn settlement(svc: &UnbillService, user_id: &str, json: bool) -> anyhow::Result<()> {
+pub async fn settlement(svc: &UnbillConsole, user_id: &str, json: bool) -> anyhow::Result<()> {
     let settlements = svc
         .compute_settlement_for_user(parse_user_id(user_id)?)
         .await?;

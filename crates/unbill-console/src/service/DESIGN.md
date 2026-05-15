@@ -6,7 +6,7 @@ The service module is the orchestration layer of unbill. It presents one async A
 
 ```mermaid
 flowchart LR
-    Shell["Console or UI"] --> Service["UnbillService"]
+    Shell["Console or UI"] --> Service["UnbillConsole"]
     Service --> Store["LedgerStore"]
     Service --> Doc["LedgerDoc"]
     Service --> Net["UnbillEndpoint and protocol helpers"]

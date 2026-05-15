@@ -6,7 +6,7 @@ The console-side library for unbill. It provides the CRDT document operations, s
 
 ```mermaid
 flowchart TB
-    Service["service/\n(UnbillService — transitional)"]
+    Service["service/\n(UnbillConsole — transitional)"]
     Settlement["settlement/"]
     Conflict["conflict/"]
     Storage["unbill-storage"]
@@ -26,11 +26,11 @@ flowchart TB
 
 `service/` is the current public entry point. `settlement/` and `conflict/` are pure logic modules. Storage, networking, domain types, and events live in dedicated crates that this crate composes.
 
-The `service/` module contains `UnbillService` in its current transitional form. As the asym channel layer matures, this will be restructured into `UnbillConsole` — a console facade that drives an `AsymChannel` rather than owning a store directly.
+The `service/` module contains `UnbillConsole` in its current transitional form. As the asym channel layer matures, this will be restructured into `UnbillConsole` — a console facade that drives an `AsymChannel` rather than owning a store directly.
 
 ## Surface
 
-`UnbillService` is the main entry point. It manages local users, ledgers, users inside a ledger, bills, invitations, sync, settlement, conflict detection, and service events.
+`UnbillConsole` is the main entry point. It manages local users, ledgers, users inside a ledger, bills, invitations, sync, settlement, conflict detection, and service events.
 
 ## Invariants
 

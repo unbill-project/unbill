@@ -2,7 +2,7 @@
 
 ## Modules
 
-- `service/` — `UnbillService` orchestration and events (transitional; will become `UnbillConsole`)
+- `service/` — `UnbillConsole` orchestration and events (transitional; will become `UnbillConsole`)
 - `settlement/` — balance math and transaction reduction
 - `conflict/` — Union-Find conflict detection over effective bills
 - `storage/` — thin re-export of `LedgerStore` and `StorageResult` from `unbill-storage`

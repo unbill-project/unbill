@@ -1,6 +1,6 @@
 # Unbill CLI — Implementation
 
-`main.rs` parses commands with `clap`, opens `FsStore`, creates `UnbillService`, and dispatches to `commands.rs`. `output.rs` renders human-readable or JSON output.
+`main.rs` parses commands with `clap`, opens `FsStore`, creates `UnbillConsole`, and dispatches to `commands.rs`. `output.rs` renders human-readable or JSON output.
 
 `commands.rs` is intentionally thin: it parses command arguments into typed inputs, calls the service, and prints either text or JSON. `output.rs` owns the serializable JSON views so `unbill-core` does not need to derive CLI-facing serialization.
 

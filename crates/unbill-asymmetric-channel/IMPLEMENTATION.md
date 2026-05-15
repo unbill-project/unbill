@@ -3,7 +3,7 @@
 ## Layout
 
 - `lib.rs` — `AsymChannel` trait, `AsymChannelEvent` enum
-- `local.rs` (feature `local`) — `LocalAsymChannel`: wraps `unbill_service::UnbillService`; forwards all trait calls directly; translates `ServiceEvent` into `AsymChannelEvent` via a background task
+- `local.rs` (feature `local`) — `LocalAsymChannel`: wraps `unbill_device::UnbillDevice`; forwards all trait calls directly; translates `ServiceEvent` into `AsymChannelEvent` via a background task
 - `rpc.rs` (feature `rpc`) — tarpc service definition (`AsymChannelService`), RPC server (`RpcServer`) and client (`RpcAsymChannel`); event subscription uses a per-connection queue polled via `poll_events`
 - `http.rs` (feature `http`) — `HttpAsymChannel`: REST client pointing at an `unbill-server` instance; mirrors the `AsymChannel` methods as HTTP calls
 

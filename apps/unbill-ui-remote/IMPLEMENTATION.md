@@ -1,10 +1,10 @@
 # unbill-ui-remote Implementation
 
-The app is a client-side rendered Leptos application compiled to WASM with Trunk. `main.rs` initializes the `UnbillService` and mounts `App`. `app.rs` owns navigation state and calls into `api.rs`. `pages.rs` defines screen-level components. `api.rs` wraps `UnbillService` calls and maps results to plain DTO structs.
+The app is a client-side rendered Leptos application compiled to WASM with Trunk. `main.rs` initializes the `UnbillConsole` and mounts `App`. `app.rs` owns navigation state and calls into `api.rs`. `pages.rs` defines screen-level components. `api.rs` wraps `UnbillConsole` calls and maps results to plain DTO structs.
 
 ## Service initialization
 
-`main.rs` reads `UNBILL_SERVER_URL` (baked in at compile time via `env!`), constructs an `HttpStore` with that base URL, and calls `UnbillService::open(store)`. The resulting service is passed into `App` as a prop and stored in a context so all descendant components can reach it.
+`main.rs` reads `UNBILL_SERVER_URL` (baked in at compile time via `env!`), constructs an `HttpStore` with that base URL, and calls `UnbillConsole::open(store)`. The resulting service is passed into `App` as a prop and stored in a context so all descendant components can reach it.
 
 ## State model
 
@@ -50,7 +50,7 @@ After the initial bootstrap load, a single `spawn_local` subscribes to `ServiceE
 
 All reads from signals inside the event loop use `get_untracked()` to avoid creating reactive subscriptions on the non-reactive async task.
 
-`ServiceEvent::LedgerUpdated` is emitted by `UnbillService` on both local mutations (`add_bill`, `add_user`, `create_user`) and incoming network sync. Mutation handlers in `app.rs` therefore do not call reload functions themselves — they only set `bill_editor.set(None)` and the status/error messages.
+`ServiceEvent::LedgerUpdated` is emitted by `UnbillConsole` on both local mutations (`add_bill`, `add_user`, `create_user`) and incoming network sync. Mutation handlers in `app.rs` therefore do not call reload functions themselves — they only set `bill_editor.set(None)` and the status/error messages.
 
 ## Bill editor isolation
 
@@ -58,11 +58,11 @@ All reads from signals inside the event loop use `get_untracked()` to avoid crea
 
 The bill editor page, draft model, split preview, and save-time validation live in `unbill-ui-components::bill_editor`. This app adapts server DTOs into the shared editor seed and maps the returned save request into the remote service input.
 
-Conflict groups are loaded with ledger detail through the same service wrapper as bills and settlement. The remote UI renders them above settlement, stores the selected bill per group in Leptos state, and resolves a group by sending the selected bill plus the full competing bill set to the API layer. The API layer validates the selection against the current detected group, copies the selected bill fields into a merge amendment, and persists it through `UnbillService`.
+Conflict groups are loaded with ledger detail through the same service wrapper as bills and settlement. The remote UI renders them above settlement, stores the selected bill per group in Leptos state, and resolves a group by sending the selected bill plus the full competing bill set to the API layer. The API layer validates the selection against the current detected group, copies the selected bill fields into a merge amendment, and persists it through `UnbillConsole`.
 
 ## API layer
 
-`api.rs` defines async functions that delegate to `UnbillService` and return typed DTO structs. DTOs are plain `serde` structs defined alongside the functions. `main.rs` and `app.rs` call into `api.rs`; no component accesses the service directly.
+`api.rs` defines async functions that delegate to `UnbillConsole` and return typed DTO structs. DTOs are plain `serde` structs defined alongside the functions. `main.rs` and `app.rs` call into `api.rs`; no component accesses the service directly.
 
 Timestamp DTOs stay as Unix milliseconds from service state through the API layer. Display formatting happens in `api.rs` by reading the viewer's local calendar date and time from the browser runtime and rendering a zero-padded year/month/day hour:minute value.
 

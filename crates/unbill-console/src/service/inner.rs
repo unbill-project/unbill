@@ -1,4 +1,4 @@
-// UnbillService: top-level facade consumed by CLI and Tauri.
+// UnbillConsole: top-level facade consumed by CLI and Tauri.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -20,13 +20,13 @@ use unbill_event::ServiceEvent;
 use unbill_storage::LedgerDoc;
 use unbill_storage::{load_device_labels, save_device_labels};
 
-pub struct UnbillService {
+pub struct UnbillConsole {
     pub(crate) store: Arc<dyn LedgerStore>,
     pub(crate) device_id: NodeId,
     pub(crate) events: broadcast::Sender<ServiceEvent>,
 }
 
-impl UnbillService {
+impl UnbillConsole {
     /// Open the service: initialize device identity via the store, then open.
     ///
     /// All store-backed data (ledgers, pending invitations, pending user
@@ -470,8 +470,8 @@ mod tests {
         Arc::new(InMemoryStore::default())
     }
 
-    async fn open() -> Arc<UnbillService> {
-        UnbillService::open(mem_store()).await.unwrap()
+    async fn open() -> Arc<UnbillConsole> {
+        UnbillConsole::open(mem_store()).await.unwrap()
     }
 
     fn usd() -> Currency {
@@ -500,7 +500,7 @@ mod tests {
         }
     }
 
-    async fn seed_users(svc: &UnbillService, ledger_id: LedgerId) {
+    async fn seed_users(svc: &UnbillConsole, ledger_id: LedgerId) {
         for (n, name) in [(1u128, "Alice"), (2, "Bob")] {
             svc.add_user(
                 ledger_id,
@@ -747,7 +747,7 @@ mod tests {
     async fn test_ledger_survives_service_restart() {
         let store = mem_store();
         let lid = {
-            let svc = UnbillService::open(Arc::clone(&store)).await.unwrap();
+            let svc = UnbillConsole::open(Arc::clone(&store)).await.unwrap();
             let lid = svc
                 .create_ledger(NewLedger {
                     name: "Persistent".into(),
@@ -760,7 +760,7 @@ mod tests {
             lid
         };
         // Re-open with the same store (simulates a restart).
-        let svc2 = UnbillService::open(Arc::clone(&store)).await.unwrap();
+        let svc2 = UnbillConsole::open(Arc::clone(&store)).await.unwrap();
         let bills = svc2.list_bills(lid).await.unwrap();
         assert_eq!(bills.0.len(), 1);
         assert_eq!(bills.0[0].amount_cents, 120000);
@@ -769,8 +769,8 @@ mod tests {
     #[tokio::test]
     async fn test_device_key_stable_across_restarts() {
         let store = mem_store();
-        let svc1 = UnbillService::open(Arc::clone(&store)).await.unwrap();
-        let svc2 = UnbillService::open(Arc::clone(&store)).await.unwrap();
+        let svc1 = UnbillConsole::open(Arc::clone(&store)).await.unwrap();
+        let svc2 = UnbillConsole::open(Arc::clone(&store)).await.unwrap();
         assert_eq!(svc1.device_id, svc2.device_id);
     }
 
@@ -779,12 +779,12 @@ mod tests {
         let store = mem_store();
         let peer = NodeId::from_seed(9);
         {
-            let svc = UnbillService::open(Arc::clone(&store)).await.unwrap();
+            let svc = UnbillConsole::open(Arc::clone(&store)).await.unwrap();
             svc.set_device_label(peer.clone(), "Kitchen iPad".into())
                 .await
                 .unwrap();
         }
-        let svc2 = UnbillService::open(Arc::clone(&store)).await.unwrap();
+        let svc2 = UnbillConsole::open(Arc::clone(&store)).await.unwrap();
         let labels = svc2.list_device_labels().await.unwrap();
         assert_eq!(
             labels.get(&peer.to_string()).map(String::as_str),

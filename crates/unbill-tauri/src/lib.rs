@@ -7,11 +7,11 @@ use tauri::{Manager, State};
 use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
 };
-use unbill_console::service::UnbillService;
+use unbill_console::service::UnbillConsole;
 use unbill_store_fs::FsStore;
 
 struct AppState {
-    service: Arc<UnbillService>,
+    service: Arc<UnbillConsole>,
 }
 
 #[derive(Clone, Serialize)]
@@ -397,7 +397,7 @@ async fn sync_once(
     state.service.sync_once(peer).await.map_err(stringify_error)
 }
 
-async fn load_ledgers(service: &Arc<UnbillService>) -> Result<Vec<LedgerSummaryDto>> {
+async fn load_ledgers(service: &Arc<UnbillConsole>) -> Result<Vec<LedgerSummaryDto>> {
     let metas = service.list_ledgers().await?;
     let mut summaries = Vec::with_capacity(metas.len());
     for meta in metas {
@@ -406,7 +406,7 @@ async fn load_ledgers(service: &Arc<UnbillService>) -> Result<Vec<LedgerSummaryD
     Ok(summaries)
 }
 
-async fn bootstrap_app_inner(service: &Arc<UnbillService>) -> Result<AppBootstrapDto> {
+async fn bootstrap_app_inner(service: &Arc<UnbillConsole>) -> Result<AppBootstrapDto> {
     let ledgers = load_ledgers(service).await?;
     let all_users = service
         .list_all_users()
@@ -424,7 +424,7 @@ async fn bootstrap_app_inner(service: &Arc<UnbillService>) -> Result<AppBootstra
     })
 }
 
-async fn add_user_inner(service: &Arc<UnbillService>, input: AddUserInput) -> Result<UserDto> {
+async fn add_user_inner(service: &Arc<UnbillConsole>, input: AddUserInput) -> Result<UserDto> {
     let user_id = parse_user_id(&input.user_id)?;
     let lid = parse_ledger_id(&input.ledger_id)?;
     let existing = service
@@ -454,7 +454,7 @@ async fn add_user_inner(service: &Arc<UnbillService>, input: AddUserInput) -> Re
     Ok(UserDto::from(added_user))
 }
 
-async fn load_sync_devices(service: &Arc<UnbillService>) -> Result<Vec<SyncDeviceDto>> {
+async fn load_sync_devices(service: &Arc<UnbillConsole>) -> Result<Vec<SyncDeviceDto>> {
     let local_node_id = service.device_id().to_string();
     let device_labels = service.list_device_labels().await?;
     let mut by_node_id = BTreeMap::<String, SyncDeviceDto>::new();
@@ -495,7 +495,7 @@ async fn load_sync_devices(service: &Arc<UnbillService>) -> Result<Vec<SyncDevic
 }
 
 async fn load_sync_devices_for_ledger(
-    service: &Arc<UnbillService>,
+    service: &Arc<UnbillConsole>,
     ledger_id: LedgerId,
     ledger_name: &str,
     local_node_id: &str,
@@ -529,7 +529,7 @@ async fn load_sync_devices_for_ledger(
 }
 
 async fn load_ledger_detail_inner(
-    service: &Arc<UnbillService>,
+    service: &Arc<UnbillConsole>,
     ledger_id: LedgerId,
 ) -> Result<LedgerDetailDto> {
     let meta = service
@@ -592,7 +592,7 @@ async fn load_ledger_detail_inner(
 }
 
 async fn resolve_conflict_inner(
-    service: &Arc<UnbillService>,
+    service: &Arc<UnbillConsole>,
     input: ResolveConflictInput,
 ) -> Result<String> {
     let ledger_id = parse_ledger_id(&input.ledger_id)?;
@@ -643,7 +643,7 @@ async fn resolve_conflict_inner(
 }
 
 async fn summarize_ledger(
-    service: &Arc<UnbillService>,
+    service: &Arc<UnbillConsole>,
     meta: unbill_console::model::LedgerMeta,
 ) -> Result<LedgerSummaryDto> {
     let users = service.list_users(meta.ledger_id).await?;
@@ -772,7 +772,7 @@ pub fn run() {
                 },
             )?;
             let store = Arc::new(FsStore::new(root));
-            let service = tauri::async_runtime::block_on(UnbillService::open(store)).map_err(
+            let service = tauri::async_runtime::block_on(UnbillConsole::open(store)).map_err(
                 |error| -> Box<dyn std::error::Error> {
                     Box::new(std::io::Error::other(error.to_string()))
                 },
@@ -811,7 +811,7 @@ mod tests {
 
     use serde_json::Value;
     use unbill_console::model::{NewDevice, UserId};
-    use unbill_console::service::UnbillService;
+    use unbill_console::service::UnbillConsole;
     use unbill_store_memory::InMemoryStore;
 
     fn tauri_config() -> Value {
@@ -858,13 +858,13 @@ mod tests {
 
     #[tokio::test]
     async fn ledger_detail_includes_sync_devices_for_selected_ledger() {
-        let host = UnbillService::open(Arc::new(InMemoryStore::default()))
+        let host = UnbillConsole::open(Arc::new(InMemoryStore::default()))
             .await
             .unwrap();
-        let kitchen = UnbillService::open(Arc::new(InMemoryStore::default()))
+        let kitchen = UnbillConsole::open(Arc::new(InMemoryStore::default()))
             .await
             .unwrap();
-        let travel = UnbillService::open(Arc::new(InMemoryStore::default()))
+        let travel = UnbillConsole::open(Arc::new(InMemoryStore::default()))
             .await
             .unwrap();
 
@@ -915,7 +915,7 @@ mod tests {
 
     #[tokio::test]
     async fn ledger_detail_includes_conflicting_bills_and_ancestors() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
+        let service = UnbillConsole::open(Arc::new(InMemoryStore::default()))
             .await
             .unwrap();
         let (ledger_id, _base_id, left_id, right_id) = create_conflicted_ledger(&service).await;
@@ -938,7 +938,7 @@ mod tests {
 
     #[tokio::test]
     async fn resolving_conflict_keeps_selected_bill_and_clears_group() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
+        let service = UnbillConsole::open(Arc::new(InMemoryStore::default()))
             .await
             .unwrap();
         let (ledger_id, _base_id, left_id, right_id) = create_conflicted_ledger(&service).await;
@@ -969,7 +969,7 @@ mod tests {
 
     #[tokio::test]
     async fn bootstrap_includes_current_device_id() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
+        let service = UnbillConsole::open(Arc::new(InMemoryStore::default()))
             .await
             .unwrap();
 
@@ -980,7 +980,7 @@ mod tests {
 
     #[tokio::test]
     async fn add_user_to_ledger_from_another_ledger_preserves_identity() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
+        let service = UnbillConsole::open(Arc::new(InMemoryStore::default()))
             .await
             .unwrap();
         let ledger_a = service
@@ -1023,7 +1023,7 @@ mod tests {
 
     #[tokio::test]
     async fn add_user_with_unknown_id_fails_clearly() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
+        let service = UnbillConsole::open(Arc::new(InMemoryStore::default()))
             .await
             .unwrap();
         let ledger_id = service
@@ -1049,7 +1049,7 @@ mod tests {
 
     #[tokio::test]
     async fn bootstrap_all_users_aggregates_across_ledgers() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
+        let service = UnbillConsole::open(Arc::new(InMemoryStore::default()))
             .await
             .unwrap();
         let ledger_a = service
@@ -1091,7 +1091,7 @@ mod tests {
     }
 
     async fn create_conflicted_ledger(
-        service: &Arc<UnbillService>,
+        service: &Arc<UnbillConsole>,
     ) -> (super::LedgerId, super::BillId, super::BillId, super::BillId) {
         let ledger_id = service
             .create_ledger(super::NewLedger {

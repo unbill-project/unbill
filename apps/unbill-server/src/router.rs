@@ -14,14 +14,14 @@ use tower_http::trace::TraceLayer;
 
 use unbill_console::LedgerDoc;
 use unbill_console::model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
-use unbill_console::service::UnbillService;
+use unbill_console::service::UnbillConsole;
 
 // ---------------------------------------------------------------------------
 // Shared state
 // ---------------------------------------------------------------------------
 
 pub struct AppState {
-    pub service: Arc<UnbillService>,
+    pub service: Arc<UnbillConsole>,
     pub api_key: String,
 }
 
@@ -311,7 +311,7 @@ mod tests {
     async fn make_app(dir: &std::path::Path) -> Router {
         use unbill_store_fs::FsStore;
         let store = Arc::new(FsStore::new(dir.to_path_buf()));
-        let service = UnbillService::open(store).await.unwrap();
+        let service = UnbillConsole::open(store).await.unwrap();
         let state = Arc::new(AppState {
             service,
             api_key: API_KEY.to_owned(),

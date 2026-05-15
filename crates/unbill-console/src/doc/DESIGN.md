@@ -13,7 +13,7 @@ The doc module is the Automerge boundary. It turns the persisted ledger document
 
 ```mermaid
 flowchart LR
-    Service["UnbillService"] --> LedgerDoc["LedgerDoc"]
+    Service["UnbillConsole"] --> LedgerDoc["LedgerDoc"]
     LedgerDoc --> Ops["ops.rs"]
     Ops --> Automerge["AutoCommit"]
 ```

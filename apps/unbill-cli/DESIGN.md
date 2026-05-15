@@ -1,6 +1,6 @@
 # Unbill CLI
 
-Terminal frontend for `UnbillService`. It exists for dogfooding, scripting, and end-to-end verification.
+Terminal frontend for `UnbillConsole`. It exists for dogfooding, scripting, and end-to-end verification.
 
 ## Surface
 
