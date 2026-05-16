@@ -3,6 +3,7 @@
 <!-- Compiled from unbill-docs. Update the Sirno lake first, then refresh this artifact. -->
 
 <!-- sirno:witness:unbill:begin -->
+
 Offline-first bill splitting for small trusted groups.
 
 Unbill keeps shared expense ledgers on member devices and syncs them peer-to-peer.
@@ -18,22 +19,26 @@ It is not a payment network,
 bank integration layer,
 general accounting package,
 or product for hostile or anonymous groups.
+
 <!-- sirno:witness:unbill:end -->
 
 ## Design Source
 
 <!-- sirno:witness:compiled-markdown-artifacts:begin -->
+
 The project design lives in [unbill-docs](unbill-docs).
 Read [unbill-docs/introduction.md](unbill-docs/introduction.md) first.
 The old Markdown documentation was lowered into the lake and audited in
 [unbill-docs/documentation-coverage.md](unbill-docs/documentation-coverage.md).
 Recovered diagrams are tracked in
 [unbill-docs/visual-diagram-audit.md](unbill-docs/visual-diagram-audit.md).
+
 <!-- sirno:witness:compiled-markdown-artifacts:end -->
 
 ## Repository Shape
 
 <!-- sirno:witness:workspace-layout:begin -->
+
 Unbill is a Rust workspace built from focused crates and thin applications.
 
 - `crates/unbill-model` holds domain data types.
@@ -45,6 +50,7 @@ Unbill is a Rust workspace built from focused crates and thin applications.
 - `crates/unbill-asymmetric-channel` owns device-to-console transports.
 - `crates/unbill-tauri` and `crates/unbill-ui-components` support the desktop and web UI.
 - `apps` contains the CLI, TUI, daemon, server, native UI, and remote UI.
+
 <!-- sirno:witness:workspace-layout:end -->
 
 ## Build And Run
@@ -80,6 +86,7 @@ docker run --rm -p 8080:80 unbill-server:local
 ## Distribution
 
 <!-- sirno:witness:distribution-and-release:begin -->
+
 Unbill publishes prebuilt CLI and TUI binaries,
 desktop app artifacts,
 GHCR Docker images,
@@ -100,4 +107,5 @@ Unbill is licensed under either Apache-2.0 or MIT, at your option.
 See [LICENSE](LICENSE),
 [LICENSE-APACHE](LICENSE-APACHE),
 and [LICENSE-MIT](LICENSE-MIT).
+
 <!-- sirno:witness:distribution-and-release:end -->

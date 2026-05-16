@@ -3,15 +3,18 @@
 <!-- Compiled from unbill-docs. Update the Sirno lake first, then refresh this artifact. -->
 
 <!-- sirno:witness:compiled-markdown-artifacts:begin -->
+
 The structured design source lives in [unbill-docs](unbill-docs).
 Start with [unbill-docs/introduction.md](unbill-docs/introduction.md).
 Use [unbill-docs/documentation-coverage.md](unbill-docs/documentation-coverage.md) to find
 where old documentation facts live.
+
 <!-- sirno:witness:compiled-markdown-artifacts:end -->
 
 ## Design-first Development
 
 <!-- sirno:witness:development-workflow:begin -->
+
 Non-trivial functionality starts from design,
 then a failing test,
 then implementation,
@@ -28,6 +31,19 @@ not separate design authority.
 Tests are written before or alongside implementation.
 Rust unit tests live in `#[cfg(test)]` modules at the bottom of the file they cover.
 Test names describe behavior rather than implementation details.
+
+`prek` is the local lint and formatting gate.
+Before handing work back,
+run `prek run --all-files` when the change touches tracked source,
+documentation,
+configuration,
+workflows,
+or release packaging.
+If `prek` is not installed,
+install it with `cargo install prek` or run the equivalent checks from `prek.toml`.
+The `mdformat` hook intentionally skips `unbill-docs`;
+use Sirno checks for lake structure and generated links.
+Use targeted tests in addition to `prek` for behavior changes.
 
 Test priority follows risk and locality:
 
@@ -51,4 +67,5 @@ Documentation prose stays conceptual and avoids embedding code that will drift.
 Each crate and significant submodule needs Sirno coverage before substantial implementation begins.
 Submodules with design surface include storage, networking, settlement,
 document projection, conflict detection, and service orchestration.
+
 <!-- sirno:witness:development-workflow:end -->

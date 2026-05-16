@@ -18,6 +18,19 @@ Tests are written before or alongside implementation.
 Rust unit tests live in `#[cfg(test)]` modules at the bottom of the file they cover.
 Test names describe behavior rather than implementation details.
 
+`prek` is the local lint and formatting gate.
+Before handing work back,
+run `prek run --all-files` when the change touches tracked source,
+documentation,
+configuration,
+workflows,
+or release packaging.
+If `prek` is not installed,
+install it with `cargo install prek` or run the equivalent checks from `prek.toml`.
+The `mdformat` hook intentionally skips `unbill-docs`;
+use Sirno checks for lake structure and generated links.
+Use targeted tests in addition to `prek` for behavior changes.
+
 Test priority follows risk and locality:
 pure functions first,
 then storage round trips with `InMemoryStore`,
