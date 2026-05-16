@@ -26,7 +26,7 @@
           strictDeps = true;
           # Only resolve deps for the two packages we care about, avoiding
           # gtk/glib/webkit2gtk from unbill-tauri.
-          cargoExtraArgs = "-p unbill-cli -p unbill-tui";
+          cargoExtraArgs = "-p unbill-cli -p unbill-tui -p unbill-daemon";
           buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.libiconv
             pkgs.darwin.apple_sdk.frameworks.Security
@@ -54,10 +54,19 @@
             doCheck = false;
           }
         );
+
+        unbill-daemon = craneLib.buildPackage (
+          commonArgs
+          // {
+            inherit cargoArtifacts;
+            cargoExtraArgs = "--bin unbill-daemon";
+            doCheck = false;
+          }
+        );
       in
       {
         packages = {
-          inherit unbill-cli unbill-tui;
+          inherit unbill-cli unbill-tui unbill-daemon;
           default = unbill-cli;
         };
       }
