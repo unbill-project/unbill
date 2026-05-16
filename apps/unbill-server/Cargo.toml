@@ -1,6 +1,6 @@
 [package]
 name = "unbill-server"
-description = "HTTP storage server for unbill — implements the HttpStore REST API."
+description = "HTTP backend for unbill remote consoles."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

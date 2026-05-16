@@ -1,11 +1,12 @@
 // Conflict detection: finds effective bills that share amendment ancestry.
-// See DESIGN.md for the Union-Find algorithm and ConflictGroup semantics.
+// See unbill-docs/conflict-detection.md for the Union-Find algorithm.
 
 use std::collections::HashMap;
 use std::collections::HashSet;
 
 use crate::model::{Bill, BillId};
 
+// sirno:witness:conflict-detection:begin
 /// A set of effective bills that conflict, together with their shared amendment history.
 ///
 /// A conflict exists when two or more effective bills are in the same Union-Find component
@@ -19,6 +20,7 @@ pub struct ConflictGroup {
     /// Non-effective bills in the same component — the superseded history that led to the conflict.
     pub ancestors: Vec<Bill>,
 }
+// sirno:witness:conflict-detection:end
 
 struct UnionFind {
     parent: HashMap<BillId, BillId>,
@@ -75,6 +77,7 @@ impl UnionFind {
 ///
 /// Returns one `ConflictGroup` per set of effective bills that share a Union-Find
 /// component. Bills with no conflicting siblings are not included.
+// sirno:witness:conflict-detection:begin
 pub fn detect(bills: &[Bill]) -> Vec<ConflictGroup> {
     let mut uf = UnionFind::new();
 
@@ -114,6 +117,7 @@ pub fn detect(bills: &[Bill]) -> Vec<ConflictGroup> {
         })
         .collect()
 }
+// sirno:witness:conflict-detection:end
 
 #[cfg(test)]
 mod tests {

@@ -31,6 +31,7 @@ use crate::protocol::{JoinError, JoinReply, JoinRequest, JoinResponse, read_msg,
 ///
 /// The joining device's `NodeId` must be supplied by the caller from the
 /// TLS-verified Iroh connection — it is NOT read from the message body.
+// sirno:witness:symmetric-channel:begin
 pub async fn run_join_host<R, W>(
     peer_node_id: NodeId,
     store: &Arc<dyn LedgerStore>,
@@ -116,12 +117,14 @@ where
     .await?;
     Ok(())
 }
+// sirno:witness:symmetric-channel:end
 
 // ---------------------------------------------------------------------------
 // Requester side
 // ---------------------------------------------------------------------------
 
 /// Send a `JoinRequest`, and on success persist the received ledger to the store.
+// sirno:witness:symmetric-channel:begin
 pub async fn run_join_requester<R, W>(
     host_node_id: NodeId,
     local_label: Option<String>,
@@ -164,6 +167,7 @@ where
         ))),
     }
 }
+// sirno:witness:symmetric-channel:end
 
 // ---------------------------------------------------------------------------
 // Tests

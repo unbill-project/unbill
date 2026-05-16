@@ -1,6 +1,7 @@
 # ────────────────────────────────────────────────────────────────────────────
 # Stage 1 — build unbill-server (static musl binary for Alpine compat)
 # ────────────────────────────────────────────────────────────────────────────
+# sirno:witness:deployment-topologies:begin
 FROM rust:1-slim-bookworm AS server-builder
 
 WORKDIR /app
@@ -63,3 +64,4 @@ VOLUME ["/data"]
 EXPOSE 80
 
 ENTRYPOINT ["/entrypoint.sh"]
+# sirno:witness:deployment-topologies:end

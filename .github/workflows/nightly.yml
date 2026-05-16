@@ -5,6 +5,7 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
 
+# sirno:witness:ci-cd-pipeline:begin
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -36,3 +37,4 @@ jobs:
       contents: write
       actions: read
     secrets: inherit
+# sirno:witness:ci-cd-pipeline:end

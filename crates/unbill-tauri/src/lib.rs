@@ -16,6 +16,7 @@ use unbill_console::service::UnbillConsole;
 #[cfg(mobile)]
 use unbill_store_fs::FsStore;
 
+// sirno:witness:unbill-tauri:begin
 struct AppState {
     service: Arc<UnbillConsole>,
 }
@@ -179,7 +180,9 @@ struct BillSplitPreviewDto {
     payer_amounts: Vec<UserAmountDto>,
     payee_amounts: Vec<UserAmountDto>,
 }
+// sirno:witness:unbill-tauri:end
 
+// sirno:witness:unbill-tauri:begin
 #[tauri::command]
 async fn bootstrap_app(state: State<'_, AppState>) -> std::result::Result<AppBootstrapDto, String> {
     bootstrap_app_inner(&state.service)
@@ -402,7 +405,9 @@ async fn sync_once(
     let peer = peer_node_id.parse::<NodeId>().map_err(stringify_error)?;
     state.service.sync_once(peer).await.map_err(stringify_error)
 }
+// sirno:witness:unbill-tauri:end
 
+// sirno:witness:unbill-ui-native:begin
 async fn load_ledgers(service: &Arc<UnbillConsole>) -> Result<Vec<LedgerSummaryDto>> {
     let metas = service.list_ledgers().await?;
     let mut summaries = Vec::with_capacity(metas.len());
@@ -747,6 +752,7 @@ fn parse_bill_id(value: &str) -> Result<BillId> {
 fn stringify_error(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
+// sirno:witness:unbill-ui-native:end
 
 impl From<unbill_console::model::User> for UserDto {
     fn from(value: unbill_console::model::User) -> Self {
@@ -760,6 +766,7 @@ impl From<unbill_console::model::User> for UserDto {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // sirno:witness:unbill-tauri:begin
     let _ = rustls::crypto::ring::default_provider().install_default();
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -812,6 +819,7 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running unbill");
+    // sirno:witness:unbill-tauri:end
 }
 
 #[cfg(test)]

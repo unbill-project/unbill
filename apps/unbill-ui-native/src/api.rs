@@ -17,6 +17,7 @@ extern "C" {
     async fn write_clipboard_text_js(text: &str) -> Result<JsValue, JsValue>;
 }
 
+// sirno:witness:unbill-ui-native:begin
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppBootstrap {
@@ -210,6 +211,7 @@ pub async fn write_clipboard_text(text: &str) -> Result<(), String> {
         .map(|_| ())
         .map_err(js_error_to_string)
 }
+// sirno:witness:unbill-ui-native:end
 
 async fn invoke<T, A>(command: &str, args: &A) -> Result<T, String>
 where

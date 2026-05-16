@@ -12,6 +12,7 @@ crates/unbill-tauri/target/
 crates/unbill-tauri/gen/
 
 # Editor
+.obsidian/
 .vscode/
 .idea/
 *.swp

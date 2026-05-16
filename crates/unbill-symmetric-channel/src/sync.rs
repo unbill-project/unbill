@@ -34,6 +34,7 @@ struct LedgerSyncState {
 ///
 /// Ledger documents are loaded from the store at the start of the session and
 /// held in memory only for its duration. Nothing is cached between sessions.
+// sirno:witness:symmetric-channel:begin
 pub async fn run_sync_session<R, W>(
     is_initiator: bool,
     peer_node_id: NodeId,
@@ -237,6 +238,7 @@ where
 
     Ok(())
 }
+// sirno:witness:symmetric-channel:end
 
 // ---------------------------------------------------------------------------
 // Tests

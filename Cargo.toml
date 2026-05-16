@@ -1,3 +1,4 @@
+# sirno:witness:workspace-layout:begin
 [workspace]
 resolver = "2"
 members = [
@@ -19,7 +20,9 @@ members = [
     "crates/unbill-tauri",
     "crates/unbill-ui-components",
 ]
+# sirno:witness:workspace-layout:end
 
+# sirno:witness:distribution-and-release:begin
 [workspace.package]
 version = "0.0.2"
 edition = "2024"
@@ -28,6 +31,7 @@ repository = "https://github.com/unbill-project/unbill"
 homepage = "https://github.com/unbill-project/unbill"
 description = "Shared bill tracking"
 publish = false
+# sirno:witness:distribution-and-release:end
 
 [workspace.dependencies]
 # CRDT

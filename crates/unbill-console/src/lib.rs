@@ -1,5 +1,5 @@
-// unbill-core: the library that defines what unbill is.
-// See DESIGN.md for the module structure and invariants.
+// unbill-console: the console-side library that projects ledger state for shells.
+// See unbill-docs/unbill-console.md for the module structure and invariants.
 
 pub mod conflict;
 pub mod error;

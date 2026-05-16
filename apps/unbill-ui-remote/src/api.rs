@@ -31,6 +31,7 @@ fn get_service() -> Result<Arc<UnbillConsole>, String> {
 // DTOs
 // ---------------------------------------------------------------------------
 
+// sirno:witness:unbill-ui-remote:begin
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppBootstrap {
@@ -463,6 +464,7 @@ pub async fn write_clipboard_text(text: &str) -> Result<(), String> {
                 .unwrap_or_else(|| "clipboard write failed".to_owned())
         })
 }
+// sirno:witness:unbill-ui-remote:end
 
 // ---------------------------------------------------------------------------
 // Helpers

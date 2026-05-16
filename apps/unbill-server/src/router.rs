@@ -29,7 +29,7 @@ pub struct AppState {
 }
 
 // ---------------------------------------------------------------------------
-// LedgerMeta JSON shape (mirrors FsStore / HttpStore)
+// LedgerMeta JSON shape shared with FsStore and HttpAsymChannel.
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -61,6 +61,7 @@ struct InvitationJson {
 // ---------------------------------------------------------------------------
 
 pub fn build_router(state: Arc<AppState>) -> Router {
+    // sirno:witness:server-http-api:begin
     let protected = Router::new()
         .route("/ledgers", get(list_ledgers))
         .route("/ledgers/{id}/meta", put(save_ledger_meta))
@@ -77,12 +78,14 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
         .nest("/api/v1", protected)
         .layer(TraceLayer::new_for_http())
+    // sirno:witness:server-http-api:end
 }
 
 // ---------------------------------------------------------------------------
 // Auth middleware
 // ---------------------------------------------------------------------------
 
+// sirno:witness:security-model:begin
 async fn auth(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -102,6 +105,7 @@ async fn auth(
         StatusCode::UNAUTHORIZED.into_response()
     }
 }
+// sirno:witness:security-model:end
 
 // ---------------------------------------------------------------------------
 // Device key validation — no path components allowed
@@ -118,6 +122,7 @@ fn valid_device_key(key: &str) -> bool {
 // Handlers
 // ---------------------------------------------------------------------------
 
+// sirno:witness:server-http-api:begin
 async fn list_ledgers(State(state): State<Arc<AppState>>) -> Response {
     match state.service.store().list_ledgers().await {
         Ok(metas) => {
@@ -290,6 +295,7 @@ fn meta_to_json(m: LedgerMeta) -> MetaJson {
         updated_at_ms: m.updated_at.as_millis(),
     }
 }
+// sirno:witness:server-http-api:end
 
 // ---------------------------------------------------------------------------
 // Tests

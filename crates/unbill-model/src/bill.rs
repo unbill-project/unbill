@@ -6,6 +6,7 @@ use crate::timestamp::Timestamp;
 
 #[derive(Clone, Debug, Reconcile, Hydrate)]
 pub struct Bill {
+    // sirno:witness:data-model:begin
     pub id: BillId,
     pub amount_cents: i64,
     pub description: String,
@@ -23,6 +24,7 @@ pub struct Bill {
     pub created_at: Timestamp,
     /// The iroh NodeId of the device that created this bill entry.
     pub created_by_device: NodeId,
+    // sirno:witness:data-model:end
 }
 
 #[derive(Clone, Debug, Reconcile, Hydrate, garde::Validate)]
@@ -45,6 +47,8 @@ pub struct NewBill {
     #[garde(length(min = 1), dive)]
     pub payees: Vec<Share>,
     /// IDs of bills superseded by this one. Empty for original (non-amendment) bills.
+    // sirno:witness:bill-amendment:begin
     #[garde(skip)]
     pub prev: Vec<BillId>,
+    // sirno:witness:bill-amendment:end
 }

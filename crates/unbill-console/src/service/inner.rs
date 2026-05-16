@@ -20,13 +20,16 @@ use crate::settlement;
 use unbill_event::ServiceEvent;
 use unbill_storage::LedgerDoc;
 
+// sirno:witness:console-service:begin
 pub struct UnbillConsole {
     channel: Arc<dyn AsymChannel>,
     events: broadcast::Sender<ServiceEvent>,
     cache: Arc<Mutex<HashMap<LedgerId, LedgerDoc>>>,
 }
+// sirno:witness:console-service:end
 
 impl UnbillConsole {
+    // sirno:witness:console-service:begin
     /// Wire the console to a channel, prime the ledger cache, and start the
     /// event bridge.
     pub async fn open(channel: Arc<dyn AsymChannel>) -> Arc<Self> {
@@ -86,11 +89,13 @@ impl UnbillConsole {
 
         console
     }
+    // sirno:witness:console-service:end
 
     // -----------------------------------------------------------------------
     // Ledger lifecycle
     // -----------------------------------------------------------------------
 
+    // sirno:witness:console-service:begin
     pub async fn create_ledger(&self, input: NewLedger) -> Result<LedgerId> {
         input
             .validate()
@@ -120,11 +125,13 @@ impl UnbillConsole {
     pub async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
         self.channel.list_ledgers().await
     }
+    // sirno:witness:console-service:end
 
     // -----------------------------------------------------------------------
     // Bills
     // -----------------------------------------------------------------------
 
+    // sirno:witness:bill-amendment:begin
     pub async fn add_bill(&self, ledger_id: LedgerId, input: NewBill) -> Result<BillId> {
         input
             .validate()
@@ -139,6 +146,7 @@ impl UnbillConsole {
         });
         Ok(bill_id)
     }
+    // sirno:witness:bill-amendment:end
 
     pub async fn list_bills(&self, ledger_id: LedgerId) -> Result<EffectiveBills> {
         let doc = self.take_doc(ledger_id).await?;
@@ -151,6 +159,7 @@ impl UnbillConsole {
     // Users
     // -----------------------------------------------------------------------
 
+    // sirno:witness:users-and-devices:begin
     pub async fn add_user(&self, ledger_id: LedgerId, input: NewUser) -> Result<()> {
         input
             .validate()
@@ -217,11 +226,13 @@ impl UnbillConsole {
         }
         Ok(result)
     }
+    // sirno:witness:users-and-devices:end
 
     // -----------------------------------------------------------------------
     // Devices
     // -----------------------------------------------------------------------
 
+    // sirno:witness:users-and-devices:begin
     pub async fn add_device(&self, ledger_id: LedgerId, input: NewDevice) -> Result<()> {
         let mut doc = self.take_doc(ledger_id).await?;
         doc.add_device(input, Timestamp::now())?;
@@ -267,11 +278,13 @@ impl UnbillConsole {
             .save_device_meta("device_labels.json", bytes)
             .await
     }
+    // sirno:witness:users-and-devices:end
 
     // -----------------------------------------------------------------------
     // Settlement
     // -----------------------------------------------------------------------
 
+    // sirno:witness:settlement:begin
     /// Compute net settlement for a user across all ledgers they participate in,
     /// grouped by currency.
     pub async fn compute_settlement_for_user(
@@ -326,22 +339,26 @@ impl UnbillConsole {
         self.put_doc(ledger_id, doc).await;
         Ok(result)
     }
+    // sirno:witness:settlement:end
 
     // -----------------------------------------------------------------------
     // Conflict detection
     // -----------------------------------------------------------------------
 
+    // sirno:witness:conflict-detection:begin
     pub async fn detect_conflicts(&self, ledger_id: LedgerId) -> Result<Vec<ConflictGroup>> {
         let doc = self.take_doc(ledger_id).await?;
         let all_bills = doc.list_all_bills()?;
         self.put_doc(ledger_id, doc).await;
         Ok(conflict::detect(&all_bills))
     }
+    // sirno:witness:conflict-detection:end
 
     // -----------------------------------------------------------------------
     // Metadata pass-throughs (used by server router)
     // -----------------------------------------------------------------------
 
+    // sirno:witness:asymmetric-channel:begin
     pub async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
         self.channel.save_ledger_meta(meta).await
     }
@@ -358,11 +375,13 @@ impl UnbillConsole {
     pub async fn asym_sync(&self, ledger_id: LedgerId, bytes: Vec<u8>) -> Result<Option<Vec<u8>>> {
         self.channel.asym_sync(ledger_id, bytes).await
     }
+    // sirno:witness:asymmetric-channel:end
 
     // -----------------------------------------------------------------------
     // Invitations and sync
     // -----------------------------------------------------------------------
 
+    // sirno:witness:sync-behavior:begin
     pub async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String> {
         self.channel.create_invitation(ledger_id).await
     }
@@ -374,6 +393,7 @@ impl UnbillConsole {
     pub async fn sync_once(&self, peer: NodeId) -> Result<()> {
         self.channel.trigger_peer_sync(peer).await
     }
+    // sirno:witness:sync-behavior:end
 
     // -----------------------------------------------------------------------
     // Events and identity
@@ -393,6 +413,7 @@ impl UnbillConsole {
 
     /// Remove the doc for `ledger_id` from the cache and return it.
     /// Falls back to a full sync from the device if the cache is cold.
+    // sirno:witness:console-service:begin
     async fn take_doc(&self, ledger_id: LedgerId) -> Result<LedgerDoc> {
         if let Some(doc) = self.cache.lock().await.remove(&ledger_id) {
             return Ok(doc);
@@ -419,6 +440,7 @@ impl UnbillConsole {
         }
         Ok(())
     }
+    // sirno:witness:console-service:end
 }
 
 // ---------------------------------------------------------------------------
@@ -428,6 +450,7 @@ impl UnbillConsole {
 /// Run a full Automerge sync loop between the console's local `doc` and the
 /// device via `channel`. Works for both initial fetch (empty doc) and push
 /// (doc already contains local mutations).
+// sirno:witness:asymmetric-channel:begin
 async fn sync_doc(
     channel: &dyn AsymChannel,
     ledger_id: LedgerId,
@@ -447,6 +470,7 @@ async fn sync_doc(
     }
     Ok(())
 }
+// sirno:witness:asymmetric-channel:end
 
 // ---------------------------------------------------------------------------
 // Tests

@@ -11,6 +11,7 @@ use unbill_model::{LedgerId, LedgerMeta, NodeId, UnbillError};
 
 use crate::{AsymChannel, AsymChannelEvent};
 
+// sirno:witness:asymmetric-channel:begin
 pub struct LocalAsymChannel {
     service: Arc<UnbillDevice>,
     events: broadcast::Sender<AsymChannelEvent>,
@@ -108,3 +109,4 @@ impl AsymChannel for LocalAsymChannel {
         self.events.subscribe()
     }
 }
+// sirno:witness:asymmetric-channel:end

@@ -10,6 +10,7 @@ pub mod local;
 #[cfg(feature = "rpc")]
 pub mod rpc;
 
+// sirno:witness:asymmetric-channel:begin
 /// Events pushed from the device to all connected consoles.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type")]
@@ -76,3 +77,4 @@ pub trait AsymChannel: MaybeSend + MaybeSync {
     /// whenever its ledger state changes (e.g. after a peer sync).
     fn subscribe_to_server(&self) -> broadcast::Receiver<AsymChannelEvent>;
 }
+// sirno:witness:asymmetric-channel:end

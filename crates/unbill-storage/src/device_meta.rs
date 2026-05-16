@@ -12,6 +12,7 @@ type Result<T> = std::result::Result<T, UnbillError>;
 const DEVICE_LABELS_KEY: &str = "device_labels.json";
 const PENDING_INVITATIONS_KEY: &str = "pending_invitations.json";
 
+// sirno:witness:shared-and-local-state:begin
 pub async fn load_device_labels(store: &dyn LedgerStore) -> Result<HashMap<String, String>> {
     match store.load_device_meta(DEVICE_LABELS_KEY).await? {
         None => Ok(HashMap::new()),
@@ -63,3 +64,4 @@ pub async fn save_pending_invitations(
         .await?;
     Ok(())
 }
+// sirno:witness:shared-and-local-state:end

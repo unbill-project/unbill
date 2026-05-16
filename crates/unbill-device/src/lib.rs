@@ -16,6 +16,7 @@ use unbill_model::{Invitation, InviteToken, LedgerId, NodeId, Timestamp};
 use unbill_storage::{LedgerDoc, load_pending_invitations, save_pending_invitations};
 use unbill_symmetric_channel::{JoinRequest, UnbillEndpoint};
 
+// sirno:witness:unbill-device:begin
 pub struct UnbillDevice {
     store: Arc<dyn LedgerStore>,
     device_id: NodeId,
@@ -119,6 +120,7 @@ impl UnbillDevice {
             .await
     }
 }
+// sirno:witness:unbill-device:end
 
 fn parse_join_url(url: &str) -> Result<(String, NodeId, String)> {
     let path = url

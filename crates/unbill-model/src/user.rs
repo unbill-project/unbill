@@ -8,6 +8,7 @@ use crate::timestamp::Timestamp;
 
 #[derive(Clone, Debug, Reconcile, Hydrate)]
 pub struct Ledger {
+    // sirno:witness:data-model:begin
     pub ledger_id: LedgerId,
     pub schema_version: u32,
     pub name: String,
@@ -18,9 +19,11 @@ pub struct Ledger {
     /// Devices authorized to sync this ledger. Any authorized device may record
     /// bills on behalf of any user — there is no per-user device binding.
     pub devices: Vec<Device>,
-    // Invitations are NOT part of the CRDT. They live in UnbillConsole memory. See DESIGN.md §6.3.
+    // sirno:witness:data-model:end
+    // Invitations are NOT part of the CRDT. They live in device-local metadata.
 }
 
+// sirno:witness:users-and-devices:begin
 #[derive(Clone, Debug, Reconcile, Hydrate)]
 pub struct User {
     pub user_id: UserId,
@@ -65,9 +68,11 @@ pub struct NewUser {
 pub struct NewDevice {
     pub node_id: NodeId,
 }
+// sirno:witness:users-and-devices:end
 
-/// A pending join invitation. Held in `UnbillConsole` memory only — never
-/// persisted or synced. Consumed (removed from the map) on first use or expiry.
+// sirno:witness:shared-and-local-state:begin
+/// A pending join invitation. Stored in device-local metadata, never synced as
+/// ledger state. Consumed (removed from the map) on first use or expiry.
 ///
 /// The invitation authorizes a new device (NodeId) to join the ledger. It
 /// carries no person record — user management is a separate operation.
@@ -80,6 +85,7 @@ pub struct Invitation {
     pub created_at: Timestamp,
     pub expires_at: Timestamp,
 }
+// sirno:witness:shared-and-local-state:end
 
 /// Lightweight summary for list views (no CRDT bytes needed).
 #[derive(Clone, Debug)]

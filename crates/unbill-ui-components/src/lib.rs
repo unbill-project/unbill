@@ -1,3 +1,4 @@
+// sirno:witness:ui-components:begin
 pub mod bill;
 pub mod bill_editor;
 pub mod button;
@@ -9,3 +10,4 @@ pub mod progress;
 pub mod settlement;
 pub mod status;
 pub mod user;
+// sirno:witness:ui-components:end

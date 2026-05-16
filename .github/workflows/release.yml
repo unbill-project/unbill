@@ -33,6 +33,7 @@ on:
       HOMEBREW_TOKEN:
         required: false
 
+# sirno:witness:ci-cd-pipeline:begin
 jobs:
   github:
     name: Publish GitHub release
@@ -62,6 +63,7 @@ jobs:
       tag: ${{ inputs.tag }}
       packages: ${{ inputs.aur_packages }}
     secrets: inherit
+# sirno:witness:ci-cd-pipeline:end
 
   homebrew:
     name: Publish Homebrew release
