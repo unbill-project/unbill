@@ -177,6 +177,9 @@ async fn sync_ledger(
         )
             .into_response(),
         Ok(None) => StatusCode::NO_CONTENT.into_response(),
+        Err(unbill_model::UnbillError::Automerge(e)) => {
+            (StatusCode::BAD_REQUEST, e).into_response()
+        }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
