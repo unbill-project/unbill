@@ -59,7 +59,8 @@ button {
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .ranger-app-grid {
