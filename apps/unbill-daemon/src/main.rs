@@ -13,6 +13,7 @@ async fn main() -> Result<()> {
                 .add_directive("info".parse().unwrap())
                 .add_directive("iroh::socket::remote_map=error".parse().unwrap()),
         )
+        .with_writer(std::io::stderr)
         .init();
 
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
