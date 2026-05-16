@@ -1,15 +1,14 @@
 # service
 
-The service module is the orchestration layer of unbill. It presents one async API for shells while keeping document logic, storage, sync, and settlement behind a single boundary.
+The service module is the orchestration layer of unbill. It presents one async API for shells while keeping document logic, sync, and settlement behind a single boundary.
 
 ## Flow
 
 ```mermaid
 flowchart LR
     Shell["Console or UI"] --> Service["UnbillConsole"]
-    Service --> Store["LedgerStore"]
-    Service --> Doc["LedgerDoc"]
-    Service --> Net["UnbillEndpoint and protocol helpers"]
+    Service --> AsymCh["AsymChannel"]
+    Service --> Doc["LedgerDoc\n(in-memory projection)"]
     Service --> Settlement["settlement module"]
     Service --> Conflict["conflict module"]
     Service --> Events["ServiceEvent stream"]
@@ -17,8 +16,8 @@ flowchart LR
 
 ## Responsibilities
 
-- create, load, and mutate ledgers
-- manage device labels
+- create, load, and mutate ledgers via the `AsymChannel`
+- project in-memory `LedgerDoc` for bill and user queries
 - create invitations and consume join flows
 - coordinate sync and surface service events
 - compute settlement across ledgers for one user
@@ -27,5 +26,5 @@ flowchart LR
 ## Rules
 
 - the service is the only public orchestration API of the core crate
-- store-backed data is loaded on demand rather than mirrored in a long-lived cache
+- all persistent reads and writes go through the `AsymChannel`; the service holds no durable state
 - shells receive user-facing results and events, not direct access to persistence or Automerge

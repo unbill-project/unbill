@@ -6,31 +6,27 @@ The console-side library for unbill. It provides the CRDT document operations, s
 
 ```mermaid
 flowchart TB
-    Service["service/\n(UnbillConsole — transitional)"]
+    Service["service/\n(UnbillConsole)"]
+    AsymCh["AsymChannel\n(unbill-asymmetric-channel)"]
     Settlement["settlement/"]
     Conflict["conflict/"]
-    Storage["unbill-storage"]
-    SymNet["unbill-symmetric-channel\n(via net/ re-export, feature local)"]
     Model["unbill-model"]
     Event["unbill-event"]
 
+    Service --> AsymCh
     Service --> Settlement
     Service --> Conflict
-    Service --> Storage
-    Service --> SymNet
     Service --> Model
     Service --> Event
     Settlement --> Model
     Conflict --> Model
 ```
 
-`service/` is the current public entry point. `settlement/` and `conflict/` are pure logic modules. Storage, networking, domain types, and events live in dedicated crates that this crate composes.
-
-The `service/` module contains `UnbillConsole` in its current transitional form. As the asym channel layer matures, this will be restructured into `UnbillConsole` — a console facade that drives an `AsymChannel` rather than owning a store directly.
+`service/` is the public entry point. `UnbillConsole` drives an `AsymChannel` for all storage and device communication; it computes settlement and detects conflicts locally over the projected data. `settlement/` and `conflict/` are pure logic modules.
 
 ## Surface
 
-`UnbillConsole` is the main entry point. It manages local users, ledgers, users inside a ledger, bills, invitations, sync, settlement, conflict detection, and service events.
+`UnbillConsole` is the main entry point. It manages ledgers, users inside a ledger, bills, invitations, sync, settlement, conflict detection, and service events. All persistent operations are delegated to the `AsymChannel`; the console holds no durable ledger state of its own.
 
 ## Invariants
 
@@ -46,5 +42,5 @@ The `service/` module contains `UnbillConsole` in its current transitional form.
 ## Boundaries
 
 - no CLI parsing, Tauri wiring, or UI state
-- storage and transport are abstracted behind the `LedgerStore` trait and `unbill-symmetric-channel`
+- storage and transport are abstracted behind the `AsymChannel` trait
 - ledger semantics, projection, and settlement stay in this crate
