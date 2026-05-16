@@ -239,10 +239,10 @@ struct LocalSocketGuard {
 impl LocalSocketGuard {
     fn bind(path: &Path) -> std::io::Result<Self> {
         // Remove stale socket from a previous run.
-        if let Err(e) = std::fs::remove_file(path) {
-            if e.kind() != std::io::ErrorKind::NotFound {
-                return Err(e);
-            }
+        if let Err(e) = std::fs::remove_file(path)
+            && e.kind() != std::io::ErrorKind::NotFound
+        {
+            return Err(e);
         }
         let name = path.to_fs_name::<GenericFilePath>()?;
         let listener = ListenerOptions::new().name(name).create_tokio()?;
@@ -329,7 +329,7 @@ impl RpcAsymChannel {
         let id_str = client
             .get_device_id(tarpc::context::current())
             .await
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
         let device_node_id = NodeId::new(id_str);
 
         let (tx, _) = broadcast::channel(256);

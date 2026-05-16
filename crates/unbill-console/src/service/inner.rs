@@ -368,10 +368,7 @@ async fn sync_doc(
     doc: &mut LedgerDoc,
 ) -> Result<()> {
     let mut sync_state = sync::State::new();
-    loop {
-        let Some(msg) = doc.generate_sync_message(&mut sync_state) else {
-            break;
-        };
+    while let Some(msg) = doc.generate_sync_message(&mut sync_state) {
         match channel.asym_sync(ledger_id, msg.encode()).await? {
             Some(resp_bytes) => {
                 let resp = sync::Message::decode(&resp_bytes)

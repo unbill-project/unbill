@@ -29,6 +29,7 @@ impl FsStore {
         let lock_file = std::fs::OpenOptions::new()
             .write(true)
             .create(true)
+            .truncate(false)
             .open(root.join("unbill.lock"))?;
         lock_file.try_lock().map_err(|_| {
             std::io::Error::new(
