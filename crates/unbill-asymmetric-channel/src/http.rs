@@ -318,12 +318,12 @@ async fn run_sse(
             let line_bytes: Vec<u8> = buf.drain(..=pos).collect();
             let line = std::str::from_utf8(&line_bytes)
                 .unwrap_or("")
-                .trim_end_matches(|c: char| c == '\r' || c == '\n');
+                .trim_end_matches(['\r', '\n']);
 
-            if let Some(data) = line.strip_prefix("data: ") {
-                if let Ok(event) = serde_json::from_str::<AsymChannelEvent>(data) {
-                    let _ = tx.send(event);
-                }
+            if let Some(data) = line.strip_prefix("data: ")
+                && let Ok(event) = serde_json::from_str::<AsymChannelEvent>(data)
+            {
+                let _ = tx.send(event);
             }
         }
     }
