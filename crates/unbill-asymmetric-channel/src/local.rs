@@ -45,7 +45,7 @@ impl LocalAsymChannel {
         &self.service
     }
 
-    pub async fn accept_loop(self: &Arc<Self>) -> Result<()> {
+    pub async fn accept_loop(&self) -> Result<()> {
         self.service.accept_loop().await
     }
 }

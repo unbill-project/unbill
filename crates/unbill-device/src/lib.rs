@@ -4,7 +4,7 @@
 // and the Automerge sync server-side handler.  Does not know about the
 // AsymChannel trait — LocalAsymChannel wraps this and wires up the trait.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 pub use unbill_event::ServiceEvent;
 pub use unbill_storage::LedgerStore;
@@ -19,7 +19,7 @@ use unbill_symmetric_channel::{JoinRequest, UnbillEndpoint};
 pub struct UnbillDevice {
     store: Arc<dyn LedgerStore>,
     device_id: NodeId,
-    endpoint: Mutex<Option<Arc<UnbillEndpoint>>>,
+    endpoint: UnbillEndpoint,
     events: broadcast::Sender<ServiceEvent>,
 }
 
@@ -27,11 +27,13 @@ impl UnbillDevice {
     pub async fn open(store: Arc<dyn LedgerStore>) -> Result<Arc<Self>> {
         store.create_secret_key().await?;
         let device_id = store.get_device_id().await?;
+        let key = store.get_secret_key().await?;
+        let endpoint = UnbillEndpoint::bind(&key).await?;
         let (events, _) = broadcast::channel(256);
         Ok(Arc::new(Self {
             store,
             device_id,
-            endpoint: Mutex::new(None),
+            endpoint,
             events,
         }))
     }
@@ -77,33 +79,22 @@ impl UnbillDevice {
     /// device-local nickname for the host stored after a successful join.
     pub async fn join_ledger(&self, url: &str, label: Option<String>) -> Result<()> {
         let (ledger_id, host, token) = parse_join_url(url)?;
-        let request = JoinRequest { token, ledger_id };
-        let ep = self.endpoint.lock().unwrap().clone();
-        if let Some(ep) = ep {
-            return ep
-                .join_ledger_inner(host, label, request, &self.store, &self.events)
-                .await;
-        }
-        let key = self.store.get_secret_key().await?;
-        let ep = UnbillEndpoint::bind(&key).await?;
-        let result = ep
-            .join_ledger_inner(host, label, request, &self.store, &self.events)
-            .await;
-        ep.close().await;
-        result
+        self.endpoint
+            .join_ledger_inner(
+                host,
+                label,
+                JoinRequest { token, ledger_id },
+                &self.store,
+                &self.events,
+            )
+            .await
     }
 
     /// Dial `peer` and run the full sync exchange for all shared ledgers.
     pub async fn trigger_peer_sync(&self, peer: NodeId) -> Result<()> {
-        let ep = self.endpoint.lock().unwrap().clone();
-        if let Some(ep) = ep {
-            return ep.sync_once_inner(peer, &self.store, &self.events).await;
-        }
-        let key = self.store.get_secret_key().await?;
-        let ep = UnbillEndpoint::bind(&key).await?;
-        let result = ep.sync_once_inner(peer, &self.store, &self.events).await;
-        ep.close().await;
-        result
+        self.endpoint
+            .sync_once_inner(peer, &self.store, &self.events)
+            .await
     }
 
     /// Receive one Automerge sync message, persist any changes, and return the
@@ -128,20 +119,14 @@ impl UnbillDevice {
             .map(|m| m.encode()))
     }
 
-    /// Bind an endpoint and accept incoming sync/join connections until an
-    /// error occurs or the endpoint is closed.
-    pub async fn accept_loop(self: &Arc<Self>) -> Result<()> {
-        let key = self.store.get_secret_key().await?;
-        let ep = Arc::new(UnbillEndpoint::bind(&key).await?);
-        ep.wait_for_ready().await;
-        println!("listening on: {}", ep.node_id());
-        *self.endpoint.lock().unwrap() = Some(Arc::clone(&ep));
-        let result = ep
+    /// Wait for the endpoint to be ready, print the readiness line, then accept
+    /// incoming sync/join connections until an error occurs or the endpoint closes.
+    pub async fn accept_loop(&self) -> Result<()> {
+        self.endpoint.wait_for_ready().await;
+        println!("listening on: {}", self.endpoint.node_id());
+        self.endpoint
             .accept_loop_inner(Arc::clone(&self.store), self.events.clone())
-            .await;
-        *self.endpoint.lock().unwrap() = None;
-        ep.close().await;
-        result
+            .await
     }
 }
 
