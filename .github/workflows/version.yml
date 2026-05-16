@@ -21,7 +21,7 @@ jobs:
     with:
       tag: ${{ github.ref_name }}
       prerelease: false
-      aur_packages: '["unbill-cli-bin","unbill-tui-bin","unbill-bin"]'
+      aur_packages: '["unbill-cli-bin","unbill-tui-bin","unbill-bin","unbill-daemon-bin"]'
       homebrew_packages: '["unbill-cli","unbill-tui"]'
     permissions:
       contents: write
