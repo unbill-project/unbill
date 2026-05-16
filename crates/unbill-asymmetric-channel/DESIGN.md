@@ -19,7 +19,7 @@ Defines the `AsymChannel` trait — the contract of the asymmetric channel betwe
 | Feature flag | Type | Transport | Use case |
 |---|---|---|---|
 | `local` | `LocalAsymChannel` | In-process | Tauri, TUI, CLI on same machine as device |
-| `rpc` | `RpcAsymChannel` / `RpcServer` | tarpc over TCP | Local two-process: daemon + separate console |
+| `rpc` | `RpcAsymChannel` / `rpc::serve` | tarpc over Unix local socket | Local two-process: daemon + separate console |
 | `http` | `HttpAsymChannel` | HTTP REST | Remote access; browser web frontend |
 
 All three implementations are interchangeable from the console's perspective. The console selects an implementation at construction time based on its deployment topology.

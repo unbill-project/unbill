@@ -17,7 +17,10 @@ src/
     ├── create_ledger.rs
     ├── settings.rs      — SettingsPopup: Device Settings tab + Ledger Settings tab
     ├── invite.rs        — InviteResultPopup only
-    └── confirm.rs
+    ├── add_bill.rs      — AddBillPopup
+    ├── amend_bill.rs    — AmendBillPopup
+    ├── settlement.rs    — SettlementPopup
+    └── users.rs         — UsersPopup
 ```
 
 ## Dependencies
