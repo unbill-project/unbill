@@ -6,6 +6,7 @@ pkgdesc="Command-line interface for unbill (nightly)"
 arch=('x86_64')
 url="https://github.com/unbill-project/unbill"
 license=('MIT' 'Apache-2.0')
+depends=('unbill-daemon-nightly')
 provides=('unbill-cli')
 conflicts=('unbill-cli' 'unbill-cli-bin')
 _tag=${pkgver//./-}
