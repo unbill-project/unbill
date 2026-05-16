@@ -11,7 +11,7 @@ homepage.workspace = true
 # In-process implementation backed by unbill-device.
 local = ["dep:unbill-device", "tokio/rt"]
 # HTTP client calling unbill-server.
-http = ["dep:reqwest", "dep:serde_json"]
+http = ["dep:reqwest", "dep:serde_json", "dep:futures-util"]
 # tarpc RPC server + client over interprocess local sockets.
 rpc = ["dep:tarpc", "dep:interprocess", "dep:tokio-util", "dep:tokio-stream", "dep:serde_json", "dep:futures-util", "tokio/rt"]
 
@@ -39,3 +39,9 @@ tokio-util = { version = "0.7", features = ["codec"], optional = true }
 futures-util = { workspace = true, optional = true }
 tarpc = { workspace = true, optional = true }
 interprocess = { version = "2", features = ["tokio"], optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { workspace = true, features = ["time"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"

@@ -7893,6 +7893,7 @@ dependencies = [
  "tokio-util",
  "unbill-device",
  "unbill-model",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -7993,6 +7994,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "tokio-stream",
  "tower",
  "tower-http",
  "tracing",
