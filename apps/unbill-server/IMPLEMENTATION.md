@@ -25,9 +25,14 @@ Each handler receives `State<Arc<AppState>>` (containing the `UnbillDevice` and 
 
 A small helper `valid_device_key(key)` returns `false` if the key contains anything other than `[a-zA-Z0-9._-]`. Handlers return `400` for invalid keys before touching the store.
 
+## SSE event stream
+
+`GET /api/v1/events` returns an `axum::response::sse::Sse` response. The handler calls `state.service.subscribe()` to obtain a `broadcast::Receiver<ServiceEvent>`, then wraps it in a `Stream` that maps each event to an `axum::response::sse::Event` with the JSON-serialised payload as the `data` field. Only `ServiceEvent::LedgerUpdated` is forwarded; other variants are silently skipped. `broadcast::error::RecvError::Lagged` is also skipped — the client will re-poll after reconnection. The stream ends when the receiver returns `RecvError::Closed` (device shut down).
+
 ## Dependencies
 
-- `axum 0.8` — routing and extractors
+- `axum 0.8` — routing, extractors, and SSE support (`axum::response::sse`)
 - `tower 0.5` — middleware
 - `tower-http` — request tracing via `TraceLayer`
+- `tokio-stream` — adapts the broadcast channel into a `Stream` for the SSE response
 - `clap` is not used; configuration is env-only for simplicity

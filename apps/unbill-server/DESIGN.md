@@ -21,8 +21,15 @@ All endpoints require `Authorization: Bearer <api_key>`. Requests with a missing
 | `GET` | `/device/id` | — | 200 plain text |
 | `GET` | `/device/{key}` | — | 200 bytes / 404 |
 | `PUT` | `/device/{key}` | `application/octet-stream` | 204 |
+| `GET` | `/events` | — | 200 SSE stream |
 
 `POST /ledgers/{id}/sync` exchanges a binary Automerge sync message. The client sends its sync message bytes; the server responds with its own message (200) or nothing (204) when it has nothing new. An unparseable message body returns `400`.
+
+`GET /events` opens a persistent SSE stream. The server subscribes to the device event bus and forwards each event as a JSON-encoded SSE `data` field. The stream never sends a terminal event; the client is expected to reconnect if it drops. Each event is a JSON object with a `type` discriminant, matching the `AsymChannelEvent` schema:
+
+```
+data: {"type":"LedgerUpdated","ledger_id":"<id>"}
+```
 
 Device key names must consist solely of alphanumeric characters, hyphens, underscores, and dots. Any other key is rejected with `400 Bad Request`.
 
