@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use automerge::sync;
-use tokio::sync::broadcast;
+use tokio::sync::{Mutex, broadcast};
 use unbill_asymmetric_channel::{AsymChannel, AsymChannelEvent};
 
 use crate::conflict::{self, ConflictGroup};
@@ -23,33 +23,68 @@ use unbill_storage::LedgerDoc;
 pub struct UnbillConsole {
     channel: Arc<dyn AsymChannel>,
     events: broadcast::Sender<ServiceEvent>,
+    cache: Arc<Mutex<HashMap<LedgerId, LedgerDoc>>>,
 }
 
 impl UnbillConsole {
-    /// Wire the console to a channel and start the event bridge.
-    pub fn open(channel: Arc<dyn AsymChannel>) -> Arc<Self> {
+    /// Wire the console to a channel, prime the ledger cache, and start the
+    /// event bridge.
+    pub async fn open(channel: Arc<dyn AsymChannel>) -> Arc<Self> {
         let (events, _) = broadcast::channel(256);
+        let cache: Arc<Mutex<HashMap<LedgerId, LedgerDoc>>> = Arc::new(Mutex::new(HashMap::new()));
 
-        // Bridge AsymChannelEvents into ServiceEvents for UI subscribers.
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let mut ch_rx = channel.subscribe_to_server();
-            let events_tx = events.clone();
-            tokio::spawn(async move {
-                while let Ok(evt) = ch_rx.recv().await {
-                    let svc_evt = match evt {
-                        AsymChannelEvent::LedgerUpdated { ledger_id } => {
-                            ServiceEvent::LedgerUpdated {
-                                ledger_id: ledger_id.to_string(),
-                            }
-                        }
-                    };
-                    let _ = events_tx.send(svc_evt);
+        // Prime the cache with every ledger the device already knows about.
+        if let Ok(metas) = channel.list_ledgers().await {
+            let mut map = cache.lock().await;
+            for meta in metas {
+                let mut doc = LedgerDoc::empty();
+                if sync_doc(&*channel, meta.ledger_id, &mut doc).await.is_ok() && !doc.is_empty() {
+                    map.insert(meta.ledger_id, doc);
                 }
-            });
+            }
         }
 
-        Arc::new(Self { channel, events })
+        let console = Arc::new(Self {
+            channel,
+            events,
+            cache,
+        });
+
+        // Bridge AsymChannelEvents → ServiceEvents and refresh the cache.
+        // The async body is identical on both targets; only the spawn call differs.
+        {
+            let mut ch_rx = console.channel.subscribe_to_server();
+            let events_tx = console.events.clone();
+            let cache = Arc::clone(&console.cache);
+            let channel = Arc::clone(&console.channel);
+            let fut = async move {
+                while let Ok(evt) = ch_rx.recv().await {
+                    match evt {
+                        AsymChannelEvent::LedgerUpdated { ledger_id } => {
+                            let mut doc = cache
+                                .lock()
+                                .await
+                                .remove(&ledger_id)
+                                .unwrap_or_else(LedgerDoc::empty);
+                            if sync_doc(&*channel, ledger_id, &mut doc).await.is_ok()
+                                && !doc.is_empty()
+                            {
+                                cache.lock().await.insert(ledger_id, doc);
+                            }
+                            let _ = events_tx.send(ServiceEvent::LedgerUpdated {
+                                ledger_id: ledger_id.to_string(),
+                            });
+                        }
+                    }
+                }
+            };
+            #[cfg(not(target_arch = "wasm32"))]
+            tokio::spawn(fut);
+            #[cfg(target_arch = "wasm32")]
+            wasm_bindgen_futures::spawn_local(fut);
+        }
+
+        console
     }
 
     // -----------------------------------------------------------------------
@@ -78,6 +113,7 @@ impl UnbillConsole {
         };
         self.channel.save_ledger_meta(&meta).await?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
+        self.put_doc(ledger_id, doc).await;
         Ok(ledger_id)
     }
 
@@ -93,9 +129,10 @@ impl UnbillConsole {
         input
             .validate()
             .map_err(|e| UnbillError::Validation(e.to_string()))?;
-        let mut doc = self.load_doc(ledger_id).await?;
+        let mut doc = self.take_doc(ledger_id).await?;
         let bill_id = doc.add_bill(input, self.channel.device_id(), Timestamp::now())?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
+        self.put_doc(ledger_id, doc).await;
         self.touch_meta(ledger_id).await?;
         let _ = self.events.send(ServiceEvent::LedgerUpdated {
             ledger_id: ledger_id.to_string(),
@@ -104,7 +141,10 @@ impl UnbillConsole {
     }
 
     pub async fn list_bills(&self, ledger_id: LedgerId) -> Result<EffectiveBills> {
-        self.load_doc(ledger_id).await?.list_bills()
+        let doc = self.take_doc(ledger_id).await?;
+        let result = doc.list_bills();
+        self.put_doc(ledger_id, doc).await;
+        result
     }
 
     // -----------------------------------------------------------------------
@@ -115,9 +155,10 @@ impl UnbillConsole {
         input
             .validate()
             .map_err(|e| UnbillError::Validation(e.to_string()))?;
-        let mut doc = self.load_doc(ledger_id).await?;
+        let mut doc = self.take_doc(ledger_id).await?;
         doc.add_user(input, Timestamp::now())?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
+        self.put_doc(ledger_id, doc).await;
         self.touch_meta(ledger_id).await?;
         let _ = self.events.send(ServiceEvent::LedgerUpdated {
             ledger_id: ledger_id.to_string(),
@@ -126,7 +167,10 @@ impl UnbillConsole {
     }
 
     pub async fn list_users(&self, ledger_id: LedgerId) -> Result<Vec<User>> {
-        self.load_doc(ledger_id).await?.list_users()
+        let doc = self.take_doc(ledger_id).await?;
+        let result = doc.list_users();
+        self.put_doc(ledger_id, doc).await;
+        result
     }
 
     /// Create a brand-new user, add them to the ledger, and return the created `User`.
@@ -136,7 +180,7 @@ impl UnbillConsole {
             .map_err(|e| UnbillError::Validation(e.to_string()))?;
         let user_id = UserId::new();
         let now = Timestamp::now();
-        let mut doc = self.load_doc(ledger_id).await?;
+        let mut doc = self.take_doc(ledger_id).await?;
         doc.add_user(
             NewUser {
                 user_id,
@@ -145,6 +189,7 @@ impl UnbillConsole {
             now,
         )?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
+        self.put_doc(ledger_id, doc).await;
         self.touch_meta(ledger_id).await?;
         let _ = self.events.send(ServiceEvent::LedgerUpdated {
             ledger_id: ledger_id.to_string(),
@@ -161,8 +206,10 @@ impl UnbillConsole {
         let mut seen = std::collections::HashSet::new();
         let mut result = Vec::new();
         for meta in self.channel.list_ledgers().await? {
-            let doc = self.load_doc(meta.ledger_id).await?;
-            for user in doc.list_users()? {
+            let doc = self.take_doc(meta.ledger_id).await?;
+            let users = doc.list_users()?;
+            self.put_doc(meta.ledger_id, doc).await;
+            for user in users {
                 if seen.insert(user.user_id) {
                     result.push(user);
                 }
@@ -176,15 +223,19 @@ impl UnbillConsole {
     // -----------------------------------------------------------------------
 
     pub async fn add_device(&self, ledger_id: LedgerId, input: NewDevice) -> Result<()> {
-        let mut doc = self.load_doc(ledger_id).await?;
+        let mut doc = self.take_doc(ledger_id).await?;
         doc.add_device(input, Timestamp::now())?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
+        self.put_doc(ledger_id, doc).await;
         self.touch_meta(ledger_id).await?;
         Ok(())
     }
 
     pub async fn list_devices(&self, ledger_id: LedgerId) -> Result<Vec<Device>> {
-        self.load_doc(ledger_id).await?.list_devices()
+        let doc = self.take_doc(ledger_id).await?;
+        let result = doc.list_devices();
+        self.put_doc(ledger_id, doc).await;
+        result
     }
 
     pub async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
@@ -233,13 +284,16 @@ impl UnbillConsole {
         > = std::collections::HashMap::new();
 
         for meta in self.channel.list_ledgers().await? {
-            let doc = self.load_doc(meta.ledger_id).await?;
+            let doc = self.take_doc(meta.ledger_id).await?;
             let users = doc.list_users()?;
             if users.iter().any(|user| user.user_id == user_id) {
                 let currency = doc.get_ledger()?.currency;
                 let bills = doc.list_bills()?;
+                self.put_doc(meta.ledger_id, doc).await;
                 let balances = by_currency.entry(currency).or_default();
                 settlement::accumulate_balances(&users, &bills, balances);
+            } else {
+                self.put_doc(meta.ledger_id, doc).await;
             }
         }
 
@@ -266,9 +320,11 @@ impl UnbillConsole {
         &self,
         ledger_id: LedgerId,
     ) -> crate::error::Result<settlement::Settlement> {
-        let doc = self.load_doc(ledger_id).await?;
+        let doc = self.take_doc(ledger_id).await?;
         let ledger = doc.get_ledger()?;
-        Ok(settlement::compute_settlement(&ledger))
+        let result = settlement::compute_settlement(&ledger);
+        self.put_doc(ledger_id, doc).await;
+        Ok(result)
     }
 
     // -----------------------------------------------------------------------
@@ -276,8 +332,9 @@ impl UnbillConsole {
     // -----------------------------------------------------------------------
 
     pub async fn detect_conflicts(&self, ledger_id: LedgerId) -> Result<Vec<ConflictGroup>> {
-        let doc = self.load_doc(ledger_id).await?;
+        let doc = self.take_doc(ledger_id).await?;
         let all_bills = doc.list_all_bills()?;
+        self.put_doc(ledger_id, doc).await;
         Ok(conflict::detect(&all_bills))
     }
 
@@ -334,14 +391,23 @@ impl UnbillConsole {
     // Internals
     // -----------------------------------------------------------------------
 
-    /// Fetch the current ledger doc from the device via a full sync cycle.
-    async fn load_doc(&self, ledger_id: LedgerId) -> Result<LedgerDoc> {
+    /// Remove the doc for `ledger_id` from the cache and return it.
+    /// Falls back to a full sync from the device if the cache is cold.
+    async fn take_doc(&self, ledger_id: LedgerId) -> Result<LedgerDoc> {
+        if let Some(doc) = self.cache.lock().await.remove(&ledger_id) {
+            return Ok(doc);
+        }
         let mut doc = LedgerDoc::empty();
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
         if doc.is_empty() {
             return Err(UnbillError::LedgerNotFound(ledger_id.to_string()));
         }
         Ok(doc)
+    }
+
+    /// Insert `doc` back into the cache under `ledger_id`.
+    async fn put_doc(&self, ledger_id: LedgerId, doc: LedgerDoc) {
+        self.cache.lock().await.insert(ledger_id, doc);
     }
 
     /// Update `updated_at` in the stored metadata for a ledger.
@@ -482,7 +548,7 @@ mod tests {
     async fn open() -> Arc<UnbillConsole> {
         let store = mem_store();
         let channel = MockAsymChannel::new(store).await;
-        UnbillConsole::open(channel)
+        UnbillConsole::open(channel).await
     }
 
     fn usd() -> Currency {
@@ -739,7 +805,7 @@ mod tests {
         let store = mem_store();
         let lid = {
             let channel = MockAsymChannel::new(Arc::clone(&store)).await;
-            let svc = UnbillConsole::open(channel);
+            let svc = UnbillConsole::open(channel).await;
             let lid = svc
                 .create_ledger(NewLedger {
                     name: "Persistent".into(),
@@ -752,7 +818,7 @@ mod tests {
             lid
         };
         let channel2 = MockAsymChannel::new(Arc::clone(&store)).await;
-        let svc2 = UnbillConsole::open(channel2);
+        let svc2 = UnbillConsole::open(channel2).await;
         let bills = svc2.list_bills(lid).await.unwrap();
         assert_eq!(bills.0.len(), 1);
         assert_eq!(bills.0[0].amount_cents, 120000);
@@ -763,8 +829,8 @@ mod tests {
         let store = mem_store();
         let channel1 = MockAsymChannel::new(Arc::clone(&store)).await;
         let channel2 = MockAsymChannel::new(Arc::clone(&store)).await;
-        let svc1 = UnbillConsole::open(channel1);
-        let svc2 = UnbillConsole::open(channel2);
+        let svc1 = UnbillConsole::open(channel1).await;
+        let svc2 = UnbillConsole::open(channel2).await;
         assert_eq!(svc1.device_id(), svc2.device_id());
     }
 
@@ -774,13 +840,13 @@ mod tests {
         let peer = NodeId::from_seed(9);
         {
             let channel = MockAsymChannel::new(Arc::clone(&store)).await;
-            let svc = UnbillConsole::open(channel);
+            let svc = UnbillConsole::open(channel).await;
             svc.set_device_label(peer.clone(), "Kitchen iPad".into())
                 .await
                 .unwrap();
         }
         let channel2 = MockAsymChannel::new(Arc::clone(&store)).await;
-        let svc2 = UnbillConsole::open(channel2);
+        let svc2 = UnbillConsole::open(channel2).await;
         let labels = svc2.list_device_labels().await.unwrap();
         assert_eq!(
             labels.get(&peer.to_string()).map(String::as_str),

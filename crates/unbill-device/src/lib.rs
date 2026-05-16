@@ -98,9 +98,10 @@ impl UnbillDevice {
             .await?
             .unwrap_or_else(LedgerDoc::empty);
         let mut sync_state = automerge::sync::State::new();
+        let heads_before = doc.heads();
         doc.receive_sync_message(&mut sync_state, client_msg)
             .map_err(|e| UnbillError::Automerge(e.to_string()))?;
-        if !doc.is_empty() {
+        if doc.heads() != heads_before {
             self.store.save_ledger(&id_str, &mut doc).await?;
         }
         Ok(doc

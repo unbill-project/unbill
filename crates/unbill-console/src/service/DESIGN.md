@@ -26,5 +26,6 @@ flowchart LR
 ## Rules
 
 - the service is the only public orchestration API of the core crate
-- all persistent reads and writes go through the `AsymChannel`; the service holds no durable state
+- all persistent reads and writes go through the `AsymChannel`
+- the service maintains an in-process `LedgerDoc` cache primed at startup and kept fresh on every write and on every `LedgerUpdated` event from the channel
 - shells receive user-facing results and events, not direct access to persistence or Automerge

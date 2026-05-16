@@ -7936,6 +7936,7 @@ dependencies = [
  "unbill-model",
  "unbill-storage",
  "unbill-store-memory",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]

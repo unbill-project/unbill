@@ -671,7 +671,7 @@ mod tests {
         let channel = LocalAsymChannel::open(Arc::new(InMemoryStore::default()))
             .await
             .unwrap();
-        UnbillConsole::open(channel as Arc<dyn AsymChannel>)
+        UnbillConsole::open(channel as Arc<dyn AsymChannel>).await
     }
 
     #[test]
