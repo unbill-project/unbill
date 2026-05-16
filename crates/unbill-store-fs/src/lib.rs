@@ -14,6 +14,7 @@ use unbill_event::ServiceEvent;
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
 use unbill_storage::{LedgerDoc, LedgerStore, StorageResult as Result};
 
+// sirno:witness:fs-store:begin
 pub struct FsStore {
     root: PathBuf,
     /// Holds `<root>/unbill.lock` open with an exclusive advisory lock for
@@ -55,6 +56,7 @@ impl FsStore {
         self.root.join("ledgers").join(ledger_id)
     }
 }
+// sirno:witness:fs-store:end
 
 // ---------------------------------------------------------------------------
 // JSON mirror of LedgerMeta — plain primitives, no domain-type imports needed
@@ -98,6 +100,7 @@ impl MetaJson {
 // LedgerStore impl
 // ---------------------------------------------------------------------------
 
+// sirno:witness:fs-store:begin
 #[async_trait]
 impl LedgerStore for FsStore {
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
@@ -223,13 +226,16 @@ impl LedgerStore for FsStore {
         Ok(SecretKey::from_bytes(arr))
     }
 }
+// sirno:witness:fs-store:end
 
+// sirno:witness:unbill-storage:begin
 async fn atomic_write(path: PathBuf, bytes: &[u8]) -> Result<()> {
     let tmp = path.with_extension("tmp");
     tokio::fs::write(&tmp, bytes).await?;
     tokio::fs::rename(&tmp, &path).await?;
     Ok(())
 }
+// sirno:witness:unbill-storage:end
 
 // ---------------------------------------------------------------------------
 // Tests

@@ -19,7 +19,8 @@ or device-specific convenience data.
 
 Devices are authorized per ledger.
 They are not bound to specific users,
-and saved users on one device are separate from ledger users in shared state.
+and the current service aggregates known users from local ledger state rather than from a
+separate saved-user table.
 
 Unbill has no telemetry, analytics, hosted account system, or server-backed authority model.
 Remote access can be hosted by a user,

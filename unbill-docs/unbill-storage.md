@@ -25,8 +25,8 @@ flowchart TB
     subgraph DeviceData["Device-local data"]
         Key["Secret key"]
         Labels["Device labels"]
-        SavedUsers["Saved users"]
         Pending["Pending invitations"]
+        Blobs["Device metadata blobs"]
     end
 
     Store --> LedgerData
@@ -35,7 +35,10 @@ flowchart TB
 
 `LedgerStore` loads and saves ledgers as `LedgerDoc`.
 Ledger metadata supports fast listing without hydrating Automerge bytes.
-Device-local metadata stores labels, saved users, pending invitations, and key material helpers.
+Device-local storage covers labels,
+pending invitations,
+the secret key,
+and arbitrary key-addressed metadata blobs exposed by the store trait.
 
 `save_ledger` takes a mutable document.
 A store may merge remote changes back into that document before returning,

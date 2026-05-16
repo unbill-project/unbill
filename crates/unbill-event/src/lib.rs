@@ -1,3 +1,4 @@
+// sirno:witness:unbill-event:begin
 #[derive(Clone, Debug)]
 pub enum ServiceEvent {
     LedgerUpdated {
@@ -17,3 +18,4 @@ pub enum ServiceEvent {
         error: String,
     },
 }
+// sirno:witness:unbill-event:end

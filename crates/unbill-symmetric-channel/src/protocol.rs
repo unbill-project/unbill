@@ -18,6 +18,7 @@ fn net(e: impl std::fmt::Display) -> UnbillError {
 // ALPN identifiers
 // ---------------------------------------------------------------------------
 
+// sirno:witness:symmetric-channel:begin
 /// ALPN token for the document-sync protocol.
 pub const ALPN_SYNC: &[u8] = b"unbill/sync/v1";
 /// ALPN token for the device-join protocol.
@@ -105,11 +106,13 @@ pub enum JoinReply {
     Ok(JoinResponse),
     Err(JoinError),
 }
+// sirno:witness:symmetric-channel:end
 
 // ---------------------------------------------------------------------------
 // Framing helpers
 // ---------------------------------------------------------------------------
 
+// sirno:witness:symmetric-channel:begin
 /// Maximum accepted message payload (16 MiB).
 const MAX_MSG_LEN: u32 = 16 * 1024 * 1024;
 
@@ -146,6 +149,7 @@ where
     reader.read_exact(&mut buf).await.map_err(net)?;
     ciborium::from_reader(buf.as_slice()).map_err(|e| net(format!("CBOR decode: {e}")))
 }
+// sirno:witness:symmetric-channel:end
 
 // ---------------------------------------------------------------------------
 // Tests

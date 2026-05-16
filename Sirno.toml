@@ -1,12 +1,16 @@
 [lake]
+# sirno:witness:development-workflow:begin
 # Markdown entry lake path, resolved relative to this config file.
 path = "unbill-docs"
 # Paths in lake that Sirno skips while reading, checking, querying, and generating links.
 ignore = [".obsidian"]
+# sirno:witness:development-workflow:end
 
 [repo]
+# sirno:witness:documentation-coverage:begin
 # Repository files, directories, or globs scanned for witness blocks.
-members = ["README.md", "AGENTS.md", "Cargo.toml", "Dockerfile", "release.toml", ".github/workflows/*.yml", ".github/aur/*/PKGBUILD", ".github/homebrew/*/install.rb", "apps/**/*.rs", "apps/**/*.toml", "apps/**/*.html", "apps/**/*.css", "apps/**/*.js", "crates/**/*.rs", "crates/**/*.toml", "crates/**/*.json", "crates/**/*.yml", "docker/*", "example-deployment/*.yml"]
+members = ["Sirno.toml", "README.md", "AGENTS.md", "Cargo.toml", "Dockerfile", "release.toml", "LICENSE", "LICENSE-MIT", "LICENSE-APACHE", "flake.nix", "devenv.nix", "devenv.yaml", "prek.toml", "rustfmt.toml", ".github/workflows/*.yml", ".github/aur/*/PKGBUILD", ".github/homebrew/*/install.rb", "apps/**/*.rs", "apps/**/*.toml", "apps/**/*.html", "apps/**/*.css", "apps/**/*.js", "crates/**/*.rs", "crates/**/*.toml", "crates/**/*.json", "crates/**/*.yml", "docker/*", "example-deployment/*.yml"]
+# sirno:witness:documentation-coverage:end
 
 [witness]
 # Witness delimiter regex pairs; each first capture group is the entry id.
@@ -18,6 +22,10 @@ end = '(?m)^[ \t]*//[ \t]*sirno:witness:([^\x00-\x1F\x7F<>:"/\\|?*\r\n]+):end'
 [[witness.delimiters]]
 begin = '(?m)^[ \t]*<!--[ \t]*sirno:witness:([^\x00-\x1F\x7F<>:"/\\|?*\r\n]+):begin[ \t]*-->'
 end = '(?m)^[ \t]*<!--[ \t]*sirno:witness:([^\x00-\x1F\x7F<>:"/\\|?*\r\n]+):end[ \t]*-->'
+
+[[witness.delimiters]]
+begin = '(?m)^[ \t]*#[ \t]*sirno:witness:([^\x00-\x1F\x7F<>:"/\\|?*\r\n]+):begin'
+end = '(?m)^[ \t]*#[ \t]*sirno:witness:([^\x00-\x1F\x7F<>:"/\\|?*\r\n]+):end'
 
 [check]
 # Require generated footers to match current metadata during checks.

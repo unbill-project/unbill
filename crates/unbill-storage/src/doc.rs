@@ -13,6 +13,7 @@ use crate::ops;
 type Result<T> = std::result::Result<T, UnbillError>;
 
 /// A CRDT-backed in-memory ledger backed by a single Automerge document.
+// sirno:witness:ledger-doc:begin
 pub struct LedgerDoc {
     doc: automerge::AutoCommit,
     pub changes: broadcast::Sender<ChangeEvent>,
@@ -23,8 +24,10 @@ pub enum ChangeEvent {
     LocalWrite,
     RemoteApplied,
 }
+// sirno:witness:ledger-doc:end
 
 impl LedgerDoc {
+    // sirno:witness:ledger-doc:begin
     /// Create and initialize a new ledger document.
     pub fn new(
         ledger_id: LedgerId,
@@ -47,8 +50,8 @@ impl LedgerDoc {
     }
 
     /// Create a blank document for use as the starting point of a sync-based
-    /// load (e.g. `HttpStore`). The document has no ledger data until sync
-    /// messages are applied via `receive_sync_message`.
+    /// load. The document has no ledger data until sync messages are applied
+    /// via `receive_sync_message`.
     pub fn empty() -> Self {
         let (tx, _) = broadcast::channel(64);
         Self {
@@ -71,6 +74,7 @@ impl LedgerDoc {
     pub fn save(&mut self) -> Vec<u8> {
         self.doc.save()
     }
+    // sirno:witness:ledger-doc:end
 
     // --- read operations ---
 
@@ -121,6 +125,7 @@ impl LedgerDoc {
 
     // --- automerge sync ---
 
+    // sirno:witness:sync-behavior:begin
     pub fn generate_sync_message(
         &mut self,
         sync_state: &mut automerge::sync::State,
@@ -142,10 +147,13 @@ impl LedgerDoc {
         let _ = self.changes.send(ChangeEvent::RemoteApplied);
         Ok(())
     }
+    // sirno:witness:sync-behavior:end
 
     /// Returns `true` if `node_id` is in `ledger.devices`.
+    // sirno:witness:users-and-devices:begin
     pub fn is_device_authorized(&self, node_id: &NodeId) -> Result<bool> {
         let ledger = ops::get_ledger(&self.doc)?;
         Ok(ledger.devices.iter().any(|d| &d.node_id == node_id))
     }
+    // sirno:witness:users-and-devices:end
 }

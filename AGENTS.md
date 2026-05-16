@@ -2,13 +2,16 @@
 
 <!-- Compiled from unbill-docs. Update the Sirno lake first, then refresh this artifact. -->
 
+<!-- sirno:witness:compiled-markdown-artifacts:begin -->
 The structured design source lives in [unbill-docs](unbill-docs).
 Start with [unbill-docs/introduction.md](unbill-docs/introduction.md).
 Use [unbill-docs/documentation-coverage.md](unbill-docs/documentation-coverage.md) to find
 where old documentation facts live.
+<!-- sirno:witness:compiled-markdown-artifacts:end -->
 
 ## Design-first Development
 
+<!-- sirno:witness:development-workflow:begin -->
 Non-trivial functionality starts from design,
 then a failing test,
 then implementation,
@@ -48,3 +51,4 @@ Documentation prose stays conceptual and avoids embedding code that will drift.
 Each crate and significant submodule needs Sirno coverage before substantial implementation begins.
 Submodules with design surface include storage, networking, settlement,
 document projection, conflict detection, and service orchestration.
+<!-- sirno:witness:development-workflow:end -->

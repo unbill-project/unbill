@@ -19,6 +19,7 @@ async fn main() -> Result<()> {
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
     let socket = UNBILL_PATH.socket_path()?;
     let store = Arc::new(FsStore::open(data_dir)?);
+    // sirno:witness:unbill-daemon:begin
     let channel = LocalAsymChannel::open(store).await?;
 
     tracing::info!("unbill-daemon listening on {}", socket.display());
@@ -35,6 +36,7 @@ async fn main() -> Result<()> {
             }
         }
     }
+    // sirno:witness:unbill-daemon:end
 
     Ok(())
 }

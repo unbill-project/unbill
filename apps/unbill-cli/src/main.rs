@@ -1,5 +1,5 @@
 // unbill-cli: command-line frontend for UnbillConsole.
-// All business logic lives in unbill-core; this file is pure dispatch + I/O.
+// All business logic lives in unbill-console; this file is pure dispatch + I/O.
 
 use anyhow::bail;
 use clap::Parser;
@@ -16,6 +16,7 @@ mod output;
 
 #[derive(Parser)]
 #[command(name = "unbill", about = "Peer-to-peer bill splitting.")]
+// sirno:witness:unbill-cli:begin
 pub struct Cli {
     /// Output results as JSON (useful for scripting and e2e tests).
     #[arg(long, global = true)]
@@ -44,7 +45,7 @@ pub enum Command {
         #[command(subcommand)]
         sub: BillCmd,
     },
-    /// Manage saved users on this device and users in a ledger.
+    /// Manage users known from local ledgers and users in a ledger.
     User {
         #[command(subcommand)]
         sub: UserCmd,
@@ -170,6 +171,7 @@ pub enum SyncCmd {
     /// Show sync status.
     Status,
 }
+// sirno:witness:unbill-cli:end
 
 // ---------------------------------------------------------------------------
 // Entry point
@@ -195,6 +197,7 @@ async fn run() -> anyhow::Result<()> {
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
 
     let socket = UNBILL_PATH.socket_path()?;
+    // sirno:witness:unbill-cli:begin
     let channel = RpcAsymChannel::connect(&socket)
         .await
         .map_err(|e| anyhow::anyhow!("cannot connect to unbill-daemon: {e}"))?;
@@ -284,4 +287,5 @@ async fn run() -> anyhow::Result<()> {
         },
         Command::Settlement { user_id } => commands::settlement(&svc, &user_id, json).await,
     }
+    // sirno:witness:unbill-cli:end
 }

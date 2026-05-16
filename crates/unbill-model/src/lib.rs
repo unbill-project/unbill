@@ -1,5 +1,6 @@
-// Domain types. See DESIGN.md §4 for the schema and invariants.
+// Domain types. See unbill-docs/data-model.md for the schema and invariants.
 
+// sirno:witness:unbill-model:begin
 pub mod error;
 pub use error::{StorageError, UnbillError};
 
@@ -24,3 +25,4 @@ pub use timestamp::Timestamp;
 pub use user::{
     Device, Invitation, Ledger, LedgerMeta, NewDevice, NewLedger, NewUser, NewUserName, User,
 };
+// sirno:witness:unbill-model:end

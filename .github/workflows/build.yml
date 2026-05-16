@@ -22,6 +22,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
 
+# sirno:witness:ci-cd-pipeline:begin
 jobs:
   build:
     name: Build (${{ matrix.target }})
@@ -266,3 +267,4 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/unbill-server:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+# sirno:witness:ci-cd-pipeline:end

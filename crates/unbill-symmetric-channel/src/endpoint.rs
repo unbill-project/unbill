@@ -36,6 +36,7 @@ use crate::node_id_ext::{EndpointIdExt, NodeIdExt};
 use crate::protocol::{ALPN_JOIN, ALPN_SYNC, JoinRequest};
 use crate::sync::run_sync_session;
 
+// sirno:witness:security-model:begin
 /// Relays shared by all unbill endpoints.
 /// All peers register with one of these relays, so any peer's `EndpointAddr`
 /// can be constructed from their `NodeId` alone — no DNS/pkarr lookup required.
@@ -45,7 +46,9 @@ const UNBILL_RELAY_URLS: &[&str] = &[
     "https://euc1-1.relay.n0.iroh-canary.iroh.link.",
     "https://aps1-1.relay.n0.iroh-canary.iroh.link.",
 ];
+// sirno:witness:security-model:end
 
+// sirno:witness:symmetric-channel:begin
 pub struct UnbillEndpoint {
     inner: iroh::Endpoint,
     addr_cache: MemoryLookup,
@@ -217,6 +220,7 @@ impl UnbillEndpoint {
         Ok(())
     }
 }
+// sirno:witness:symmetric-channel:end
 
 // ---------------------------------------------------------------------------
 // Dispatch incoming connection to the right protocol handler

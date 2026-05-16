@@ -11,6 +11,7 @@ use unbill_event::ServiceEvent;
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
 use unbill_storage::{LedgerDoc, LedgerStore, StorageResult as Result};
 
+// sirno:witness:memory-store:begin
 pub struct InMemoryStore {
     inner: Mutex<Inner>,
     events: broadcast::Sender<ServiceEvent>,
@@ -153,3 +154,4 @@ impl LedgerStore for InMemoryStore {
         Ok(SecretKey::from_bytes(arr))
     }
 }
+// sirno:witness:memory-store:end

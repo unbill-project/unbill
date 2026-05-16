@@ -22,6 +22,7 @@ use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
 
 use crate::{AsymChannel, AsymChannelEvent};
 
+// sirno:witness:asymmetric-channel:begin
 // ---------------------------------------------------------------------------
 // Wire types
 // ---------------------------------------------------------------------------
@@ -81,6 +82,7 @@ pub trait AsymChannelService {
     /// Poll and drain pending device events for this connection.
     async fn poll_events() -> Vec<WireEvent>;
 }
+// sirno:witness:asymmetric-channel:end
 
 // ---------------------------------------------------------------------------
 // Wire event (serializable mirror of AsymChannelEvent)
@@ -112,6 +114,7 @@ impl From<WireEvent> for AsymChannelEvent {
 // Server
 // ---------------------------------------------------------------------------
 
+// sirno:witness:asymmetric-channel:begin
 struct AsymChannelServiceServer<C: AsymChannel> {
     channel: Arc<C>,
     /// Per-connection event queue populated by a background subscriber task.
@@ -302,6 +305,7 @@ where
         );
     }
 }
+// sirno:witness:asymmetric-channel:end
 
 // ---------------------------------------------------------------------------
 // Client

@@ -14,8 +14,12 @@ It includes ledger metadata, ledger users, bills, supersession links,
 and authorized device `NodeId` values.
 
 Local state makes one device usable.
-It includes saved users, device labels, pending invitation tokens,
-UI state, caches, and other machine-specific metadata.
+It includes the device secret key,
+ledger metadata caches,
+device labels,
+pending invitation tokens,
+runtime UI state,
+and other machine-specific metadata.
 
 Shared and local state are stored separately.
 Peers converge only on shared ledger data.
@@ -24,6 +28,8 @@ or transient UI state.
 
 Device labels and pending invitations are local metadata.
 Invitation URLs and copied invitation text are local client concerns.
+The current service lists all known users by aggregating ledger users across local ledgers,
+not by maintaining a separate saved-user table.
 
 ```mermaid
 flowchart TB
@@ -35,10 +41,11 @@ flowchart TB
     end
 
     subgraph Local["Device-local state"]
-        SavedUsers["Saved users"]
+        Key["Device key"]
+        MetaCache["Ledger metadata cache"]
         Labels["Device labels"]
         Pending["Pending invite tokens"]
-        Ui["UI state and caches"]
+        Ui["Runtime UI state"]
     end
 ```
 

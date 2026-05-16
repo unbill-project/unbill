@@ -17,6 +17,7 @@ use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
 
 use crate::{AsymChannel, AsymChannelEvent};
 
+// sirno:witness:server-http-api:begin
 #[derive(Deserialize)]
 struct InvitationJson {
     url: String,
@@ -36,7 +37,9 @@ struct MetaJson {
     created_at_ms: i64,
     updated_at_ms: i64,
 }
+// sirno:witness:server-http-api:end
 
+// sirno:witness:asymmetric-channel:begin
 pub struct HttpAsymChannel {
     client: Client,
     base_url: String,
@@ -44,8 +47,10 @@ pub struct HttpAsymChannel {
     device_node_id: NodeId,
     events: broadcast::Sender<AsymChannelEvent>,
 }
+// sirno:witness:asymmetric-channel:end
 
 impl HttpAsymChannel {
+    // sirno:witness:server-http-api:begin
     /// Connect to an unbill-server and fetch the remote device identity.
     pub async fn open(base_url: impl Into<String>, api_key: impl Into<String>) -> Result<Self> {
         let (events, _) = broadcast::channel(256);
@@ -105,10 +110,12 @@ impl HttpAsymChannel {
         let body = resp.text().await.unwrap_or_default();
         Err(UnbillError::Network(format!("HTTP {status}: {body}")))
     }
+    // sirno:witness:server-http-api:end
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+// sirno:witness:server-http-api:begin
 impl AsymChannel for HttpAsymChannel {
     fn device_id(&self) -> NodeId {
         self.device_node_id.clone()
@@ -265,11 +272,13 @@ impl AsymChannel for HttpAsymChannel {
         self.events.subscribe()
     }
 }
+// sirno:witness:server-http-api:end
 
 // ---------------------------------------------------------------------------
 // SSE background task
 // ---------------------------------------------------------------------------
 
+// sirno:witness:sync-behavior:begin
 async fn sse_task(
     client: Client,
     url: String,
@@ -330,6 +339,7 @@ async fn run_sse(
 
     Ok(())
 }
+// sirno:witness:sync-behavior:end
 
 // ---------------------------------------------------------------------------
 // Tests

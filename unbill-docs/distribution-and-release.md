@@ -8,7 +8,10 @@ belongs:
 ---
 
 Unbill publishes user-friendly installation artifacts and source-build paths.
-The repository is licensed under MIT in `LICENSE`.
+Unbill is dual licensed as `MIT OR Apache-2.0`.
+Workspace package metadata declares that expression,
+the AUR templates declare both licenses,
+and the repository root includes `LICENSE`, `LICENSE-MIT`, and `LICENSE-APACHE`.
 
 User-friendly installation includes prebuilt CLI and TUI binaries,
 desktop app artifacts,

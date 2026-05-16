@@ -1,3 +1,5 @@
+# sirno:witness:distribution-and-release:begin
 publish = false
 shared-version = true
 tag-name = "v{{version}}"
+# sirno:witness:distribution-and-release:end

@@ -1,10 +1,11 @@
 // Settlement algorithm: who owes whom after applying all bills.
-// See DESIGN.md for the two-step algorithm.
+// See unbill-docs/settlement.md for the two-step algorithm.
 
 use std::collections::{HashMap, HashSet};
 
 use crate::model::{BillId, Currency, EffectiveBills, Ledger, User, UserId};
 
+// sirno:witness:settlement:begin
 /// A single suggested settlement transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Transaction {
@@ -28,11 +29,13 @@ pub struct BillSplit {
     /// How much each payee owes.
     pub payee_amounts: Vec<(UserId, i64)>,
 }
+// sirno:witness:settlement:end
 
 /// Compute the exact cent amounts for each payer and payee of a bill.
 ///
 /// Uses the bill's own ID as the rounding seed, so the result is identical
 /// to what `compute_settlement` would derive for the same bill.
+// sirno:witness:settlement:begin
 pub fn compute_bill_split(
     payers: &[crate::model::Share],
     payees: &[crate::model::Share],
@@ -171,6 +174,7 @@ pub fn split_shares(
     }
     amounts
 }
+// sirno:witness:settlement:end
 
 /// FNV-1a hash over a byte slice. Used to deterministically select the
 /// remainder recipient in `split_shares`.

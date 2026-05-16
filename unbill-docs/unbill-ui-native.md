@@ -58,7 +58,7 @@ selected ledger detail,
 settings-only ledger detail,
 create and join overlay state,
 invite state,
-saved-user import and share state,
+known-user import and share state,
 conflict selections,
 editor flows,
 status,
@@ -71,13 +71,13 @@ refresh bootstrap state,
 and refresh selected ledger detail only when the visible active ledger could have changed.
 
 Device Settings shows the local device ID,
-saved local users,
+users known from local ledgers,
 known peer devices,
-saved-user share and import,
+known-user share and import,
 and ledger join actions.
 Ledger Settings shows the ledger selector,
 ledger users,
-saved-user picker,
+known-user picker,
 authorized peer devices,
 and invitation actions.
 Ledger-scoped sync actions refresh bootstrap state and selected ledger detail.

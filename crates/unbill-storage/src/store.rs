@@ -8,6 +8,7 @@ use crate::LedgerDoc;
 
 pub type StorageResult<T> = std::result::Result<T, StorageError>;
 
+// sirno:witness:unbill-storage:begin
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait LedgerStore: Send + Sync {
@@ -18,9 +19,9 @@ pub trait LedgerStore: Send + Sync {
     /// Load a ledger document. Returns `None` if the ledger has never been saved.
     async fn load_ledger(&self, ledger_id: &str) -> StorageResult<Option<LedgerDoc>>;
 
-    /// Persist a ledger document. The store may apply remote changes back into
-    /// `doc` before returning (e.g. `HttpStore` merges server-side changes);
-    /// callers must treat `doc` as the authoritative merged state after the call.
+    /// Persist a ledger document. A remote-aware store may apply changes back
+    /// into `doc` before returning; callers must treat `doc` as the
+    /// authoritative merged state after the call.
     async fn save_ledger(&self, ledger_id: &str, doc: &mut LedgerDoc) -> StorageResult<()>;
 
     async fn delete_ledger(&self, ledger_id: &str) -> StorageResult<()>;
@@ -41,10 +42,11 @@ pub trait LedgerStore: Send + Sync {
     /// Return the raw secret key bytes.
     ///
     /// Returns `Err(StorageError::Unauthorized)` on stores that cannot expose
-    /// key material (e.g. `HttpStore`).
+    /// key material.
     async fn get_secret_key(&self) -> StorageResult<SecretKey>;
 
     /// Subscribe to ledger change events.  A [`ServiceEvent::LedgerUpdated`]
     /// is sent every time [`save_ledger`] completes successfully.
     fn subscribe(&self) -> broadcast::Receiver<ServiceEvent>;
 }
+// sirno:witness:unbill-storage:end

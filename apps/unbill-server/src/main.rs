@@ -22,6 +22,7 @@ async fn main() -> Result<()> {
         .ensure_data_dir()
         .context("failed to resolve data directory")?;
     let store = Arc::new(FsStore::open(data_dir).context("failed to open data directory")?);
+    // sirno:witness:unbill-server:begin
     let device = UnbillDevice::open(store)
         .await
         .context("failed to open device")?;
@@ -50,6 +51,7 @@ async fn main() -> Result<()> {
     axum::serve(listener, router)
         .await
         .context("server error")?;
+    // sirno:witness:unbill-server:end
 
     Ok(())
 }

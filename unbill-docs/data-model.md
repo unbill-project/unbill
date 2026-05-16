@@ -34,7 +34,12 @@ Domain types use typed IDs and opaque wrappers.
 
 The shared ledger stores durable collaborative state only:
 ledger metadata, users, bills and supersession links, and authorized device IDs.
-Local metadata stores saved users, device labels, pending tokens, UI state, and caches.
+Device-local storage holds the device key,
+ledger metadata caches,
+device labels,
+pending invitation tokens,
+and arbitrary device metadata blobs exposed through the store boundary.
+Runtime UI state and projection caches are not replicated ledger facts.
 
 ---
 

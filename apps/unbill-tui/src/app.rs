@@ -79,6 +79,7 @@ pub async fn run(
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     svc: Arc<UnbillConsole>,
 ) -> anyhow::Result<()> {
+    // sirno:witness:unbill-tui:begin
     let (sync_result_tx, mut sync_result_rx) = mpsc::unbounded_channel::<Result<(), String>>();
     let mut state = AppState::new(sync_result_tx);
     let mut events = EventStream::new();
@@ -138,6 +139,7 @@ pub async fn run(
     }
 
     Ok(())
+    // sirno:witness:unbill-tui:end
 }
 
 // ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
 
+# sirno:witness:ci-cd-pipeline:begin
 jobs:
   lint:
     name: Lint
@@ -46,3 +47,4 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: cargo test
         run: cargo test --workspace --exclude unbill-tauri
+# sirno:witness:ci-cd-pipeline:end

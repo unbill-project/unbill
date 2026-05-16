@@ -5,6 +5,7 @@ on:
     tags:
       - 'v*'
 
+# sirno:witness:distribution-and-release:begin
 jobs:
   build:
     uses: ./.github/workflows/build.yml
@@ -27,3 +28,4 @@ jobs:
       contents: write
       actions: read
     secrets: inherit
+# sirno:witness:distribution-and-release:end

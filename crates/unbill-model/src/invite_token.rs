@@ -4,7 +4,7 @@ use std::str::FromStr;
 /// A cryptographically random invitation token — 32 bytes, lowercase hex-encoded (64 chars).
 ///
 /// Held in `UnbillConsole` memory only. Never persisted or synced.
-/// See DESIGN.md §6.3 for the invitation flow.
+/// See unbill-docs/symmetric-channel.md for the invitation flow.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct InviteToken(String);
 

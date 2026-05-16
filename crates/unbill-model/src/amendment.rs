@@ -1,10 +1,12 @@
 use crate::bill::Bill;
 
+// sirno:witness:bill-amendment:begin
 /// The set of bills that are currently effective in a ledger.
 ///
 /// A bill is effective if its ID is not referenced in the `prev` list of any
 /// other bill. Bills in `prev` have been superseded by their successor.
 pub struct EffectiveBills(pub Vec<Bill>);
+// sirno:witness:bill-amendment:end
 
 impl EffectiveBills {
     pub fn iter(&self) -> std::slice::Iter<'_, Bill> {

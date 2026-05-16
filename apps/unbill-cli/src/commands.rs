@@ -29,6 +29,7 @@ fn parse_bill_id(s: &str) -> anyhow::Result<BillId> {
 // Init
 // ---------------------------------------------------------------------------
 
+// sirno:witness:unbill-cli:begin
 pub async fn init(svc: &UnbillConsole, json: bool) -> anyhow::Result<()> {
     let id = svc.device_id().to_string();
     if json {
@@ -452,3 +453,4 @@ pub async fn settlement(svc: &UnbillConsole, user_id: &str, json: bool) -> anyho
     }
     Ok(())
 }
+// sirno:witness:unbill-cli:end
