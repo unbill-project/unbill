@@ -18,7 +18,7 @@ pub struct Ledger {
     /// Devices authorized to sync this ledger. Any authorized device may record
     /// bills on behalf of any user — there is no per-user device binding.
     pub devices: Vec<Device>,
-    // Invitations are NOT part of the CRDT. They live in UnbillService memory. See DESIGN.md §6.3.
+    // Invitations are NOT part of the CRDT. They live in UnbillConsole memory. See DESIGN.md §6.3.
 }
 
 #[derive(Clone, Debug, Reconcile, Hydrate)]
@@ -66,7 +66,7 @@ pub struct NewDevice {
     pub node_id: NodeId,
 }
 
-/// A pending join invitation. Held in `UnbillService` memory only — never
+/// A pending join invitation. Held in `UnbillConsole` memory only — never
 /// persisted or synced. Consumed (removed from the map) on first use or expiry.
 ///
 /// The invitation authorizes a new device (NodeId) to join the ledger. It

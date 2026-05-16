@@ -2,24 +2,43 @@
 
 ## Workspace
 
-- `crates/unbill-core/` — domain model, Automerge ledger, storage, sync, settlement, service facade
-- `crates/unbill-cli/` — terminal frontend
-- `crates/unbill-tauri/` — Tauri IPC bridge and desktop shell host
-- `apps/unbill-ui-native/` — default desktop UI, built with Leptos and loaded by Tauri
+### Core crates
 
-## Core shape
+- `crates/unbill-model/` — domain types and typed IDs; no logic, no I/O
+- `crates/unbill-storage/` — `LedgerStore` trait and `LedgerDoc` Automerge wrapper
+- `crates/unbill-store-fs/` — filesystem-backed `LedgerStore`
+- `crates/unbill-store-memory/` — in-memory `LedgerStore` for tests
+- `crates/unbill-store-http/` — HTTP-backed `LedgerStore` for the browser web frontend
+- `crates/unbill-event/` — `ServiceEvent` broadcast types
 
-- `model/` — typed IDs and domain structs
-- `doc/` — `LedgerDoc`, the in-memory Automerge wrapper
-- `storage/` — `LedgerStore`, `FsStore`, and `InMemoryStore`
-- `net/` — sync, join, and saved-user transfer over Iroh
-- `service/` — `UnbillService`, the main orchestration API
-- `settlement/` — balance accumulation and minimum-cash-flow reduction
+### Channel crates
+
+- `crates/unbill-symmetric-channel/` — Iroh endpoint, device-to-device sync and join protocols
+- `crates/unbill-asymmetric-channel/` — `AsymChannel` trait (device ↔ console) and implementations: in-process (`local`), tarpc RPC (`rpc`), HTTP client (`http`)
+
+### Role crates
+
+- `crates/unbill-device/` — device-side service; owns the store, sym channel endpoint, and implements the asym channel server side
+- `crates/unbill-console/` — console-side library: CRDT document operations, settlement, conflict detection
+
+### UI crates
+
+- `crates/unbill-tauri/` — Tauri IPC bridge; hosts `unbill-ui-native` as the default desktop shell
+- `crates/unbill-ui-components/` — shared Leptos UI components used by both frontend apps
+
+### Applications
+
+- `apps/unbill-cli/` — command-line frontend
+- `apps/unbill-tui/` — keyboard-driven TUI frontend (Ratatui)
+- `apps/unbill-server/` — HTTP server implementing the REST API consumed by `unbill-store-http`
+- `apps/unbill-ui-native/` — default desktop UI built with Leptos, hosted by Tauri
+- `apps/unbill-ui-remote/` — browser web frontend built with Leptos
 
 ## Runtime rules
 
 - Ledgers persist as full Automerge snapshots plus small metadata files.
 - Device-local metadata stores keys, labels, saved users, and pending tokens.
-- Sync is session-based: peers negotiate shared ledgers, run Automerge sync, save touched docs, and disconnect.
+- Sym sync is session-based: peers negotiate shared ledgers, run Automerge sync, save touched docs, and disconnect.
+- Asym sync runs one Automerge sync round per console request over the `AsymChannel`.
 - Bills use integer cents and weighted shares; settlement runs on effective bills only.
-- Frontends consume typed service or IPC APIs and do not own business rules.
+- Consoles consume the `AsymChannel` API and do not own business rules or persistence.

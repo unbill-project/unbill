@@ -2,18 +2,19 @@
 resolver = "2"
 members = [
     "apps/unbill-cli",
+    "apps/unbill-daemon",
     "apps/unbill-server",
     "apps/unbill-tui",
     "apps/unbill-ui-native",
     "apps/unbill-ui-remote",
-    "crates/unbill-core",
+    "crates/unbill-asymmetric-channel",
+    "crates/unbill-device",
+    "crates/unbill-console",
     "crates/unbill-event",
-    "crates/unbill-network",
+    "crates/unbill-symmetric-channel",
     "crates/unbill-model",
     "crates/unbill-storage",
     "crates/unbill-store-fs",
-    "crates/unbill-server-client",
-    "crates/unbill-store-http",
     "crates/unbill-store-memory",
     "crates/unbill-tauri",
     "crates/unbill-ui-components",
@@ -37,7 +38,7 @@ autosurgeon = "0.11"
 iroh = { version = "0.98", features = ["address-lookup-mdns"] }
 
 # Async
-tokio = { version = "1.52.1", features = ["full"] }
+tokio = { version = "1.52.1", default-features = false, features = ["sync"] }
 async-trait = "0.1"
 
 
@@ -69,12 +70,19 @@ dashmap = "6"
 directories = "6.0.0"
 
 # HTTP client
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream"] }
 
 # HTTP server
 axum = "0.8"
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["trace"] }
+
+# Streams / async utilities
+tokio-stream = "0.1"
+futures-util = "0.3"
+
+# RPC
+tarpc = { version = "0.37", features = ["full"] }
 
 # Testing
 proptest = "1"

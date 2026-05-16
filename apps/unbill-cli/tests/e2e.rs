@@ -2,6 +2,10 @@
 //
 // Each test gets an isolated temporary data directory via `Env`. Commands are
 // run against the real compiled binary. Assertions use `--json` output.
+//
+// Each `Env` automatically starts an `unbill-daemon` process (via `cargo run`)
+// that owns the data directory. CLI commands connect to the daemon over the
+// local socket. The daemon is killed when the `Env` is dropped.
 
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Output, Stdio};
@@ -13,12 +17,36 @@ use tempfile::TempDir;
 
 struct Env {
     dir: TempDir,
+    daemon: Child,
+    /// The Iroh NodeId of this env's daemon — pass to `sync once` to dial it.
+    node_id: String,
 }
 
 impl Env {
     fn new() -> Self {
-        Self {
-            dir: tempfile::tempdir().unwrap(),
+        let dir = tempfile::tempdir().unwrap();
+        let mut child = Command::new("cargo")
+            .args(["run", "-q", "-p", "unbill-daemon"])
+            .env("UNBILL_DATA_DIR", dir.path())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("failed to spawn unbill-daemon");
+        let stdout = child.stdout.take().unwrap();
+        let mut reader = BufReader::new(stdout);
+        let mut line = String::new();
+        reader
+            .read_line(&mut line)
+            .expect("failed to read daemon stdout");
+        let node_id = line
+            .strip_prefix("listening on: ")
+            .unwrap_or_else(|| panic!("unexpected daemon output: {line:?}"))
+            .trim()
+            .to_string();
+        Env {
+            dir,
+            daemon: child,
+            node_id,
         }
     }
 
@@ -67,50 +95,10 @@ impl Env {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Daemon harness (for two-env peer tests)
-// ---------------------------------------------------------------------------
-
-/// A running `unbill sync daemon` child process.
-///
-/// `node_id` is the host's device ID, read from the first stdout line
-/// (`"listening on: <node_id>"`). That line is printed only after the Iroh
-/// endpoint is fully bound, so reading it also serves as a readiness signal.
-///
-/// The process is killed (and waited) when the guard is dropped.
-struct Daemon {
-    child: Child,
-    /// The host's NodeId string — pass to `sync once` to dial this host.
-    pub node_id: String,
-}
-
-impl Daemon {
-    fn spawn(env: &Env) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_unbill-cli"))
-            .env("UNBILL_DATA_DIR", env.dir.path())
-            .args(["sync", "daemon"])
-            .stdout(Stdio::piped())
-            .spawn()
-            .expect("failed to spawn daemon");
-        let stdout = child.stdout.take().unwrap();
-        let mut reader = BufReader::new(stdout);
-        let mut line = String::new();
-        reader
-            .read_line(&mut line)
-            .expect("failed to read daemon stdout");
-        let node_id = line
-            .strip_prefix("listening on: ")
-            .unwrap_or_else(|| panic!("unexpected daemon output: {line:?}"))
-            .trim()
-            .to_string();
-        Daemon { child, node_id }
-    }
-}
-
-impl Drop for Daemon {
+impl Drop for Env {
     fn drop(&mut self) {
-        self.child.kill().ok();
-        self.child.wait().ok();
+        self.daemon.kill().ok();
+        self.daemon.wait().ok();
     }
 }
 
@@ -264,15 +252,6 @@ fn test_ledger_show_reports_bill_and_user_counts() {
     let v = env.json(&["ledger", "show", &lid]);
     assert_eq!(v["bill_count"].as_u64().unwrap(), 1);
     assert_eq!(v["user_count"].as_u64().unwrap(), 3);
-}
-
-#[test]
-fn test_delete_ledger_removes_it_from_list() {
-    let env = Env::new();
-    let id = create_ledger(&env);
-    env.ok(&["ledger", "delete", &id]);
-    let list = env.json(&["ledger", "list"]);
-    assert!(list.as_array().unwrap().is_empty());
 }
 
 #[test]
@@ -588,8 +567,7 @@ fn test_ledger_devices_lists_own_device_after_create() {
 // ---------------------------------------------------------------------------
 
 /// Host creates a ledger and generates an invite URL; joiner calls
-/// `ledger join`; after the daemon stops, the joiner's ledger list
-/// contains exactly the host's ledger.
+/// `ledger join`; the joiner's ledger list contains exactly the host's ledger.
 #[test]
 fn test_join_flow() {
     let host = Env::new();
@@ -601,9 +579,7 @@ fn test_join_flow() {
     let invite = host.json(&["ledger", "invite", &lid]);
     let url = invite["url"].as_str().unwrap().to_owned();
 
-    let daemon = Daemon::spawn(&host);
     joiner.ok(&["ledger", "join", &url, "--label", "joiner"]);
-    drop(daemon);
 
     let ledgers = joiner.json(&["ledger", "list"]);
     let arr = ledgers.as_array().unwrap();
@@ -622,17 +598,13 @@ fn test_sync_once_propagates_bills() {
     let lid = create_ledger_with_users(&host);
     let invite = host.json(&["ledger", "invite", &lid]);
     let url = invite["url"].as_str().unwrap().to_owned();
-    let daemon = Daemon::spawn(&host);
     joiner.ok(&["ledger", "join", &url, "--label", "joiner"]);
-    drop(daemon);
 
-    // Host adds a bill while the joiner is offline.
+    // Host adds a bill; joiner has not yet synced.
     add_bill(&host, &lid, ALICE, "30.00", "Dinner", &[ALICE, BOB, CAROL]);
 
-    // Joiner syncs.
-    let daemon = Daemon::spawn(&host);
-    joiner.ok(&["sync", "once", &daemon.node_id]);
-    drop(daemon);
+    // Joiner syncs against the host daemon.
+    joiner.ok(&["sync", "once", &host.node_id]);
 
     // Joiner now sees the bill.
     let bills = joiner.json(&["bill", "list", "--ledger-id", &lid]);

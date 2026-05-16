@@ -4,14 +4,20 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, State};
-use unbill_core::model::{
+use unbill_asymmetric_channel::AsymChannel;
+#[cfg(mobile)]
+use unbill_asymmetric_channel::local::LocalAsymChannel;
+#[cfg(not(mobile))]
+use unbill_asymmetric_channel::rpc::RpcAsymChannel;
+use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
 };
-use unbill_core::service::UnbillService;
+use unbill_console::service::UnbillConsole;
+#[cfg(mobile)]
 use unbill_store_fs::FsStore;
 
 struct AppState {
-    service: Arc<UnbillService>,
+    service: Arc<UnbillConsole>,
 }
 
 #[derive(Clone, Serialize)]
@@ -122,7 +128,7 @@ struct AddUserInput {
 #[serde(rename_all = "camelCase")]
 struct JoinLedgerInput {
     url: String,
-    label: String,
+    label: Option<String>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -362,8 +368,12 @@ fn preview_bill_split(
         .collect::<Result<Vec<_>>>()
         .map_err(stringify_error)?;
 
-    let split =
-        unbill_core::settlement::compute_bill_split(&payers, &payees, input.amount_cents, bill_id);
+    let split = unbill_console::settlement::compute_bill_split(
+        &payers,
+        &payees,
+        input.amount_cents,
+        bill_id,
+    );
     Ok(BillSplitPreviewDto {
         payer_amounts: split
             .payer_amounts
@@ -393,7 +403,7 @@ async fn sync_once(
     state.service.sync_once(peer).await.map_err(stringify_error)
 }
 
-async fn load_ledgers(service: &Arc<UnbillService>) -> Result<Vec<LedgerSummaryDto>> {
+async fn load_ledgers(service: &Arc<UnbillConsole>) -> Result<Vec<LedgerSummaryDto>> {
     let metas = service.list_ledgers().await?;
     let mut summaries = Vec::with_capacity(metas.len());
     for meta in metas {
@@ -402,7 +412,7 @@ async fn load_ledgers(service: &Arc<UnbillService>) -> Result<Vec<LedgerSummaryD
     Ok(summaries)
 }
 
-async fn bootstrap_app_inner(service: &Arc<UnbillService>) -> Result<AppBootstrapDto> {
+async fn bootstrap_app_inner(service: &Arc<UnbillConsole>) -> Result<AppBootstrapDto> {
     let ledgers = load_ledgers(service).await?;
     let all_users = service
         .list_all_users()
@@ -420,7 +430,7 @@ async fn bootstrap_app_inner(service: &Arc<UnbillService>) -> Result<AppBootstra
     })
 }
 
-async fn add_user_inner(service: &Arc<UnbillService>, input: AddUserInput) -> Result<UserDto> {
+async fn add_user_inner(service: &Arc<UnbillConsole>, input: AddUserInput) -> Result<UserDto> {
     let user_id = parse_user_id(&input.user_id)?;
     let lid = parse_ledger_id(&input.ledger_id)?;
     let existing = service
@@ -450,7 +460,7 @@ async fn add_user_inner(service: &Arc<UnbillService>, input: AddUserInput) -> Re
     Ok(UserDto::from(added_user))
 }
 
-async fn load_sync_devices(service: &Arc<UnbillService>) -> Result<Vec<SyncDeviceDto>> {
+async fn load_sync_devices(service: &Arc<UnbillConsole>) -> Result<Vec<SyncDeviceDto>> {
     let local_node_id = service.device_id().to_string();
     let device_labels = service.list_device_labels().await?;
     let mut by_node_id = BTreeMap::<String, SyncDeviceDto>::new();
@@ -491,7 +501,7 @@ async fn load_sync_devices(service: &Arc<UnbillService>) -> Result<Vec<SyncDevic
 }
 
 async fn load_sync_devices_for_ledger(
-    service: &Arc<UnbillService>,
+    service: &Arc<UnbillConsole>,
     ledger_id: LedgerId,
     ledger_name: &str,
     local_node_id: &str,
@@ -525,7 +535,7 @@ async fn load_sync_devices_for_ledger(
 }
 
 async fn load_ledger_detail_inner(
-    service: &Arc<UnbillService>,
+    service: &Arc<UnbillConsole>,
     ledger_id: LedgerId,
 ) -> Result<LedgerDetailDto> {
     let meta = service
@@ -588,7 +598,7 @@ async fn load_ledger_detail_inner(
 }
 
 async fn resolve_conflict_inner(
-    service: &Arc<UnbillService>,
+    service: &Arc<UnbillConsole>,
     input: ResolveConflictInput,
 ) -> Result<String> {
     let ledger_id = parse_ledger_id(&input.ledger_id)?;
@@ -639,8 +649,8 @@ async fn resolve_conflict_inner(
 }
 
 async fn summarize_ledger(
-    service: &Arc<UnbillService>,
-    meta: unbill_core::model::LedgerMeta,
+    service: &Arc<UnbillConsole>,
+    meta: unbill_console::model::LedgerMeta,
 ) -> Result<LedgerSummaryDto> {
     let users = service.list_users(meta.ledger_id).await?;
     let bills = service.list_bills(meta.ledger_id).await?;
@@ -658,7 +668,7 @@ async fn summarize_ledger(
 }
 
 fn map_bills_from(
-    bills: unbill_core::model::EffectiveBills,
+    bills: unbill_console::model::EffectiveBills,
     user_lookup: &std::collections::HashMap<UserId, String>,
 ) -> Vec<BillDto> {
     let mut items = bills
@@ -672,7 +682,7 @@ fn map_bills_from(
 }
 
 fn map_conflicts_from(
-    conflicts: Vec<unbill_core::service::ConflictGroup>,
+    conflicts: Vec<unbill_console::service::ConflictGroup>,
     user_lookup: &std::collections::HashMap<UserId, String>,
 ) -> Vec<ConflictGroupDto> {
     conflicts
@@ -685,7 +695,7 @@ fn map_conflicts_from(
 }
 
 fn map_bill_vec(
-    bills: Vec<unbill_core::model::Bill>,
+    bills: Vec<unbill_console::model::Bill>,
     user_lookup: &std::collections::HashMap<UserId, String>,
 ) -> Vec<BillDto> {
     let mut items = bills
@@ -697,10 +707,10 @@ fn map_bill_vec(
 }
 
 fn bill_to_dto(
-    bill: unbill_core::model::Bill,
+    bill: unbill_console::model::Bill,
     user_lookup: &std::collections::HashMap<UserId, String>,
 ) -> BillDto {
-    let to_share_dto = |share: unbill_core::model::Share| ShareDto {
+    let to_share_dto = |share: unbill_console::model::Share| ShareDto {
         display_name: user_lookup
             .get(&share.user_id)
             .cloned()
@@ -738,8 +748,8 @@ fn stringify_error(error: impl std::fmt::Display) -> String {
     error.to_string()
 }
 
-impl From<unbill_core::model::User> for UserDto {
-    fn from(value: unbill_core::model::User) -> Self {
+impl From<unbill_console::model::User> for UserDto {
+    fn from(value: unbill_console::model::User) -> Self {
         Self {
             user_id: value.user_id.to_string(),
             display_name: value.display_name,
@@ -755,31 +765,34 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             #[cfg(mobile)]
-            let root =
-                app.path()
+            let service = tauri::async_runtime::block_on(async {
+                let root = app
+                    .path()
                     .app_data_dir()
-                    .map_err(|error| -> Box<dyn std::error::Error> {
-                        Box::new(std::io::Error::other(error.to_string()))
-                    })?;
-            #[cfg(not(mobile))]
-            let root = unbill_store_fs::UNBILL_PATH.ensure_data_dir().map_err(
-                |error| -> Box<dyn std::error::Error> {
-                    Box::new(std::io::Error::other(error.to_string()))
-                },
-            )?;
-            let store = Arc::new(FsStore::new(root));
-            let service = tauri::async_runtime::block_on(UnbillService::open(store)).map_err(
-                |error| -> Box<dyn std::error::Error> {
-                    Box::new(std::io::Error::other(error.to_string()))
-                },
-            )?;
+                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+                let store = Arc::new(FsStore::open(root)?);
+                let channel = LocalAsymChannel::open(store)
+                    .await
+                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+                let accept = Arc::clone(&channel);
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = accept.accept_loop().await {
+                        tracing::error!("accept loop stopped: {e}");
+                    }
+                });
+                Ok::<_, std::io::Error>(UnbillConsole::open(channel as Arc<dyn AsymChannel>))
+            })
+            .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
 
-            let accept_loop_service = Arc::clone(&service);
-            tauri::async_runtime::spawn(async move {
-                if let Err(error) = accept_loop_service.accept_loop().await {
-                    tracing::error!("accept loop stopped: {error}");
-                }
-            });
+            #[cfg(not(mobile))]
+            let service = tauri::async_runtime::block_on(async {
+                let socket = unbill_store_fs::UNBILL_PATH
+                    .socket_path()
+                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+                let channel = RpcAsymChannel::connect(&socket).await?;
+                Ok::<_, std::io::Error>(UnbillConsole::open(channel as Arc<dyn AsymChannel>))
+            })
+            .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
 
             app.manage(AppState { service });
             Ok(())
@@ -806,9 +819,18 @@ mod tests {
     use std::sync::Arc;
 
     use serde_json::Value;
-    use unbill_core::model::{NewDevice, UserId};
-    use unbill_core::service::UnbillService;
+    use unbill_asymmetric_channel::AsymChannel;
+    use unbill_asymmetric_channel::local::LocalAsymChannel;
+    use unbill_console::model::{NewDevice, UserId};
+    use unbill_console::service::UnbillConsole;
     use unbill_store_memory::InMemoryStore;
+
+    async fn open_console() -> Arc<UnbillConsole> {
+        let channel = LocalAsymChannel::open(Arc::new(InMemoryStore::default()))
+            .await
+            .unwrap();
+        UnbillConsole::open(channel as Arc<dyn AsymChannel>)
+    }
 
     fn tauri_config() -> Value {
         serde_json::from_str(include_str!("../tauri.conf.json"))
@@ -854,15 +876,9 @@ mod tests {
 
     #[tokio::test]
     async fn ledger_detail_includes_sync_devices_for_selected_ledger() {
-        let host = UnbillService::open(Arc::new(InMemoryStore::default()))
-            .await
-            .unwrap();
-        let kitchen = UnbillService::open(Arc::new(InMemoryStore::default()))
-            .await
-            .unwrap();
-        let travel = UnbillService::open(Arc::new(InMemoryStore::default()))
-            .await
-            .unwrap();
+        let host = open_console().await;
+        let kitchen = open_console().await;
+        let travel = open_console().await;
 
         let groceries = host
             .create_ledger(super::NewLedger {
@@ -911,9 +927,7 @@ mod tests {
 
     #[tokio::test]
     async fn ledger_detail_includes_conflicting_bills_and_ancestors() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
-            .await
-            .unwrap();
+        let service = open_console().await;
         let (ledger_id, _base_id, left_id, right_id) = create_conflicted_ledger(&service).await;
 
         let detail = super::load_ledger_detail_inner(&service, ledger_id)
@@ -934,9 +948,7 @@ mod tests {
 
     #[tokio::test]
     async fn resolving_conflict_keeps_selected_bill_and_clears_group() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
-            .await
-            .unwrap();
+        let service = open_console().await;
         let (ledger_id, _base_id, left_id, right_id) = create_conflicted_ledger(&service).await;
 
         let merge_id = super::resolve_conflict_inner(
@@ -965,9 +977,7 @@ mod tests {
 
     #[tokio::test]
     async fn bootstrap_includes_current_device_id() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
-            .await
-            .unwrap();
+        let service = open_console().await;
 
         let bootstrap = super::bootstrap_app_inner(&service).await.unwrap();
 
@@ -976,9 +986,7 @@ mod tests {
 
     #[tokio::test]
     async fn add_user_to_ledger_from_another_ledger_preserves_identity() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
-            .await
-            .unwrap();
+        let service = open_console().await;
         let ledger_a = service
             .create_ledger(super::NewLedger {
                 name: "Kitchen".to_owned(),
@@ -1019,9 +1027,7 @@ mod tests {
 
     #[tokio::test]
     async fn add_user_with_unknown_id_fails_clearly() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
-            .await
-            .unwrap();
+        let service = open_console().await;
         let ledger_id = service
             .create_ledger(super::NewLedger {
                 name: "Kitchen".to_owned(),
@@ -1045,9 +1051,7 @@ mod tests {
 
     #[tokio::test]
     async fn bootstrap_all_users_aggregates_across_ledgers() {
-        let service = UnbillService::open(Arc::new(InMemoryStore::default()))
-            .await
-            .unwrap();
+        let service = open_console().await;
         let ledger_a = service
             .create_ledger(super::NewLedger {
                 name: "Kitchen".to_owned(),
@@ -1087,7 +1091,7 @@ mod tests {
     }
 
     async fn create_conflicted_ledger(
-        service: &Arc<UnbillService>,
+        service: &Arc<UnbillConsole>,
     ) -> (super::LedgerId, super::BillId, super::BillId, super::BillId) {
         let ledger_id = service
             .create_ledger(super::NewLedger {

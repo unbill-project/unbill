@@ -1,12 +1,10 @@
-// unbill-cli: command-line frontend for UnbillService.
+// unbill-cli: command-line frontend for UnbillConsole.
 // All business logic lives in unbill-core; this file is pure dispatch + I/O.
-
-use std::sync::Arc;
 
 use anyhow::bail;
 use clap::Parser;
-use unbill_core::service::UnbillService;
-use unbill_store_fs::FsStore;
+use unbill_asymmetric_channel::rpc::RpcAsymChannel;
+use unbill_console::service::UnbillConsole;
 use unbill_store_fs::UNBILL_PATH;
 
 mod commands;
@@ -77,9 +75,6 @@ pub enum LedgerCmd {
     Show {
         ledger_id: String,
     },
-    Delete {
-        ledger_id: String,
-    },
     /// List all devices authorized to sync this ledger.
     Devices {
         ledger_id: String,
@@ -91,7 +86,7 @@ pub enum LedgerCmd {
     /// Join a ledger using an unbill://join/... URL.
     Join {
         url: String,
-        /// Optional device-local label to remember the host device on this machine.
+        /// Optional local label for this device on the joined ledger.
         #[arg(long)]
         label: Option<String>,
     },
@@ -170,8 +165,6 @@ pub enum UserCmd {
 
 #[derive(clap::Subcommand)]
 pub enum SyncCmd {
-    /// Open the endpoint and wait for incoming sync connections.
-    Daemon,
     /// Dial a specific peer by NodeId and sync all shared ledgers.
     Once { peer_node_id: String },
     /// Show sync status.
@@ -201,8 +194,11 @@ async fn run() -> anyhow::Result<()> {
 
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
 
-    let store = Arc::new(FsStore::new(data_dir.clone()));
-    let svc = UnbillService::open(store).await?;
+    let socket = UNBILL_PATH.socket_path()?;
+    let channel = RpcAsymChannel::connect(&socket)
+        .await
+        .map_err(|e| anyhow::anyhow!("cannot connect to unbill-daemon: {e}"))?;
+    let svc = UnbillConsole::open(channel);
 
     match cli.command {
         Command::Init => commands::init(&svc, json).await,
@@ -215,7 +211,6 @@ async fn run() -> anyhow::Result<()> {
             }
             LedgerCmd::List => commands::ledger_list(&svc, json).await,
             LedgerCmd::Show { ledger_id } => commands::ledger_show(&svc, &ledger_id, json).await,
-            LedgerCmd::Delete { ledger_id } => commands::ledger_delete(&svc, &ledger_id).await,
             LedgerCmd::Devices { ledger_id } => {
                 commands::ledger_devices(&svc, &ledger_id, json).await
             }
@@ -285,7 +280,6 @@ async fn run() -> anyhow::Result<()> {
         },
         Command::Sync { sub } => match sub {
             SyncCmd::Once { peer_node_id } => commands::sync_once(&svc, &peer_node_id).await,
-            SyncCmd::Daemon => commands::sync_daemon(&svc).await,
             SyncCmd::Status => bail!("sync status is available from M3"),
         },
         Command::Settlement { user_id } => commands::settlement(&svc, &user_id, json).await,

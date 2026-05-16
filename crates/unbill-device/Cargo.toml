@@ -1,0 +1,17 @@
+[package]
+name = "unbill-device"
+description = "Device-side service for unbill — implements the AsymChannel contract over a local store."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+unbill-model = { path = "../unbill-model" }
+unbill-event = { path = "../unbill-event" }
+unbill-storage = { path = "../unbill-storage" }
+unbill-symmetric-channel = { path = "../unbill-symmetric-channel" }
+automerge.workspace = true
+async-trait.workspace = true
+tokio = { workspace = true, features = ["sync", "rt"] }

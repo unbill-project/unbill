@@ -536,7 +536,7 @@ pub fn App() -> impl IntoView {
                     <JoinLedgerSheet
                         initial_url=url
                         on_cancel=Callback::new(move |_| overlay.set(None))
-                        on_submit=Callback::new(move |(url, label): (String, String)| {
+                        on_submit=Callback::new(move |(url, label): (String, Option<String>)| {
                             loading_count.update(|n| *n += 1);
                             spawn_local(async move {
                                 match api::join_ledger(JoinLedgerInput { url, label }).await {

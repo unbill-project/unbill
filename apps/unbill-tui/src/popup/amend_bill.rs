@@ -5,7 +5,7 @@ use ratatui::{
     style::{Color, Modifier, Style},
     widgets::Paragraph,
 };
-use unbill_core::model::{Bill, BillId, LedgerId, NewBill, Share, User};
+use unbill_console::model::{Bill, BillId, LedgerId, NewBill, Share, User};
 
 use super::add_bill::{format_cents, parse_amount_cents};
 use super::{

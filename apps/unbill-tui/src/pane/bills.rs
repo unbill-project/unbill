@@ -162,8 +162,8 @@ pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
 }
 
 fn resolve_user_name(
-    user_id: &unbill_core::model::UserId,
-    users: &[unbill_core::model::User],
+    user_id: &unbill_console::model::UserId,
+    users: &[unbill_console::model::User],
 ) -> String {
     users
         .iter()

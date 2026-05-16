@@ -16,9 +16,10 @@ name = "unbill_server"
 path = "src/lib.rs"
 
 [dependencies]
-unbill-core = { path = "../../crates/unbill-core", features = ["local"] }
+unbill-device = { path = "../../crates/unbill-device" }
+unbill-model = { path = "../../crates/unbill-model" }
 unbill-store-fs = { path = "../../crates/unbill-store-fs" }
-tokio.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
@@ -26,11 +27,12 @@ axum.workspace = true
 tower.workspace = true
 tower-http.workspace = true
 serde.workspace = true
-serde_json.workspace = true
-automerge.workspace = true
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["test-util"] }
+unbill-storage = { path = "../../crates/unbill-storage" }
+automerge.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }
 tower = { workspace = true, features = ["util"] }
 http-body-util = "0.1"
 tempfile = "3"

@@ -25,7 +25,7 @@ src/
 - `ratatui` — terminal rendering
 - `crossterm` — terminal backend and raw-mode input
 - `tokio` — async runtime (shared with unbill-core)
-- `unbill-core` — all domain logic via `UnbillService`
+- `unbill-core` — all domain logic via `UnbillConsole`
 
 ## AppState
 
@@ -48,7 +48,7 @@ status_message: Option<String>
 The main loop runs in a single tokio task and selects across three concurrent streams:
 
 1. **Terminal events** — crossterm key and resize events via `EventStream`.
-1. **Service events** — `broadcast::Receiver<ServiceEvent>` from `UnbillService::subscribe()`. A `LedgerUpdated` event refreshes bills, users, and settlement.
+1. **Service events** — `broadcast::Receiver<ServiceEvent>` from `UnbillConsole::subscribe()`. A `LedgerUpdated` event refreshes bills, users, and settlement.
 1. **Render tick** — a 16 ms interval (~60 fps) that triggers a redraw unconditionally.
 
 Key events are routed first to the active popup (if any), then to the bill editor (if active and Detail pane is focused), then to the focused pane.
@@ -91,7 +91,7 @@ enum PopupOutcome {
 }
 ```
 
-`PopupAction` carries the data for the service call. The event loop matches on the action and calls the appropriate `UnbillService` method.
+`PopupAction` carries the data for the service call. The event loop matches on the action and calls the appropriate `UnbillConsole` method.
 
 ## Settings popup
 
@@ -106,4 +106,4 @@ Generating an invite returns `Action(GenerateInvite { ledger_id })`, which the a
 
 ## Testing
 
-The TUI has no unit tests of its own. Domain correctness is covered by `unbill-core` tests. The TUI is validated manually against the same `UnbillService` that the CLI e2e tests exercise.
+The TUI has no unit tests of its own. Domain correctness is covered by `unbill-core` tests. The TUI is validated manually against the same `UnbillConsole` that the CLI e2e tests exercise.

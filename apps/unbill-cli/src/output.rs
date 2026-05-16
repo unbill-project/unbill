@@ -4,9 +4,9 @@
 // Domain types themselves do not derive Serialize — this module owns that
 // concern so the core library stays independent of serialization.
 
-use unbill_core::model::{Bill, Device, LedgerMeta, User};
-use unbill_core::service::ConflictGroup;
-use unbill_core::settlement::Settlement;
+use unbill_console::model::{Bill, Device, LedgerMeta, User};
+use unbill_console::service::ConflictGroup;
+use unbill_console::settlement::Settlement;
 
 // ---------------------------------------------------------------------------
 // Output types
@@ -84,7 +84,7 @@ pub fn ledger_out(m: &LedgerMeta) -> LedgerOut {
 }
 
 pub fn bill_out(b: &Bill) -> BillOut {
-    let to_share_out = |s: &unbill_core::model::Share| ShareOut {
+    let to_share_out = |s: &unbill_console::model::Share| ShareOut {
         user_id: s.user_id.to_string(),
         shares: s.shares,
     };

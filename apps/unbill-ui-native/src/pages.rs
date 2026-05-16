@@ -624,7 +624,7 @@ pub fn AddLedgerUserSheet(
 pub fn JoinLedgerSheet(
     initial_url: String,
     on_cancel: Callback<()>,
-    on_submit: Callback<(String, String)>,
+    on_submit: Callback<(String, Option<String>)>,
 ) -> impl IntoView {
     let url = RwSignal::new(initial_url);
     let label = RwSignal::new(String::new());
@@ -642,7 +642,7 @@ pub fn JoinLedgerSheet(
                         on:input=move |event| url.set(event_target_value(&event))
                     />
                 </FieldBlock>
-                <FieldBlock label="Local device label".to_owned()>
+                <FieldBlock label="Local device label (optional)".to_owned()>
                     <input
                         class="ui-input"
                         prop:value=move || label.get()
@@ -652,7 +652,7 @@ pub fn JoinLedgerSheet(
                 <ActionButton
                     label="Join Ledger".to_owned()
                     full_width=true
-                    on_press=Callback::new(move |_| on_submit.run((url.get(), label.get())))
+                    on_press=Callback::new(move |_| on_submit.run((url.get(), Some(label.get()).filter(|s| !s.is_empty()))))
                 />
             </div>
         </ModalSheet>

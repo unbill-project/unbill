@@ -15,7 +15,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-unbill-core = { path = "../unbill-core", features = ["local"] }
+unbill-console = { path = "../unbill-console" }
+unbill-asymmetric-channel = { path = "../unbill-asymmetric-channel", features = ["local", "rpc"] }
 unbill-store-fs = { path = "../unbill-store-fs" }
 anyhow.workspace = true
 serde.workspace = true

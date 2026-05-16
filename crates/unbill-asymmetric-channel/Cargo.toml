@@ -1,0 +1,41 @@
+[package]
+name = "unbill-asymmetric-channel"
+description = "Asymmetric channel trait for unbill — the device-to-console protocol contract."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[features]
+# In-process implementation backed by unbill-device.
+local = ["dep:unbill-device", "tokio/rt"]
+# HTTP client calling unbill-server.
+http = ["dep:reqwest", "dep:serde_json"]
+# tarpc RPC server + client over interprocess local sockets.
+rpc = ["dep:tarpc", "dep:interprocess", "dep:tokio-util", "dep:tokio-stream", "dep:serde_json", "dep:futures-util", "tokio/rt"]
+
+[dependencies]
+unbill-model = { path = "../unbill-model" }
+async-trait.workspace = true
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["sync"] }
+
+# local
+unbill-device = { path = "../unbill-device", optional = true }
+
+# http
+automerge = { workspace = true, optional = true }
+
+# http-client
+reqwest = { workspace = true, optional = true }
+
+# http-client + rpc
+serde_json = { workspace = true, optional = true }
+
+# rpc
+tokio-stream = { workspace = true, optional = true }
+tokio-util = { version = "0.7", features = ["codec"], optional = true }
+futures-util = { workspace = true, optional = true }
+tarpc = { workspace = true, optional = true }
+interprocess = { version = "2", features = ["tokio"], optional = true }
