@@ -9,6 +9,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use rand::TryRng as _;
+use tokio::sync::broadcast;
+use unbill_event::ServiceEvent;
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
 use unbill_storage::{LedgerDoc, LedgerStore, StorageResult as Result};
 
@@ -18,6 +20,7 @@ pub struct FsStore {
     /// the lifetime of this store, preventing two processes from sharing the
     /// same data directory simultaneously.
     _lock: std::fs::File,
+    events: broadcast::Sender<ServiceEvent>,
 }
 
 impl FsStore {
@@ -40,9 +43,11 @@ impl FsStore {
                 ),
             )
         })?;
+        let (events, _) = broadcast::channel(256);
         Ok(Self {
             root,
             _lock: lock_file,
+            events,
         })
     }
 
@@ -148,7 +153,15 @@ impl LedgerStore for FsStore {
     async fn save_ledger(&self, ledger_id: &str, doc: &mut LedgerDoc) -> Result<()> {
         let dir = self.ledger_dir(ledger_id);
         tokio::fs::create_dir_all(&dir).await?;
-        atomic_write(dir.join("ledger.bin"), &doc.save()).await
+        atomic_write(dir.join("ledger.bin"), &doc.save()).await?;
+        let _ = self.events.send(ServiceEvent::LedgerUpdated {
+            ledger_id: ledger_id.to_owned(),
+        });
+        Ok(())
+    }
+
+    fn subscribe(&self) -> broadcast::Receiver<ServiceEvent> {
+        self.events.subscribe()
     }
 
     async fn delete_ledger(&self, ledger_id: &str) -> Result<()> {

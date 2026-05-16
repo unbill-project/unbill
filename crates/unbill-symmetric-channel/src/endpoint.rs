@@ -17,10 +17,8 @@
 
 use std::sync::Arc;
 
-use tokio::sync::broadcast;
 use tracing::{info, warn};
 
-use unbill_event::ServiceEvent;
 use unbill_model::{NodeId, SecretKey, UnbillError};
 
 type Result<T> = std::result::Result<T, UnbillError>;
@@ -124,12 +122,7 @@ impl UnbillEndpoint {
     // Initiator: sync once
     // -----------------------------------------------------------------------
 
-    pub async fn sync_once_inner(
-        &self,
-        peer: NodeId,
-        store: &Arc<dyn LedgerStore>,
-        events: &broadcast::Sender<ServiceEvent>,
-    ) -> Result<()> {
+    pub async fn sync_once_inner(&self, peer: NodeId, store: &Arc<dyn LedgerStore>) -> Result<()> {
         let conn = self
             .inner
             .connect(self.peer_addr(&peer)?, ALPN_SYNC)
@@ -141,7 +134,7 @@ impl UnbillEndpoint {
             .open_bi()
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?;
-        run_sync_session(true, peer_node_id, store, events, recv, send).await?;
+        run_sync_session(true, peer_node_id, store, recv, send).await?;
         conn.close(0u32.into(), b"done");
         Ok(())
     }
@@ -156,7 +149,6 @@ impl UnbillEndpoint {
         local_label: Option<String>,
         request: JoinRequest,
         store: &Arc<dyn LedgerStore>,
-        events: &broadcast::Sender<ServiceEvent>,
     ) -> Result<()> {
         let conn = self
             .inner
@@ -168,7 +160,7 @@ impl UnbillEndpoint {
             .open_bi()
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?;
-        run_join_requester(host, local_label, request, store, events, recv, send).await?;
+        run_join_requester(host, local_label, request, store, recv, send).await?;
         conn.close(0u32.into(), b"done");
         Ok(())
     }
@@ -177,11 +169,7 @@ impl UnbillEndpoint {
     // Responder: accept loop
     // -----------------------------------------------------------------------
 
-    pub async fn accept_loop_inner(
-        &self,
-        store: Arc<dyn LedgerStore>,
-        events: broadcast::Sender<ServiceEvent>,
-    ) -> Result<()> {
+    pub async fn accept_loop_inner(&self, store: Arc<dyn LedgerStore>) -> Result<()> {
         loop {
             let incoming = match self.inner.accept().await {
                 None => {
@@ -219,10 +207,9 @@ impl UnbillEndpoint {
             self.cache_peer(&conn).await;
             let peer = conn.remote_id().to_node_id();
             let store = Arc::clone(&store);
-            let events = events.clone();
 
             tokio::spawn(async move {
-                if let Err(e) = dispatch(conn, peer, &alpn, store, events).await {
+                if let Err(e) = dispatch(conn, peer, &alpn, store).await {
                     warn!("connection handler error: {e:#}");
                 }
             });
@@ -240,7 +227,6 @@ async fn dispatch(
     peer: NodeId,
     alpn: &[u8],
     store: Arc<dyn LedgerStore>,
-    events: broadcast::Sender<ServiceEvent>,
 ) -> Result<()> {
     match alpn {
         ALPN_SYNC => {
@@ -248,14 +234,14 @@ async fn dispatch(
                 .accept_bi()
                 .await
                 .map_err(|e| UnbillError::Network(e.to_string()))?;
-            run_sync_session(false, peer, &store, &events, recv, send).await?;
+            run_sync_session(false, peer, &store, recv, send).await?;
         }
         ALPN_JOIN => {
             let (send, recv) = conn
                 .accept_bi()
                 .await
                 .map_err(|e| UnbillError::Network(e.to_string()))?;
-            run_join_host(peer, &store, &events, recv, send).await?;
+            run_join_host(peer, &store, recv, send).await?;
         }
         other => {
             return Err(UnbillError::Network(format!(

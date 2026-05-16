@@ -1,4 +1,6 @@
 use async_trait::async_trait;
+use tokio::sync::broadcast;
+use unbill_event::ServiceEvent;
 
 use unbill_model::{LedgerMeta, NodeId, SecretKey, StorageError};
 
@@ -41,4 +43,8 @@ pub trait LedgerStore: Send + Sync {
     /// Returns `Err(StorageError::Unauthorized)` on stores that cannot expose
     /// key material (e.g. `HttpStore`).
     async fn get_secret_key(&self) -> StorageResult<SecretKey>;
+
+    /// Subscribe to ledger change events.  A [`ServiceEvent::LedgerUpdated`]
+    /// is sent every time [`save_ledger`] completes successfully.
+    fn subscribe(&self) -> broadcast::Receiver<ServiceEvent>;
 }
