@@ -330,3 +330,77 @@ async fn run_sse(
 
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+    use tokio::sync::broadcast;
+
+    use crate::AsymChannelEvent;
+
+    use super::{Client, run_sse};
+
+    /// Binds an ephemeral TCP listener, spawns a task that accepts one
+    /// connection, reads the request (discarded), writes `response_body`
+    /// after the HTTP headers, then closes the connection.  Returns the port.
+    async fn serve_sse_once(response_body: String) -> u16 {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut buf = [0u8; 4096];
+            let _ = stream.read(&mut buf).await;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n{}",
+                response_body
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+            // Dropping `stream` closes the connection → EOF for the client.
+        });
+        port
+    }
+
+    #[tokio::test]
+    async fn test_run_sse_delivers_ledger_updated_event() {
+        let body =
+            "data: {\"type\":\"LedgerUpdated\",\"ledger_id\":\"00000000000000000000000001\"}\n\n"
+                .to_string();
+        let port = serve_sse_once(body).await;
+
+        let (tx, mut rx) = broadcast::channel(16);
+        let client = Client::new();
+        let url = format!("http://127.0.0.1:{}/events", port);
+        let _ = run_sse(&client, &url, "test-token", &tx).await;
+
+        let event = rx
+            .try_recv()
+            .expect("expected one event on the broadcast channel");
+        assert!(
+            matches!(event, AsymChannelEvent::LedgerUpdated { .. }),
+            "expected LedgerUpdated, got {:?}",
+            event
+        );
+    }
+
+    #[tokio::test]
+    async fn test_run_sse_ignores_non_data_lines() {
+        // Comment lines, event: lines, and id: lines must not produce events.
+        let body = ": keep-alive\nevent: ping\nid: 42\n\n".to_string();
+        let port = serve_sse_once(body).await;
+
+        let (tx, mut rx) = broadcast::channel(16);
+        let client = Client::new();
+        let url = format!("http://127.0.0.1:{}/events", port);
+        let _ = run_sse(&client, &url, "test-token", &tx).await;
+
+        assert!(
+            rx.try_recv().is_err(),
+            "no event should be delivered for non-data SSE lines"
+        );
+    }
+}

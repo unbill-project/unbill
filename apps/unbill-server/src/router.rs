@@ -557,6 +557,38 @@ mod tests {
         assert!(!body.is_empty());
     }
 
+    // --- events (SSE) -------------------------------------------------------
+
+    #[tokio::test]
+    async fn test_events_unauthenticated_returns_401() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = make_app(dir.path()).await;
+        let req = Request::builder()
+            .uri("/api/v1/events")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_events_authenticated_returns_text_event_stream() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = make_app(dir.path()).await;
+        let resp = app.oneshot(auth_get("/api/v1/events")).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let content_type = resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        assert!(
+            content_type.contains("text/event-stream"),
+            "expected text/event-stream, got {:?}",
+            content_type
+        );
+    }
+
     // --- path traversal -----------------------------------------------------
 
     #[tokio::test]
