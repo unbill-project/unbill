@@ -6,8 +6,8 @@
 
 ## Key types
 
-- `UnbillDevice` — holds `Arc<dyn LedgerStore>`, `NodeId`, `Mutex<Option<Arc<UnbillEndpoint>>>`, and a `broadcast::Sender<ServiceEvent>`
-- `ServiceEvent` — re-exported from `unbill-event`; broadcasted after any ledger state change
+- `UnbillDevice` — holds `Arc<dyn LedgerStore>`, `NodeId`, and `UnbillEndpoint`
+- `ServiceEvent` — re-exported from `unbill-event`; emitted by the store on every `save_ledger`; `UnbillDevice::subscribe()` delegates to `store.subscribe()`
 
 ## Notable behaviors
 

@@ -46,7 +46,7 @@ sequenceDiagram
 - all protocols use length-prefixed CBOR framing
 - sync state is session-local and not persisted between connections
 - sync is user-initiated; there is no background polling or automatic reconciliation loop
-- after remote changes are applied, the touched ledger is saved and the service emits `LedgerUpdated`
+- after remote changes are applied, the touched ledger is saved; `LedgerUpdated` is emitted automatically by the store
 - join authorizes devices only; adding a named ledger user is a separate step
 - device labels and pending invitations stay in local metadata, not shared ledger state
 

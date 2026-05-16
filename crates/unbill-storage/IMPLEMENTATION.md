@@ -9,7 +9,7 @@
 
 ## Dependencies
 
-Depends on `unbill-model` only. Store implementations live in separate crates (`unbill-store-fs`, `unbill-store-memory`, `unbill-store-http`).
+Depends on `unbill-model` and `unbill-event`. Store implementations live in separate crates (`unbill-store-fs`, `unbill-store-memory`, `unbill-store-http`).
 
 ## Testing
 

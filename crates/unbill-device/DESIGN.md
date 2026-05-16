@@ -8,7 +8,7 @@ The device-side service for unbill. It implements the Device role from the archi
 - Derive the device `NodeId` from the store's secret key
 - Handle asym channel requests from consoles: invitation creation, ledger join, peer sync trigger, and Automerge sync rounds
 - Run the `UnbillEndpoint` accept loop to serve incoming sym channel connections from peer devices
-- Broadcast `ServiceEvent` to all subscribers when ledger state changes
+- Expose `subscribe()` which delegates to the underlying store's event bus
 
 ## Contract
 
