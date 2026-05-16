@@ -1,24 +1,28 @@
 # unbill-server
 
-`unbill-server` is a standalone HTTPS-capable HTTP server that implements the REST API consumed by `HttpStore`. It is the remote persistence backend for a single device: one device key namespace, one set of ledgers.
+`unbill-server` is a standalone HTTP server that exposes the device API consumed by `HttpAsymChannel`. It is the remote backend for a single device: one device identity, one set of ledgers.
 
 ## Purpose
 
-Provides a hosted storage backend so that a device using `HttpStore` can persist ledger snapshots and device metadata on a remote machine instead of local disk. A single running instance serves one authenticated client identified by a static API key.
+Provides a hosted backend so that a console using `HttpAsymChannel` can reach the device API over a network instead of a local socket. A single running instance serves one authenticated client identified by a static API key.
 
 ## API
 
 All endpoints require `Authorization: Bearer <api_key>`. Requests with a missing or wrong key receive `401 Unauthorized`.
 
 | Method | Path | Request body | Success |
-|----------|----------------------------|--------------------------------|----------------|
+|----------|-------------------------------|-------------------------------|----------------------|
 | `GET` | `/ledgers` | — | 200 JSON array |
-| `PUT` | `/ledgers/:id/meta` | JSON `LedgerMeta` | 204 |
-| `GET` | `/ledgers/:id/snapshot` | — | 200 bytes / 404|
-| `PUT` | `/ledgers/:id/snapshot` | `application/octet-stream` | 204 |
-| `DELETE` | `/ledgers/:id` | — | 204 (idempotent)|
-| `GET` | `/device/:key` | — | 200 bytes / 404|
-| `PUT` | `/device/:key` | `application/octet-stream` | 204 |
+| `PUT` | `/ledgers/{id}/meta` | JSON `LedgerMeta` | 204 |
+| `POST` | `/ledgers/{id}/sync` | `application/octet-stream` | 200 bytes / 204 |
+| `POST` | `/ledgers/{id}/invitations` | — | 200 JSON `{ url }` |
+| `POST` | `/ledgers/join` | JSON `{ url, label? }` | 204 |
+| `POST` | `/peers/{node_id}/sync` | — | 204 |
+| `GET` | `/device/id` | — | 200 plain text |
+| `GET` | `/device/{key}` | — | 200 bytes / 404 |
+| `PUT` | `/device/{key}` | `application/octet-stream` | 204 |
+
+`POST /ledgers/{id}/sync` exchanges a binary Automerge sync message. The client sends its sync message bytes; the server responds with its own message (200) or nothing (204) when it has nothing new. An unparseable message body returns `400`.
 
 Device key names must consist solely of alphanumeric characters, hyphens, underscores, and dots. Any other key is rejected with `400 Bad Request`.
 
@@ -27,10 +31,11 @@ Device key names must consist solely of alphanumeric characters, hyphens, unders
 All configuration is read from environment variables at startup. The server exits immediately if a required variable is absent.
 
 | Variable | Required | Default | Description |
-|------------|----------|---------|------------------------------------|
+|-----------|----------|---------|----------------------------------------------------|
 | `API_KEY` | yes | — | Bearer token clients must supply |
-| `DATA_DIR` | no | `./data`| Root directory handed to `FsStore` |
 | `PORT` | no | `8080` | TCP port to listen on |
+
+The data directory is resolved by `unbill_store_fs::UNBILL_PATH.ensure_data_dir()`, which uses the `UNBILL_DATA_DIR` environment variable if set, or the platform default (`~/.local/share/unbill` on Linux, `~/Library/Application Support/unbill` on macOS) otherwise.
 
 ## Boundaries
 

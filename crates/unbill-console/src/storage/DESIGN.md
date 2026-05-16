@@ -57,7 +57,7 @@ Authentication: every request carries `Authorization: Bearer <api_key>`.
 |----------|----------------------------|---------------------------|---------|-------------------------------------------|
 | `GET` | `/ledgers` | — | 200 JSON array of `LedgerMeta` | Empty array when none exist |
 | `PUT` | `/ledgers/{id}/meta` | JSON `LedgerMeta` | 204 | |
-| `POST` | `/ledgers/{id}/sync` | JSON `SyncRequest` | 200 JSON `SyncResponse` | Delta exchange; see below |
+| `POST` | `/ledgers/{id}/sync` | `application/octet-stream` | 200 `application/octet-stream` / 204 | Delta exchange; see below |
 | `DELETE` | `/ledgers/{id}` | — | 204 | Idempotent |
 | `GET` | `/device/{key}` | — | 200 `application/octet-stream` | 404 → `None` |
 | `PUT` | `/device/{key}` | `application/octet-stream`| 204 | |
