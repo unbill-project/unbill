@@ -10,7 +10,6 @@ homepage.workspace = true
 [dependencies]
 unbill-model = { path = "../unbill-model" }
 unbill-storage = { path = "../unbill-storage" }
-unbill-event = { path = "../unbill-event" }
 iroh.workspace = true
 tokio = { workspace = true, features = ["rt", "io-util"] }
 serde.workspace = true

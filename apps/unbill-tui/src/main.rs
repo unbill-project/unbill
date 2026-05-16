@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
     let channel = RpcAsymChannel::connect(&socket)
         .await
         .map_err(|e| anyhow::anyhow!("cannot connect to unbill-daemon: {e}"))?;
-    let svc = UnbillConsole::open(channel);
+    let svc = UnbillConsole::open(channel).await;
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();

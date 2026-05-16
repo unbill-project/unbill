@@ -8,9 +8,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::sync::broadcast;
 
-use unbill_event::ServiceEvent;
 use unbill_model::{NodeId, UnbillError};
 use unbill_storage::{LedgerDoc, LedgerStore};
 
@@ -33,8 +31,6 @@ struct LedgerSyncState {
 ///   by the caller from the Iroh connection context).
 /// * `store` — used to list ledgers, load docs for the session, and persist
 ///   updated bytes after merging remote changes.
-/// * `events` — `LedgerUpdated` is emitted for every ledger that received new
-///   changes.
 ///
 /// Ledger documents are loaded from the store at the start of the session and
 /// held in memory only for its duration. Nothing is cached between sessions.
@@ -42,7 +38,6 @@ pub async fn run_sync_session<R, W>(
     is_initiator: bool,
     peer_node_id: NodeId,
     store: &Arc<dyn LedgerStore>,
-    events: &broadcast::Sender<ServiceEvent>,
     mut reader: R,
     mut writer: W,
 ) -> Result<()>
@@ -231,15 +226,12 @@ where
     }
 
     // -----------------------------------------------------------------------
-    // Step 4: Persist and emit events for ledgers that received remote changes
+    // Step 4: Persist ledgers that received remote changes
     // -----------------------------------------------------------------------
 
     for id in &ledgers_with_remote_changes {
         if let Some(doc) = docs.get_mut(id) {
             store.save_ledger(id, doc).await?;
-            let _ = events.send(ServiceEvent::LedgerUpdated {
-                ledger_id: id.clone(),
-            });
         }
     }
 
@@ -254,9 +246,6 @@ where
 mod tests {
     use std::sync::Arc;
 
-    use tokio::sync::broadcast;
-
-    use unbill_event::ServiceEvent;
     use unbill_model::{Currency, LedgerId, NewBill, NewDevice, NodeId, Share, Timestamp, UserId};
     use unbill_storage::{LedgerDoc, LedgerStore};
     use unbill_store_memory::InMemoryStore;
@@ -265,10 +254,6 @@ mod tests {
 
     fn make_store() -> Arc<InMemoryStore> {
         Arc::new(InMemoryStore::default())
-    }
-
-    fn make_events() -> broadcast::Sender<ServiceEvent> {
-        broadcast::channel(16).0
     }
 
     fn usd() -> Currency {
@@ -297,9 +282,6 @@ mod tests {
         peer_a: NodeId,
         peer_b: NodeId,
     ) {
-        let events_a = make_events();
-        let events_b = make_events();
-
         let (stream_a, stream_b) = tokio::io::duplex(64 * 1024);
         let (a_read, a_write) = tokio::io::split(stream_a);
         let (b_read, b_write) = tokio::io::split(stream_b);
@@ -308,12 +290,12 @@ mod tests {
         let sb = Arc::clone(&store_b);
 
         let task_a = tokio::spawn(async move {
-            run_sync_session(true, peer_b, &sa, &events_a, a_read, a_write)
+            run_sync_session(true, peer_b, &sa, a_read, a_write)
                 .await
                 .unwrap();
         });
         let task_b = tokio::spawn(async move {
-            run_sync_session(false, peer_a, &sb, &events_b, b_read, b_write)
+            run_sync_session(false, peer_a, &sb, b_read, b_write)
                 .await
                 .unwrap();
         });

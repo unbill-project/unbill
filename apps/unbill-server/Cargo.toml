@@ -20,6 +20,8 @@ unbill-device = { path = "../../crates/unbill-device" }
 unbill-model = { path = "../../crates/unbill-model" }
 unbill-store-fs = { path = "../../crates/unbill-store-fs" }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
+tokio-stream.workspace = true
+serde_json.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

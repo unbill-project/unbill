@@ -9,6 +9,7 @@ homepage.workspace = true
 
 [dependencies]
 unbill-model = { path = "../unbill-model" }
+unbill-event = { path = "../unbill-event" }
 automerge.workspace = true
 autosurgeon.workspace = true
 async-trait.workspace = true

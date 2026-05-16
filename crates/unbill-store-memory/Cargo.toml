@@ -10,6 +10,8 @@ homepage.workspace = true
 [dependencies]
 unbill-storage = { path = "../unbill-storage" }
 unbill-model = { path = "../unbill-model" }
+unbill-event = { path = "../unbill-event" }
 async-trait.workspace = true
 iroh.workspace = true
 rand.workspace = true
+tokio = { workspace = true, features = ["sync"] }

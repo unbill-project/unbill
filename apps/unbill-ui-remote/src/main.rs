@@ -42,7 +42,7 @@ async fn init_service(api_key: String) -> Result<(), String> {
     let channel = HttpAsymChannel::open(base_url, api_key)
         .await
         .map_err(|e| e.to_string())?;
-    let service = UnbillConsole::open(Arc::new(channel) as Arc<dyn AsymChannel>);
+    let service = UnbillConsole::open(Arc::new(channel) as Arc<dyn AsymChannel>).await;
     api::init(service);
     Ok(())
 }

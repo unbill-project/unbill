@@ -1,3 +1,4 @@
+use std::convert::Infallible;
 use std::sync::Arc;
 
 use axum::{
@@ -6,13 +7,16 @@ use axum::{
     extract::{Path, Request, State},
     http::{HeaderMap, StatusCode},
     middleware::{self, Next},
+    response::sse::{Event, KeepAlive, Sse},
     response::{IntoResponse, Response},
     routing::{get, post, put},
 };
 use serde::{Deserialize, Serialize};
+use tokio_stream::StreamExt as _;
+use tokio_stream::wrappers::BroadcastStream;
 use tower_http::trace::TraceLayer;
 
-use unbill_device::UnbillDevice;
+use unbill_device::{ServiceEvent, UnbillDevice};
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
 
 // ---------------------------------------------------------------------------
@@ -64,6 +68,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/ledgers/{id}/invitations", post(create_invitation))
         .route("/ledgers/join", post(join_ledger))
         .route("/peers/{node_id}/sync", post(sync_with_peer))
+        .route("/events", get(stream_events))
         .route("/device/id", get(get_device_id))
         .route("/device/{key}", get(load_device_meta).put(save_device_meta))
         .layer(middleware::from_fn_with_state(state.clone(), auth))
@@ -253,6 +258,23 @@ async fn sync_with_peer(
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
+}
+
+/// `GET /events` — SSE stream of device events.
+async fn stream_events(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let rx = state.service.subscribe();
+    let stream = BroadcastStream::new(rx).filter_map(|result| match result.ok()? {
+        ServiceEvent::LedgerUpdated { ledger_id } => {
+            let data = serde_json::json!({
+                "type": "LedgerUpdated",
+                "ledger_id": ledger_id,
+            })
+            .to_string();
+            Some(Ok::<Event, Infallible>(Event::default().data(data)))
+        }
+        _ => None,
+    });
+    Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
 // ---------------------------------------------------------------------------
@@ -533,6 +555,38 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::OK);
         let body = body_bytes(resp).await;
         assert!(!body.is_empty());
+    }
+
+    // --- events (SSE) -------------------------------------------------------
+
+    #[tokio::test]
+    async fn test_events_unauthenticated_returns_401() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = make_app(dir.path()).await;
+        let req = Request::builder()
+            .uri("/api/v1/events")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_events_authenticated_returns_text_event_stream() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = make_app(dir.path()).await;
+        let resp = app.oneshot(auth_get("/api/v1/events")).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let content_type = resp
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        assert!(
+            content_type.contains("text/event-stream"),
+            "expected text/event-stream, got {:?}",
+            content_type
+        );
     }
 
     // --- path traversal -----------------------------------------------------

@@ -7893,6 +7893,7 @@ dependencies = [
  "tokio-util",
  "unbill-device",
  "unbill-model",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -7935,6 +7936,7 @@ dependencies = [
  "unbill-model",
  "unbill-storage",
  "unbill-store-memory",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]
@@ -7993,6 +7995,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "tokio-stream",
  "tower",
  "tower-http",
  "tracing",
@@ -8012,6 +8015,7 @@ dependencies = [
  "autosurgeon",
  "serde_json",
  "tokio",
+ "unbill-event",
  "unbill-model",
 ]
 
@@ -8029,6 +8033,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "unbill-event",
  "unbill-model",
  "unbill-storage",
 ]
@@ -8040,6 +8045,8 @@ dependencies = [
  "async-trait",
  "iroh",
  "rand 0.10.1",
+ "tokio",
+ "unbill-event",
  "unbill-model",
  "unbill-storage",
 ]
@@ -8055,7 +8062,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
- "unbill-event",
  "unbill-model",
  "unbill-storage",
  "unbill-store-memory",

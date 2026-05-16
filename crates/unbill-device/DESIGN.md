@@ -8,7 +8,7 @@ The device-side service for unbill. It implements the Device role from the archi
 - Derive the device `NodeId` from the store's secret key
 - Handle asym channel requests from consoles: invitation creation, ledger join, peer sync trigger, and Automerge sync rounds
 - Run the `UnbillEndpoint` accept loop to serve incoming sym channel connections from peer devices
-- Broadcast `ServiceEvent` to all subscribers when ledger state changes
+- Expose `subscribe()` which delegates to the underlying store's event bus
 
 ## Contract
 
@@ -21,3 +21,4 @@ The device-side service for unbill. It implements the Device role from the archi
 - `accept_loop` runs until the endpoint closes; it is the long-lived background task for daemon deployments
 - pending invitation tokens are persisted in local device metadata, not in shared ledger state
 - join URL format: `unbill://join/<ledger_id>/<host_node_id>/<token>`
+- `asym_sync` only persists (and therefore only emits `LedgerUpdated`) when the client's sync message actually advances the document's heads; sync rounds that bring no new data are no-ops on the store

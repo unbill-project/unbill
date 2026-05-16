@@ -198,7 +198,7 @@ async fn run() -> anyhow::Result<()> {
     let channel = RpcAsymChannel::connect(&socket)
         .await
         .map_err(|e| anyhow::anyhow!("cannot connect to unbill-daemon: {e}"))?;
-    let svc = UnbillConsole::open(channel);
+    let svc = UnbillConsole::open(channel).await;
 
     match cli.command {
         Command::Init => commands::init(&svc, json).await,

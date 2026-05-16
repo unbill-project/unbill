@@ -17,7 +17,9 @@ The tarpc service uses `String` for error returns so all types are serializable.
 
 ## HTTP implementation
 
-`HttpAsymChannel` wraps a `reqwest::Client` with a base URL and bearer token. Each `AsymChannel` method maps to one REST endpoint on `unbill-server`. `subscribe_to_server` returns a receiver from a broadcast channel that is never written to — push events are not yet delivered over HTTP. Callers receive an empty stream.
+`HttpAsymChannel` wraps a `reqwest::Client` with a base URL and bearer token. Each `AsymChannel` method maps to one REST endpoint on `unbill-server`.
+
+`open` spawns a background task (`sse_task`) that connects to `GET /api/v1/events` with the same `Authorization: Bearer` header used by all other requests. The response body is read line by line as a streaming text response. Lines beginning with `data: ` are parsed as JSON into `AsymChannelEvent` and sent into an internal `broadcast::Sender<AsymChannelEvent>`. Other SSE fields (`event:`, `id:`, comments) are ignored. On connection error or clean close, the task reconnects with a short delay. `subscribe_to_server` returns a receiver from that sender.
 
 ## Dependencies
 

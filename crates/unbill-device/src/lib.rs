@@ -20,7 +20,6 @@ pub struct UnbillDevice {
     store: Arc<dyn LedgerStore>,
     device_id: NodeId,
     endpoint: UnbillEndpoint,
-    events: broadcast::Sender<ServiceEvent>,
 }
 
 impl UnbillDevice {
@@ -29,12 +28,10 @@ impl UnbillDevice {
         let device_id = store.get_device_id().await?;
         let key = store.get_secret_key().await?;
         let endpoint = UnbillEndpoint::bind(&key).await?;
-        let (events, _) = broadcast::channel(256);
         Ok(Arc::new(Self {
             store,
             device_id,
             endpoint,
-            events,
         }))
     }
 
@@ -47,7 +44,7 @@ impl UnbillDevice {
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<ServiceEvent> {
-        self.events.subscribe()
+        self.store.subscribe()
     }
 
     /// Generate a join invite URL for `ledger_id` and persist the pending invitation.
@@ -80,21 +77,13 @@ impl UnbillDevice {
     pub async fn join_ledger(&self, url: &str, label: Option<String>) -> Result<()> {
         let (ledger_id, host, token) = parse_join_url(url)?;
         self.endpoint
-            .join_ledger_inner(
-                host,
-                label,
-                JoinRequest { token, ledger_id },
-                &self.store,
-                &self.events,
-            )
+            .join_ledger_inner(host, label, JoinRequest { token, ledger_id }, &self.store)
             .await
     }
 
     /// Dial `peer` and run the full sync exchange for all shared ledgers.
     pub async fn trigger_peer_sync(&self, peer: NodeId) -> Result<()> {
-        self.endpoint
-            .sync_once_inner(peer, &self.store, &self.events)
-            .await
+        self.endpoint.sync_once_inner(peer, &self.store).await
     }
 
     /// Receive one Automerge sync message, persist any changes, and return the
@@ -109,9 +98,10 @@ impl UnbillDevice {
             .await?
             .unwrap_or_else(LedgerDoc::empty);
         let mut sync_state = automerge::sync::State::new();
+        let heads_before = doc.heads();
         doc.receive_sync_message(&mut sync_state, client_msg)
             .map_err(|e| UnbillError::Automerge(e.to_string()))?;
-        if !doc.is_empty() {
+        if doc.heads() != heads_before {
             self.store.save_ledger(&id_str, &mut doc).await?;
         }
         Ok(doc
@@ -125,7 +115,7 @@ impl UnbillDevice {
         self.endpoint.wait_for_ready().await;
         println!("listening on: {}", self.endpoint.node_id());
         self.endpoint
-            .accept_loop_inner(Arc::clone(&self.store), self.events.clone())
+            .accept_loop_inner(Arc::clone(&self.store))
             .await
     }
 }

@@ -8,6 +8,8 @@ The persistence boundary for unbill. It stores full ledger snapshots, lightweigh
 - ledger metadata supports fast listing without hydrating Automerge bytes
 - device-local metadata stores device labels, saved users, and pending token state under well-known string keys
 - `save_ledger` may merge remote changes back into the caller's `doc` before returning; the caller must treat `doc` as the authoritative merged state after the call
+- `save_ledger` emits a `ServiceEvent::LedgerUpdated` on every successful write, regardless of which code path triggered the save
+- `subscribe()` returns a `broadcast::Receiver<ServiceEvent>`; callers use it to be notified whenever a ledger changes
 - `get_secret_key` returns `Err(StorageError::Unauthorized)` on stores that cannot expose raw key material
 
 ## Data boundary

@@ -10,9 +10,7 @@
 use std::sync::Arc;
 
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::sync::broadcast;
 
-use unbill_event::ServiceEvent;
 use unbill_model::{LedgerMeta, NewDevice, NodeId, Timestamp, UnbillError};
 
 type Result<T> = std::result::Result<T, UnbillError>;
@@ -36,7 +34,6 @@ use crate::protocol::{JoinError, JoinReply, JoinRequest, JoinResponse, read_msg,
 pub async fn run_join_host<R, W>(
     peer_node_id: NodeId,
     store: &Arc<dyn LedgerStore>,
-    events: &broadcast::Sender<ServiceEvent>,
     mut reader: R,
     mut writer: W,
 ) -> Result<()>
@@ -109,9 +106,6 @@ where
         Timestamp::now(),
     )?;
     store.save_ledger(&req.ledger_id, &mut doc).await?;
-    let _ = events.send(ServiceEvent::LedgerUpdated {
-        ledger_id: req.ledger_id,
-    });
 
     write_msg(
         &mut writer,
@@ -133,7 +127,6 @@ pub async fn run_join_requester<R, W>(
     local_label: Option<String>,
     request: JoinRequest,
     store: &Arc<dyn LedgerStore>,
-    events: &broadcast::Sender<ServiceEvent>,
     mut reader: R,
     mut writer: W,
 ) -> Result<()>
@@ -163,7 +156,6 @@ where
                 device_labels.insert(host_node_id.to_string(), label);
                 save_device_labels(&**store, &device_labels).await?;
             }
-            let _ = events.send(ServiceEvent::LedgerUpdated { ledger_id });
             Ok(())
         }
         JoinReply::Err(e) => Err(UnbillError::Network(format!(
@@ -182,9 +174,6 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    use tokio::sync::broadcast;
-
-    use unbill_event::ServiceEvent;
     use unbill_model::{
         Currency, Invitation, InviteToken, LedgerId, LedgerMeta, NewDevice, NodeId, Timestamp,
     };
@@ -198,10 +187,6 @@ mod tests {
 
     fn make_store() -> Arc<InMemoryStore> {
         Arc::new(InMemoryStore::default())
-    }
-
-    fn make_events() -> broadcast::Sender<ServiceEvent> {
-        broadcast::channel(16).0
     }
 
     fn usd() -> Currency {
@@ -270,8 +255,6 @@ mod tests {
 
         let host_store2 = Arc::clone(&host_store);
         let joiner_store2 = Arc::clone(&joiner_store);
-        let events_host = make_events();
-        let events_joiner = make_events();
 
         let request = JoinRequest {
             token: token.to_string(),
@@ -281,15 +264,9 @@ mod tests {
         let task_host = tokio::spawn({
             let joiner_node = joiner_node.clone();
             async move {
-                run_join_host(
-                    joiner_node,
-                    &host_store2,
-                    &events_host,
-                    host_read,
-                    host_write,
-                )
-                .await
-                .unwrap();
+                run_join_host(joiner_node, &host_store2, host_read, host_write)
+                    .await
+                    .unwrap();
             }
         });
         let task_joiner = tokio::spawn({
@@ -300,7 +277,6 @@ mod tests {
                     Some("host laptop".to_string()),
                     request,
                     &joiner_store2,
-                    &events_joiner,
                     joiner_read,
                     joiner_write,
                 )
@@ -364,8 +340,6 @@ mod tests {
 
         let host_store2 = Arc::clone(&host_store);
         let joiner_store2 = Arc::clone(&joiner_store);
-        let events_host = make_events();
-        let events_joiner = make_events();
 
         let fake_token = InviteToken::generate();
         let request = JoinRequest {
@@ -374,15 +348,9 @@ mod tests {
         };
 
         let task_host = tokio::spawn(async move {
-            run_join_host(
-                joiner_node,
-                &host_store2,
-                &events_host,
-                host_read,
-                host_write,
-            )
-            .await
-            .unwrap();
+            run_join_host(joiner_node, &host_store2, host_read, host_write)
+                .await
+                .unwrap();
         });
         let task_joiner = tokio::spawn(async move {
             let result = run_join_requester(
@@ -390,7 +358,6 @@ mod tests {
                 Some("host".to_string()),
                 request,
                 &joiner_store2,
-                &events_joiner,
                 joiner_read,
                 joiner_write,
             )

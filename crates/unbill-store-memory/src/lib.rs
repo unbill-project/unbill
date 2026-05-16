@@ -5,13 +5,25 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use rand::TryRng as _;
+use tokio::sync::broadcast;
+use unbill_event::ServiceEvent;
 
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
 use unbill_storage::{LedgerDoc, LedgerStore, StorageResult as Result};
 
-#[derive(Default)]
 pub struct InMemoryStore {
     inner: Mutex<Inner>,
+    events: broadcast::Sender<ServiceEvent>,
+}
+
+impl Default for InMemoryStore {
+    fn default() -> Self {
+        let (events, _) = broadcast::channel(256);
+        Self {
+            inner: Mutex::new(Inner::default()),
+            events,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -58,23 +70,32 @@ impl LedgerStore for InMemoryStore {
     }
 
     async fn save_ledger(&self, ledger_id: &str, doc: &mut LedgerDoc) -> Result<()> {
-        let mut inner = self.inner.lock().unwrap();
         let bytes = doc.save();
-        inner
-            .ledgers
-            .entry(ledger_id.to_owned())
-            .and_modify(|s| s.bytes = bytes.clone())
-            .or_insert_with(|| StoredLedger {
-                meta: LedgerMeta {
-                    ledger_id: LedgerId::from_u128(0),
-                    name: String::new(),
-                    currency: Currency::from_code("USD").unwrap(),
-                    created_at: Timestamp::from_millis(0),
-                    updated_at: Timestamp::from_millis(0),
-                },
-                bytes,
-            });
+        {
+            let mut inner = self.inner.lock().unwrap();
+            inner
+                .ledgers
+                .entry(ledger_id.to_owned())
+                .and_modify(|s| s.bytes = bytes.clone())
+                .or_insert_with(|| StoredLedger {
+                    meta: LedgerMeta {
+                        ledger_id: LedgerId::from_u128(0),
+                        name: String::new(),
+                        currency: Currency::from_code("USD").unwrap(),
+                        created_at: Timestamp::from_millis(0),
+                        updated_at: Timestamp::from_millis(0),
+                    },
+                    bytes,
+                });
+        }
+        let _ = self.events.send(ServiceEvent::LedgerUpdated {
+            ledger_id: ledger_id.to_owned(),
+        });
         Ok(())
+    }
+
+    fn subscribe(&self) -> broadcast::Receiver<ServiceEvent> {
+        self.events.subscribe()
     }
 
     async fn delete_ledger(&self, ledger_id: &str) -> Result<()> {

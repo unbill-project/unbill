@@ -780,7 +780,7 @@ pub fn run() {
                         tracing::error!("accept loop stopped: {e}");
                     }
                 });
-                Ok::<_, std::io::Error>(UnbillConsole::open(channel as Arc<dyn AsymChannel>))
+                Ok::<_, std::io::Error>(UnbillConsole::open(channel as Arc<dyn AsymChannel>).await)
             })
             .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
 
@@ -790,7 +790,7 @@ pub fn run() {
                     .socket_path()
                     .map_err(|e| std::io::Error::other(e.to_string()))?;
                 let channel = RpcAsymChannel::connect(&socket).await?;
-                Ok::<_, std::io::Error>(UnbillConsole::open(channel as Arc<dyn AsymChannel>))
+                Ok::<_, std::io::Error>(UnbillConsole::open(channel as Arc<dyn AsymChannel>).await)
             })
             .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
 
@@ -829,7 +829,7 @@ mod tests {
         let channel = LocalAsymChannel::open(Arc::new(InMemoryStore::default()))
             .await
             .unwrap();
-        UnbillConsole::open(channel as Arc<dyn AsymChannel>)
+        UnbillConsole::open(channel as Arc<dyn AsymChannel>).await
     }
 
     fn tauri_config() -> Value {

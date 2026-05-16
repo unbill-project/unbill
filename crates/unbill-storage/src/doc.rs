@@ -62,6 +62,11 @@ impl LedgerDoc {
         self.doc.get_heads().is_empty()
     }
 
+    /// Return the current heads of the document.
+    pub fn heads(&mut self) -> Vec<automerge::ChangeHash> {
+        self.doc.get_heads()
+    }
+
     /// Serialize the full document to bytes for storage.
     pub fn save(&mut self) -> Vec<u8> {
         self.doc.save()
