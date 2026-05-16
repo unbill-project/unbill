@@ -1,6 +1,6 @@
 # unbill-server — Implementation
 
-The binary is built from `src/main.rs`, which reads environment variables, creates an `FsStore`, and starts an `axum` HTTP server.
+The binary is built from `src/main.rs`, which reads environment variables, opens an `FsStore` and an `UnbillDevice`, spawns the `accept_loop` background task (Iroh peer sync), and starts an `axum` HTTP server.
 
 The router lives in `src/router.rs` and is exported by `src/lib.rs` so that integration tests can call it without a real TCP socket.
 
@@ -16,10 +16,10 @@ A `tower` middleware function (`auth`) runs before every handler. It extracts th
 
 ## Handlers
 
-Each handler receives `State<Arc<AppState>>` (containing the `FsStore` and `api_key`) and calls the corresponding `LedgerStore` method. Storage errors map to HTTP responses:
+Each handler receives `State<Arc<AppState>>` (containing the `UnbillDevice` and `api_key`) and calls the corresponding `UnbillDevice` method. Errors map to HTTP responses:
 
-- `StorageError::Io` with `NotFound` is already converted to `None`/empty by the store, so handlers never see it.
-- Other `StorageError` variants become `500 Internal Server Error` with the error message in the body.
+- `UnbillError::Automerge` (malformed client sync message) becomes `400 Bad Request`.
+- All other errors become `500 Internal Server Error` with the error message in the body.
 
 ## Device key validation
 

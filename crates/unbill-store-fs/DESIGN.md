@@ -13,6 +13,7 @@ Flat-file `LedgerStore` backed by `tokio::fs`. The default store for desktop and
   device_key.bin      — 32-byte raw Ed25519 secret key
   device_labels.json  — map of NodeId → label
   pending_invitations.json
+  unbill.lock         — advisory lock file; held open for the lifetime of the FsStore
 ```
 
 ## Rules
