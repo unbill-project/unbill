@@ -18,7 +18,6 @@ tauri-build = { version = "2", features = [] }
 unbill-console = { path = "../unbill-console" }
 unbill-asymmetric-channel = { path = "../unbill-asymmetric-channel", features = ["local", "rpc"] }
 unbill-store-fs = { path = "../unbill-store-fs" }
-anyhow.workspace = true
 serde.workspace = true
 tracing.workspace = true
 tauri = { version = "2", features = [] }

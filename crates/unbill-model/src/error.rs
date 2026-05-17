@@ -43,6 +43,15 @@ pub enum UnbillError {
 
     #[error("no network feature enabled")]
     NoNetworkFeature,
+
+    #[error("invalid ID {value:?}: {source}")]
+    ParseId {
+        value: String,
+        source: ulid::DecodeError,
+    },
+
+    #[error("configuration error: {0}")]
+    Config(String),
 }
 
 #[derive(Debug, Error)]
@@ -53,14 +62,14 @@ pub enum StorageError {
     #[error("serialization error: {0}")]
     Serialization(String),
 
-    #[error("network error: {0}")]
-    Network(String),
-
     #[error("unauthorized")]
     Unauthorized,
 
     #[error("http status {0}: {1}")]
     HttpStatus(u16, String),
+
+    #[error("store server channel closed")]
+    ChannelClosed,
 }
 
 pub type Result<T> = std::result::Result<T, UnbillError>;
