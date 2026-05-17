@@ -135,12 +135,12 @@ async fn collect_peers_from_store(
     let mut peers = Vec::new();
     for meta in metas {
         let id = meta.ledger_id.to_string();
-        if let Some(doc) = store.load_ledger(&id).await? {
-            if let Ok(devices) = doc.list_devices() {
-                for device in devices {
-                    if device.node_id != *self_id && !peers.contains(&device.node_id) {
-                        peers.push(device.node_id);
-                    }
+        if let Some(doc) = store.load_ledger(&id).await?
+            && let Ok(devices) = doc.list_devices()
+        {
+            for device in devices {
+                if device.node_id != *self_id && !peers.contains(&device.node_id) {
+                    peers.push(device.node_id);
                 }
             }
         }
