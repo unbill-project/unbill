@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sirno Narrative Session"
+  short_description: "Guide adaptive routes through Sirno"
+  default_prompt: "Use $sirno-narrative-session to guide a Sirno route and save it as a narrative entry."

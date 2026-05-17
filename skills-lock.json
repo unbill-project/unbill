@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "skills": {
+    "design-doc-writer": {
+      "source": "LighghtEeloo/sirno",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/design-doc-writer/SKILL.md",
+      "computedHash": "bba3c4328f36665b12fbba9042f5193a31cb3ff33a7c5fc4a24ab232766ab85a"
+    },
+    "readme-design-methodology-doc-writer": {
+      "source": "LighghtEeloo/sirno",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/readme-design-methodology-doc-writer/SKILL.md",
+      "computedHash": "3601a5d346b38acfab61db2056b093f007bcb1eb1b7284779107ea173ef5101e"
+    },
+    "rust-programmer": {
+      "source": "LighghtEeloo/sirno",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/rust-programmer/SKILL.md",
+      "computedHash": "1bd87e32162506fd9812e4ee9ed44c7ede286a4a52a0ee90af192a3400c93033"
+    },
+    "sirno-editor": {
+      "source": "LighghtEeloo/sirno",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/sirno-editor/SKILL.md",
+      "computedHash": "7d76c4b75db8a7e9e752d616fc845813a23f3ef36fb146d8bc94a2daae0ba31b"
+    },
+    "sirno-explorer": {
+      "source": "LighghtEeloo/sirno",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/sirno-explorer/SKILL.md",
+      "computedHash": "ef87946a37fa0a04ce561cddbfc8ea597020b2a10ede5b099e16802154376725"
+    },
+    "sirno-narrative-session": {
+      "source": "LighghtEeloo/sirno",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/sirno-narrative-session/SKILL.md",
+      "computedHash": "2020223014a8ede3e296479d35dc4aff736e8d52a4e1ef94bcb4cb2d88c07f0c"
+    },
+    "sirno-skill-synthesizer": {
+      "source": "LighghtEeloo/sirno",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/sirno-skill-synthesizer/SKILL.md",
+      "computedHash": "78ccfd862a2896ac5a12508d056beebee06fa52a8dc406e20e829c9129eacd48"
+    },
+    "sirno-witness": {
+      "source": "LighghtEeloo/sirno",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/sirno-witness/SKILL.md",
+      "computedHash": "96d5fbb272f3419942b48a794ec2b5d06b59382751f5e7f5eb396a1fff7c2d9a"
+    }
+  }
+}
