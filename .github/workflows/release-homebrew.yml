@@ -62,9 +62,11 @@ jobs:
           URL="https://github.com/${REPO}/releases/download/${TAG}/${ASSET_NAME}"
           curl -fSL -o asset.dmg "$URL"
           SHA=$(sha256sum asset.dmg | cut -d' ' -f1)
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
-          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          {
+            echo "url=$URL"
+            echo "sha256=$SHA"
+            echo "version=${TAG#v}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Generate cask file
         run: |
