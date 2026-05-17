@@ -26,6 +26,7 @@ jobs:
     name: Push ${{ matrix.package }} formula to Homebrew tap
     runs-on: ubuntu-latest
     strategy:
+      max-parallel: 1
       matrix:
         package: ${{ fromJSON(inputs.packages) }}
 
