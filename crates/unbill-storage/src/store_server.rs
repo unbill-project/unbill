@@ -135,17 +135,17 @@ impl StoreServer {
             match cmd {
                 StoreCommand::SaveLedgerMeta { meta, reply } => {
                     if reply.send(store.save_ledger_meta(&meta).await).is_err() {
-                        warn!("store command reply dropped");
+                        warn!("SaveLedgerMeta reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::ListLedgers { reply } => {
                     if reply.send(store.list_ledgers().await).is_err() {
-                        warn!("store command reply dropped");
+                        warn!("ListLedgers reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::LoadLedger { ledger_id, reply } => {
                     if reply.send(store.load_ledger(&ledger_id).await).is_err() {
-                        warn!("store command reply dropped");
+                        warn!(ledger_id, "LoadLedger reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::SaveLedger {
@@ -155,17 +155,17 @@ impl StoreServer {
                 } => {
                     let result = store.save_ledger(&ledger_id, &mut doc).await;
                     if reply.send(result.map(|()| *doc)).is_err() {
-                        warn!("store command reply dropped");
+                        warn!(ledger_id, "SaveLedger reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::DeleteLedger { ledger_id, reply } => {
                     if reply.send(store.delete_ledger(&ledger_id).await).is_err() {
-                        warn!("store command reply dropped");
+                        warn!(ledger_id, "DeleteLedger reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::LoadDeviceMeta { key, reply } => {
                     if reply.send(store.load_device_meta(&key).await).is_err() {
-                        warn!("store command reply dropped");
+                        warn!(key, "LoadDeviceMeta reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::SaveDeviceMeta { key, value, reply } => {
@@ -173,27 +173,27 @@ impl StoreServer {
                         .send(store.save_device_meta(&key, &value).await)
                         .is_err()
                     {
-                        warn!("store command reply dropped");
+                        warn!(key, "SaveDeviceMeta reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::CreateSecretKey { reply } => {
                     if reply.send(store.create_secret_key().await).is_err() {
-                        warn!("store command reply dropped");
+                        warn!("CreateSecretKey reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::IsDeviceInitialized { reply } => {
                     if reply.send(store.is_device_initialized().await).is_err() {
-                        warn!("store command reply dropped");
+                        warn!("IsDeviceInitialized reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::GetDeviceId { reply } => {
                     if reply.send(store.get_device_id().await).is_err() {
-                        warn!("store command reply dropped");
+                        warn!("GetDeviceId reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::GetSecretKey { reply } => {
                     if reply.send(store.get_secret_key().await).is_err() {
-                        warn!("store command reply dropped");
+                        warn!("GetSecretKey reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::AsymSync {
@@ -205,7 +205,7 @@ impl StoreServer {
                         .send(Self::do_asym_sync(&*store, &ledger_id, bytes).await)
                         .is_err()
                     {
-                        warn!("store command reply dropped");
+                        warn!(ledger_id, "AsymSync reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::CreateInvitation {
@@ -217,7 +217,7 @@ impl StoreServer {
                         .send(Self::do_create_invitation(&*store, ledger_id, device_id).await)
                         .is_err()
                     {
-                        warn!("store command reply dropped");
+                        warn!(%ledger_id, "CreateInvitation reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::CollectPeers { self_id, reply } => {
@@ -225,7 +225,7 @@ impl StoreServer {
                         .send(Self::do_collect_peers(&*store, &self_id).await)
                         .is_err()
                     {
-                        warn!("store command reply dropped");
+                        warn!("CollectPeers reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::ConsumeInvitation { token, reply } => {
@@ -233,7 +233,7 @@ impl StoreServer {
                         .send(Self::do_consume_invitation(&*store, &token).await)
                         .is_err()
                     {
-                        warn!("store command reply dropped");
+                        warn!(token, "ConsumeInvitation reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::AddDeviceToLedger {
@@ -247,7 +247,10 @@ impl StoreServer {
                         )
                         .is_err()
                     {
-                        warn!("store command reply dropped");
+                        warn!(
+                            ledger_id,
+                            "AddDeviceToLedger reply dropped (caller cancelled)"
+                        );
                     }
                 }
                 StoreCommand::PersistJoinedLedger {
@@ -263,7 +266,7 @@ impl StoreServer {
                         )
                         .is_err()
                     {
-                        warn!("store command reply dropped");
+                        warn!("PersistJoinedLedger reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::MergeAndSaveLedger {
@@ -275,7 +278,10 @@ impl StoreServer {
                         .send(Self::do_merge_and_save(&*store, &ledger_id, &mut doc).await)
                         .is_err()
                     {
-                        warn!("store command reply dropped");
+                        warn!(
+                            ledger_id,
+                            "MergeAndSaveLedger reply dropped (caller cancelled)"
+                        );
                     }
                 }
             }

@@ -164,7 +164,7 @@ impl LedgerStore for FsStore {
             })
             .is_err()
         {
-            tracing::warn!("no event subscribers");
+            tracing::warn!(ledger_id, "LedgerUpdated event dropped: no subscribers");
         }
         Ok(())
     }

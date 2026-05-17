@@ -80,7 +80,7 @@ impl UnbillConsole {
                                 })
                                 .is_err()
                             {
-                                tracing::warn!("no event subscribers");
+                                tracing::warn!("LedgerUpdated event dropped: no subscribers");
                             }
                         }
                     }
@@ -153,7 +153,7 @@ impl UnbillConsole {
             })
             .is_err()
         {
-            tracing::warn!("no event subscribers");
+            tracing::warn!("LedgerUpdated event dropped: no subscribers");
         }
         Ok(bill_id)
     }
@@ -187,7 +187,7 @@ impl UnbillConsole {
             })
             .is_err()
         {
-            tracing::warn!("no event subscribers");
+            tracing::warn!("LedgerUpdated event dropped: no subscribers");
         }
         Ok(())
     }
@@ -224,7 +224,7 @@ impl UnbillConsole {
             })
             .is_err()
         {
-            tracing::warn!("no event subscribers");
+            tracing::warn!("LedgerUpdated event dropped: no subscribers");
         }
         Ok(User {
             user_id,
