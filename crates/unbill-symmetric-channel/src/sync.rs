@@ -8,8 +8,8 @@ use std::collections::HashMap;
 
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use unbill_model::{NodeId, UnbillError};
-use unbill_storage::{LedgerDoc, StoreServer};
+use unbill_model::{LedgerDoc, NodeId, UnbillError};
+use unbill_storage::StoreServer;
 
 type Result<T> = std::result::Result<T, UnbillError>;
 
@@ -248,8 +248,10 @@ where
 mod tests {
     use std::sync::Arc;
 
-    use unbill_model::{Currency, LedgerId, NewBill, NewDevice, NodeId, Share, Timestamp, UserId};
-    use unbill_storage::{LedgerDoc, StoreServer};
+    use unbill_model::{
+        Currency, LedgerDoc, LedgerId, NewBill, NewDevice, NodeId, Share, Timestamp, UserId,
+    };
+    use unbill_storage::StoreServer;
     use unbill_store_memory::InMemoryStore;
 
     use super::run_sync_session;

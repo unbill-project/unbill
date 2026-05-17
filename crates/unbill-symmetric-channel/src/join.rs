@@ -12,8 +12,8 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use unbill_model::{LedgerMeta, NewDevice, NodeId, Timestamp, UnbillError};
 
 type Result<T> = std::result::Result<T, UnbillError>;
-use unbill_model::{Invitation, StorageError};
-use unbill_storage::{LedgerDoc, StoreServer};
+use unbill_model::{Invitation, LedgerDoc, StorageError};
+use unbill_storage::StoreServer;
 
 use crate::protocol::{JoinError, JoinReply, JoinRequest, JoinResponse, read_msg, write_msg};
 
@@ -202,9 +202,10 @@ mod tests {
     use std::sync::Arc;
 
     use unbill_model::{
-        Currency, Invitation, InviteToken, LedgerId, LedgerMeta, NewDevice, NodeId, Timestamp,
+        Currency, Invitation, InviteToken, LedgerDoc, LedgerId, LedgerMeta, NewDevice, NodeId,
+        Timestamp,
     };
-    use unbill_storage::{LedgerDoc, LedgerStore, StoreServer};
+    use unbill_storage::{LedgerStore, StoreServer};
     use unbill_store_memory::InMemoryStore;
 
     use unbill_storage::{load_device_labels, load_pending_invitations, save_pending_invitations};

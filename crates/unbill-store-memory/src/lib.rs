@@ -8,8 +8,9 @@ use rand::TryRng as _;
 use tokio::sync::broadcast;
 use unbill_event::ServiceEvent;
 
+use unbill_model::LedgerDoc;
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
-use unbill_storage::{LedgerDoc, LedgerStore, StorageResult as Result};
+use unbill_storage::{LedgerStore, StorageResult as Result};
 
 // sirno:witness:memory-store:begin
 pub struct InMemoryStore {

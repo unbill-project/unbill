@@ -254,8 +254,8 @@ fn parse_join_url(url: &str) -> Result<(String, NodeId, String)> {
 mod tests {
     use std::sync::Arc;
 
-    use unbill_model::{Currency, LedgerId, NewDevice, NodeId, Timestamp};
-    use unbill_storage::{LedgerDoc, LedgerStore};
+    use unbill_model::{Currency, LedgerDoc, LedgerId, NewDevice, NodeId, Timestamp};
+    use unbill_storage::LedgerStore;
     use unbill_store_memory::InMemoryStore;
 
     use super::StoreServer;

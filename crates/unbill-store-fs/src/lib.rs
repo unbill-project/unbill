@@ -11,8 +11,9 @@ use serde::{Deserialize, Serialize};
 use rand::TryRng as _;
 use tokio::sync::broadcast;
 use unbill_event::ServiceEvent;
+use unbill_model::LedgerDoc;
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
-use unbill_storage::{LedgerDoc, LedgerStore, StorageResult as Result};
+use unbill_storage::{LedgerStore, StorageResult as Result};
 
 // sirno:witness:fs-store:begin
 pub struct FsStore {
@@ -250,8 +251,7 @@ async fn atomic_write(path: PathBuf, bytes: &[u8]) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use unbill_model::Timestamp;
-    use unbill_storage::LedgerDoc;
+    use unbill_model::{LedgerDoc, Timestamp};
 
     fn make_meta(name: &str) -> LedgerMeta {
         LedgerMeta {

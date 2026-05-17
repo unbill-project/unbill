@@ -52,13 +52,15 @@ regardless of whether the write came from a local operation, remote sync, or joi
 
 Modules:
 `store` defines the trait and result alias.
-`doc` wraps Automerge in `LedgerDoc`.
-`ops` contains low-level Automerge map and list operations.
 `device_meta` provides typed JSON helpers over well-known device metadata keys.
+`store_server` provides the MPSC actor (native targets only).
+
+`LedgerDoc` and `ops` live in `unbill-model`,
+not here — only `unbill-device` should depend on `unbill-storage`.
+The `LedgerStore` trait references `LedgerDoc` from `unbill-model`.
 
 Store implementations live in separate crates.
-`LedgerDoc` and `ops` are unit-tested in place,
-while store implementations test the shared contract in their own crates.
+Store implementations test the shared contract in their own crates.
 
 ## StoreServer
 

@@ -1,9 +1,7 @@
 // LedgerDoc wraps an Automerge document and exposes typed operations.
 
-use tokio::sync::broadcast;
-
-use unbill_model::UnbillError;
-use unbill_model::{
+use crate::error::UnbillError;
+use crate::{
     BillId, Currency, Device, EffectiveBills, Ledger, LedgerId, NewBill, NewDevice, NewUser,
     NodeId, Timestamp, User,
 };
@@ -16,13 +14,6 @@ type Result<T> = std::result::Result<T, UnbillError>;
 // sirno:witness:ledger-doc:begin
 pub struct LedgerDoc {
     doc: automerge::AutoCommit,
-    pub changes: broadcast::Sender<ChangeEvent>,
-}
-
-#[derive(Clone, Debug)]
-pub enum ChangeEvent {
-    LocalWrite,
-    RemoteApplied,
 }
 // sirno:witness:ledger-doc:end
 
@@ -37,26 +28,22 @@ impl LedgerDoc {
     ) -> Result<Self> {
         let mut doc = automerge::AutoCommit::new();
         ops::init_ledger(&mut doc, ledger_id, name, currency, created_at)?;
-        let (tx, _) = broadcast::channel(64);
-        Ok(Self { doc, changes: tx })
+        Ok(Self { doc })
     }
 
     /// Load a ledger document from stored bytes.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let doc = automerge::AutoCommit::load(bytes)
             .map_err(|e| UnbillError::Automerge(e.to_string()))?;
-        let (tx, _) = broadcast::channel(64);
-        Ok(Self { doc, changes: tx })
+        Ok(Self { doc })
     }
 
     /// Create a blank document for use as the starting point of a sync-based
     /// load. The document has no ledger data until sync messages are applied
     /// via `receive_sync_message`.
     pub fn empty() -> Self {
-        let (tx, _) = broadcast::channel(64);
         Self {
             doc: automerge::AutoCommit::new(),
-            changes: tx,
         }
     }
 
@@ -82,7 +69,7 @@ impl LedgerDoc {
         ops::get_ledger(&self.doc)
     }
 
-    pub fn list_all_bills(&self) -> Result<Vec<unbill_model::Bill>> {
+    pub fn list_all_bills(&self) -> Result<Vec<crate::Bill>> {
         ops::list_all_bills(&self.doc)
     }
 
@@ -102,21 +89,15 @@ impl LedgerDoc {
         created_by_device: NodeId,
         now: Timestamp,
     ) -> Result<BillId> {
-        let id = ops::add_bill(&mut self.doc, input, created_by_device, now)?;
-        let _ = self.changes.send(ChangeEvent::LocalWrite);
-        Ok(id)
+        ops::add_bill(&mut self.doc, input, created_by_device, now)
     }
 
     pub fn add_user(&mut self, input: NewUser, now: Timestamp) -> Result<()> {
-        ops::add_user(&mut self.doc, input, now)?;
-        let _ = self.changes.send(ChangeEvent::LocalWrite);
-        Ok(())
+        ops::add_user(&mut self.doc, input, now)
     }
 
     pub fn add_device(&mut self, input: NewDevice, now: Timestamp) -> Result<()> {
-        ops::add_device(&mut self.doc, input, now)?;
-        let _ = self.changes.send(ChangeEvent::LocalWrite);
-        Ok(())
+        ops::add_device(&mut self.doc, input, now)
     }
 
     pub fn list_devices(&self) -> Result<Vec<Device>> {
@@ -152,7 +133,6 @@ impl LedgerDoc {
             .sync()
             .receive_sync_message(sync_state, msg)
             .map_err(|e| UnbillError::Automerge(e.to_string()))?;
-        let _ = self.changes.send(ChangeEvent::RemoteApplied);
         Ok(())
     }
     // sirno:witness:sync-behavior:end

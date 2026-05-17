@@ -6,7 +6,7 @@
 use automerge::AutoCommit;
 use autosurgeon::{hydrate, reconcile};
 
-use unbill_model::{
+use crate::{
     Bill, BillId, Currency, Device, EffectiveBills, Ledger, LedgerId, NewBill, NewDevice, NewUser,
     NodeId, Timestamp, UnbillError, User, UserId,
 };
@@ -170,7 +170,7 @@ pub(super) fn list_devices(doc: &AutoCommit) -> Result<Vec<Device>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use unbill_model::{Currency, Share};
+    use crate::{Currency, Share};
 
     fn device() -> NodeId {
         NodeId::from_seed(1)

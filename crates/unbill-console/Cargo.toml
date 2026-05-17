@@ -10,7 +10,6 @@ homepage.workspace = true
 [dependencies]
 unbill-model = { path = "../unbill-model" }
 unbill-event = { path = "../unbill-event" }
-unbill-storage = { path = "../unbill-storage" }
 unbill-asymmetric-channel = { path = "../unbill-asymmetric-channel" }
 automerge.workspace = true
 autosurgeon.workspace = true
@@ -34,6 +33,7 @@ wasm-bindgen-futures = "0.4"
 
 [dev-dependencies]
 unbill-model = { path = "../unbill-model", features = ["test-helpers"] }
+unbill-storage = { path = "../unbill-storage" }
 unbill-store-memory = { path = "../unbill-store-memory" }
 proptest.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "test-util"] }
