@@ -60,6 +60,49 @@ Store implementations live in separate crates.
 `LedgerDoc` and `ops` are unit-tested in place,
 while store implementations test the shared contract in their own crates.
 
+## StoreServer
+
+`StoreServer` serializes all store access through an MPSC channel.
+A single background tokio task owns the raw `dyn LedgerStore`
+and processes commands sequentially.
+`StoreServer` does NOT implement `LedgerStore` —
+no component other than the internal consumer ever holds a raw store reference.
+The type system enforces this: functions that need store access
+take `&StoreServer`, not `&dyn LedgerStore`.
+
+Individual operations (list, load, save) and compound operations
+(asym_sync, create_invitation, consume_invitation, add_device_to_ledger,
+merge_and_save_ledger, persist_joined_ledger, collect_peers)
+are all public methods on `StoreServer`.
+Compound operations execute as single MPSC commands,
+guaranteeing atomicity for read-modify-write sequences.
+
+`merge_and_save_ledger` handles the sync session save phase:
+it atomically loads the current stored version,
+merges the synced document via `LedgerDoc::merge`,
+and saves the combined result.
+This prevents concurrent operations from overwriting each other.
+
+### Concurrency guarantees
+
+All store mutations are serialized through the single MPSC consumer.
+Compound operations are atomic — no other command can interleave
+between the load and save of a read-modify-write sequence.
+
+Read-only sequences that span multiple MPSC commands
+(e.g. `collect_peers` listing then loading each ledger,
+or the sync session hello phase checking authorization per ledger)
+are individually serialized but not batch-atomic.
+This is acceptable because the results are used for best-effort discovery or gating
+and self-heal on the next cycle.
+The current system has no device deauthorization,
+so the authorization check in the sync hello phase cannot go stale
+between the check and the subsequent doc load.
+
+Concurrent `trigger_peer_sync` calls for the same peer are safe:
+both sync sessions `merge_and_save_ledger` at the end,
+and automerge merge is commutative and idempotent.
+
 ---
 
 > **Sirno generated links begin. Do not edit this section.**

@@ -11,7 +11,7 @@ refines:
 ---
 
 `unbill-device` implements the device role.
-It owns a `LedgerStore`,
+It owns a `StoreServer` (from `unbill-storage`),
 derives the device `NodeId` from the store secret key,
 runs the symmetric channel endpoint,
 and serves the server side of asymmetric channel behavior.
@@ -34,6 +34,10 @@ applies it to the loaded ledger document,
 saves only when the document heads advance,
 and returns the device's response message.
 No-op sync rounds do not write and do not emit `LedgerUpdated`.
+
+`UnbillDevice::open` calls init methods on the raw store
+before wrapping it in a `StoreServer` (see `unbill-storage` docs).
+All subsequent runtime access goes through the serialized channel.
 
 `trigger_peer_sync` and `join_ledger` reuse the running endpoint when active.
 Otherwise they bind an ephemeral endpoint for the operation and close it afterward.

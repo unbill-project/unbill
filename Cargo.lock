@@ -7893,6 +7893,7 @@ dependencies = [
  "tokio-util",
  "unbill-device",
  "unbill-model",
+ "unbill-storage",
  "wasm-bindgen-futures",
 ]
 
@@ -7959,6 +7960,7 @@ dependencies = [
  "async-trait",
  "automerge",
  "tokio",
+ "tracing",
  "unbill-event",
  "unbill-model",
  "unbill-storage",

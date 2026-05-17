@@ -5,9 +5,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::broadcast;
 use unbill_device::ServiceEvent;
-use unbill_device::{LedgerStore, UnbillDevice};
+use unbill_device::UnbillDevice;
 use unbill_model::error::Result;
 use unbill_model::{LedgerId, LedgerMeta, NodeId, UnbillError};
+use unbill_storage::LedgerStore;
 
 use crate::{AsymChannel, AsymChannelEvent};
 

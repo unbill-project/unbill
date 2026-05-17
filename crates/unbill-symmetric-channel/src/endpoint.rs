@@ -17,6 +17,7 @@
 
 use std::sync::Arc;
 
+use tokio::io::{AsyncRead, AsyncWrite};
 use tracing::{info, warn};
 
 use unbill_model::{NodeId, SecretKey, UnbillError};
@@ -24,7 +25,7 @@ use unbill_model::{NodeId, SecretKey, UnbillError};
 type Result<T> = std::result::Result<T, UnbillError>;
 
 use crate::node_id_ext::SecretKeyExt;
-use unbill_storage::LedgerStore;
+use unbill_storage::StoreServer;
 
 use iroh::RelayMode;
 use iroh::address_lookup::MdnsAddressLookup;
@@ -35,6 +36,41 @@ use crate::join::{run_join_host, run_join_requester};
 use crate::node_id_ext::{EndpointIdExt, NodeIdExt};
 use crate::protocol::{ALPN_JOIN, ALPN_SYNC, JoinRequest};
 use crate::sync::run_sync_session;
+
+// ---------------------------------------------------------------------------
+// Connection wrappers (avoid leaking iroh types to dependents)
+// ---------------------------------------------------------------------------
+
+pub struct AcceptedBi {
+    pub peer: NodeId,
+    pub alpn: Vec<u8>,
+    pub send: Box<dyn AsyncWrite + Unpin + Send>,
+    pub recv: Box<dyn AsyncRead + Unpin + Send>,
+    pub handle: ConnHandle,
+}
+
+/// Connection handle for waiting on graceful close.
+pub struct ConnHandle {
+    conn: iroh::endpoint::Connection,
+}
+
+impl ConnHandle {
+    /// Wait for the remote side to close the connection.
+    pub async fn wait_for_close(&self) {
+        self.conn.closed().await;
+    }
+
+    /// Signal done and close the connection.
+    pub fn close(&self) {
+        self.conn.close(0u32.into(), b"done");
+    }
+}
+
+pub struct ConnectedBi {
+    pub send: Box<dyn AsyncWrite + Unpin + Send>,
+    pub recv: Box<dyn AsyncRead + Unpin + Send>,
+    pub handle: ConnHandle,
+}
 
 // sirno:witness:security-model:begin
 /// Relays shared by all unbill endpoints.
@@ -122,10 +158,101 @@ impl UnbillEndpoint {
     }
 
     // -----------------------------------------------------------------------
+    // Accept one incoming connection (returns None when endpoint closes)
+    // -----------------------------------------------------------------------
+
+    pub async fn accept_bi(&self) -> Option<AcceptedBi> {
+        loop {
+            let incoming = self.inner.accept().await?;
+            let mut connecting = match incoming.accept() {
+                Ok(c) => c,
+                Err(e) => {
+                    warn!("rejected incoming QUIC handshake: {e}");
+                    continue;
+                }
+            };
+            let alpn = match connecting.alpn().await {
+                Ok(a) => a,
+                Err(e) => {
+                    warn!("could not read ALPN from incoming connection: {e}");
+                    continue;
+                }
+            };
+            let conn = match connecting.await {
+                Ok(c) => c,
+                Err(e) => {
+                    warn!("incoming connection handshake failed: {e}");
+                    continue;
+                }
+            };
+            self.cache_peer(&conn).await;
+            let peer = conn.remote_id().to_node_id();
+            let (send, recv) = match conn.accept_bi().await {
+                Ok(s) => s,
+                Err(e) => {
+                    warn!("accept_bi failed: {e}");
+                    continue;
+                }
+            };
+            return Some(AcceptedBi {
+                peer,
+                alpn,
+                send: Box::new(send),
+                recv: Box::new(recv),
+                handle: ConnHandle { conn },
+            });
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Initiator: connect for join protocol
+    // -----------------------------------------------------------------------
+
+    pub async fn connect_bi_join(&self, host: NodeId) -> Result<ConnectedBi> {
+        let conn = self
+            .inner
+            .connect(self.peer_addr(&host)?, ALPN_JOIN)
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
+        self.cache_peer(&conn).await;
+        let (send, recv) = conn
+            .open_bi()
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
+        Ok(ConnectedBi {
+            send: Box::new(send),
+            recv: Box::new(recv),
+            handle: ConnHandle { conn },
+        })
+    }
+
+    // -----------------------------------------------------------------------
+    // Initiator: connect for sync protocol
+    // -----------------------------------------------------------------------
+
+    pub async fn connect_bi_sync(&self, peer: NodeId) -> Result<ConnectedBi> {
+        let conn = self
+            .inner
+            .connect(self.peer_addr(&peer)?, ALPN_SYNC)
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
+        self.cache_peer(&conn).await;
+        let (send, recv) = conn
+            .open_bi()
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
+        Ok(ConnectedBi {
+            send: Box::new(send),
+            recv: Box::new(recv),
+            handle: ConnHandle { conn },
+        })
+    }
+
+    // -----------------------------------------------------------------------
     // Initiator: sync once
     // -----------------------------------------------------------------------
 
-    pub async fn sync_once_inner(&self, peer: NodeId, store: &Arc<dyn LedgerStore>) -> Result<()> {
+    pub async fn sync_once_inner(&self, peer: NodeId, store: &StoreServer) -> Result<()> {
         let conn = self
             .inner
             .connect(self.peer_addr(&peer)?, ALPN_SYNC)
@@ -151,7 +278,7 @@ impl UnbillEndpoint {
         host: NodeId,
         local_label: Option<String>,
         request: JoinRequest,
-        store: &Arc<dyn LedgerStore>,
+        store: &StoreServer,
     ) -> Result<()> {
         let conn = self
             .inner
@@ -172,7 +299,7 @@ impl UnbillEndpoint {
     // Responder: accept loop
     // -----------------------------------------------------------------------
 
-    pub async fn accept_loop_inner(&self, store: Arc<dyn LedgerStore>) -> Result<()> {
+    pub async fn accept_loop_inner(&self, store: Arc<StoreServer>) -> Result<()> {
         loop {
             let incoming = match self.inner.accept().await {
                 None => {
@@ -230,7 +357,7 @@ async fn dispatch(
     conn: iroh::endpoint::Connection,
     peer: NodeId,
     alpn: &[u8],
-    store: Arc<dyn LedgerStore>,
+    store: Arc<StoreServer>,
 ) -> Result<()> {
     match alpn {
         ALPN_SYNC => {
