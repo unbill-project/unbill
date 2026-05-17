@@ -27,6 +27,11 @@ on:
         required: false
         type: string
         default: '[]'
+      homebrew_cask:
+        description: 'Whether to publish the macOS desktop app cask'
+        required: false
+        type: boolean
+        default: false
     secrets:
       AUR_SSH_KEY:
         required: false
@@ -67,9 +72,11 @@ jobs:
 
   homebrew:
     name: Publish Homebrew release
+    needs: github
     if: inputs.homebrew_packages != '[]' && inputs.homebrew_packages != ''
     uses: ./.github/workflows/release-homebrew.yml
     with:
       tag: ${{ inputs.tag }}
       packages: ${{ inputs.homebrew_packages }}
+      cask: ${{ inputs.homebrew_cask }}
     secrets: inherit

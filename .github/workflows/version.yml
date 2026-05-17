@@ -24,6 +24,7 @@ jobs:
       prerelease: false
       aur_packages: '["unbill-cli-bin","unbill-tui-bin","unbill-bin","unbill-daemon-bin"]'
       homebrew_packages: '["unbill-cli","unbill-tui"]'
+      homebrew_cask: true
     permissions:
       contents: write
       actions: read

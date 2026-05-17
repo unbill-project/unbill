@@ -11,14 +11,19 @@ on:
         description: 'JSON array of Homebrew formula names (e.g. ["unbill-cli","unbill-tui"])'
         required: true
         type: string
+      cask:
+        description: 'Whether to publish the macOS desktop app cask'
+        required: false
+        type: boolean
+        default: false
     secrets:
       HOMEBREW_TOKEN:
         description: 'Personal access token with repo scope for the homebrew tap'
         required: true
 
 jobs:
-  homebrew:
-    name: Push ${{ matrix.package }} to Homebrew tap
+  formula:
+    name: Push ${{ matrix.package }} formula to Homebrew tap
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -33,8 +38,60 @@ jobs:
           homebrew_tap: homebrew-tap
           github_token: ${{ secrets.HOMEBREW_TOKEN }}
           formula_folder: Formula
+          version: ${{ inputs.tag }}
           install: .github/homebrew/${{ matrix.package }}/install.rb
           target_darwin_arm64: true
           target_linux_amd64: true
+          update_existing_formula: true
           commit_owner: github-actions[bot]
           commit_email: github-actions[bot]@users.noreply.github.com
+
+  cask:
+    name: Push unbill cask to Homebrew tap
+    if: inputs.cask
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get release asset URL and SHA256
+        id: asset
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+          TAG="${{ inputs.tag }}"
+          ASSET_NAME="unbill-macos-aarch64.dmg"
+          URL="https://github.com/${REPO}/releases/download/${TAG}/${ASSET_NAME}"
+          curl -fSL -o asset.dmg "$URL"
+          SHA=$(sha256sum asset.dmg | cut -d' ' -f1)
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate cask file
+        run: |
+          mkdir -p Casks
+          cat > Casks/unbill.rb << 'CASK'
+          cask "unbill" do
+            version "${{ steps.asset.outputs.version }}"
+            sha256 "${{ steps.asset.outputs.sha256 }}"
+
+            url "${{ steps.asset.outputs.url }}"
+            name "Unbill"
+            desc "Split bills with friends — offline-first, peer-to-peer"
+            homepage "https://github.com/${{ github.repository }}"
+
+            app "Unbill.app"
+          end
+          CASK
+
+      - name: Push cask to tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/unbill-project/homebrew-tap.git" tap
+          cp Casks/unbill.rb tap/Casks/unbill.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/unbill.rb
+          git diff --cached --quiet || git commit -m "Update unbill cask to ${{ inputs.tag }}"
+          git push

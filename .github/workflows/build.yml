@@ -58,6 +58,9 @@ jobs:
           cp target/${{ matrix.target }}/release/unbill-cli unbill-cli-${{ matrix.suffix }}
           cp target/${{ matrix.target }}/release/unbill-tui unbill-tui-${{ matrix.suffix }}
           cp target/${{ matrix.target }}/release/unbill-daemon unbill-daemon-${{ matrix.suffix }}
+          tar -czf unbill-cli-${{ matrix.suffix }}.tar.gz -C target/${{ matrix.target }}/release unbill-cli
+          tar -czf unbill-tui-${{ matrix.suffix }}.tar.gz -C target/${{ matrix.target }}/release unbill-tui
+          tar -czf unbill-daemon-${{ matrix.suffix }}.tar.gz -C target/${{ matrix.target }}/release unbill-daemon
 
       - name: Stage binaries (windows)
         if: runner.os == 'Windows'
@@ -73,6 +76,7 @@ jobs:
             unbill-cli-${{ matrix.suffix }}*
             unbill-tui-${{ matrix.suffix }}*
             unbill-daemon-${{ matrix.suffix }}*
+          include-hidden-files: false
 
   build-tauri:
     name: Build Tauri (${{ matrix.suffix }})
