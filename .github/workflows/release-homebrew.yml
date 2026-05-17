@@ -30,21 +30,71 @@ jobs:
         package: ${{ fromJSON(inputs.packages) }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Download assets and compute checksums
+        id: asset
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
+        run: |
+          TAG="${{ inputs.tag }}"
+          PKG="${{ matrix.package }}"
+          BASE="https://github.com/${{ github.repository }}/releases/download/${TAG}"
+          DARWIN_URL="${BASE}/${PKG}-macos-aarch64.tar.gz"
+          LINUX_URL="${BASE}/${PKG}-linux-x86_64.tar.gz"
+          curl -fSL -o darwin.tar.gz "$DARWIN_URL"
+          curl -fSL -o linux.tar.gz "$LINUX_URL"
+          {
+            echo "darwin_url=$DARWIN_URL"
+            echo "darwin_sha=$(sha256sum darwin.tar.gz | cut -d' ' -f1)"
+            echo "linux_url=$LINUX_URL"
+            echo "linux_sha=$(sha256sum linux.tar.gz | cut -d' ' -f1)"
+            echo "version=${TAG#v}"
+          } >> "$GITHUB_OUTPUT"
 
-      - uses: Justintime50/homebrew-releaser@v3
-        with:
-          homebrew_owner: unbill-project
-          homebrew_tap: homebrew-tap
-          github_token: ${{ secrets.HOMEBREW_TOKEN }}
-          formula_folder: Formula
-          version: ${{ inputs.tag }}
-          install: .github/homebrew/${{ matrix.package }}/install.rb
-          target_darwin_arm64: true
-          target_linux_amd64: true
-          update_existing_formula: true
-          commit_owner: github-actions[bot]
-          commit_email: github-actions[bot]@users.noreply.github.com
+      - name: Generate formula
+        run: |
+          PKG="${{ matrix.package }}"
+          CLASS=$(echo "$PKG" | sed 's/-\(.\)/\U\1/g; s/^\(.\)/\U\1/')
+          mkdir -p Formula
+          cat > "Formula/${PKG}.rb" << EOF
+          class ${CLASS} < Formula
+            desc "Unbill ${PKG}"
+            homepage "https://github.com/${{ github.repository }}"
+            version "${{ steps.asset.outputs.version }}"
+            license "MIT"
+
+            on_macos do
+              on_arm do
+                url "${{ steps.asset.outputs.darwin_url }}"
+                sha256 "${{ steps.asset.outputs.darwin_sha }}"
+              end
+            end
+
+            on_linux do
+              on_intel do
+                url "${{ steps.asset.outputs.linux_url }}"
+                sha256 "${{ steps.asset.outputs.linux_sha }}"
+              end
+            end
+
+            def install
+              bin.install "${PKG}"
+            end
+          end
+          EOF
+
+      - name: Push formula to tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
+        run: |
+          PKG="${{ matrix.package }}"
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/unbill-project/homebrew-tap.git" tap
+          cp "Formula/${PKG}.rb" "tap/Formula/${PKG}.rb"
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "Formula/${PKG}.rb"
+          git diff --cached --quiet || git commit -m "Update ${PKG} to ${{ inputs.tag }}"
+          git push
 
   cask:
     name: Push unbill cask to Homebrew tap
