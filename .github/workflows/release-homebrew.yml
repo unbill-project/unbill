@@ -99,6 +99,7 @@ jobs:
 
   cask:
     name: Push unbill cask to Homebrew tap
+    needs: formula
     if: inputs.cask
     runs-on: ubuntu-latest
     steps:
