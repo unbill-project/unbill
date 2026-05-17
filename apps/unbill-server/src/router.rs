@@ -455,13 +455,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_sync_converges_with_server() {
-        use unbill_device::{LedgerStore as _, UnbillDevice};
+        use unbill_device::UnbillDevice;
         use unbill_model::{Currency, LedgerId, Timestamp};
         use unbill_store_fs::FsStore;
 
         let dir = tempfile::tempdir().unwrap();
         let store = Arc::new(FsStore::open(dir.path().to_path_buf()).unwrap());
-        let device = UnbillDevice::open(Arc::clone(&store) as Arc<dyn unbill_device::LedgerStore>)
+        let device = UnbillDevice::open(Arc::clone(&store) as Arc<dyn unbill_storage::LedgerStore>)
             .await
             .unwrap();
         let app = {
@@ -472,7 +472,7 @@ mod tests {
             build_router(state)
         };
 
-        use unbill_storage::LedgerDoc;
+        use unbill_storage::{LedgerDoc, LedgerStore as _};
         let ledger_id = LedgerId::from_u128(1);
         let id_str = ledger_id.to_string();
         let mut server_doc = LedgerDoc::new(
@@ -486,11 +486,7 @@ mod tests {
 
         let mut client_doc = LedgerDoc::empty();
         let mut sync_state = automerge::sync::State::new();
-        loop {
-            let msg = match client_doc.generate_sync_message(&mut sync_state) {
-                Some(m) => m,
-                None => break,
-            };
+        while let Some(msg) = client_doc.generate_sync_message(&mut sync_state) {
             let resp = app
                 .clone()
                 .oneshot(auth_post(

@@ -126,6 +126,14 @@ impl LedgerDoc {
     // --- automerge sync ---
 
     // sirno:witness:sync-behavior:begin
+    /// Merge all changes from `other` into this document.
+    pub fn merge(&mut self, other: &mut LedgerDoc) -> Result<()> {
+        self.doc
+            .merge(&mut other.doc)
+            .map_err(|e| UnbillError::Automerge(e.to_string()))?;
+        Ok(())
+    }
+
     pub fn generate_sync_message(
         &mut self,
         sync_state: &mut automerge::sync::State,

@@ -9,7 +9,7 @@ homepage.workspace = true
 
 [features]
 # In-process implementation backed by unbill-device.
-local = ["dep:unbill-device", "tokio/rt"]
+local = ["dep:unbill-device", "dep:unbill-storage", "tokio/rt"]
 # HTTP client calling unbill-server.
 http = ["dep:reqwest", "dep:serde_json", "dep:futures-util"]
 # tarpc RPC server + client over interprocess local sockets.
@@ -23,6 +23,7 @@ tokio = { workspace = true, features = ["sync"] }
 
 # local
 unbill-device = { path = "../unbill-device", optional = true }
+unbill-storage = { path = "../unbill-storage", optional = true }
 
 # http
 automerge = { workspace = true, optional = true }

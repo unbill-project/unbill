@@ -7,18 +7,13 @@
 //
 // No Iroh dependency — operates on abstract streams for testability.
 
-use std::sync::Arc;
-
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use unbill_model::{LedgerMeta, NewDevice, NodeId, Timestamp, UnbillError};
 
 type Result<T> = std::result::Result<T, UnbillError>;
-use unbill_storage::{LedgerDoc, LedgerStore};
-
-use unbill_storage::{
-    load_device_labels, load_pending_invitations, save_device_labels, save_pending_invitations,
-};
+use unbill_model::{Invitation, StorageError};
+use unbill_storage::{LedgerDoc, StoreServer};
 
 use crate::protocol::{JoinError, JoinReply, JoinRequest, JoinResponse, read_msg, write_msg};
 
@@ -34,7 +29,7 @@ use crate::protocol::{JoinError, JoinReply, JoinRequest, JoinResponse, read_msg,
 // sirno:witness:symmetric-channel:begin
 pub async fn run_join_host<R, W>(
     peer_node_id: NodeId,
-    store: &Arc<dyn LedgerStore>,
+    store: &StoreServer,
     mut reader: R,
     mut writer: W,
 ) -> Result<()>
@@ -46,9 +41,24 @@ where
 
     // Load and consume (remove) the token whether valid or not, to prevent replays.
     let invitation = {
-        let mut map = load_pending_invitations(&**store).await?;
+        let mut map: std::collections::HashMap<String, Invitation> =
+            match store.load_device_meta("pending_invitations.json").await? {
+                None => std::collections::HashMap::new(),
+                Some(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
+                    UnbillError::Storage(StorageError::Serialization(format!(
+                        "pending_invitations.json: {e}"
+                    )))
+                })?,
+            };
         let inv = map.remove(&req.token);
-        save_pending_invitations(&**store, &map).await?;
+        let bytes = serde_json::to_vec(&map).map_err(|e| {
+            UnbillError::Storage(StorageError::Serialization(format!(
+                "serialize pending_invitations: {e}"
+            )))
+        })?;
+        store
+            .save_device_meta("pending_invitations.json", &bytes)
+            .await?;
         inv
     };
 
@@ -129,7 +139,7 @@ pub async fn run_join_requester<R, W>(
     host_node_id: NodeId,
     local_label: Option<String>,
     request: JoinRequest,
-    store: &Arc<dyn LedgerStore>,
+    store: &StoreServer,
     mut reader: R,
     mut writer: W,
 ) -> Result<()>
@@ -155,9 +165,22 @@ where
             store.save_ledger_meta(&meta).await?;
             store.save_ledger(&ledger_id, &mut doc).await?;
             if let Some(label) = local_label {
-                let mut device_labels = load_device_labels(&**store).await?;
+                let mut device_labels: std::collections::HashMap<String, String> =
+                    match store.load_device_meta("device_labels.json").await? {
+                        None => std::collections::HashMap::new(),
+                        Some(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
+                            UnbillError::Storage(StorageError::Serialization(format!(
+                                "device_labels.json: {e}"
+                            )))
+                        })?,
+                    };
                 device_labels.insert(host_node_id.to_string(), label);
-                save_device_labels(&**store, &device_labels).await?;
+                let bytes = serde_json::to_vec(&device_labels).map_err(|e| {
+                    UnbillError::Storage(StorageError::Serialization(format!(
+                        "serialize device_labels: {e}"
+                    )))
+                })?;
+                store.save_device_meta("device_labels.json", &bytes).await?;
             }
             Ok(())
         }
@@ -181,7 +204,7 @@ mod tests {
     use unbill_model::{
         Currency, Invitation, InviteToken, LedgerId, LedgerMeta, NewDevice, NodeId, Timestamp,
     };
-    use unbill_storage::{LedgerDoc, LedgerStore};
+    use unbill_storage::{LedgerDoc, LedgerStore, StoreServer};
     use unbill_store_memory::InMemoryStore;
 
     use unbill_storage::{load_device_labels, load_pending_invitations, save_pending_invitations};
@@ -225,7 +248,7 @@ mod tests {
         let ledger_id = doc.get_ledger().unwrap().ledger_id;
         let ledger_id_str = ledger_id.to_string();
 
-        let host_store: Arc<dyn LedgerStore> = make_store();
+        let raw_host_store: Arc<dyn LedgerStore> = make_store();
 
         // Save ledger doc and meta to the store.
         let meta = LedgerMeta {
@@ -235,8 +258,8 @@ mod tests {
             created_at: Timestamp::now(),
             updated_at: Timestamp::now(),
         };
-        host_store.save_ledger_meta(&meta).await.unwrap();
-        host_store
+        raw_host_store.save_ledger_meta(&meta).await.unwrap();
+        raw_host_store
             .save_ledger(&ledger_id_str, &mut doc)
             .await
             .unwrap();
@@ -245,13 +268,16 @@ mod tests {
         let token = InviteToken::generate();
         let invitation = make_invitation(meta.ledger_id, host_node.clone(), &token);
         save_pending_invitations(
-            &*host_store,
+            &*raw_host_store,
             &HashMap::from([(token.to_string(), invitation)]),
         )
         .await
         .unwrap();
 
-        let joiner_store: Arc<dyn LedgerStore> = make_store();
+        let host_store = Arc::new(StoreServer::spawn(Arc::clone(&raw_host_store)));
+
+        let raw_joiner_store: Arc<dyn LedgerStore> = make_store();
+        let joiner_store = Arc::new(StoreServer::spawn(Arc::clone(&raw_joiner_store)));
 
         let (stream_host, stream_joiner) = tokio::io::duplex(64 * 1024);
         let (host_read, host_write) = tokio::io::split(stream_host);
@@ -308,7 +334,7 @@ mod tests {
             "host device entry should still be present without relying on a synced label"
         );
 
-        let device_labels = load_device_labels(&*joiner_store).await.unwrap();
+        let device_labels = load_device_labels(&*raw_joiner_store).await.unwrap();
         assert_eq!(
             device_labels
                 .get(&host_node.to_string())
@@ -317,7 +343,7 @@ mod tests {
         );
 
         // Token was consumed.
-        let remaining = load_pending_invitations(&*host_store).await.unwrap();
+        let remaining = load_pending_invitations(&*raw_host_store).await.unwrap();
         assert!(remaining.is_empty(), "token should have been consumed");
     }
 
@@ -330,13 +356,16 @@ mod tests {
         let ledger_id_str = doc.get_ledger().unwrap().ledger_id.to_string();
 
         // No invitations saved to store.
-        let host_store: Arc<dyn LedgerStore> = make_store();
-        host_store
+        let raw_host_store: Arc<dyn LedgerStore> = make_store();
+        raw_host_store
             .save_ledger(&ledger_id_str, &mut doc)
             .await
             .unwrap();
 
-        let joiner_store: Arc<dyn LedgerStore> = make_store();
+        let host_store = Arc::new(StoreServer::spawn(Arc::clone(&raw_host_store)));
+
+        let raw_joiner_store: Arc<dyn LedgerStore> = make_store();
+        let joiner_store = Arc::new(StoreServer::spawn(Arc::clone(&raw_joiner_store)));
 
         let (stream_host, stream_joiner) = tokio::io::duplex(64 * 1024);
         let (host_read, host_write) = tokio::io::split(stream_host);

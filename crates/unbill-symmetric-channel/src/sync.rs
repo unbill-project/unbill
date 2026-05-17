@@ -5,12 +5,11 @@
 // AsyncWrite streams so it can be tested with in-process channel pairs.
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use unbill_model::{NodeId, UnbillError};
-use unbill_storage::{LedgerDoc, LedgerStore};
+use unbill_storage::{LedgerDoc, StoreServer};
 
 type Result<T> = std::result::Result<T, UnbillError>;
 
@@ -38,10 +37,10 @@ struct LedgerSyncState {
 pub async fn run_sync_session<R, W>(
     is_initiator: bool,
     peer_node_id: NodeId,
-    store: &Arc<dyn LedgerStore>,
+    store: &StoreServer,
     mut reader: R,
     mut writer: W,
-) -> Result<()>
+) -> Result<Vec<(String, LedgerDoc)>>
 where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
@@ -117,7 +116,7 @@ where
     };
 
     if accepted.is_empty() {
-        return Ok(());
+        return Ok(Vec::new());
     }
 
     // -----------------------------------------------------------------------
@@ -227,16 +226,17 @@ where
     }
 
     // -----------------------------------------------------------------------
-    // Step 4: Persist ledgers that received remote changes
+    // Step 4: Return ledgers that received remote changes (caller saves)
     // -----------------------------------------------------------------------
 
-    for id in &ledgers_with_remote_changes {
-        if let Some(doc) = docs.get_mut(id) {
-            store.save_ledger(id, doc).await?;
+    let mut changed = Vec::new();
+    for id in ledgers_with_remote_changes {
+        if let Some(doc) = docs.remove(&id) {
+            changed.push((id, doc));
         }
     }
 
-    Ok(())
+    Ok(changed)
 }
 // sirno:witness:symmetric-channel:end
 
@@ -249,7 +249,7 @@ mod tests {
     use std::sync::Arc;
 
     use unbill_model::{Currency, LedgerId, NewBill, NewDevice, NodeId, Share, Timestamp, UserId};
-    use unbill_storage::{LedgerDoc, LedgerStore};
+    use unbill_storage::{LedgerDoc, StoreServer};
     use unbill_store_memory::InMemoryStore;
 
     use super::run_sync_session;
@@ -263,7 +263,7 @@ mod tests {
     }
 
     /// Save a doc and its meta to a store.
-    async fn save_doc(store: &dyn LedgerStore, doc: &mut LedgerDoc) {
+    async fn save_doc(store: &StoreServer, doc: &mut LedgerDoc) {
         let ledger = doc.get_ledger().unwrap();
         let id = ledger.ledger_id.to_string();
         let meta = unbill_model::LedgerMeta {
@@ -279,8 +279,8 @@ mod tests {
 
     /// Run sync between two stores over an in-process duplex channel.
     async fn sync_pair(
-        store_a: Arc<dyn LedgerStore>,
-        store_b: Arc<dyn LedgerStore>,
+        store_a: Arc<StoreServer>,
+        store_b: Arc<StoreServer>,
         peer_a: NodeId,
         peer_b: NodeId,
     ) {
@@ -292,14 +292,20 @@ mod tests {
         let sb = Arc::clone(&store_b);
 
         let task_a = tokio::spawn(async move {
-            run_sync_session(true, peer_b, &sa, a_read, a_write)
+            let changed = run_sync_session(true, peer_b, &sa, a_read, a_write)
                 .await
                 .unwrap();
+            for (id, mut doc) in changed {
+                sa.save_ledger(&id, &mut doc).await.unwrap();
+            }
         });
         let task_b = tokio::spawn(async move {
-            run_sync_session(false, peer_a, &sb, b_read, b_write)
+            let changed = run_sync_session(false, peer_a, &sb, b_read, b_write)
                 .await
                 .unwrap();
+            for (id, mut doc) in changed {
+                sb.save_ledger(&id, &mut doc).await.unwrap();
+            }
         });
 
         task_a.await.unwrap();
@@ -312,8 +318,8 @@ mod tests {
         let node_b = NodeId::from_seed(2);
 
         // A has a ledger that authorizes B; B has no ledgers.
-        let store_a: Arc<dyn LedgerStore> = make_store();
-        let store_b: Arc<dyn LedgerStore> = make_store();
+        let store_a = Arc::new(StoreServer::spawn(make_store()));
+        let store_b = Arc::new(StoreServer::spawn(make_store()));
 
         let mut doc_a =
             LedgerDoc::new(LedgerId::new(), "Test".to_string(), usd(), Timestamp::now()).unwrap();
@@ -325,7 +331,7 @@ mod tests {
                 Timestamp::now(),
             )
             .unwrap();
-        save_doc(&*store_a, &mut doc_a).await;
+        save_doc(&store_a, &mut doc_a).await;
 
         sync_pair(store_a, store_b, node_a, node_b).await;
         // No panic = both sides closed cleanly with empty accepted list.
@@ -409,10 +415,10 @@ mod tests {
             )
             .unwrap();
 
-        let store_a: Arc<dyn LedgerStore> = make_store();
-        let store_b: Arc<dyn LedgerStore> = make_store();
-        save_doc(&*store_a, &mut doc_a).await;
-        save_doc(&*store_b, &mut doc_b).await;
+        let store_a = Arc::new(StoreServer::spawn(make_store()));
+        let store_b = Arc::new(StoreServer::spawn(make_store()));
+        save_doc(&store_a, &mut doc_a).await;
+        save_doc(&store_b, &mut doc_b).await;
 
         sync_pair(Arc::clone(&store_a), Arc::clone(&store_b), node_a, node_b).await;
 
@@ -439,8 +445,8 @@ mod tests {
         let node_b = NodeId::from_seed(2);
 
         // A's ledger does NOT authorize B.
-        let store_a: Arc<dyn LedgerStore> = make_store();
-        let store_b: Arc<dyn LedgerStore> = make_store();
+        let store_a = Arc::new(StoreServer::spawn(make_store()));
+        let store_b = Arc::new(StoreServer::spawn(make_store()));
 
         let mut doc_a = LedgerDoc::new(
             LedgerId::new(),
@@ -450,7 +456,7 @@ mod tests {
         )
         .unwrap();
         let id = doc_a.get_ledger().unwrap().ledger_id.to_string();
-        save_doc(&*store_a, &mut doc_a).await;
+        save_doc(&store_a, &mut doc_a).await;
 
         // B has the same ledger ID.
         let mut doc_b = LedgerDoc::new(
