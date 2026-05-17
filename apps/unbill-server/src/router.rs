@@ -472,7 +472,8 @@ mod tests {
             build_router(state)
         };
 
-        use unbill_storage::{LedgerDoc, LedgerStore as _};
+        use unbill_model::LedgerDoc;
+        use unbill_storage::LedgerStore as _;
         let ledger_id = LedgerId::from_u128(1);
         let id_str = ledger_id.to_string();
         let mut server_doc = LedgerDoc::new(

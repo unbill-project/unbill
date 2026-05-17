@@ -8016,7 +8016,6 @@ version = "0.0.3"
 dependencies = [
  "async-trait",
  "automerge",
- "autosurgeon",
  "serde_json",
  "tokio",
  "tracing",

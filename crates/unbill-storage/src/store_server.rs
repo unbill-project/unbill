@@ -18,9 +18,11 @@ use unbill_model::{
     Timestamp,
 };
 
+use unbill_model::LedgerDoc;
+
 use crate::{
-    LedgerDoc, LedgerStore, StorageResult, load_device_labels, load_pending_invitations,
-    save_device_labels, save_pending_invitations,
+    LedgerStore, StorageResult, load_device_labels, load_pending_invitations, save_device_labels,
+    save_pending_invitations,
 };
 
 // sirno:witness:store-server:begin

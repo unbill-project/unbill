@@ -18,7 +18,7 @@ use crate::model::{
 
 use crate::settlement;
 use unbill_event::ServiceEvent;
-use unbill_storage::LedgerDoc;
+use unbill_model::LedgerDoc;
 
 // sirno:witness:console-service:begin
 pub struct UnbillConsole {

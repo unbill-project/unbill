@@ -14,9 +14,13 @@ mod secret_key;
 mod timestamp;
 mod user;
 
+mod doc;
+pub(crate) mod ops;
+
 pub use amendment::EffectiveBills;
 pub use bill::{Bill, NewBill, Share};
 pub use currency::Currency;
+pub use doc::LedgerDoc;
 pub use id::{BillId, LedgerId, UserId};
 pub use invite_token::{InvalidInviteToken, InviteToken};
 pub use node_id::NodeId;

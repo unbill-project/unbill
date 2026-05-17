@@ -4,7 +4,7 @@ use unbill_event::ServiceEvent;
 
 use unbill_model::{LedgerMeta, NodeId, SecretKey, StorageError};
 
-use crate::LedgerDoc;
+use unbill_model::LedgerDoc;
 
 pub type StorageResult<T> = std::result::Result<T, StorageError>;
 
