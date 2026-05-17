@@ -10,6 +10,7 @@
 use std::sync::Arc;
 
 use tokio::sync::{broadcast, mpsc, oneshot};
+use tracing::warn;
 use unbill_event::ServiceEvent;
 use unbill_model::error::{Result as DeviceResult, UnbillError};
 use unbill_model::{
@@ -118,7 +119,9 @@ impl StoreServer {
         let fwd_tx = events.clone();
         tokio::spawn(async move {
             while let Ok(evt) = inner_rx.recv().await {
-                let _ = fwd_tx.send(evt);
+                if fwd_tx.send(evt).is_err() {
+                    break; // No subscribers, stop forwarding
+                }
             }
         });
 
@@ -131,13 +134,19 @@ impl StoreServer {
         while let Some(cmd) = rx.recv().await {
             match cmd {
                 StoreCommand::SaveLedgerMeta { meta, reply } => {
-                    let _ = reply.send(store.save_ledger_meta(&meta).await);
+                    if reply.send(store.save_ledger_meta(&meta).await).is_err() {
+                        warn!("SaveLedgerMeta reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::ListLedgers { reply } => {
-                    let _ = reply.send(store.list_ledgers().await);
+                    if reply.send(store.list_ledgers().await).is_err() {
+                        warn!("ListLedgers reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::LoadLedger { ledger_id, reply } => {
-                    let _ = reply.send(store.load_ledger(&ledger_id).await);
+                    if reply.send(store.load_ledger(&ledger_id).await).is_err() {
+                        warn!(ledger_id, "LoadLedger reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::SaveLedger {
                     ledger_id,
@@ -145,58 +154,104 @@ impl StoreServer {
                     reply,
                 } => {
                     let result = store.save_ledger(&ledger_id, &mut doc).await;
-                    let _ = reply.send(result.map(|()| *doc));
+                    if reply.send(result.map(|()| *doc)).is_err() {
+                        warn!(ledger_id, "SaveLedger reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::DeleteLedger { ledger_id, reply } => {
-                    let _ = reply.send(store.delete_ledger(&ledger_id).await);
+                    if reply.send(store.delete_ledger(&ledger_id).await).is_err() {
+                        warn!(ledger_id, "DeleteLedger reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::LoadDeviceMeta { key, reply } => {
-                    let _ = reply.send(store.load_device_meta(&key).await);
+                    if reply.send(store.load_device_meta(&key).await).is_err() {
+                        warn!(key, "LoadDeviceMeta reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::SaveDeviceMeta { key, value, reply } => {
-                    let _ = reply.send(store.save_device_meta(&key, &value).await);
+                    if reply
+                        .send(store.save_device_meta(&key, &value).await)
+                        .is_err()
+                    {
+                        warn!(key, "SaveDeviceMeta reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::CreateSecretKey { reply } => {
-                    let _ = reply.send(store.create_secret_key().await);
+                    if reply.send(store.create_secret_key().await).is_err() {
+                        warn!("CreateSecretKey reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::IsDeviceInitialized { reply } => {
-                    let _ = reply.send(store.is_device_initialized().await);
+                    if reply.send(store.is_device_initialized().await).is_err() {
+                        warn!("IsDeviceInitialized reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::GetDeviceId { reply } => {
-                    let _ = reply.send(store.get_device_id().await);
+                    if reply.send(store.get_device_id().await).is_err() {
+                        warn!("GetDeviceId reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::GetSecretKey { reply } => {
-                    let _ = reply.send(store.get_secret_key().await);
+                    if reply.send(store.get_secret_key().await).is_err() {
+                        warn!("GetSecretKey reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::AsymSync {
                     ledger_id,
                     bytes,
                     reply,
                 } => {
-                    let _ = reply.send(Self::do_asym_sync(&*store, &ledger_id, bytes).await);
+                    if reply
+                        .send(Self::do_asym_sync(&*store, &ledger_id, bytes).await)
+                        .is_err()
+                    {
+                        warn!(ledger_id, "AsymSync reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::CreateInvitation {
                     ledger_id,
                     device_id,
                     reply,
                 } => {
-                    let _ =
-                        reply.send(Self::do_create_invitation(&*store, ledger_id, device_id).await);
+                    if reply
+                        .send(Self::do_create_invitation(&*store, ledger_id, device_id).await)
+                        .is_err()
+                    {
+                        warn!(%ledger_id, "CreateInvitation reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::CollectPeers { self_id, reply } => {
-                    let _ = reply.send(Self::do_collect_peers(&*store, &self_id).await);
+                    if reply
+                        .send(Self::do_collect_peers(&*store, &self_id).await)
+                        .is_err()
+                    {
+                        warn!("CollectPeers reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::ConsumeInvitation { token, reply } => {
-                    let _ = reply.send(Self::do_consume_invitation(&*store, &token).await);
+                    if reply
+                        .send(Self::do_consume_invitation(&*store, &token).await)
+                        .is_err()
+                    {
+                        warn!(token, "ConsumeInvitation reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::AddDeviceToLedger {
                     ledger_id,
                     peer_node_id,
                     reply,
                 } => {
-                    let _ = reply.send(
-                        Self::do_add_device_to_ledger(&*store, &ledger_id, peer_node_id).await,
-                    );
+                    if reply
+                        .send(
+                            Self::do_add_device_to_ledger(&*store, &ledger_id, peer_node_id).await,
+                        )
+                        .is_err()
+                    {
+                        warn!(
+                            ledger_id,
+                            "AddDeviceToLedger reply dropped (caller cancelled)"
+                        );
+                    }
                 }
                 StoreCommand::PersistJoinedLedger {
                     doc_bytes,
@@ -204,18 +259,30 @@ impl StoreServer {
                     label,
                     reply,
                 } => {
-                    let _ = reply.send(
-                        Self::do_persist_joined_ledger(&*store, doc_bytes, host_node_id, label)
-                            .await,
-                    );
+                    if reply
+                        .send(
+                            Self::do_persist_joined_ledger(&*store, doc_bytes, host_node_id, label)
+                                .await,
+                        )
+                        .is_err()
+                    {
+                        warn!("PersistJoinedLedger reply dropped (caller cancelled)");
+                    }
                 }
                 StoreCommand::MergeAndSaveLedger {
                     ledger_id,
                     mut doc,
                     reply,
                 } => {
-                    let _ =
-                        reply.send(Self::do_merge_and_save(&*store, &ledger_id, &mut doc).await);
+                    if reply
+                        .send(Self::do_merge_and_save(&*store, &ledger_id, &mut doc).await)
+                        .is_err()
+                    {
+                        warn!(
+                            ledger_id,
+                            "MergeAndSaveLedger reply dropped (caller cancelled)"
+                        );
+                    }
                 }
             }
         }
@@ -382,8 +449,8 @@ impl StoreServer {
                 reply: tx,
             })
             .await
-            .map_err(|_| channel_closed())?;
-        rx.await.map_err(|_| channel_closed())?
+            .map_err(|_| StorageError::ChannelClosed)?;
+        rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
 
     pub async fn list_ledgers(&self) -> StorageResult<Vec<LedgerMeta>> {
@@ -391,8 +458,8 @@ impl StoreServer {
         self.tx
             .send(StoreCommand::ListLedgers { reply: tx })
             .await
-            .map_err(|_| channel_closed())?;
-        rx.await.map_err(|_| channel_closed())?
+            .map_err(|_| StorageError::ChannelClosed)?;
+        rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
 
     pub async fn load_ledger(&self, ledger_id: &str) -> StorageResult<Option<LedgerDoc>> {
@@ -403,8 +470,8 @@ impl StoreServer {
                 reply: tx,
             })
             .await
-            .map_err(|_| channel_closed())?;
-        rx.await.map_err(|_| channel_closed())?
+            .map_err(|_| StorageError::ChannelClosed)?;
+        rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
 
     pub async fn save_ledger(&self, ledger_id: &str, doc: &mut LedgerDoc) -> StorageResult<()> {
@@ -417,8 +484,8 @@ impl StoreServer {
                 reply: tx,
             })
             .await
-            .map_err(|_| channel_closed())?;
-        let result = rx.await.map_err(|_| channel_closed())?;
+            .map_err(|_| StorageError::ChannelClosed)?;
+        let result = rx.await.map_err(|_| StorageError::ChannelClosed)?;
         match result {
             Ok(returned_doc) => {
                 *doc = returned_doc;
@@ -436,8 +503,8 @@ impl StoreServer {
                 reply: tx,
             })
             .await
-            .map_err(|_| channel_closed())?;
-        rx.await.map_err(|_| channel_closed())?
+            .map_err(|_| StorageError::ChannelClosed)?;
+        rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
 
     pub async fn load_device_meta(&self, key: &str) -> StorageResult<Option<Vec<u8>>> {
@@ -448,8 +515,8 @@ impl StoreServer {
                 reply: tx,
             })
             .await
-            .map_err(|_| channel_closed())?;
-        rx.await.map_err(|_| channel_closed())?
+            .map_err(|_| StorageError::ChannelClosed)?;
+        rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
 
     pub async fn save_device_meta(&self, key: &str, value: &[u8]) -> StorageResult<()> {
@@ -461,8 +528,8 @@ impl StoreServer {
                 reply: tx,
             })
             .await
-            .map_err(|_| channel_closed())?;
-        rx.await.map_err(|_| channel_closed())?
+            .map_err(|_| StorageError::ChannelClosed)?;
+        rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
 
     pub async fn create_secret_key(&self) -> StorageResult<()> {
@@ -470,8 +537,8 @@ impl StoreServer {
         self.tx
             .send(StoreCommand::CreateSecretKey { reply: tx })
             .await
-            .map_err(|_| channel_closed())?;
-        rx.await.map_err(|_| channel_closed())?
+            .map_err(|_| StorageError::ChannelClosed)?;
+        rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
 
     pub async fn is_device_initialized(&self) -> StorageResult<bool> {
@@ -479,8 +546,8 @@ impl StoreServer {
         self.tx
             .send(StoreCommand::IsDeviceInitialized { reply: tx })
             .await
-            .map_err(|_| channel_closed())?;
-        rx.await.map_err(|_| channel_closed())?
+            .map_err(|_| StorageError::ChannelClosed)?;
+        rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
 
     pub async fn get_device_id(&self) -> StorageResult<NodeId> {
@@ -488,8 +555,8 @@ impl StoreServer {
         self.tx
             .send(StoreCommand::GetDeviceId { reply: tx })
             .await
-            .map_err(|_| channel_closed())?;
-        rx.await.map_err(|_| channel_closed())?
+            .map_err(|_| StorageError::ChannelClosed)?;
+        rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
 
     pub async fn get_secret_key(&self) -> StorageResult<SecretKey> {
@@ -497,8 +564,8 @@ impl StoreServer {
         self.tx
             .send(StoreCommand::GetSecretKey { reply: tx })
             .await
-            .map_err(|_| channel_closed())?;
-        rx.await.map_err(|_| channel_closed())?
+            .map_err(|_| StorageError::ChannelClosed)?;
+        rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<ServiceEvent> {
@@ -522,9 +589,9 @@ impl StoreServer {
                 reply: tx,
             })
             .await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?;
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?;
         rx.await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?
     }
 
     pub async fn create_invitation(
@@ -540,9 +607,9 @@ impl StoreServer {
                 reply: tx,
             })
             .await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?;
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?;
         rx.await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?
     }
 
     pub async fn collect_peers(&self, self_id: NodeId) -> DeviceResult<Vec<NodeId>> {
@@ -550,9 +617,9 @@ impl StoreServer {
         self.tx
             .send(StoreCommand::CollectPeers { self_id, reply: tx })
             .await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?;
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?;
         rx.await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?
     }
 
     pub async fn consume_invitation(&self, token: &str) -> DeviceResult<Option<Invitation>> {
@@ -563,9 +630,9 @@ impl StoreServer {
                 reply: tx,
             })
             .await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?;
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?;
         rx.await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?
     }
 
     pub async fn add_device_to_ledger(
@@ -581,9 +648,9 @@ impl StoreServer {
                 reply: tx,
             })
             .await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?;
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?;
         rx.await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?
     }
 
     pub async fn merge_and_save_ledger(&self, ledger_id: &str, doc: LedgerDoc) -> DeviceResult<()> {
@@ -595,9 +662,9 @@ impl StoreServer {
                 reply: tx,
             })
             .await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?;
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?;
         rx.await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?
     }
 
     pub async fn persist_joined_ledger(
@@ -615,18 +682,11 @@ impl StoreServer {
                 reply: tx,
             })
             .await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?;
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?;
         rx.await
-            .map_err(|_| UnbillError::Storage(channel_closed()))?
+            .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?
     }
 }
 // sirno:witness:store-server:end
-
-fn channel_closed() -> StorageError {
-    StorageError::Io(std::io::Error::new(
-        std::io::ErrorKind::BrokenPipe,
-        "store server channel closed",
-    ))
-}
 
 // Tests live in unbill-device (which has access to InMemoryStore).

@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, State};
 use unbill_asymmetric_channel::AsymChannel;
@@ -9,6 +8,7 @@ use unbill_asymmetric_channel::AsymChannel;
 use unbill_asymmetric_channel::local::LocalAsymChannel;
 #[cfg(not(mobile))]
 use unbill_asymmetric_channel::rpc::RpcAsymChannel;
+use unbill_console::error::{Result, UnbillError};
 use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
 };
@@ -443,7 +443,7 @@ async fn add_user_inner(service: &Arc<UnbillConsole>, input: AddUserInput) -> Re
         .await?
         .into_iter()
         .find(|user| user.user_id == user_id)
-        .with_context(|| format!("user not found: {}", input.user_id))?;
+        .ok_or_else(|| UnbillError::UserNotFound(input.user_id.clone()))?;
 
     service
         .add_user(
@@ -460,7 +460,7 @@ async fn add_user_inner(service: &Arc<UnbillConsole>, input: AddUserInput) -> Re
         .await?
         .into_iter()
         .find(|user| user.user_id == user_id)
-        .context("new user missing after add")?;
+        .ok_or_else(|| UnbillError::UserNotFound("new user missing after add".into()))?;
 
     Ok(UserDto::from(added_user))
 }
@@ -548,7 +548,7 @@ async fn load_ledger_detail_inner(
         .await?
         .into_iter()
         .find(|item| item.ledger_id == ledger_id)
-        .with_context(|| format!("ledger {ledger_id} not found"))?;
+        .ok_or_else(|| UnbillError::LedgerNotFound(ledger_id.to_string()))?;
 
     let summary = summarize_ledger(service, meta).await?;
     let local_node_id = service.device_id().to_string();
@@ -615,7 +615,9 @@ async fn resolve_conflict_inner(
         .collect::<Result<BTreeSet<_>>>()?;
 
     if !requested_conflicting_ids.contains(&selected_bill_id) {
-        anyhow::bail!("selected bill is not part of the conflict");
+        return Err(UnbillError::Validation(
+            "selected bill is not part of the conflict".into(),
+        ));
     }
 
     let conflicts = service.detect_conflicts(ledger_id).await?;
@@ -629,13 +631,15 @@ async fn resolve_conflict_inner(
                 .collect::<BTreeSet<_>>()
                 == requested_conflicting_ids
         })
-        .with_context(|| "conflict group is no longer current")?;
+        .ok_or_else(|| UnbillError::Validation("conflict group is no longer current".into()))?;
 
     let selected_bill = group
         .conflicting
         .into_iter()
         .find(|bill| bill.id == selected_bill_id)
-        .with_context(|| "selected bill is no longer a current conflicting bill")?;
+        .ok_or_else(|| {
+            UnbillError::Validation("selected bill is no longer a current conflicting bill".into())
+        })?;
 
     let merge_id = service
         .add_bill(
@@ -735,18 +739,24 @@ fn bill_to_dto(
 }
 
 fn parse_ledger_id(value: &str) -> Result<LedgerId> {
-    LedgerId::from_string(value)
-        .map_err(|error| anyhow::anyhow!("invalid ledger ID {value:?}: {error}"))
+    LedgerId::from_string(value).map_err(|source| UnbillError::ParseId {
+        value: value.to_owned(),
+        source,
+    })
 }
 
 fn parse_user_id(value: &str) -> Result<UserId> {
-    UserId::from_string(value)
-        .map_err(|error| anyhow::anyhow!("invalid user ID {value:?}: {error}"))
+    UserId::from_string(value).map_err(|source| UnbillError::ParseId {
+        value: value.to_owned(),
+        source,
+    })
 }
 
 fn parse_bill_id(value: &str) -> Result<BillId> {
-    BillId::from_string(value)
-        .map_err(|error| anyhow::anyhow!("invalid bill ID {value:?}: {error}"))
+    BillId::from_string(value).map_err(|source| UnbillError::ParseId {
+        value: value.to_owned(),
+        source,
+    })
 }
 
 fn stringify_error(error: impl std::fmt::Display) -> String {

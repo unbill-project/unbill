@@ -103,6 +103,15 @@ Concurrent `trigger_peer_sync` calls for the same peer are safe:
 both sync sessions `merge_and_save_ledger` at the end,
 and automerge merge is commutative and idempotent.
 
+### Error handling
+
+`StorageError::ChannelClosed` is the discriminable variant
+for StoreServer actor communication failures
+(MPSC send or oneshot receive failing because the consumer task stopped).
+Dropped reply sends (caller cancelled before receiving the result)
+are logged at `warn` level.
+Broadcast event sends with no subscribers log at `warn` and stop forwarding.
+
 ---
 
 > **Sirno generated links begin. Do not edit this section.**

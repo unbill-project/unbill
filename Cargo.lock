@@ -8019,6 +8019,7 @@ dependencies = [
  "autosurgeon",
  "serde_json",
  "tokio",
+ "tracing",
  "unbill-event",
  "unbill-model",
 ]
@@ -8027,7 +8028,6 @@ dependencies = [
 name = "unbill-store-fs"
 version = "0.0.2"
 dependencies = [
- "anyhow",
  "async-trait",
  "directories",
  "iroh",
@@ -8075,7 +8075,6 @@ dependencies = [
 name = "unbill-tauri"
 version = "0.0.2"
 dependencies = [
- "anyhow",
  "rustls",
  "serde",
  "serde_json",

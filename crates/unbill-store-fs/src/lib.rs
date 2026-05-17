@@ -157,9 +157,15 @@ impl LedgerStore for FsStore {
         let dir = self.ledger_dir(ledger_id);
         tokio::fs::create_dir_all(&dir).await?;
         atomic_write(dir.join("ledger.bin"), &doc.save()).await?;
-        let _ = self.events.send(ServiceEvent::LedgerUpdated {
-            ledger_id: ledger_id.to_owned(),
-        });
+        if self
+            .events
+            .send(ServiceEvent::LedgerUpdated {
+                ledger_id: ledger_id.to_owned(),
+            })
+            .is_err()
+        {
+            tracing::warn!(ledger_id, "LedgerUpdated event dropped: no subscribers");
+        }
         Ok(())
     }
 

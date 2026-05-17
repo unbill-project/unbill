@@ -74,9 +74,14 @@ impl UnbillConsole {
                             {
                                 cache.lock().await.insert(ledger_id, doc);
                             }
-                            let _ = events_tx.send(ServiceEvent::LedgerUpdated {
-                                ledger_id: ledger_id.to_string(),
-                            });
+                            if events_tx
+                                .send(ServiceEvent::LedgerUpdated {
+                                    ledger_id: ledger_id.to_string(),
+                                })
+                                .is_err()
+                            {
+                                tracing::warn!("LedgerUpdated event dropped: no subscribers");
+                            }
                         }
                     }
                 }
@@ -141,9 +146,15 @@ impl UnbillConsole {
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
         self.put_doc(ledger_id, doc).await;
         self.touch_meta(ledger_id).await?;
-        let _ = self.events.send(ServiceEvent::LedgerUpdated {
-            ledger_id: ledger_id.to_string(),
-        });
+        if self
+            .events
+            .send(ServiceEvent::LedgerUpdated {
+                ledger_id: ledger_id.to_string(),
+            })
+            .is_err()
+        {
+            tracing::warn!("LedgerUpdated event dropped: no subscribers");
+        }
         Ok(bill_id)
     }
     // sirno:witness:bill-amendment:end
@@ -169,9 +180,15 @@ impl UnbillConsole {
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
         self.put_doc(ledger_id, doc).await;
         self.touch_meta(ledger_id).await?;
-        let _ = self.events.send(ServiceEvent::LedgerUpdated {
-            ledger_id: ledger_id.to_string(),
-        });
+        if self
+            .events
+            .send(ServiceEvent::LedgerUpdated {
+                ledger_id: ledger_id.to_string(),
+            })
+            .is_err()
+        {
+            tracing::warn!("LedgerUpdated event dropped: no subscribers");
+        }
         Ok(())
     }
 
@@ -200,9 +217,15 @@ impl UnbillConsole {
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
         self.put_doc(ledger_id, doc).await;
         self.touch_meta(ledger_id).await?;
-        let _ = self.events.send(ServiceEvent::LedgerUpdated {
-            ledger_id: ledger_id.to_string(),
-        });
+        if self
+            .events
+            .send(ServiceEvent::LedgerUpdated {
+                ledger_id: ledger_id.to_string(),
+            })
+            .is_err()
+        {
+            tracing::warn!("LedgerUpdated event dropped: no subscribers");
+        }
         Ok(User {
             user_id,
             display_name: input.display_name,

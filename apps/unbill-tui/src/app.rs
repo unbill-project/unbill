@@ -675,7 +675,10 @@ pub async fn refresh_users(svc: &Arc<UnbillConsole>, state: &mut AppState) {
     if let Some(ledger_id) = state.current_ledger_id() {
         match svc.list_users(ledger_id).await {
             Ok(users) => state.users = users,
-            Err(_) => state.users = vec![],
+            Err(e) => {
+                state.users = vec![];
+                state.status_message = Some(format!("list users: {e}"));
+            }
         }
     } else {
         state.users = vec![];
@@ -686,7 +689,10 @@ pub async fn refresh_settlement(svc: &Arc<UnbillConsole>, state: &mut AppState) 
     if let Some(ledger_id) = state.current_ledger_id() {
         match svc.settle_ledger(ledger_id).await {
             Ok(s) => state.settlement = s.transactions,
-            Err(_) => state.settlement = vec![],
+            Err(e) => {
+                state.settlement = vec![];
+                state.status_message = Some(format!("settlement: {e}"));
+            }
         }
     } else {
         state.settlement = vec![];
