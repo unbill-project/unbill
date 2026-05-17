@@ -7948,6 +7948,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "unbill-asymmetric-channel",
+ "unbill-device",
  "unbill-store-fs",
 ]
 
@@ -7961,6 +7962,7 @@ dependencies = [
  "unbill-event",
  "unbill-model",
  "unbill-storage",
+ "unbill-store-memory",
  "unbill-symmetric-channel",
 ]
 

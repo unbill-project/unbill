@@ -10,9 +10,17 @@ refines:
   - design-principles
 ---
 
-Sync is user-initiated.
-There is no background polling loop or automatic reconciliation loop by default.
-A user or integration explicitly requests a sync round.
+Sync is user-initiated or daemon-driven.
+A user or integration explicitly requests a sync round,
+or the daemon triggers one on a periodic interval.
+
+The daemon optionally runs a background sync loop that periodically
+dials all known peers (other devices that share at least one ledger)
+and runs the symmetric sync protocol with each.
+The loop is enabled by setting `UNBILL_SYNC_INTERVAL_SECS` to the
+desired interval in seconds; without this variable the daemon does
+not poll.
+Failures for individual peers are logged and do not stop the loop.
 
 Device-to-device sync happens through the symmetric channel.
 Peers exchange ledger lists,
