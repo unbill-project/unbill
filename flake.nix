@@ -38,6 +38,7 @@
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
         craneLibWasm = (crane.mkLib pkgs).overrideToolchain rustToolchainWasm;
 
+
         # ── CLI / TUI / daemon ────────────────────────────────────────────────
 
         commonArgs = {
