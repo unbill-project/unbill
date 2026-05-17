@@ -62,6 +62,7 @@ jobs:
 
   aur:
     name: Publish AUR release
+    needs: github
     if: inputs.aur_packages != '[]' && inputs.aur_packages != ''
     uses: ./.github/workflows/release-aur.yml
     with:
