@@ -151,6 +151,7 @@
 
           cp ${./apps/unbill-ui-native/style.css} "$out/app.css"
           cp ${./crates/unbill-ui-components/style.css} "$out/components.css"
+          cp ${./crates/unbill-tauri/icons/icon.png} "$out/icon.png"
 
           cat > "$out/index.html" << 'EOF'
           <!doctype html>
@@ -159,6 +160,7 @@
               <meta charset="utf-8" />
               <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
               <title>unbill</title>
+              <link rel="icon" href="/icon.png" type="image/png" />
               <link rel="stylesheet" href="/app.css" />
               <link rel="stylesheet" href="/components.css" />
               <script type="module">
