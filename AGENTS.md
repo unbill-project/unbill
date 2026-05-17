@@ -45,6 +45,11 @@ The `mdformat` hook intentionally skips `unbill-docs`;
 use Sirno checks for lake structure and generated links.
 Use targeted tests in addition to `prek` for behavior changes.
 
+After `prek`,
+run `cargo clippy --workspace -- -D warnings` to catch lint issues.
+The project treats all clippy warnings as errors.
+Fix them before handing work back.
+
 Test priority follows risk and locality:
 
 1. Pure functions with no I/O.

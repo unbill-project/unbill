@@ -82,6 +82,11 @@ impl UnbillDevice {
             .await
     }
 
+    /// Collect all unique peer NodeIds across all ledgers, excluding this device.
+    pub async fn collect_peers(&self) -> Result<Vec<NodeId>> {
+        collect_peers_from_store(&*self.store, &self.device_id).await
+    }
+
     /// Dial `peer` and run the full sync exchange for all shared ledgers.
     pub async fn trigger_peer_sync(&self, peer: NodeId) -> Result<()> {
         self.endpoint.sync_once_inner(peer, &self.store).await
@@ -122,6 +127,27 @@ impl UnbillDevice {
 }
 // sirno:witness:unbill-device:end
 
+async fn collect_peers_from_store(
+    store: &dyn LedgerStore,
+    self_id: &NodeId,
+) -> Result<Vec<NodeId>> {
+    let metas = store.list_ledgers().await?;
+    let mut peers = Vec::new();
+    for meta in metas {
+        let id = meta.ledger_id.to_string();
+        if let Some(doc) = store.load_ledger(&id).await?
+            && let Ok(devices) = doc.list_devices()
+        {
+            for device in devices {
+                if device.node_id != *self_id && !peers.contains(&device.node_id) {
+                    peers.push(device.node_id);
+                }
+            }
+        }
+    }
+    Ok(peers)
+}
+
 fn parse_join_url(url: &str) -> Result<(String, NodeId, String)> {
     let path = url
         .strip_prefix("unbill://join/")
@@ -138,4 +164,110 @@ fn parse_join_url(url: &str) -> Result<(String, NodeId, String)> {
         .map_err(|e| UnbillError::InvalidUrl(format!("invalid host node ID in URL: {e}")))?;
     let token = parts[2].to_string();
     Ok((ledger_id, host, token))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use unbill_model::{Currency, LedgerId, NewDevice, NodeId, Timestamp};
+    use unbill_storage::{LedgerDoc, LedgerStore};
+    use unbill_store_memory::InMemoryStore;
+
+    use super::collect_peers_from_store;
+
+    fn usd() -> Currency {
+        Currency::from_code("USD").unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_collect_peers_returns_unique_peers_excluding_self() {
+        let store = Arc::new(InMemoryStore::default());
+        let self_id = NodeId::from_seed(1);
+        let peer_a = NodeId::from_seed(2);
+        let peer_b = NodeId::from_seed(3);
+
+        // Ledger 1: self + peer_a
+        let mut doc1 =
+            LedgerDoc::new(LedgerId::new(), "L1".to_string(), usd(), Timestamp::now()).unwrap();
+        doc1.add_device(
+            NewDevice {
+                node_id: self_id.clone(),
+            },
+            Timestamp::now(),
+        )
+        .unwrap();
+        doc1.add_device(
+            NewDevice {
+                node_id: peer_a.clone(),
+            },
+            Timestamp::now(),
+        )
+        .unwrap();
+        let meta1 = unbill_model::LedgerMeta {
+            ledger_id: doc1.get_ledger().unwrap().ledger_id,
+            name: "L1".to_string(),
+            currency: usd(),
+            created_at: Timestamp::now(),
+            updated_at: Timestamp::now(),
+        };
+        store.save_ledger_meta(&meta1).await.unwrap();
+        store
+            .save_ledger(&meta1.ledger_id.to_string(), &mut doc1)
+            .await
+            .unwrap();
+
+        // Ledger 2: self + peer_a + peer_b
+        let mut doc2 =
+            LedgerDoc::new(LedgerId::new(), "L2".to_string(), usd(), Timestamp::now()).unwrap();
+        doc2.add_device(
+            NewDevice {
+                node_id: self_id.clone(),
+            },
+            Timestamp::now(),
+        )
+        .unwrap();
+        doc2.add_device(
+            NewDevice {
+                node_id: peer_a.clone(),
+            },
+            Timestamp::now(),
+        )
+        .unwrap();
+        doc2.add_device(
+            NewDevice {
+                node_id: peer_b.clone(),
+            },
+            Timestamp::now(),
+        )
+        .unwrap();
+        let meta2 = unbill_model::LedgerMeta {
+            ledger_id: doc2.get_ledger().unwrap().ledger_id,
+            name: "L2".to_string(),
+            currency: usd(),
+            created_at: Timestamp::now(),
+            updated_at: Timestamp::now(),
+        };
+        store.save_ledger_meta(&meta2).await.unwrap();
+        store
+            .save_ledger(&meta2.ledger_id.to_string(), &mut doc2)
+            .await
+            .unwrap();
+
+        let peers = collect_peers_from_store(&*store, &self_id).await.unwrap();
+
+        assert_eq!(peers.len(), 2);
+        assert!(peers.contains(&peer_a));
+        assert!(peers.contains(&peer_b));
+        assert!(!peers.contains(&self_id));
+    }
+
+    #[tokio::test]
+    async fn test_collect_peers_empty_when_no_ledgers() {
+        let store = Arc::new(InMemoryStore::default());
+        let self_id = NodeId::from_seed(1);
+
+        let peers = collect_peers_from_store(&*store, &self_id).await.unwrap();
+        assert!(peers.is_empty());
+    }
 }

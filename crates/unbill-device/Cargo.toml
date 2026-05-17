@@ -15,3 +15,8 @@ unbill-symmetric-channel = { path = "../unbill-symmetric-channel" }
 automerge.workspace = true
 async-trait.workspace = true
 tokio = { workspace = true, features = ["sync", "rt"] }
+
+[dev-dependencies]
+unbill-model = { path = "../unbill-model", features = ["test-helpers"] }
+unbill-store-memory = { path = "../unbill-store-memory" }
+tokio = { workspace = true, features = ["rt", "macros"] }
