@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rust Programmer"
+  short_description: "Edit Rust code with local project rules"
+  default_prompt: "Use $rust-programmer to update Rust code and inline docs according to local rules."

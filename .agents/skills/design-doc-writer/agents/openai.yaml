@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Doc Writer"
+  short_description: "Write precise project design documents"
+  default_prompt: "Use $design-doc-writer to revise DESIGN.md with a precise design-document style."
