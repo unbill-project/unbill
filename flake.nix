@@ -38,6 +38,16 @@
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
         craneLibWasm = (crane.mkLib pkgs).overrideToolchain rustToolchainWasm;
 
+        # Icons are Git-LFS tracked.  When building locally, fetchGit with
+        # lfs=true resolves the real binaries.  When this flake is fetched as
+        # a remote input (e.g. PixOS), the caller must use ?lfs=1 on the
+        # input URL so that self already contains real PNG files, and the
+        # plain path expression is used instead.
+        tauriIcons =
+          if builtins.pathExists (toString ./. + "/.git")
+          then (builtins.fetchGit { url = ./.; lfs = true; }) + "/crates/unbill-tauri/icons"
+          else ./crates/unbill-tauri/icons;
+
         # ── CLI / TUI / daemon ────────────────────────────────────────────────
 
         commonArgs = {
@@ -228,7 +238,7 @@
               crates/unbill-tauri/capabilities/
 
             mkdir -p crates/unbill-tauri/icons
-            cp -r ${./crates/unbill-tauri/icons}/. \
+            cp -r ${tauriIcons}/. \
               crates/unbill-tauri/icons/
 
             mkdir -p apps/unbill-ui-native/dist
