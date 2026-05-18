@@ -42,14 +42,16 @@ flowchart LR
     AurRelease["release-aur.yml"]
     BrewRelease["release-homebrew.yml"]
     Ghcr["GHCR image"]
+    Cachix["Cachix binary cache"]
 
     Nightly --> Build
     Version --> Build
     Build --> Release
     Build --> Ghcr
+    Build --> Cachix
     Release --> GitHubRelease
-    Release --> AurRelease
-    Release --> BrewRelease
+    GitHubRelease --> AurRelease
+    GitHubRelease --> BrewRelease
 ```
 
 `ci.yml` runs on pushes to `main` and pull requests targeting `main`.
@@ -70,6 +72,8 @@ Artifacts use predictable names:
 `unbill-tui-{platform}`,
 and `unbill-daemon-{platform}`,
 with `.exe` kept on Windows.
+Unix builds also produce `.tar.gz` archives per binary
+(used by Homebrew formula generation).
 
 The same build workflow builds Tauri desktop bundles for Linux,
 macOS,
@@ -97,12 +101,19 @@ Trunk,
 and Tauri CLI,
 then initializes the iOS project and uploads an unsigned IPA.
 
+The Nix job builds all flake packages (`unbill-cli`, `unbill-tui`, `unbill-daemon`, `unbill-tauri`)
+and pushes them to the `unbill` Cachix binary cache.
+Nix users who add `unbill.cachix.org` as a substituter
+get pre-built binaries without local compilation.
+
 The Docker job builds and pushes the server image to GHCR.
 It tags the image with the workflow tag input and `latest`.
 
 `release.yml` publishes a GitHub release from all `binaries-*` artifacts.
 It marks releases as latest only when they are not prereleases.
-It can delegate package publishing to AUR and Homebrew workflows when their package arrays are non-empty.
+AUR and Homebrew jobs depend on the GitHub release job (`needs: github`)
+so that release assets exist before package managers attempt to download them.
+It delegates package publishing to AUR and Homebrew workflows when their package arrays are non-empty.
 
 `release-aur.yml` publishes one AUR package per matrix entry.
 It derives `pkgver` from the tag by stripping a leading `v` and replacing hyphens with dots.
@@ -117,10 +128,20 @@ Nightly packages provide and conflict with their stable counterparts.
 Binary packages install raw release binaries into `/usr/bin`.
 Desktop packages consume the Tauri-produced Debian bundle and declare GTK and WebKit runtime dependencies.
 
-`release-homebrew.yml` publishes Homebrew formulae for package names passed by `release.yml`.
-It uses `HOMEBREW_TOKEN`,
-the `unbill-project/homebrew-tap` repository,
-and package-specific install scripts under `.github/homebrew`.
+`release-homebrew.yml` publishes Homebrew formulae and an optional macOS Cask.
+Formula jobs run sequentially (`max-parallel: 1`) to avoid push races on the tap.
+Each formula job downloads the platform `.tar.gz` assets from the GitHub release,
+computes SHA256 checksums,
+generates a Ruby formula with per-platform `url`/`sha256` blocks,
+and pushes it to `unbill-project/homebrew-tap` under `Formula/`.
+
+When `cask: true` is passed,
+a separate job (running after all formulas) downloads the macOS `.dmg`,
+generates a Homebrew Cask under `Casks/unbill.rb`,
+and pushes it to the tap.
+
+The tap repository holds `Formula/` for CLI/TUI formulas
+and `Casks/` for the desktop app.
 
 `nightly.yml` runs at midnight UTC and by manual dispatch.
 It creates a timestamp tag in the form `nightly-YYYYMMDD-HHMMSS`,
@@ -129,7 +150,9 @@ then publishes a prerelease targeting nightly AUR packages.
 
 `version.yml` runs when a `v*` git tag is pushed.
 It calls the reusable build workflow with the tag,
-then publishes a stable release targeting stable AUR packages and Homebrew formulae.
+then publishes a stable release targeting stable AUR packages,
+Homebrew formulae,
+and the macOS Cask.
 
 Versions are managed by `cargo release`.
 `release.toml` disables crates.io publishing,
