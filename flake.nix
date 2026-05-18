@@ -246,6 +246,20 @@
           tauriCommonArgs
           // {
             cargoArtifacts = tauriArtifacts;
+            postInstall = ''
+              mkdir -p $out/share/applications $out/share/icons/hicolor/256x256/apps
+              cp ${./crates/unbill-tauri/icons/icon.png} $out/share/icons/hicolor/256x256/apps/unbill.png
+              cat > $out/share/applications/unbill.desktop << EOF
+              [Desktop Entry]
+              Name=Unbill
+              Comment=Split bills with friends
+              Exec=$out/bin/unbill-tauri
+              Icon=unbill
+              Terminal=false
+              Type=Application
+              Categories=Office;Finance;
+              EOF
+            '';
           }
         );
       in

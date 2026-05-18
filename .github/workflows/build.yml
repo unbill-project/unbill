@@ -245,6 +245,33 @@ jobs:
           name: binaries-tauri-ios
           path: unbill-ios.ipa
 
+  build-nix:
+    name: Build Nix packages & push to Cachix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - uses: cachix/cachix-action@v16
+        with:
+          name: unbill
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Build all packages
+        run: nix build .#unbill-cli .#unbill-tui .#unbill-daemon .#unbill-tauri
+
+      - name: Push to Cachix
+        run: |
+          nix build .#unbill-cli --json | jq -r '.[].outputs.out' | cachix push unbill
+          nix build .#unbill-tui --json | jq -r '.[].outputs.out' | cachix push unbill
+          nix build .#unbill-daemon --json | jq -r '.[].outputs.out' | cachix push unbill
+          nix build .#unbill-tauri --json | jq -r '.[].outputs.out' | cachix push unbill
+
   build-docker:
     name: Build & push Docker image
     runs-on: ubuntu-latest
