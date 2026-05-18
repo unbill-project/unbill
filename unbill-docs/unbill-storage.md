@@ -121,6 +121,7 @@ Broadcast event sends with no subscribers log at `warn` and stop forwarding.
 - belongs (to):
   - [storage](storage.md)
   - [workspace-layout](workspace-layout.md)
-- belongs (from): (none)
+- belongs (from):
+  - [store-server](store-server.md)
 
 > **Sirno generated links end.**
