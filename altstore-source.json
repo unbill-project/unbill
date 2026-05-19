@@ -1,0 +1,39 @@
+{
+  "name": "unbill",
+  "subtitle": "Offline-first bill splitting for small trusted groups.",
+  "description": "Unbill keeps shared expense ledgers on member devices and syncs them peer-to-peer. There is no hosted source of truth, hosted account system, or telemetry surface. The app records who paid and who owes whom. It does not move money.",
+  "iconURL": "https://raw.githubusercontent.com/unbill-project/unbill/main/crates/unbill-tauri/icons/icon.png",
+  "headerURL": "https://raw.githubusercontent.com/unbill-project/unbill/main/crates/unbill-tauri/icons/icon.png",
+  "website": "https://github.com/unbill-project/unbill",
+  "tintColor": "#0f766e",
+  "featuredApps": [
+    "computer.unbill"
+  ],
+  "apps": [
+    {
+      "name": "unbill",
+      "bundleIdentifier": "computer.unbill",
+      "developerName": "unbill contributors",
+      "subtitle": "Offline-first bill splitting for small trusted groups.",
+      "localizedDescription": "Unbill keeps shared expense ledgers on member devices and syncs them peer-to-peer. There is no hosted source of truth, hosted account system, or telemetry surface. The app records who paid and who owes whom. It does not move money.\n\nUnbill is meant for households, trips, couples, and similar groups that already trust each other. The system stores data where that trust already lives: on the devices of the people who share the ledger.",
+      "iconURL": "https://raw.githubusercontent.com/unbill-project/unbill/main/crates/unbill-tauri/icons/icon.png",
+      "tintColor": "#0f766e",
+      "category": "utilities",
+      "versions": [
+        {
+          "version": "0.0.3",
+          "date": "2026-05-18",
+          "downloadURL": "https://github.com/unbill-project/unbill/releases/latest/download/unbill-ios.ipa",
+          "localizedDescription": "Initial AltStore release.",
+          "size": 9878938,
+          "minOSVersion": "14.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {}
+      }
+    }
+  ],
+  "news": []
+}

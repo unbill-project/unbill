@@ -1,0 +1,63 @@
+---
+name: AltStore Source
+desc: The AltStore source JSON that distributes iOS builds to sideloading users.
+category:
+  - concept
+belongs:
+  - distribution-and-release
+---
+
+`altstore-source.json` at the repository root is an AltStore source file.
+AltStore sources are self-hosted JSON documents that describe apps,
+their versions, and download locations.
+Users add the source URL in AltStore to browse and install listed apps.
+
+The source is publicly accessible at the raw GitHub URL:
+
+```
+https://raw.githubusercontent.com/unbill-project/unbill/main/altstore-source.json
+```
+
+The file lists one app entry with bundle identifier `computer.unbill`.
+The download URL uses GitHub's latest-release redirect:
+`https://github.com/unbill-project/unbill/releases/latest/download/unbill-ios.ipa`.
+This always resolves to the `unbill-ios.ipa` asset from the most recent non-prerelease GitHub release,
+matching the artifact name produced by the iOS build job in `build.yml`.
+
+The source-level and app-level `tintColor` is `#0f766e`,
+derived from the `--bg-accent` CSS custom property used by the native UI.
+
+The `iconURL` points to `crates/unbill-tauri/icons/icon.png`
+served through the raw GitHub content URL on the `main` branch.
+
+## Updating for a new release
+
+Add a new version object at the top of the `versions` array.
+Set `version` to the new `CFBundleShortVersionString`,
+`date` to the release date in ISO 8601,
+`downloadURL` to the release IPA URL,
+`size` to the IPA file size in bytes,
+and `localizedDescription` to a short changelog summary.
+The topmost entry in `versions` is the one AltStore treats as the latest release.
+
+## AltStore source format summary
+
+Required source keys: `name`, `apps`.
+Required app keys: `name`, `bundleIdentifier`, `developerName`,
+`localizedDescription`, `iconURL`, `versions`, `appPermissions`.
+Required version keys: `version`, `date`, `downloadURL`, `size`.
+Optional but recommended: `subtitle`, `tintColor`, `category`, `screenshots`, `news`.
+
+`appPermissions` must list all entitlements and privacy usage descriptions.
+AltStore checks them against the downloaded IPA
+and refuses to install apps whose declared permissions do not match.
+
+---
+
+> **Sirno generated links begin. Do not edit this section.**
+
+- belongs (to):
+  - [distribution-and-release](distribution-and-release.md)
+- belongs (from): (none)
+
+> **Sirno generated links end.**

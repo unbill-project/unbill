@@ -17,7 +17,8 @@ User-friendly installation includes prebuilt CLI and TUI binaries,
 desktop app artifacts,
 GHCR Docker images,
 Homebrew formulas,
-and AUR packages.
+AUR packages,
+and an AltStore source for iOS sideloading.
 Release links target the latest stable GitHub release rather than prereleases.
 
 Source builds use Rust stable from the workspace root.
@@ -107,6 +108,7 @@ and Leptos native and remote frontends exist in the workspace.
 - belongs (to):
   - [unbill](unbill.md)
 - belongs (from):
+  - [altstore-source](altstore-source.md)
   - [ci-cd-pipeline](ci-cd-pipeline.md)
 
 > **Sirno generated links end.**
