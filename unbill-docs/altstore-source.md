@@ -19,10 +19,11 @@ https://raw.githubusercontent.com/unbill-project/unbill/main/altstore-source.jso
 ```
 
 The file lists one app entry with bundle identifier `computer.unbill`.
-The download URL uses GitHub's latest-release redirect:
-`https://github.com/unbill-project/unbill/releases/latest/download/unbill-ios.ipa`.
-This always resolves to the `unbill-ios.ipa` asset from the most recent non-prerelease GitHub release,
-matching the artifact name produced by the iOS build job in `build.yml`.
+Each version object pins its `downloadURL` to a specific GitHub release tag:
+`https://github.com/unbill-project/unbill/releases/download/v{version}/unbill-ios.ipa`.
+The `version` field must exactly match the `CFBundleShortVersionString` in the IPA,
+which Tauri reads from the `version` key in `crates/unbill-tauri/tauri.conf.json`.
+AltStore verifies this match and refuses to install on mismatch.
 
 The source-level and app-level `tintColor` is `#0f766e`,
 derived from the `--bg-accent` CSS custom property used by the native UI.
@@ -33,12 +34,13 @@ served through the raw GitHub content URL on the `main` branch.
 ## Updating for a new release
 
 Add a new version object at the top of the `versions` array.
-Set `version` to the new `CFBundleShortVersionString`,
+Set `version` to match the `version` in `tauri.conf.json` (which becomes `CFBundleShortVersionString`),
 `date` to the release date in ISO 8601,
-`downloadURL` to the release IPA URL,
+`downloadURL` to `https://github.com/unbill-project/unbill/releases/download/v{version}/unbill-ios.ipa`,
 `size` to the IPA file size in bytes,
 and `localizedDescription` to a short changelog summary.
 The topmost entry in `versions` is the one AltStore treats as the latest release.
+Keep previous version objects so users on older iOS versions can still find compatible releases.
 
 ## AltStore source format summary
 

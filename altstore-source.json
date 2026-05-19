@@ -23,7 +23,7 @@
         {
           "version": "0.0.3",
           "date": "2026-05-18",
-          "downloadURL": "https://github.com/unbill-project/unbill/releases/latest/download/unbill-ios.ipa",
+          "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.3/unbill-ios.ipa",
           "localizedDescription": "Initial AltStore release.",
           "size": 9878938,
           "minOSVersion": "14.0"
