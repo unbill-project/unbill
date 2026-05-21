@@ -9,7 +9,7 @@ ignore = [".obsidian"]
 [repo]
 # sirno:witness:documentation-coverage:begin
 # Repository files, directories, or globs scanned for witness blocks.
-members = ["Sirno.toml", "README.md", "AGENTS.md", "Cargo.toml", "Dockerfile", "release.toml", "LICENSE", "LICENSE-MIT", "LICENSE-APACHE", "flake.nix", "devenv.nix", "devenv.yaml", "prek.toml", "rustfmt.toml", ".github/workflows/*.yml", ".github/aur/*/PKGBUILD", ".github/homebrew/*/install.rb", "apps/**/*.rs", "apps/**/*.toml", "apps/**/*.html", "apps/**/*.css", "apps/**/*.js", "crates/**/*.rs", "crates/**/*.toml", "crates/**/*.json", "crates/**/*.yml", "docker/*", "example-deployment/*.yml"]
+members = ["Sirno.toml", "README.md", "Cargo.toml", "Dockerfile", "release.toml", "LICENSE", "LICENSE-MIT", "LICENSE-APACHE", "flake.nix", "devenv.nix", "devenv.yaml", "prek.toml", "rustfmt.toml", ".github/workflows/*.yml", ".github/aur/*/PKGBUILD", ".github/homebrew/*/install.rb", "apps/**/*.rs", "apps/**/*.toml", "apps/**/*.html", "apps/**/*.css", "apps/**/*.js", "crates/**/*.rs", "crates/**/*.toml", "crates/**/*.json", "crates/**/*.yml", "docker/*", "example-deployment/*.yml"]
 # sirno:witness:documentation-coverage:end
 
 [witness]
@@ -29,12 +29,12 @@ end = '(?m)^[ \t]*#[ \t]*sirno:witness:([^\x00-\x1F\x7F<>:"/\\|?*\r\n]+):end'
 
 [check]
 # Require generated footers to match current metadata during checks.
-link = true
+render = true
 
 [structural]
-# Structural metadata field; link.to, link.from, and link.clique default to false.
-category = { link = {} }
-# Structural metadata field; link.to, link.from, and link.clique default to false.
-belongs = { link = { to = true, from = true } }
+# Structural metadata field; to, from, and clique default to false.
+category = {}
+# Structural metadata field; to, from, and clique default to false.
+belongs = { to = { render = true }, from = { render = true } }
 # Structural metadata field kept for validation, with no rendered footer links.
-refines = { link = {} }
+refines = {}

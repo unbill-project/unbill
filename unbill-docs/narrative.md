@@ -5,8 +5,6 @@ category:
   - category
 ---
 
-A narrative records an order in which a reader can understand concepts.
-
 A narrative records an order in which a reader can understand Unbill concepts.
 
 ---

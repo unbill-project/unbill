@@ -1,4 +1,0 @@
-interface:
-  display_name: "README Design Methodology Writer"
-  short_description: "Write README, DESIGN, and METHODOLOGY docs"
-  default_prompt: "Use $readme-design-methodology-doc-writer to revise README, DESIGN, or METHODOLOGY documents."

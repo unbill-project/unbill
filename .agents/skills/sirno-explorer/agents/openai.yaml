@@ -1,4 +1,0 @@
-interface:
-  display_name: "Sirno Explorer"
-  short_description: "Explore Sirno entries and witnesses"
-  default_prompt: "Use $sirno-explorer to trace a Sirno Lake question to entries, witnesses, and code evidence."
