@@ -2,9 +2,23 @@
 
 <!-- Compiled from unbill-docs. Update the Sirno lake first, then refresh this artifact. -->
 
-<!-- sirno:witness:unbill:begin -->
+<p align="center">
+  <img src="unbill-icon.svg" width="128" alt="Unbill logo">
+</p>
 
-Offline-first bill splitting for small trusted groups.
+<p align="center">
+  <strong>Offline-first bill splitting for small trusted groups.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/unbill-project/unbill/actions/workflows/ci.yml"><img src="https://github.com/unbill-project/unbill/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/unbill-project/unbill/releases/latest"><img src="https://img.shields.io/github/v/release/unbill-project/unbill" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT%2FApache--2.0-blue" alt="License"></a>
+</p>
+
+______________________________________________________________________
+
+<!-- sirno:witness:unbill:begin -->
 
 Unbill keeps shared expense ledgers on member devices and syncs them peer-to-peer.
 There is no hosted source of truth,
@@ -22,66 +36,12 @@ or product for hostile or anonymous groups.
 
 <!-- sirno:witness:unbill:end -->
 
-## Design Source
+### Why Unbill
 
-<!-- sirno:witness:compiled-markdown-artifacts:begin -->
-
-The project design lives in [unbill-docs](unbill-docs).
-Read [unbill-docs/introduction.md](unbill-docs/introduction.md) first.
-The old Markdown documentation was lowered into the lake and audited in
-[unbill-docs/documentation-coverage.md](unbill-docs/documentation-coverage.md).
-Recovered diagrams are tracked in
-[unbill-docs/visual-diagram-audit.md](unbill-docs/visual-diagram-audit.md).
-
-<!-- sirno:witness:compiled-markdown-artifacts:end -->
-
-## Repository Shape
-
-<!-- sirno:witness:workspace-layout:begin -->
-
-Unbill is a Rust workspace built from focused crates and thin applications.
-
-- `crates/unbill-model` holds domain data types.
-- `crates/unbill-storage` owns Automerge documents and store traits.
-- `crates/unbill-store-fs` and `crates/unbill-store-memory` provide store backends.
-- `crates/unbill-device` owns the device role.
-- `crates/unbill-console` owns the console-side service projection.
-- `crates/unbill-symmetric-channel` owns device-to-device Iroh sync and join.
-- `crates/unbill-asymmetric-channel` owns device-to-console transports.
-- `crates/unbill-tauri` and `crates/unbill-ui-components` support the desktop and web UI.
-- `apps` contains the CLI, TUI, daemon, server, native UI, and remote UI.
-
-<!-- sirno:witness:workspace-layout:end -->
-
-## Build And Run
-
-Use Rust stable.
-
-```sh
-cargo build --workspace
-cargo test --workspace --exclude unbill-tauri
-```
-
-Run local tools through Cargo:
-
-```sh
-cargo run -p unbill-daemon
-cargo run -p unbill-cli -- --help
-cargo run -p unbill-tui -- --help
-```
-
-Build the desktop shell after installing platform-specific Tauri prerequisites:
-
-```sh
-cargo tauri build --manifest-path crates/unbill-tauri/Cargo.toml
-```
-
-Build the server container locally:
-
-```sh
-docker build -t unbill-server:local .
-docker run --rm -p 8080:80 unbill-server:local
-```
+- **Your data stays on your devices.** Ledgers sync directly between group members — no cloud account required.
+- **Works offline.** Record expenses without a network. Changes merge automatically when devices reconnect.
+- **Runs everywhere.** Desktop app, CLI, TUI, iOS, Android, and a self-hosted relay server.
+- **Open source.** Dual-licensed MIT / Apache-2.0. Inspect, build, and modify freely.
 
 ## Install
 
@@ -111,22 +71,100 @@ docker pull ghcr.io/unbill-project/unbill-server:latest
 Prebuilt binaries for all platforms are attached to each
 [GitHub release](https://github.com/unbill-project/unbill/releases/latest).
 
-## Distribution
+<!-- sirno:witness:distribution-and-release:end -->
 
-Unbill publishes prebuilt CLI and TUI binaries,
-desktop app artifacts,
-GHCR Docker images,
-Homebrew formulae,
-Nix packages via Cachix,
-and AUR packages.
+## How It Works
 
-Releases are managed by `cargo release`.
-The version pipeline builds artifacts,
-publishes GitHub releases,
-pushes Nix packages to Cachix,
-updates AUR packages,
-updates Homebrew formulae,
-and pushes the server image to GHCR.
+```mermaid
+flowchart LR
+    subgraph Consoles["Consoles"]
+        CLI["CLI"]
+        TUI["TUI"]
+        Native["Desktop app"]
+        Remote["Web UI"]
+    end
+
+    Asym["Asymmetric channel"]
+
+    subgraph Device["Device"]
+        DeviceSvc["UnbillDevice"]
+        Store["LedgerStore"]
+        DeviceSvc --> Store
+    end
+
+    Sym["Symmetric channel"]
+    Peer["Peer device"]
+
+    Consoles --> Asym
+    Asym --> DeviceSvc
+    DeviceSvc --> Sym
+    Sym <--> Peer
+```
+
+Consoles (CLI, TUI, desktop app, web UI) send requests through an asymmetric channel to the local device.
+The device persists ledger state in Automerge documents and converges with peers through the symmetric channel.
+
+## Development
+
+### Build and run
+
+Use Rust stable.
+
+```sh
+cargo build --workspace
+cargo test --workspace --exclude unbill-tauri
+```
+
+Run local tools through Cargo:
+
+```sh
+cargo run -p unbill-daemon
+cargo run -p unbill-cli -- --help
+cargo run -p unbill-tui -- --help
+```
+
+Build the desktop shell after installing
+[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/):
+
+```sh
+cargo tauri build --manifest-path crates/unbill-tauri/Cargo.toml
+```
+
+Build the server container locally:
+
+```sh
+docker build -t unbill-server:local .
+docker run --rm -p 8080:80 unbill-server:local
+```
+
+### Repository shape
+
+<!-- sirno:witness:workspace-layout:begin -->
+
+Unbill is a Rust workspace built from focused crates and thin applications.
+
+| Path | Role |
+|------|------|
+| `crates/unbill-model` | Domain data types |
+| `crates/unbill-storage` | Automerge documents and store traits |
+| `crates/unbill-store-fs`, `crates/unbill-store-memory` | Store backends |
+| `crates/unbill-device` | Device role |
+| `crates/unbill-console` | Console-side service projection |
+| `crates/unbill-symmetric-channel` | Device-to-device Iroh sync and join |
+| `crates/unbill-asymmetric-channel` | Device-to-console transports |
+| `crates/unbill-tauri`, `crates/unbill-ui-components` | Desktop and web UI |
+| `apps/` | CLI, TUI, daemon, server, native UI, remote UI |
+
+<!-- sirno:witness:workspace-layout:end -->
+
+### Design source
+
+<!-- sirno:witness:compiled-markdown-artifacts:begin -->
+
+The project design lives in [unbill-docs](unbill-docs).
+Read [unbill-docs/introduction.md](unbill-docs/introduction.md) first.
+
+<!-- sirno:witness:compiled-markdown-artifacts:end -->
 
 ## License
 
@@ -134,5 +172,3 @@ Unbill is licensed under either Apache-2.0 or MIT, at your option.
 See [LICENSE](LICENSE),
 [LICENSE-APACHE](LICENSE-APACHE),
 and [LICENSE-MIT](LICENSE-MIT).
-
-<!-- sirno:witness:distribution-and-release:end -->
