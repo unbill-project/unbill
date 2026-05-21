@@ -35,3 +35,6 @@ device_key.bin
 #android
 .android
 local.properties
+
+# MCP
+.mcp.json
