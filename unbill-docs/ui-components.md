@@ -35,7 +35,8 @@ bill editor,
 user views,
 ledger views,
 settlement views,
-and conflict panels.
+conflict panels,
+and theme picker.
 
 ```mermaid
 flowchart TB
@@ -46,6 +47,7 @@ flowchart TB
     Layout["layout.rs"]
     Status["status.rs"]
     Progress["progress.rs"]
+    Theme["theme.rs"]
     Bill["bill.rs"]
     BillEditor["bill_editor.rs"]
     User["user.rs"]
@@ -58,6 +60,7 @@ flowchart TB
     Lib --> Layout
     Lib --> Status
     Lib --> Progress
+    Lib --> Theme
     Lib --> Bill
     Lib --> BillEditor
     Lib --> User
@@ -85,45 +88,19 @@ Apps map backend DTOs to display items.
 The component stores only selected bill ID and emits the selected bill ID
 with the full competing bill ID set on commit.
 
-## Color system
+## Color system and theming
 
-All colors in the component stylesheet use CSS custom properties.
-No hardcoded hex or rgba values appear in component rules.
-The app stylesheets define the full palette in `:root`
-and override it under `@media (prefers-color-scheme: dark)`.
+All colors in the component stylesheet are CSS custom properties.
+Each app stylesheet defines light and dark palettes grouped as
+surface, text, line, and semantic accent variables.
 
-The palette has three groups:
+The dark palette uses a blue-tinted slate base.
+By default the active palette follows `prefers-color-scheme`.
+A three-way theme picker (Light / System / Dark) in the General settings tab
+lets the user override the system preference.
+The choice is persisted in local storage and applied before the first render.
 
-- **Surface and background** — `--bg-app`, `--bg-surface`, `--bg-subtle`, `--bg-muted`,
-  `--bg-accent`, `--bg-accent-soft`, `--bg-warning`, `--bg-error`.
-- **Lines and text** — `--line-soft`, `--line-strong`,
-  `--text-strong`, `--text-body`, `--text-soft`, `--text-inverse`.
-- **Semantic accents** — `--accent-border`, `--accent-selected`, `--accent-text`,
-  `--accent-secondary-border`, `--warning-border`, `--error-text`, `--error-border`,
-  `--overlay-hover`, `--overlay-active`, `--overlay-backdrop`, `--focus-ring`,
-  `--toast-info-bg`, `--toast-info-text`, `--toast-error-bg`, `--toast-error-text`,
-  `--shadow-overlay`.
-
-Dark mode uses a blue-tinted slate palette (`#0f172a` base).
-By default the theme follows `prefers-color-scheme`.
-Users can override this to always-light or always-dark
-through a three-way theme picker (Light / System / Dark)
-in the General settings tab.
-
-`theme.rs` owns `ThemeMode`, `load_theme`, `apply_theme`, and `ThemePicker`.
-The preference is persisted in `localStorage` under `unbill-theme`
-and applied by setting a `data-theme` attribute on the `<html>` element.
-Both app `main.rs` files call `apply_theme(load_theme())` at startup
-so the saved preference takes effect before the first render.
-
-CSS resolution:
-- No `data-theme` attribute → follows `prefers-color-scheme` (system default).
-- `data-theme="dark"` → forces dark palette regardless of system preference.
-- `data-theme="light"` → forces light palette regardless of system preference.
-
-`color-scheme: light dark` is set by default so browser-native controls
-(scrollbars, form elements) also adapt.
-The `data-theme` overrides set `color-scheme` to `light` or `dark` explicitly.
+`theme.rs` owns the theme model, persistence, and picker component.
 
 Pure helpers are unit-tested directly.
 Component rendering is covered by consuming frontend crates.
