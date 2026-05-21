@@ -11,7 +11,7 @@ use unbill_asymmetric_channel::AsymChannel;
 use unbill_asymmetric_channel::http::HttpAsymChannel;
 use unbill_console::service::UnbillConsole;
 
-use components::{ActionButton, FieldBlock, ToastProvider};
+use components::{ActionButton, FieldBlock, ToastProvider, apply_theme, load_theme};
 
 const API_KEY_STORAGE_KEY: &str = "unbill_api_key";
 
@@ -116,5 +116,6 @@ fn Root() -> impl IntoView {
 
 fn main() {
     console_error_panic_hook::set_once();
+    apply_theme(load_theme());
     mount_to_body(|| view! { <ToastProvider><Root /></ToastProvider> });
 }

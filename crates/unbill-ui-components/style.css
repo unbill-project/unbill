@@ -160,9 +160,9 @@
 }
 
 .action-button-secondary {
-  border-color: #91c7bd;
+  border-color: var(--accent-secondary-border);
   background: var(--bg-accent-soft);
-  color: #0f4f49;
+  color: var(--accent-text);
 }
 
 .action-button-quiet {
@@ -234,15 +234,15 @@
 }
 
 .list-row-selected {
-  border-color: #73b8ad;
-  background: #eef8f6;
+  border-color: var(--accent-border);
+  background: var(--accent-selected);
 }
 
 .conflict-group {
   display: grid;
   gap: 8px;
   padding: 8px;
-  border: 1px solid #f0b27a;
+  border: 1px solid var(--warning-border);
   border-radius: 6px;
   background: var(--bg-warning);
 }
@@ -265,8 +265,8 @@
 }
 
 .conflict-version-selected {
-  border-color: #73b8ad;
-  background: #eef8f6;
+  border-color: var(--accent-border);
+  background: var(--accent-selected);
 }
 
 .conflict-actions {
@@ -369,7 +369,7 @@
 .ui-textarea:focus,
 .share-input:focus {
   border-color: var(--bg-accent);
-  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.14);
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .ui-textarea {
@@ -423,9 +423,9 @@
 }
 
 .tag-pill-active {
-  border-color: #73b8ad;
+  border-color: var(--accent-border);
   background: var(--bg-accent-soft);
-  color: #0f4f49;
+  color: var(--accent-text);
 }
 
 .toast-container {
@@ -450,13 +450,13 @@
 }
 
 .toast-info {
-  background: #065f46;
-  color: #ecfdf5;
+  background: var(--toast-info-bg);
+  color: var(--toast-info-text);
 }
 
 .toast-error {
-  background: #991b1b;
-  color: #fef2f2;
+  background: var(--toast-error-bg);
+  color: var(--toast-error-text);
 }
 
 .circular-progress {
@@ -539,7 +539,7 @@
 .sheet-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(15, 23, 42, 0.28);
+  background: var(--overlay-backdrop);
 }
 
 .settings-panel,
@@ -607,9 +607,9 @@
 }
 
 .tab-button-active {
-  border-color: #73b8ad;
+  border-color: var(--accent-border);
   background: var(--bg-accent-soft);
-  color: #0f4f49;
+  color: var(--accent-text);
 }
 
 .settings-nav-group {
@@ -691,11 +691,11 @@
 }
 
 .settings-nav-item:hover {
-  background: rgba(15, 23, 42, 0.06);
+  background: var(--overlay-hover);
 }
 
 .settings-nav-item-active {
-  background: rgba(15, 23, 42, 0.11);
+  background: var(--overlay-active);
   color: var(--text-strong);
 }
 
@@ -784,10 +784,10 @@
 .form-error {
   margin: 0;
   padding: 8px 10px;
-  border: 1px solid #fecaca;
+  border: 1px solid var(--error-border);
   border-radius: 6px;
   background: var(--bg-error);
-  color: #991b1b;
+  color: var(--error-text);
   font-size: 0.9rem;
 }
 

@@ -9,5 +9,6 @@ pub mod ledger;
 pub mod progress;
 pub mod settlement;
 pub mod status;
+pub mod theme;
 pub mod user;
 // sirno:witness:ui-components:end
