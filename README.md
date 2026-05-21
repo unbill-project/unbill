@@ -87,56 +87,29 @@ docker run --rm -p 8080:80 unbill-server:local
 
 <!-- sirno:witness:distribution-and-release:begin -->
 
-### Nix (recommended)
+See **[INSTALL.md](INSTALL.md)** for full per-platform instructions
+(macOS, Linux, Windows, iOS, Android, Docker).
 
-Pre-built binaries via Cachix — no compilation required:
-
-```sh
-cachix use unbill
-nix profile install github:unbill-project/unbill#unbill-tauri   # desktop app
-nix profile install github:unbill-project/unbill#unbill-cli     # CLI
-nix profile install github:unbill-project/unbill#unbill-tui     # TUI
-nix profile install github:unbill-project/unbill#unbill-daemon  # sync daemon
-```
-
-For NixOS/nix-darwin flakes, add as an input:
-
-```nix
-unbill = {
-  url = "github:unbill-project/unbill/main";
-  inputs.nixpkgs.follows = "nixpkgs";
-};
-```
-
-And configure the binary cache:
-
-```nix
-nix.settings = {
-  substituters = [ "https://unbill.cachix.org" ];
-  trusted-public-keys = [ "unbill.cachix.org-1:157H1n8eC+rAITRruhXXuS5CUWvSgUIhkzRIbp+AKng=" ];
-};
-```
-
-### Homebrew (macOS / Linux)
+Quick examples:
 
 ```sh
-brew install unbill-project/tap/unbill-cli
-brew install unbill-project/tap/unbill-tui
-brew install --cask unbill-project/tap/unbill  # desktop app (macOS)
-```
+# macOS — Homebrew
+brew install --cask unbill-project/tap/unbill        # desktop app
+brew install unbill-project/tap/unbill-cli           # CLI
 
-### AUR (Arch Linux)
-
-```sh
+# Linux — AUR (Arch)
 yay -S unbill-cli-bin unbill-tui-bin unbill-daemon-bin
-```
 
-### Docker (server)
+# Nix (any platform)
+cachix use unbill
+nix profile install github:unbill-project/unbill#unbill-tauri
 
-```sh
+# Docker (server)
 docker pull ghcr.io/unbill-project/unbill-server:latest
-docker run --rm -p 8080:80 ghcr.io/unbill-project/unbill-server:latest
 ```
+
+Prebuilt binaries for all platforms are attached to each
+[GitHub release](https://github.com/unbill-project/unbill/releases/latest).
 
 ## Distribution
 

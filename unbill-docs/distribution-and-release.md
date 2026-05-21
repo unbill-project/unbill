@@ -13,12 +13,24 @@ Workspace package metadata declares that expression,
 the AUR templates declare both licenses,
 and the repository root includes `LICENSE`, `LICENSE-MIT`, and `LICENSE-APACHE`.
 
-User-friendly installation includes prebuilt CLI and TUI binaries,
-desktop app artifacts,
-GHCR Docker images,
-Homebrew formulas,
-AUR packages,
-and an AltStore source for iOS sideloading.
+`INSTALL.md` at the repository root is the per-platform installation guide.
+It covers macOS, Linux, Windows, iOS, Android, and Docker,
+listing every available method for each platform.
+`README.md` links to it from a condensed Install section.
+
+User-friendly installation includes:
+
+- **Direct binary downloads** attached to each GitHub release
+  (CLI, TUI, daemon for Linux x86_64, macOS aarch64, Windows x86_64).
+- **Desktop app installers** per platform
+  (.dmg for macOS, .deb/.rpm/.AppImage for Linux, .msi/.exe for Windows).
+- **Homebrew** formulas for CLI and TUI, plus a cask for the macOS desktop app.
+- **AUR** binary packages for Arch Linux (CLI, TUI, daemon, desktop app).
+- **Nix** flake packages via Cachix (CLI, TUI, daemon, desktop app).
+- **AltStore source** for iOS sideloading.
+- **Android APK** attached to each GitHub release.
+- **GHCR Docker image** for the relay server.
+
 Release links target the latest stable GitHub release rather than prereleases.
 
 Source builds use Rust stable from the workspace root.
