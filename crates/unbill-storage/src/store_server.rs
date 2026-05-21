@@ -25,7 +25,7 @@ use crate::{
     save_pending_invitations,
 };
 
-// sirno:witness:store-server:begin
+// sirno:witness:unbill-storage:begin
 enum StoreCommand {
     // --- Individual operations ---
     SaveLedgerMeta {
@@ -689,6 +689,6 @@ impl StoreServer {
             .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?
     }
 }
-// sirno:witness:store-server:end
+// sirno:witness:unbill-storage:end
 
 // Tests live in unbill-device (which has access to InMemoryStore).
