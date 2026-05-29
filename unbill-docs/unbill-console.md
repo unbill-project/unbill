@@ -23,6 +23,9 @@ The console holds no durable ledger state of its own.
 `settlement/` and `conflict/` are pure logic modules.
 They operate over projected ledger state.
 
+`qr/` generates text and SVG QR codes from invitation URLs
+for terminal and browser display.
+
 `storage/` re-exports `LedgerStore` and `StorageResult` from `unbill-storage`
 for test scaffolding only (`#[cfg(test)]`).
 

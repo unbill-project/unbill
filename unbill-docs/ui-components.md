@@ -40,6 +40,7 @@ user views,
 ledger views,
 settlement views,
 conflict panels,
+QR code display,
 and theme picker.
 
 ```mermaid
@@ -69,6 +70,9 @@ flowchart TB
     Lib --> BillEditor
     Lib --> User
     Lib --> Ledger
+    QR["qr.rs"]
+
+    Lib --> QR
     Lib --> Settlement
 ```
 
