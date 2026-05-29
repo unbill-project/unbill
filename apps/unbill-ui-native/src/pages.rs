@@ -2,8 +2,8 @@ use crate::api::{self, Bill, LedgerDetail, LedgerSummary, SyncDevice, User};
 use crate::app::SettingsTab;
 use crate::components::{
     ActionButton, ButtonTone, ConflictBillItem, ConflictGroupView, CurrencyCombobox, FieldBlock,
-    IconButton, IconButtonKind, ListRow, ModalSheet, ScreenFrame, SectionCard, SettingsNavGroup,
-    SettingsNavItem, ThemeMode, ThemePicker, apply_theme, load_theme,
+    IconButton, IconButtonKind, ListRow, ModalSheet, QrCode, ScreenFrame, SectionCard,
+    SettingsNavGroup, SettingsNavItem, ThemeMode, ThemePicker, apply_theme, load_theme,
 };
 use leptos::prelude::*;
 
@@ -484,6 +484,7 @@ pub fn SettingsPopup(
                                                     .map(|url| {
                                                         view! {
                                                             <div class="result-panel">
+                                                                <QrCode data=url.clone() />
                                                                 <pre class="invite-url">{url.clone()}</pre>
                                                                 <div class="result-actions">
                                                                     <IconButton

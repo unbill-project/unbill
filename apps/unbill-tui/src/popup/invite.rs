@@ -18,13 +18,16 @@ use super::{PopupOutcome, PopupView, render_popup_base};
 pub struct InviteResultPopup {
     title: &'static str,
     url: String,
+    qr_text: String,
 }
 
 impl InviteResultPopup {
     pub fn new(url: String) -> Self {
+        let qr_text = unbill_console::qr::to_text(&url);
         Self {
             title: "Invite URL",
             url,
+            qr_text,
         }
     }
 }
@@ -37,19 +40,23 @@ impl PopupView for InviteResultPopup {
     fn render(&self, frame: &mut Frame, area: Rect) {
         let inner = render_popup_base(frame, area, self.title());
 
+        let qr_lines = self.qr_text.lines().count() as u16;
         let rows = Layout::vertical([
-            Constraint::Min(0),    // url
-            Constraint::Length(1), // hint
+            Constraint::Length(qr_lines), // QR code
+            Constraint::Length(1),        // spacer
+            Constraint::Min(0),           // url
+            Constraint::Length(1),        // hint
         ])
         .split(inner);
 
+        frame.render_widget(Paragraph::new(self.qr_text.as_str()), rows[0]);
         frame.render_widget(
             Paragraph::new(self.url.as_str()).wrap(ratatui::widgets::Wrap { trim: false }),
-            rows[0],
+            rows[2],
         );
         frame.render_widget(
             Paragraph::new("[Esc] close").style(Style::default().fg(Color::DarkGray)),
-            rows[1],
+            rows[3],
         );
     }
 

@@ -22,6 +22,7 @@ iso_currency.workspace = true
 garde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+qrcode.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { workspace = true, features = ["rt"] }

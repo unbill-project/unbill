@@ -7,6 +7,7 @@ pub mod input;
 pub mod layout;
 pub mod ledger;
 pub mod progress;
+pub mod qr;
 pub mod settlement;
 pub mod status;
 pub mod theme;

@@ -740,6 +740,16 @@
   justify-content: flex-end;
 }
 
+.invite-qr {
+  display: flex;
+  justify-content: center;
+}
+
+.invite-qr svg {
+  width: 200px;
+  height: 200px;
+}
+
 .invite-url {
   margin: 0;
   max-height: 160px;

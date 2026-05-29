@@ -6,6 +6,7 @@ pub mod error;
 pub use unbill_event as event;
 pub use unbill_model as model;
 pub use unbill_model::LedgerDoc;
+pub mod qr;
 pub mod service;
 pub mod settlement;
 pub mod storage;

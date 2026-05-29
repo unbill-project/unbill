@@ -364,6 +364,8 @@ pub async fn ledger_invite(svc: &UnbillConsole, ledger_id: &str, json: bool) -> 
         print_json(&serde_json::json!({ "url": url }))?;
     } else {
         println!("{url}");
+        println!();
+        print!("{}", unbill_console::qr::to_text(&url));
     }
     Ok(())
 }

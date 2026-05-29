@@ -69,6 +69,9 @@ thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 
+# QR code
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+
 # Utilities
 dashmap = "6"
 directories = "6.0.0"
