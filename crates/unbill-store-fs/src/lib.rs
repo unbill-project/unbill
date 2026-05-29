@@ -174,14 +174,6 @@ impl LedgerStore for FsStore {
         self.events.subscribe()
     }
 
-    async fn delete_ledger(&self, ledger_id: &str) -> Result<()> {
-        match tokio::fs::remove_dir_all(self.ledger_dir(ledger_id)).await {
-            Ok(()) => Ok(()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(e.into()),
-        }
-    }
-
     async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>> {
         match tokio::fs::read(self.root.join(key)).await {
             Ok(b) => Ok(Some(b)),
@@ -306,21 +298,6 @@ mod tests {
         store.save_ledger(&id, &mut doc).await.unwrap();
         let loaded = store.load_ledger(&id).await.unwrap().unwrap();
         assert_eq!(loaded.get_ledger().unwrap().name, "Test");
-    }
-
-    #[tokio::test]
-    async fn test_delete_ledger() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = FsStore::open(dir.path().to_path_buf()).unwrap();
-        let meta = make_meta("ToDelete");
-        store.save_ledger_meta(&meta).await.unwrap();
-        let id = meta.ledger_id.to_string();
-        let mut doc = make_doc("ToDelete");
-        store.save_ledger(&id, &mut doc).await.unwrap();
-        assert_eq!(store.list_ledgers().await.unwrap().len(), 1);
-        store.delete_ledger(&id).await.unwrap();
-        assert!(store.list_ledgers().await.unwrap().is_empty());
-        store.delete_ledger(&id).await.unwrap(); // idempotent
     }
 
     #[tokio::test]

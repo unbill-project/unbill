@@ -44,10 +44,6 @@ enum StoreCommand {
         doc: Box<LedgerDoc>,
         reply: oneshot::Sender<StorageResult<LedgerDoc>>,
     },
-    DeleteLedger {
-        ledger_id: String,
-        reply: oneshot::Sender<StorageResult<()>>,
-    },
     LoadDeviceMeta {
         key: String,
         reply: oneshot::Sender<StorageResult<Option<Vec<u8>>>>,
@@ -158,11 +154,6 @@ impl StoreServer {
                     let result = store.save_ledger(&ledger_id, &mut doc).await;
                     if reply.send(result.map(|()| *doc)).is_err() {
                         warn!(ledger_id, "SaveLedger reply dropped (caller cancelled)");
-                    }
-                }
-                StoreCommand::DeleteLedger { ledger_id, reply } => {
-                    if reply.send(store.delete_ledger(&ledger_id).await).is_err() {
-                        warn!(ledger_id, "DeleteLedger reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::LoadDeviceMeta { key, reply } => {
@@ -495,18 +486,6 @@ impl StoreServer {
             }
             Err(e) => Err(e),
         }
-    }
-
-    pub async fn delete_ledger(&self, ledger_id: &str) -> StorageResult<()> {
-        let (tx, rx) = oneshot::channel();
-        self.tx
-            .send(StoreCommand::DeleteLedger {
-                ledger_id: ledger_id.to_owned(),
-                reply: tx,
-            })
-            .await
-            .map_err(|_| StorageError::ChannelClosed)?;
-        rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
 
     pub async fn load_device_meta(&self, key: &str) -> StorageResult<Option<Vec<u8>>> {

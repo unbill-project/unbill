@@ -23,25 +23,25 @@ The console holds no durable ledger state of its own.
 `settlement/` and `conflict/` are pure logic modules.
 They operate over projected ledger state.
 
+`storage/` re-exports `LedgerStore` and `StorageResult` from `unbill-storage`
+for test scaffolding only (`#[cfg(test)]`).
+
 ```mermaid
 flowchart TB
     Service["service / UnbillConsole"]
     Asym["AsymChannel"]
-    Storage["LedgerDoc from unbill-storage"]
     Settlement["settlement module"]
     Conflict["conflict module"]
     Model["unbill-model"]
     Event["unbill-event"]
 
     Service --> Asym
-    Service --> Storage
     Service --> Settlement
     Service --> Conflict
     Service --> Model
     Service --> Event
     Settlement --> Model
     Conflict --> Model
-    Storage --> Model
 ```
 
 The crate preserves core invariants:

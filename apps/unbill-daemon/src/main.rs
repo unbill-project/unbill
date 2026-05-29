@@ -47,6 +47,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+// sirno:witness:unbill-daemon:begin
 /// Read `UNBILL_SYNC_INTERVAL_SECS` from the environment.
 /// Returns `None` if unset, meaning periodic sync is disabled.
 fn parse_sync_interval() -> Option<Duration> {
@@ -89,3 +90,4 @@ async fn periodic_sync(service: &Arc<unbill_device::UnbillDevice>, interval: Opt
         }
     }
 }
+// sirno:witness:unbill-daemon:end

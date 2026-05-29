@@ -100,12 +100,6 @@ impl LedgerStore for InMemoryStore {
         self.events.subscribe()
     }
 
-    async fn delete_ledger(&self, ledger_id: &str) -> Result<()> {
-        let mut inner = self.inner.lock().unwrap();
-        inner.ledgers.remove(ledger_id);
-        Ok(())
-    }
-
     async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>> {
         let inner = self.inner.lock().unwrap();
         Ok(inner.device_meta.get(key).cloned())

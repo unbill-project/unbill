@@ -20,6 +20,7 @@ load ledger detail,
 create or join ledgers,
 add users,
 save bills,
+preview bill splits,
 create invitations,
 resolve conflicts,
 and trigger sync.

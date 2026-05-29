@@ -20,6 +20,10 @@ Saved ledgers pair `LedgerMeta` with serialized document bytes.
 The store serializes through `LedgerDoc::save` and deserializes on load,
 so tests exercise the same round-trip path as real stores.
 
+Every successful `save_ledger` emits `ServiceEvent::LedgerUpdated`,
+matching the contract of production stores.
+`subscribe()` returns a real broadcast receiver.
+
 `create_secret_key` is idempotent.
 `get_secret_key` is supported,
 unlike remote stores that cannot expose raw key material.

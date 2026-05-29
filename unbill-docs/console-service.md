@@ -41,7 +41,9 @@ Opening the service is async.
 It primes a mutex-protected map of `LedgerId` to `LedgerDoc`
 by syncing every known ledger once.
 It then starts an event bridge task that re-syncs the affected ledger
-whenever the channel reports `LedgerUpdated`.
+whenever the channel reports `LedgerUpdated`
+and re-emits `ServiceEvent::LedgerUpdated` on the console's own broadcast sender
+so that subscribing shells and UIs receive the notification.
 
 Most public methods take the target document out of the cache,
 perform one typed mutation or query,

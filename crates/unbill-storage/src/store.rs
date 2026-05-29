@@ -24,8 +24,6 @@ pub trait LedgerStore: Send + Sync {
     /// authoritative merged state after the call.
     async fn save_ledger(&self, ledger_id: &str, doc: &mut LedgerDoc) -> StorageResult<()>;
 
-    async fn delete_ledger(&self, ledger_id: &str) -> StorageResult<()>;
-
     async fn load_device_meta(&self, key: &str) -> StorageResult<Option<Vec<u8>>>;
     async fn save_device_meta(&self, key: &str, value: &[u8]) -> StorageResult<()>;
 
