@@ -1,6 +1,6 @@
 ---
 name: Console Service
-desc: The UnbillConsole orchestration and projection cache.
+desc: The UnbillConsole orchestration facade over the asymmetric channel.
 category:
   - concept
 belongs:
@@ -11,7 +11,6 @@ refines:
 
 The console service is the public orchestration API for shells.
 It creates, loads, and mutates ledgers through the asymmetric channel.
-It projects in-memory `LedgerDoc` values for bill and user queries.
 It creates invitations,
 consumes join flows,
 coordinates sync,
@@ -24,32 +23,27 @@ flowchart LR
     Shell["Shell or UI"]
     Service["UnbillConsole"]
     Asym["AsymChannel"]
-    Doc["LedgerDoc cache"]
     Settlement["settlement"]
     Conflict["conflict"]
     Events["ServiceEvent broadcast"]
 
     Shell --> Service
     Service --> Asym
-    Service --> Doc
     Service --> Settlement
     Service --> Conflict
     Service --> Events
 ```
 
-Opening the service is async.
-It primes a mutex-protected map of `LedgerId` to `LedgerDoc`
-by syncing every known ledger once.
-It then starts an event bridge task that re-syncs the affected ledger
-whenever the channel reports `LedgerUpdated`
-and re-emits `ServiceEvent::LedgerUpdated` on the console's own broadcast sender
-so that subscribing shells and UIs receive the notification.
+The console does not cache ledger documents.
+Every read or mutation loads a fresh `LedgerDoc` from the device
+via `sync_doc` and discards it after use.
+This keeps the console stateless and avoids stale-cache race conditions
+between peer sync and subsequent reads.
 
-Most public methods take the target document out of the cache,
-perform one typed mutation or query,
-sync the document back to the device when mutated,
-and return the document to the cache.
-Read-only operations also take and put the document so cache ownership stays explicit.
+Opening the service starts an event bridge task
+that translates `AsymChannelEvent::LedgerUpdated` from the channel
+into `ServiceEvent::LedgerUpdated` on the console's own broadcast sender
+so that subscribing shells and UIs receive the notification.
 
 Shells receive user-facing results and events.
 They do not receive direct persistence or raw Automerge handles.
