@@ -23,8 +23,8 @@ while RPC and HTTP server code call the same methods directly.
 
 One `UnbillDevice` instance exists per device process.
 It holds the store and endpoint exclusively.
-The symmetric endpoint is created lazily on first use when needed.
-`accept_loop` binds a persistent endpoint and runs until it closes.
+The symmetric endpoint is bound eagerly in `open`.
+`accept_loop` waits for the endpoint to be ready and runs until it closes.
 
 Pending invitation tokens are persisted in local device metadata.
 The join URL format names the ledger ID, host node ID, and token.
@@ -39,8 +39,8 @@ No-op sync rounds do not write and do not emit `LedgerUpdated`.
 before wrapping it in a `StoreServer` (see `unbill-storage` docs).
 All subsequent runtime access goes through the serialized channel.
 
-`trigger_peer_sync` and `join_ledger` reuse the running endpoint when active.
-Otherwise they bind an ephemeral endpoint for the operation and close it afterward.
+`trigger_peer_sync` and `join_ledger` use the persistent endpoint
+bound during `open`.
 
 Integration tests use `unbill-store-memory` to exercise the device surface
 without touching disk or real network endpoints.

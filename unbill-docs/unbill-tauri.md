@@ -33,6 +33,10 @@ The default frontend is `apps/unbill-ui-native`.
 Tauri serves it through Trunk in development and loads built assets in release builds.
 Frontend build and development commands are deterministic under Tauri's child-process environment.
 
+On desktop builds the crate connects to a running `unbill-daemon`
+through `RpcAsymChannel` and opens `UnbillConsole` over it.
+On mobile builds it opens `LocalAsymChannel` with an in-process `FsStore` directly.
+
 One shared `UnbillConsole` instance lives in Tauri state.
 Command handlers stay async and return user-facing error strings.
 The crate is an IPC boundary, not a domain layer.

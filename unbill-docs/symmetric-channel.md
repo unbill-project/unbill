@@ -49,7 +49,8 @@ Authorization is ledger-scoped and based on TLS-authenticated `NodeId`.
 Protocols use length-prefixed CBOR framing.
 Sync state is session-local and is not persisted between connections.
 
-Remote changes are saved through the store,
+`run_sync_session` returns changed ledger documents to the caller.
+The caller is responsible for saving them through the store,
 which emits `LedgerUpdated`.
 The channel layer does not carry an event parameter.
 

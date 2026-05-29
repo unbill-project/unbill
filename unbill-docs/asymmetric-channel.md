@@ -14,9 +14,11 @@ refines:
 The console depends on the trait,
 not on any concrete device process or transport.
 
-The trait has three planes.
+The trait has four planes plus identity.
 The control plane creates invitations, joins ledgers, and triggers peer sync.
 The data plane runs one Automerge sync round per `asym_sync` call.
+The metadata plane lists ledgers, reads and writes ledger metadata,
+and reads and writes device metadata.
 The subscription plane returns device-originated `AsymChannelEvent` values.
 
 `AsymChannelEvent` currently carries `LedgerUpdated { ledger_id }`.
