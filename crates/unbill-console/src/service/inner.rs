@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use automerge::sync;
-use tokio::sync::{Mutex, broadcast};
+use tokio::sync::broadcast;
 use unbill_asymmetric_channel::{AsymChannel, AsymChannelEvent};
 
 use crate::conflict::{self, ConflictGroup};
@@ -24,56 +24,25 @@ use unbill_model::LedgerDoc;
 pub struct UnbillConsole {
     channel: Arc<dyn AsymChannel>,
     events: broadcast::Sender<ServiceEvent>,
-    cache: Arc<Mutex<HashMap<LedgerId, LedgerDoc>>>,
 }
 // sirno:witness:console-service:end
 
 impl UnbillConsole {
     // sirno:witness:console-service:begin
-    /// Wire the console to a channel, prime the ledger cache, and start the
-    /// event bridge.
+    /// Wire the console to a channel and start the event bridge.
     pub async fn open(channel: Arc<dyn AsymChannel>) -> Arc<Self> {
         let (events, _) = broadcast::channel(256);
-        let cache: Arc<Mutex<HashMap<LedgerId, LedgerDoc>>> = Arc::new(Mutex::new(HashMap::new()));
 
-        // Prime the cache with every ledger the device already knows about.
-        if let Ok(metas) = channel.list_ledgers().await {
-            let mut map = cache.lock().await;
-            for meta in metas {
-                let mut doc = LedgerDoc::empty();
-                if sync_doc(&*channel, meta.ledger_id, &mut doc).await.is_ok() && !doc.is_empty() {
-                    map.insert(meta.ledger_id, doc);
-                }
-            }
-        }
+        let console = Arc::new(Self { channel, events });
 
-        let console = Arc::new(Self {
-            channel,
-            events,
-            cache,
-        });
-
-        // Bridge AsymChannelEvents → ServiceEvents and refresh the cache.
-        // The async body is identical on both targets; only the spawn call differs.
+        // Bridge AsymChannelEvents → ServiceEvents.
         {
             let mut ch_rx = console.channel.subscribe_to_server();
             let events_tx = console.events.clone();
-            let cache = Arc::clone(&console.cache);
-            let channel = Arc::clone(&console.channel);
             let fut = async move {
                 while let Ok(evt) = ch_rx.recv().await {
                     match evt {
                         AsymChannelEvent::LedgerUpdated { ledger_id } => {
-                            let mut doc = cache
-                                .lock()
-                                .await
-                                .remove(&ledger_id)
-                                .unwrap_or_else(LedgerDoc::empty);
-                            if sync_doc(&*channel, ledger_id, &mut doc).await.is_ok()
-                                && !doc.is_empty()
-                            {
-                                cache.lock().await.insert(ledger_id, doc);
-                            }
                             if events_tx
                                 .send(ServiceEvent::LedgerUpdated {
                                     ledger_id: ledger_id.to_string(),
@@ -123,7 +92,6 @@ impl UnbillConsole {
         };
         self.channel.save_ledger_meta(&meta).await?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
-        self.put_doc(ledger_id, doc).await;
         Ok(ledger_id)
     }
 
@@ -141,29 +109,17 @@ impl UnbillConsole {
         input
             .validate()
             .map_err(|e| UnbillError::Validation(e.to_string()))?;
-        let mut doc = self.take_doc(ledger_id).await?;
+        let mut doc = self.load_doc(ledger_id).await?;
         let bill_id = doc.add_bill(input, self.channel.device_id(), Timestamp::now())?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
-        self.put_doc(ledger_id, doc).await;
         self.touch_meta(ledger_id).await?;
-        if self
-            .events
-            .send(ServiceEvent::LedgerUpdated {
-                ledger_id: ledger_id.to_string(),
-            })
-            .is_err()
-        {
-            tracing::warn!("LedgerUpdated event dropped: no subscribers");
-        }
+        self.emit_ledger_updated(ledger_id);
         Ok(bill_id)
     }
     // sirno:witness:bill-amendment:end
 
     pub async fn list_bills(&self, ledger_id: LedgerId) -> Result<EffectiveBills> {
-        let doc = self.take_doc(ledger_id).await?;
-        let result = doc.list_bills();
-        self.put_doc(ledger_id, doc).await;
-        result
+        self.load_doc(ledger_id).await?.list_bills()
     }
 
     // -----------------------------------------------------------------------
@@ -175,28 +131,16 @@ impl UnbillConsole {
         input
             .validate()
             .map_err(|e| UnbillError::Validation(e.to_string()))?;
-        let mut doc = self.take_doc(ledger_id).await?;
+        let mut doc = self.load_doc(ledger_id).await?;
         doc.add_user(input, Timestamp::now())?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
-        self.put_doc(ledger_id, doc).await;
         self.touch_meta(ledger_id).await?;
-        if self
-            .events
-            .send(ServiceEvent::LedgerUpdated {
-                ledger_id: ledger_id.to_string(),
-            })
-            .is_err()
-        {
-            tracing::warn!("LedgerUpdated event dropped: no subscribers");
-        }
+        self.emit_ledger_updated(ledger_id);
         Ok(())
     }
 
     pub async fn list_users(&self, ledger_id: LedgerId) -> Result<Vec<User>> {
-        let doc = self.take_doc(ledger_id).await?;
-        let result = doc.list_users();
-        self.put_doc(ledger_id, doc).await;
-        result
+        self.load_doc(ledger_id).await?.list_users()
     }
 
     /// Create a brand-new user, add them to the ledger, and return the created `User`.
@@ -206,7 +150,7 @@ impl UnbillConsole {
             .map_err(|e| UnbillError::Validation(e.to_string()))?;
         let user_id = UserId::new();
         let now = Timestamp::now();
-        let mut doc = self.take_doc(ledger_id).await?;
+        let mut doc = self.load_doc(ledger_id).await?;
         doc.add_user(
             NewUser {
                 user_id,
@@ -215,17 +159,8 @@ impl UnbillConsole {
             now,
         )?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
-        self.put_doc(ledger_id, doc).await;
         self.touch_meta(ledger_id).await?;
-        if self
-            .events
-            .send(ServiceEvent::LedgerUpdated {
-                ledger_id: ledger_id.to_string(),
-            })
-            .is_err()
-        {
-            tracing::warn!("LedgerUpdated event dropped: no subscribers");
-        }
+        self.emit_ledger_updated(ledger_id);
         Ok(User {
             user_id,
             display_name: input.display_name,
@@ -238,9 +173,7 @@ impl UnbillConsole {
         let mut seen = std::collections::HashSet::new();
         let mut result = Vec::new();
         for meta in self.channel.list_ledgers().await? {
-            let doc = self.take_doc(meta.ledger_id).await?;
-            let users = doc.list_users()?;
-            self.put_doc(meta.ledger_id, doc).await;
+            let users = self.load_doc(meta.ledger_id).await?.list_users()?;
             for user in users {
                 if seen.insert(user.user_id) {
                     result.push(user);
@@ -257,19 +190,15 @@ impl UnbillConsole {
 
     // sirno:witness:users-and-devices:begin
     pub async fn add_device(&self, ledger_id: LedgerId, input: NewDevice) -> Result<()> {
-        let mut doc = self.take_doc(ledger_id).await?;
+        let mut doc = self.load_doc(ledger_id).await?;
         doc.add_device(input, Timestamp::now())?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
-        self.put_doc(ledger_id, doc).await;
         self.touch_meta(ledger_id).await?;
         Ok(())
     }
 
     pub async fn list_devices(&self, ledger_id: LedgerId) -> Result<Vec<Device>> {
-        let doc = self.take_doc(ledger_id).await?;
-        let result = doc.list_devices();
-        self.put_doc(ledger_id, doc).await;
-        result
+        self.load_doc(ledger_id).await?.list_devices()
     }
 
     pub async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
@@ -320,16 +249,13 @@ impl UnbillConsole {
         > = std::collections::HashMap::new();
 
         for meta in self.channel.list_ledgers().await? {
-            let doc = self.take_doc(meta.ledger_id).await?;
+            let doc = self.load_doc(meta.ledger_id).await?;
             let users = doc.list_users()?;
             if users.iter().any(|user| user.user_id == user_id) {
                 let currency = doc.get_ledger()?.currency;
                 let bills = doc.list_bills()?;
-                self.put_doc(meta.ledger_id, doc).await;
                 let balances = by_currency.entry(currency).or_default();
                 settlement::accumulate_balances(&users, &bills, balances);
-            } else {
-                self.put_doc(meta.ledger_id, doc).await;
             }
         }
 
@@ -356,11 +282,9 @@ impl UnbillConsole {
         &self,
         ledger_id: LedgerId,
     ) -> crate::error::Result<settlement::Settlement> {
-        let doc = self.take_doc(ledger_id).await?;
+        let doc = self.load_doc(ledger_id).await?;
         let ledger = doc.get_ledger()?;
-        let result = settlement::compute_settlement(&ledger);
-        self.put_doc(ledger_id, doc).await;
-        Ok(result)
+        Ok(settlement::compute_settlement(&ledger))
     }
     // sirno:witness:settlement:end
 
@@ -370,9 +294,8 @@ impl UnbillConsole {
 
     // sirno:witness:conflict-detection:begin
     pub async fn detect_conflicts(&self, ledger_id: LedgerId) -> Result<Vec<ConflictGroup>> {
-        let doc = self.take_doc(ledger_id).await?;
+        let doc = self.load_doc(ledger_id).await?;
         let all_bills = doc.list_all_bills()?;
-        self.put_doc(ledger_id, doc).await;
         Ok(conflict::detect(&all_bills))
     }
     // sirno:witness:conflict-detection:end
@@ -434,24 +357,15 @@ impl UnbillConsole {
     // Internals
     // -----------------------------------------------------------------------
 
-    /// Remove the doc for `ledger_id` from the cache and return it.
-    /// Falls back to a full sync from the device if the cache is cold.
     // sirno:witness:console-service:begin
-    async fn take_doc(&self, ledger_id: LedgerId) -> Result<LedgerDoc> {
-        if let Some(doc) = self.cache.lock().await.remove(&ledger_id) {
-            return Ok(doc);
-        }
+    /// Load a ledger doc fresh from the device via sync.
+    async fn load_doc(&self, ledger_id: LedgerId) -> Result<LedgerDoc> {
         let mut doc = LedgerDoc::empty();
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
         if doc.is_empty() {
             return Err(UnbillError::LedgerNotFound(ledger_id.to_string()));
         }
         Ok(doc)
-    }
-
-    /// Insert `doc` back into the cache under `ledger_id`.
-    async fn put_doc(&self, ledger_id: LedgerId, doc: LedgerDoc) {
-        self.cache.lock().await.insert(ledger_id, doc);
     }
 
     /// Update `updated_at` in the stored metadata for a ledger.
@@ -462,6 +376,18 @@ impl UnbillConsole {
             self.channel.save_ledger_meta(meta).await?;
         }
         Ok(())
+    }
+
+    fn emit_ledger_updated(&self, ledger_id: LedgerId) {
+        if self
+            .events
+            .send(ServiceEvent::LedgerUpdated {
+                ledger_id: ledger_id.to_string(),
+            })
+            .is_err()
+        {
+            tracing::warn!("LedgerUpdated event dropped: no subscribers");
+        }
     }
     // sirno:witness:console-service:end
 }
@@ -480,17 +406,47 @@ async fn sync_doc(
     doc: &mut LedgerDoc,
 ) -> Result<()> {
     let mut sync_state = sync::State::new();
+    let mut round = 0u32;
+    let doc_empty_before = doc.is_empty();
+    tracing::debug!(
+        %ledger_id,
+        doc_empty = doc_empty_before,
+        "sync_doc: starting"
+    );
     while let Some(msg) = doc.generate_sync_message(&mut sync_state) {
-        match channel.asym_sync(ledger_id, msg.encode()).await? {
+        round += 1;
+        let encoded = msg.encode();
+        tracing::debug!(
+            %ledger_id,
+            round,
+            msg_bytes = encoded.len(),
+            "sync_doc: sending message"
+        );
+        match channel.asym_sync(ledger_id, encoded).await? {
             Some(resp_bytes) => {
+                tracing::debug!(
+                    %ledger_id,
+                    round,
+                    resp_bytes = resp_bytes.len(),
+                    "sync_doc: received response"
+                );
                 let resp = sync::Message::decode(&resp_bytes)
                     .map_err(|e| UnbillError::Automerge(e.to_string()))?;
                 doc.receive_sync_message(&mut sync_state, resp)
                     .map_err(|e| UnbillError::Automerge(e.to_string()))?;
             }
-            None => break,
+            None => {
+                tracing::debug!(%ledger_id, round, "sync_doc: server returned None, breaking");
+                break;
+            }
         }
     }
+    tracing::debug!(
+        %ledger_id,
+        rounds = round,
+        doc_empty_after = doc.is_empty(),
+        "sync_doc: finished"
+    );
     Ok(())
 }
 // sirno:witness:asymmetric-channel:end

@@ -97,10 +97,16 @@ impl UnbillDevice {
 
     /// Dial `peer` and run the full sync exchange for all shared ledgers.
     pub async fn trigger_peer_sync(&self, peer: NodeId) -> Result<()> {
+        tracing::debug!(%peer, "trigger_peer_sync: connecting");
         let conn = self.endpoint.connect_bi_sync(peer.clone()).await?;
         let changed = run_sync_session(true, peer, &self.server, conn.recv, conn.send).await?;
         conn.handle.close();
+        tracing::debug!(
+            changed_count = changed.len(),
+            "trigger_peer_sync: session done"
+        );
         for (id, doc) in changed {
+            tracing::debug!(ledger_id = %id, "trigger_peer_sync: merge_and_save_ledger");
             self.server.merge_and_save_ledger(&id, doc).await?;
         }
         Ok(())

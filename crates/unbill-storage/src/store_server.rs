@@ -297,16 +297,33 @@ impl StoreServer {
             .load_ledger(ledger_id)
             .await?
             .unwrap_or_else(LedgerDoc::empty);
+        let doc_empty = doc.is_empty();
         let mut sync_state = automerge::sync::State::new();
         let heads_before = doc.heads();
+        tracing::debug!(
+            ledger_id,
+            client_msg_bytes = bytes.len(),
+            server_doc_empty = doc_empty,
+            server_heads = heads_before.len(),
+            "do_asym_sync: received client message"
+        );
         doc.receive_sync_message(&mut sync_state, client_msg)
             .map_err(|e| UnbillError::Automerge(e.to_string()))?;
-        if doc.heads() != heads_before {
+        let heads_after = doc.heads();
+        if heads_after != heads_before {
+            tracing::debug!(ledger_id, "do_asym_sync: heads changed, saving");
             store.save_ledger(ledger_id, &mut doc).await?;
         }
-        Ok(doc
+        let resp = doc
             .generate_sync_message(&mut sync_state)
-            .map(|m| m.encode()))
+            .map(|m| m.encode());
+        tracing::debug!(
+            ledger_id,
+            has_response = resp.is_some(),
+            response_bytes = resp.as_ref().map(|b| b.len()).unwrap_or(0),
+            "do_asym_sync: generated response"
+        );
+        Ok(resp)
     }
 
     async fn do_create_invitation(
