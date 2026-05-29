@@ -35,7 +35,8 @@ bill editor,
 user views,
 ledger views,
 settlement views,
-and conflict panels.
+conflict panels,
+and theme picker.
 
 ```mermaid
 flowchart TB
@@ -46,6 +47,7 @@ flowchart TB
     Layout["layout.rs"]
     Status["status.rs"]
     Progress["progress.rs"]
+    Theme["theme.rs"]
     Bill["bill.rs"]
     BillEditor["bill_editor.rs"]
     User["user.rs"]
@@ -58,6 +60,7 @@ flowchart TB
     Lib --> Layout
     Lib --> Status
     Lib --> Progress
+    Lib --> Theme
     Lib --> Bill
     Lib --> BillEditor
     Lib --> User
@@ -84,6 +87,20 @@ and share-weight validation.
 Apps map backend DTOs to display items.
 The component stores only selected bill ID and emits the selected bill ID
 with the full competing bill ID set on commit.
+
+## Color system and theming
+
+All colors in the component stylesheet are CSS custom properties.
+Each app stylesheet defines light and dark palettes grouped as
+surface, text, line, and semantic accent variables.
+
+The dark palette uses a blue-tinted slate base.
+By default the active palette follows `prefers-color-scheme`.
+A three-way theme picker (Light / System / Dark) in the General settings tab
+lets the user override the system preference.
+The choice is persisted in local storage and applied before the first render.
+
+`theme.rs` owns the theme model, persistence, and picker component.
 
 Pure helpers are unit-tested directly.
 Component rendering is covered by consuming frontend crates.

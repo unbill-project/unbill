@@ -3,7 +3,7 @@ use crate::app::SettingsTab;
 use crate::components::{
     ActionButton, ButtonTone, ConflictBillItem, ConflictGroupView, CurrencyCombobox, FieldBlock,
     IconButton, IconButtonKind, ListRow, ModalSheet, ScreenFrame, SectionCard, SettingsNavGroup,
-    SettingsNavItem,
+    SettingsNavItem, ThemeMode, ThemePicker, apply_theme, load_theme,
 };
 use leptos::prelude::*;
 
@@ -263,6 +263,7 @@ pub fn SettingsPopup(
     on_create_invitation: Callback<()>,
     on_copy_invitation: Callback<()>,
 ) -> impl IntoView {
+    let theme_mode = RwSignal::new(load_theme());
     let sidebar_class = if mobile_in_content {
         "settings-sidebar settings-sidebar-hidden"
     } else {
@@ -344,6 +345,16 @@ pub fn SettingsPopup(
                                             <p class="row-meta mono-copy">{device_id}</p>
                                         </div>
                                     </div>
+                                </SectionCard>
+
+                                <SectionCard title="Appearance".to_owned()>
+                                    <ThemePicker
+                                        mode=theme_mode
+                                        on_change=Callback::new(move |mode: ThemeMode| {
+                                            apply_theme(mode);
+                                            theme_mode.set(mode);
+                                        })
+                                    />
                                 </SectionCard>
 
                                 <SectionCard title="Ledger import".to_owned()>
