@@ -17,8 +17,14 @@ A device may sync a ledger when its `NodeId` is listed in that ledger's device s
 
 Outbound network traffic is limited to peer discovery, relay fallback,
 and direct sync traffic.
-The design does not include analytics beacons,
-hosted coordination services,
+Devices register with Iroh relay servers for NAT traversal
+and publish their relay address through pkarr DNS.
+Both are third-party services operated by n0.
+All traffic through relays is end-to-end encrypted via QUIC/TLS,
+so relays can observe connection metadata
+(which NodeIDs communicate and when)
+but cannot read ledger content.
+The design does not include analytics beacons
 or default update checks.
 
 The current threat model is intentionally modest.

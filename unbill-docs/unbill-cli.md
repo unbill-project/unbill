@@ -17,9 +17,9 @@ It connects to a running `unbill-daemon` over the local socket and forwards comm
 
 The surface covers device initialization and display,
 ledger create, list, show, invite, join, and devices,
-bill add, list, and amend,
+bill add, list, amend, and conflicts,
 user create, add, and list,
-one-shot peer sync,
+one-shot peer sync (sync status is stubbed for a future milestone),
 and settlement for one user across every ledger where that user appears.
 
 The CLI owns parsing, formatting, and exit codes only.
@@ -36,7 +36,7 @@ Commands fail clearly when the daemon socket cannot be reached.
 
 Implementation:
 `main.rs` parses with Clap,
-connects through `RpcAsymChannel` at the socket under `UNBILL_DATA_DIR`,
+connects through `RpcAsymChannel` at the socket under `UNBILL_PATH`,
 creates `UnbillConsole`,
 and dispatches to `commands.rs`.
 `commands.rs` maps arguments to typed service inputs.

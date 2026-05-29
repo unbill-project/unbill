@@ -18,18 +18,23 @@ It runs the Iroh endpoint accept loop for peer sync and join requests.
 It serves the local RPC socket so CLI, TUI, and other local clients can issue commands
 without touching storage directly.
 
-The daemon prints `listening on: <node_id>` to stdout once the Iroh endpoint is bound
-and the RPC socket accepts connections.
+The device layer prints `listening on: <node_id>` to stdout
+inside `accept_loop` once the Iroh endpoint is ready.
 That line is the readiness signal for automated tooling.
-All other output goes to stderr.
+All other daemon output goes to stderr.
 
 The daemon runs until killed or until a fatal network or storage error occurs.
 
 Implementation is contained in `main.rs`.
 It opens `FsStore`,
 opens `LocalAsymChannel` over the store,
-and runs channel accept loop and RPC serving concurrently.
-The process exits cleanly when either task returns.
+and runs channel accept loop, RPC serving,
+and periodic peer sync concurrently in a `select!`.
+
+When `UNBILL_SYNC_INTERVAL_SECS` is set to a positive value,
+the daemon triggers peer sync on that interval.
+When unset or zero the periodic sync arm is dormant.
+The process exits cleanly when any task returns.
 
 Tracing goes to stderr so stdout remains reserved for the readiness line.
 

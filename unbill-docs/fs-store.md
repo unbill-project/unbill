@@ -49,7 +49,6 @@ Writes are atomic.
 Data is written to a sibling temporary file and renamed into place.
 
 `list_ledgers` skips directories with missing or invalid metadata and logs a warning.
-`delete_ledger` is idempotent.
 `create_secret_key` is idempotent and never overwrites an existing key.
 The root directory is created on demand.
 
@@ -60,7 +59,7 @@ Linux local share defaults,
 and macOS Application Support defaults.
 
 Tests use temporary directories.
-Coverage includes save, list, load, delete, and device metadata round trips.
+Coverage includes save, list, load, and device metadata round trips.
 
 ---
 

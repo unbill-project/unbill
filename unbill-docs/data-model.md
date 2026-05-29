@@ -18,7 +18,7 @@ Users are append-only shared records and are not login identities.
 A device is an authorized sync peer identified by a `NodeId`.
 Devices are append-only, ledger-scoped, and separate from users.
 
-A bill is an expense record with payer shares, payee shares, amount,
+A bill is an expense record with payer shares, payee shares, amount in cents,
 timestamp, description, and optional `prev` links to superseded bills.
 Effective bills are the bills not named by another bill's `prev`.
 

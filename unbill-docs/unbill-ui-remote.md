@@ -24,6 +24,7 @@ and then opens `UnbillConsole` over that channel.
 `main.rs` initializes the service and mounts the app after authentication.
 `app.rs` owns navigation state.
 `pages.rs` defines screen components.
+`components.rs` re-exports shared UI components from `unbill-ui-components`.
 `api.rs` wraps `UnbillConsole` calls and maps results to DTO structs.
 Raw HTTP stays inside `HttpAsymChannel`;
 the app layer calls service and API helpers rather than issuing ad hoc requests.
@@ -31,6 +32,7 @@ the app layer calls service and API helpers rather than issuing ad hoc requests.
 Remote UI data signals include device ID,
 ledgers,
 all users,
+devices,
 selected ledger detail,
 and settings-only ledger detail.
 Navigation and overlay signals include surface mode,
@@ -60,8 +62,9 @@ The bill editor is isolated from background detail refresh.
 Its seed captures currency and users at open time,
 and the page reads only the editor signal.
 
-Device Settings shows the server-assigned device ID.
-Remote UI does not expose peer sync controls there.
+Device Settings shows the server-assigned device ID,
+known peer devices,
+and per-device sync actions.
 Ledger Settings provides ledger selection,
 ledger users,
 add-user picker,

@@ -10,11 +10,10 @@ belongs:
 `unbill-console` keeps thin compatibility modules for storage and network-facing names.
 
 The storage module re-exports the `LedgerStore` boundary and storage result vocabulary
-from `unbill-storage`.
+from `unbill-storage` under `#[cfg(test)]` only.
 The durable storage design lives in `unbill-storage`.
 
-The net module re-exports symmetric channel endpoint and protocol helpers
-when local networking support is enabled.
+The net module re-exports symmetric channel endpoint and protocol helpers unconditionally.
 The networking design lives in `unbill-symmetric-channel`.
 
 These modules are convenience surfaces.

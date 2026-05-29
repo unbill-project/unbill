@@ -65,8 +65,16 @@ and returns either response bytes or no content.
 
 The server rejects unparseable sync bodies as bad requests.
 It maps unauthorized tokens to unauthorized responses.
-Device metadata lookup returns absence rather than error for missing keys.
+Device metadata lookup returns `404` for missing keys,
+which the client maps to `None`.
 Other non-success statuses map to storage or channel errors on the client side.
+
+`GET /ledgers` returns a JSON array of ledger metadata objects.
+`PUT /ledgers/{id}/meta` accepts and returns ledger metadata as JSON.
+`POST /ledgers/{id}/invitations` returns `201` with `{"url": "..."}`.
+`POST /ledgers/join` accepts `{"url": "...", "label": "..."}` and returns `204`.
+`GET /device/id` returns the node ID as `text/plain`.
+SSE data fields carry `{"type": "LedgerUpdated", "ledger_id": "..."}`.
 
 ---
 
