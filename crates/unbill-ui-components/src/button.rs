@@ -283,6 +283,7 @@ pub fn ListRow(
     }
 }
 
+// sirno:witness:ui-components:begin
 // Settings sidebar navigation item with chevron
 #[component]
 pub fn SettingsNavItem(
@@ -343,6 +344,7 @@ pub fn SettingsNavGroup(#[prop(into)] title: String, children: Children) -> impl
         </div>
     }
 }
+// sirno:witness:ui-components:end
 
 #[cfg(test)]
 mod tests {

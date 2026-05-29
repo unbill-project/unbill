@@ -23,12 +23,16 @@ and pending spinners.
 Component prop and event data types are plain structs defined in this crate.
 
 The crate exports buttons, icon buttons, list rows, tag pills,
+settings navigation items, settings navigation groups,
 currency input,
 screen frames,
+pages,
+safe-area containers,
 empty columns,
 section cards,
 field blocks,
 modal sheets,
+bottom sheets,
 status strips,
 bill views,
 bill editor,
@@ -71,10 +75,23 @@ flowchart TB
 `ScreenFrame` is the outer container for a full-height screen column.
 The caller may supply a header fragment with leading, copy, and trailing flex children.
 When no header is supplied, no topbar is rendered.
+An optional footer prop renders a sticky footer below the scroll content.
 
 `SectionCard` groups form fields or list items under a title,
 with only a separator between header and body.
+An optional kicker prop renders a small uppercase label above the title.
 `EmptyColumn` renders a short centered message without a decorative wrapper.
+
+`Page` wraps children in a top-level page container.
+`SafeAreaContainer` wraps children in a safe-area-aware container
+for device notch and home-indicator insets.
+`Sheet` is a bottom-sheet drawer overlay.
+It takes a reactive open signal and a close callback
+and animates in and out via CSS transitions on a wrapper element.
+
+`button.rs` also exports `SettingsNavItem` and `SettingsNavGroup`.
+`SettingsNavItem` renders a sidebar navigation button with a label and trailing chevron.
+`SettingsNavGroup` renders a titled group of navigation items.
 
 `bill_editor.rs` owns the shared bill editor draft model.
 Custom share weights stay as raw text until submission.

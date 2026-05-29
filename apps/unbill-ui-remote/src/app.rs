@@ -153,7 +153,9 @@ pub fn App() -> impl IntoView {
     let loading_count = RwSignal::new(0usize);
     let toast = use_toast();
 
+    // sirno:witness:unbill-ui-remote:begin
     let devices = RwSignal::new(Vec::<SyncDevice>::new());
+    // sirno:witness:unbill-ui-remote:end
 
     let load_selected_ledger = move |ledger_id: String| {
         selected_ledger_id.set(Some(ledger_id.clone()));
@@ -478,6 +480,7 @@ pub fn App() -> impl IntoView {
         load_settings_ledger(ledger_id);
     };
 
+    // sirno:witness:unbill-ui-remote:begin
     let sync_device = move |(peer_node_id, done): (String, Callback<()>)| {
         loading_count.update(|n| *n += 1);
         spawn_local(async move {
@@ -491,6 +494,7 @@ pub fn App() -> impl IntoView {
             loading_count.update(|n| *n = n.saturating_sub(1));
         });
     };
+    // sirno:witness:unbill-ui-remote:end
 
     let render_overlay = move || {
         overlay.get().map(|sheet| match sheet {

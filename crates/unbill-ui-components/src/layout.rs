@@ -11,6 +11,7 @@ pub fn EmptyColumn(detail: String) -> impl IntoView {
     }
 }
 
+// sirno:witness:ui-components:begin
 #[component]
 pub fn Page(children: Children) -> impl IntoView {
     view! {
@@ -128,6 +129,7 @@ pub fn SectionCard(
         </section>
     }
 }
+// sirno:witness:ui-components:end
 
 #[component]
 pub fn FieldBlock(
