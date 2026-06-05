@@ -84,22 +84,22 @@
           }
         );
 
-        # ── wasm-bindgen-cli @ 0.2.118 ────────────────────────────────────────
+        # ── wasm-bindgen-cli @ 0.2.121 ────────────────────────────────────────
         # The version must match the `wasm-bindgen` entry in Cargo.lock exactly.
-        # nixpkgs ships 0.2.108, so we override it to 0.2.118.
+        # nixpkgs ships 0.2.108, so we override it to 0.2.121.
         # cargoHash = sha256 of the vendored deps directory (cargo vendor output).
 
         wasm-bindgen-cli = pkgs.wasm-bindgen-cli.overrideAttrs (old: rec {
-          version = "0.2.118";
+          version = "0.2.121";
           src = pkgs.fetchCrate {
             pname = "wasm-bindgen-cli";
             inherit version;
-            hash = "sha256-ve783oYH0TGv8Z8lIPdGjItzeLDQLOT5uv/jbFOlZpI=";
+            hash = "sha256-ZOMgFNOcGkO66Jz/Z83eoIu+DIzo3Z/vq6Z5g6BDY/w=";
           };
           cargoDeps = pkgs.rustPlatform.fetchCargoVendor {
             inherit src;
             name = "wasm-bindgen-cli-${version}";
-            hash = "sha256-EYDfuBlH3zmTxACBL+sjicRna84CvoesKSQVcYiG9P0=";
+            hash = "sha256-DPdCDPTAPBrbqLUqnCwQu1dePs9lGg85JCJOCIr9qjU=";
           };
         });
 

@@ -91,6 +91,10 @@ futures-util = "0.3"
 # RPC
 tarpc = { version = "0.37", features = ["full"] }
 
+# WASM (pinned — must match wasm-bindgen-cli in flake.nix)
+wasm-bindgen = "=0.2.121"
+wasm-bindgen-futures = "=0.4.71"
+
 # Testing
 proptest = "1"
 wiremock = "0.6"
