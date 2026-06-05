@@ -1,9 +1,9 @@
 ---
-name: Introduction
-desc: A first route through the Unbill design lake.
-category:
-  - narrative
-belongs:
+core.desc: A first route through the Unbill design lake.
+core.name: Introduction
+core.category:
+  - core.narrative
+core.belongs:
   - unbill
 ---
 
@@ -24,8 +24,8 @@ That entry carries the repository's design-first and test-first discipline.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

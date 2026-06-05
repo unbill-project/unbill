@@ -1,12 +1,12 @@
 ---
-name: Conflict Detection
-desc: The Union-Find projection that finds competing effective bill amendments.
-category:
-  - concept
-belongs:
+core.desc: The Union-Find projection that finds competing effective bill amendments.
+core.name: Conflict Detection
+core.category:
+  - core.concept
+core.belongs:
   - unbill
   - unbill-console
-refines:
+core.refines:
   - bill-amendment
 ---
 
@@ -48,9 +48,9 @@ and deterministic results regardless of insertion order.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
   - [unbill-console](unbill-console.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

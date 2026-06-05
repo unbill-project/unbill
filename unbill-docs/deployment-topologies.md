@@ -1,12 +1,12 @@
 ---
-name: Deployment Topologies
-desc: The supported ways to colocate or separate devices, consoles, and servers.
-category:
-  - concept
-belongs:
+core.desc: The supported ways to colocate or separate devices, consoles, and servers.
+core.name: Deployment Topologies
+core.category:
+  - core.concept
+core.belongs:
   - unbill
   - applications
-refines:
+core.refines:
   - device-console-split
 ---
 
@@ -30,9 +30,9 @@ with all devices connected by symmetric channels for peer sync.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [applications](applications.md)
   - [unbill](unbill.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

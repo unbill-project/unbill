@@ -1,12 +1,12 @@
 ---
-name: Unbill Tauri
-desc: The desktop shell bridge and Tauri host for the native frontend.
-category:
-  - concept
-belongs:
+core.desc: The desktop shell bridge and Tauri host for the native frontend.
+core.name: Unbill Tauri
+core.category:
+  - core.concept
+core.belongs:
   - applications
   - frontend-ui
-refines:
+core.refines:
   - unbill-ui-native
 ---
 
@@ -70,9 +70,9 @@ This crate is best verified by end-to-end UI flows and iOS project regeneration 
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [applications](applications.md)
   - [frontend-ui](frontend-ui.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

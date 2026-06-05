@@ -1,9 +1,9 @@
 ---
-name: Documentation Coverage
-desc: Provenance record for the Sirno lake migration from per-crate Markdown.
-category:
-  - meta
-belongs:
+core.desc: Provenance record for the Sirno lake migration from per-crate Markdown.
+core.name: Documentation Coverage
+core.category:
+  - core.meta
+core.belongs:
   - development-workflow
 ---
 
@@ -24,8 +24,8 @@ root Markdown files are reader entry points compiled from it.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [development-workflow](development-workflow.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

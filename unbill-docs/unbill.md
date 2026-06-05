@@ -1,8 +1,8 @@
 ---
-name: Unbill
-desc: A decentralized expense ledger for small trusted groups.
-category:
-  - concept
+core.desc: A decentralized expense ledger for small trusted groups.
+core.name: Unbill
+core.category:
+  - core.concept
 ---
 
 Unbill is offline-first bill splitting for small trusted groups.
@@ -59,8 +59,8 @@ flowchart LR
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to): (none)
-- belongs (from):
+- core.belongs (to): (none)
+- core.belongs (from):
   - [applications](applications.md)
   - [bill-amendment](bill-amendment.md)
   - [channels](channels.md)

@@ -1,9 +1,9 @@
 ---
-name: Frontend UI
-desc: The review neighborhood for shared UI behavior and frontend implementations.
-category:
-  - concept
-belongs:
+core.desc: The review neighborhood for shared UI behavior and frontend implementations.
+core.name: Frontend UI
+core.category:
+  - core.concept
+core.belongs:
   - unbill
 ---
 
@@ -21,9 +21,9 @@ Specific frontends differ by input method, rendering technology, and transport b
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from):
+- core.belongs (from):
   - [ui-components](ui-components.md)
   - [ui-shared-model](ui-shared-model.md)
   - [unbill-tauri](unbill-tauri.md)

@@ -1,9 +1,9 @@
 ---
-name: Storage
-desc: The review neighborhood for persisted ledger and device-local data.
-category:
-  - concept
-belongs:
+core.desc: The review neighborhood for persisted ledger and device-local data.
+core.name: Storage
+core.category:
+  - core.concept
+core.belongs:
   - unbill
 ---
 
@@ -18,9 +18,9 @@ device key names, or transport URLs directly.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from):
+- core.belongs (from):
   - [fs-store](fs-store.md)
   - [ledger-doc](ledger-doc.md)
   - [memory-store](memory-store.md)

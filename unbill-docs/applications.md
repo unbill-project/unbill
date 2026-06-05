@@ -1,9 +1,9 @@
 ---
-name: Applications
-desc: The review neighborhood for Unbill binaries and frontend applications.
-category:
-  - concept
-belongs:
+core.desc: The review neighborhood for Unbill binaries and frontend applications.
+core.name: Applications
+core.category:
+  - core.concept
+core.belongs:
   - unbill
 ---
 
@@ -20,9 +20,9 @@ The Tauri crate hosts the desktop shell and exposes frontend commands.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from):
+- core.belongs (from):
   - [deployment-topologies](deployment-topologies.md)
   - [ui-shared-model](ui-shared-model.md)
   - [unbill-cli](unbill-cli.md)

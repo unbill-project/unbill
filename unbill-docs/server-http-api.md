@@ -1,12 +1,12 @@
 ---
-name: Server HTTP API
-desc: The REST and SSE contract shared by unbill-server and HttpAsymChannel.
-category:
-  - concept
-belongs:
+core.desc: The REST and SSE contract shared by unbill-server and HttpAsymChannel.
+core.name: Server HTTP API
+core.category:
+  - core.concept
+core.belongs:
   - unbill-server
   - asymmetric-channel
-refines:
+core.refines:
   - unbill-server
 ---
 
@@ -80,9 +80,9 @@ SSE data fields carry `{"type": "LedgerUpdated", "ledger_id": "..."}`.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [asymmetric-channel](asymmetric-channel.md)
   - [unbill-server](unbill-server.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

@@ -1,9 +1,9 @@
 ---
-name: Design Principles
-desc: The architectural commitments that keep Unbill local-first and understandable.
-category:
-  - concept
-belongs:
+core.desc: The architectural commitments that keep Unbill local-first and understandable.
+core.name: Design Principles
+core.category:
+  - core.concept
+core.belongs:
   - unbill
 ---
 
@@ -42,8 +42,8 @@ while social context carries who initiated a change.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

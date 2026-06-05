@@ -1,11 +1,11 @@
 ---
-name: Project Boundaries
-desc: What Unbill deliberately does not own.
-category:
-  - concept
-belongs:
+core.desc: What Unbill deliberately does not own.
+core.name: Project Boundaries
+core.category:
+  - core.concept
+core.belongs:
   - unbill
-refines:
+core.refines:
   - design-principles
 ---
 
@@ -34,8 +34,8 @@ Groups that need those guarantees are outside the current design target.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

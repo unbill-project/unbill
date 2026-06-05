@@ -1,11 +1,11 @@
 ---
-name: Console Service
-desc: The UnbillConsole orchestration and projection cache.
-category:
-  - concept
-belongs:
+core.desc: The UnbillConsole orchestration and projection cache.
+core.name: Console Service
+core.category:
+  - core.concept
+core.belongs:
   - unbill-console
-refines:
+core.refines:
   - unbill-console
 ---
 
@@ -58,8 +58,8 @@ They do not receive direct persistence or raw Automerge handles.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill-console](unbill-console.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

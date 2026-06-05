@@ -1,9 +1,9 @@
 ---
-name: Workspace Layout
-desc: The Rust workspace split across core crates, channel crates, UI crates, and applications.
-category:
-  - concept
-belongs:
+core.desc: The Rust workspace split across core crates, channel crates, UI crates, and applications.
+core.name: Workspace Layout
+core.category:
+  - core.concept
+core.belongs:
   - unbill
 ---
 
@@ -37,9 +37,9 @@ Applications:
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from):
+- core.belongs (from):
   - [asymmetric-channel](asymmetric-channel.md)
   - [fs-store](fs-store.md)
   - [memory-store](memory-store.md)

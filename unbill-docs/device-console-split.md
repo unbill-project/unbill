@@ -1,11 +1,11 @@
 ---
-name: Device Console Split
-desc: The role separation between durable device replicas and transient user-facing consoles.
-category:
-  - concept
-belongs:
+core.desc: The role separation between durable device replicas and transient user-facing consoles.
+core.name: Device Console Split
+core.category:
+  - core.concept
+core.belongs:
   - unbill
-refines:
+core.refines:
   - design-principles
 ---
 
@@ -35,8 +35,8 @@ They do not own durable state, settlement, conflict detection, or persistence la
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

@@ -1,12 +1,12 @@
 ---
-name: Memory Store
-desc: The in-process LedgerStore used by tests.
-category:
-  - concept
-belongs:
+core.desc: The in-process LedgerStore used by tests.
+core.name: Memory Store
+core.category:
+  - core.concept
+core.belongs:
   - storage
   - workspace-layout
-refines:
+core.refines:
   - unbill-storage
 ---
 
@@ -34,9 +34,9 @@ The crate is exercised by higher-level tests that use it as a dependency.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [storage](storage.md)
   - [workspace-layout](workspace-layout.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

@@ -1,11 +1,11 @@
 ---
-name: Unbill Event
-desc: The event enum used for runtime notifications across services.
-category:
-  - concept
-belongs:
+core.desc: The event enum used for runtime notifications across services.
+core.name: Unbill Event
+core.category:
+  - core.concept
+core.belongs:
   - workspace-layout
-refines:
+core.refines:
   - sync-behavior
 ---
 
@@ -30,8 +30,8 @@ then consumed by devices and consoles.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [workspace-layout](workspace-layout.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

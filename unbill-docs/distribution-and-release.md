@@ -1,9 +1,9 @@
 ---
-name: Distribution And Release
-desc: The installation channels and release mechanics described by the repository.
-category:
-  - concept
-belongs:
+core.desc: The installation channels and release mechanics described by the repository.
+core.name: Distribution And Release
+core.category:
+  - core.concept
+core.belongs:
   - unbill
 ---
 
@@ -117,9 +117,9 @@ and Leptos native and remote frontends exist in the workspace.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from):
+- core.belongs (from):
   - [altstore-source](altstore-source.md)
   - [ci-cd-pipeline](ci-cd-pipeline.md)
 

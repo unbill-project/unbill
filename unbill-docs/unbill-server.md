@@ -1,11 +1,11 @@
 ---
-name: Unbill Server
-desc: The standalone HTTP backend for remote consoles operating one device namespace.
-category:
-  - concept
-belongs:
+core.desc: The standalone HTTP backend for remote consoles operating one device namespace.
+core.name: Unbill Server
+core.category:
+  - core.concept
+core.belongs:
   - applications
-refines:
+core.refines:
   - deployment-topologies
 ---
 
@@ -80,9 +80,9 @@ other events and lagged receiver errors are skipped.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [applications](applications.md)
-- belongs (from):
+- core.belongs (from):
   - [server-http-api](server-http-api.md)
 
 > **Sirno generated links end.**

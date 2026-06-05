@@ -1,12 +1,12 @@
 ---
-name: Unbill Device
-desc: The device-side service that owns storage, identity, sync, and channel server behavior.
-category:
-  - concept
-belongs:
+core.desc: The device-side service that owns storage, identity, sync, and channel server behavior.
+core.name: Unbill Device
+core.category:
+  - core.concept
+core.belongs:
   - workspace-layout
   - channels
-refines:
+core.refines:
   - device-console-split
 ---
 
@@ -49,9 +49,9 @@ without touching disk or real network endpoints.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [channels](channels.md)
   - [workspace-layout](workspace-layout.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

@@ -1,12 +1,12 @@
 ---
-name: Symmetric Channel
-desc: The Iroh-backed device-to-device sync and join transport.
-category:
-  - concept
-belongs:
+core.desc: The Iroh-backed device-to-device sync and join transport.
+core.name: Symmetric Channel
+core.category:
+  - core.concept
+core.belongs:
   - channels
   - workspace-layout
-refines:
+core.refines:
   - sync-behavior
 ---
 
@@ -71,9 +71,9 @@ and join success and failure paths.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [channels](channels.md)
   - [workspace-layout](workspace-layout.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

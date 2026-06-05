@@ -1,11 +1,11 @@
 ---
-name: Unbill Daemon
-desc: The long-running local device process used by local consoles.
-category:
-  - concept
-belongs:
+core.desc: The long-running local device process used by local consoles.
+core.name: Unbill Daemon
+core.category:
+  - core.concept
+core.belongs:
   - applications
-refines:
+core.refines:
   - deployment-topologies
 ---
 
@@ -42,8 +42,8 @@ Tracing goes to stderr so stdout remains reserved for the readiness line.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [applications](applications.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

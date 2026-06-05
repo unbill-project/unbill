@@ -1,20 +1,24 @@
 [lake]
-# sirno:witness:development-workflow:begin
-# Markdown entry lake path, resolved relative to this config file.
-path = "unbill-docs"
-# Paths in lake that Sirno skips while reading, checking, querying, and generating links.
+# Sirno Lake path, resolved relative to this config file.
+path = ".sirno/lake"
+# Paths in lake that Sirno skips while reading, checking, querying, and rendering footers.
 ignore = [".obsidian"]
-# sirno:witness:development-workflow:end
+
+[upstreams.core]
+# Git-backed upstream lake crystallized into a glacier under this entry domain.
+# Optional manifest selects the upstream project config file.
+# Optional mist selects the imported portion from the upstream project.
+git = "https://github.com/LighghtEeloo/sirno"
+branch = "main"
+manifest = "core/Sirno.toml"
 
 [repo]
-# sirno:witness:documentation-coverage:begin
 # Repository files, directories, or globs scanned for witness blocks.
 members = ["Sirno.toml", "README.md", "Cargo.toml", "Dockerfile", "release.toml", "LICENSE", "LICENSE-MIT", "LICENSE-APACHE", "flake.nix", "devenv.nix", "devenv.yaml", "prek.toml", "rustfmt.toml", ".github/workflows/*.yml", ".github/aur/*/PKGBUILD", ".github/homebrew/*/install.rb", "apps/**/*.rs", "apps/**/*.toml", "apps/**/*.html", "apps/**/*.css", "apps/**/*.js", "crates/**/*.rs", "crates/**/*.toml", "crates/**/*.json", "crates/**/*.yml", "docker/*", "example-deployment/*.yml"]
-# sirno:witness:documentation-coverage:end
 
 [witness]
-# Witness delimiter regex pairs; each first capture group is the entry id.
-# Canonical filename entry-id capture: ([^\x00-\x1F\x7F<>:"/\\|?*\r\n]+)
+# Witness delimiter regex pairs; each first capture group is the entry address.
+# Canonical entry-address capture: ([^\x00-\x1F\x7F<>:"/\\|?*,\r\n]+)
 [[witness.delimiters]]
 begin = '(?m)^[ \t]*//[ \t]*sirno:witness:([^\x00-\x1F\x7F<>:"/\\|?*\r\n]+):begin'
 end = '(?m)^[ \t]*//[ \t]*sirno:witness:([^\x00-\x1F\x7F<>:"/\\|?*\r\n]+):end'
@@ -26,15 +30,3 @@ end = '(?m)^[ \t]*<!--[ \t]*sirno:witness:([^\x00-\x1F\x7F<>:"/\\|?*\r\n]+):end[
 [[witness.delimiters]]
 begin = '(?m)^[ \t]*#[ \t]*sirno:witness:([^\x00-\x1F\x7F<>:"/\\|?*\r\n]+):begin'
 end = '(?m)^[ \t]*#[ \t]*sirno:witness:([^\x00-\x1F\x7F<>:"/\\|?*\r\n]+):end'
-
-[check]
-# Require generated footers to match current metadata during checks.
-render = true
-
-[structural]
-# Structural metadata field; to, from, and clique default to false.
-category = {}
-# Structural metadata field; to, from, and clique default to false.
-belongs = { to = { render = true }, from = { render = true } }
-# Structural metadata field kept for validation, with no rendered footer links.
-refines = {}

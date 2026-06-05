@@ -1,12 +1,12 @@
 ---
-name: Sync Behavior
-desc: The user-initiated CRDT sync and event propagation model.
-category:
-  - concept
-belongs:
+core.desc: The user-initiated CRDT sync and event propagation model.
+core.name: Sync Behavior
+core.category:
+  - core.concept
+core.belongs:
   - unbill
   - channels
-refines:
+core.refines:
   - design-principles
 ---
 
@@ -59,9 +59,9 @@ flowchart LR
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [channels](channels.md)
   - [unbill](unbill.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

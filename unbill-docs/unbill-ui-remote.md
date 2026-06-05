@@ -1,12 +1,12 @@
 ---
-name: Unbill UI Remote
-desc: The browser frontend that connects to a hosted Unbill server over HTTP.
-category:
-  - concept
-belongs:
+core.desc: The browser frontend that connects to a hosted Unbill server over HTTP.
+core.name: Unbill UI Remote
+core.category:
+  - core.concept
+core.belongs:
   - frontend-ui
   - applications
-refines:
+core.refines:
   - ui-shared-model
 ---
 
@@ -90,9 +90,9 @@ Pure DTO mapping and navigation helper tests live beside `api.rs` and `app.rs`.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [applications](applications.md)
   - [frontend-ui](frontend-ui.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

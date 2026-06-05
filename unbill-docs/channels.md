@@ -1,9 +1,9 @@
 ---
-name: Channels
-desc: The review neighborhood for Unbill communication boundaries.
-category:
-  - concept
-belongs:
+core.desc: The review neighborhood for Unbill communication boundaries.
+core.name: Channels
+core.category:
+  - core.concept
+core.belongs:
   - unbill
 ---
 
@@ -23,9 +23,9 @@ The two channel families stay separate so each boundary is exactly as complex as
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from):
+- core.belongs (from):
   - [asymmetric-channel](asymmetric-channel.md)
   - [symmetric-channel](symmetric-channel.md)
   - [sync-behavior](sync-behavior.md)

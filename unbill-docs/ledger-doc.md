@@ -1,12 +1,12 @@
 ---
-name: Ledger Doc
-desc: The typed Automerge boundary around persisted ledger documents.
-category:
-  - concept
-belongs:
+core.desc: The typed Automerge boundary around persisted ledger documents.
+core.name: Ledger Doc
+core.category:
+  - core.concept
+core.belongs:
   - storage
   - unbill-console
-refines:
+core.refines:
   - unbill-storage
 ---
 
@@ -45,9 +45,9 @@ so document behavior can be verified without the service layer.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [storage](storage.md)
   - [unbill-console](unbill-console.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

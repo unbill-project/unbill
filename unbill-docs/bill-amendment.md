@@ -1,11 +1,11 @@
 ---
-name: Bill Amendment
-desc: The append-only bill correction model based on `prev` supersession links.
-category:
-  - concept
-belongs:
+core.desc: The append-only bill correction model based on `prev` supersession links.
+core.name: Bill Amendment
+core.category:
+  - core.concept
+core.belongs:
   - unbill
-refines:
+core.refines:
   - data-model
   - design-principles
 ---
@@ -46,8 +46,8 @@ and the next projection has one effective successor for that ancestry.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

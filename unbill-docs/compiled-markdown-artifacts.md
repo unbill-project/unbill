@@ -1,9 +1,9 @@
 ---
-name: Compiled Markdown Artifacts
-desc: Root Markdown files regenerated from the Sirno lake for humans and agents.
-category:
-  - meta
-belongs:
+core.desc: Root Markdown files regenerated from the Sirno lake for humans and agents.
+core.name: Compiled Markdown Artifacts
+core.category:
+  - core.meta
+core.belongs:
   - development-workflow
 ---
 
@@ -32,8 +32,8 @@ It should point to lake entries instead of duplicating every local crate or modu
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [development-workflow](development-workflow.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**
