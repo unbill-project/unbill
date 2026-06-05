@@ -16,6 +16,7 @@ use wasm_bindgen::{JsCast, closure::Closure};
 
 const RANGER_BREAKPOINT: f64 = 1200.0;
 
+// sirno:witness:unbill-ui-native:begin
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SurfaceMode {
     Compact,
@@ -66,6 +67,7 @@ impl SettingsPopupState {
         self.mobile_in_content = false;
     }
 }
+// sirno:witness:unbill-ui-native:end
 
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -129,6 +131,7 @@ pub(crate) fn compact_composition(
     }
 }
 
+// sirno:witness:unbill-ui-native:begin
 #[derive(Clone, PartialEq)]
 pub(crate) enum OverlayKind {
     CreateLedger,
@@ -160,9 +163,11 @@ pub(crate) fn join_invitation_intent_from_clipboard(
         },
     }
 }
+// sirno:witness:unbill-ui-native:end
 
 #[component]
 pub fn App() -> impl IntoView {
+    // sirno:witness:unbill-ui-native:begin
     let surface_mode = RwSignal::new(surface_mode_from_window());
     install_surface_mode_resize_listener(surface_mode);
     let device_id = RwSignal::new(String::new());
@@ -178,6 +183,7 @@ pub fn App() -> impl IntoView {
     let bill_editor = RwSignal::new(None::<BillEditorSeed>);
     let loading_count = RwSignal::new(0usize);
     let toast = use_toast();
+    // sirno:witness:unbill-ui-native:end
 
     let load_selected_ledger = move |ledger_id: String| {
         selected_ledger_id.set(Some(ledger_id.clone()));
@@ -800,6 +806,7 @@ pub fn App() -> impl IntoView {
     }
 }
 
+// sirno:witness:unbill-ui-native:begin
 pub(crate) fn surface_mode_from_window() -> SurfaceMode {
     web_sys::window()
         .and_then(|window| window.inner_width().ok())
@@ -843,6 +850,7 @@ fn install_surface_mode_resize_listener(surface_mode: RwSignal<SurfaceMode>) {
         resize_listener.forget();
     }
 }
+// sirno:witness:unbill-ui-native:end
 
 fn sort_ledgers(ledgers: &mut [LedgerSummary]) {
     ledgers.sort_by(

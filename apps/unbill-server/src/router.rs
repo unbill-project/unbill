@@ -111,12 +111,14 @@ async fn auth(
 // Device key validation — no path components allowed
 // ---------------------------------------------------------------------------
 
+// sirno:witness:unbill-server:begin
 fn valid_device_key(key: &str) -> bool {
     !key.is_empty()
         && key
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.')
 }
+// sirno:witness:unbill-server:end
 
 // ---------------------------------------------------------------------------
 // Handlers

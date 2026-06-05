@@ -2,6 +2,7 @@ pub mod bills;
 pub mod detail;
 pub mod ledger;
 
+// sirno:witness:unbill-tui:begin
 /// The three panes of the TUI layout.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Pane {
@@ -24,3 +25,4 @@ impl Pane {
         }
     }
 }
+// sirno:witness:unbill-tui:end

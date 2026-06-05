@@ -15,6 +15,7 @@ use components::{ActionButton, FieldBlock, ToastProvider, apply_theme, load_them
 
 const API_KEY_STORAGE_KEY: &str = "unbill_api_key";
 
+// sirno:witness:unbill-ui-remote:begin
 fn server_base_url() -> String {
     match option_env!("UNBILL_SERVER_URL") {
         Some(url) if !url.is_empty() => url.to_owned(),
@@ -46,6 +47,7 @@ async fn init_service(api_key: String) -> Result<(), String> {
     api::init(service);
     Ok(())
 }
+// sirno:witness:unbill-ui-remote:end
 
 #[component]
 fn Root() -> impl IntoView {

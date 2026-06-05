@@ -14,6 +14,7 @@ use crate::pane::Pane;
 // BillEditor types (pub — used by app.rs)
 // ---------------------------------------------------------------------------
 
+// sirno:witness:unbill-tui:begin
 pub struct ParticipantRow {
     pub user: User,
     pub selected: bool,
@@ -41,6 +42,7 @@ pub struct BillEditor {
     pub section: EditorSection,
     pub error: Option<String>,
 }
+// sirno:witness:unbill-tui:end
 
 // ---------------------------------------------------------------------------
 // Render

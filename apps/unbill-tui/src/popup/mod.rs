@@ -12,6 +12,7 @@ pub mod create_ledger;
 pub mod invite;
 pub mod settings;
 
+// sirno:witness:unbill-tui:begin
 /// Trait implemented by every popup view.
 pub trait PopupView: Send {
     fn title(&self) -> &str;
@@ -61,6 +62,7 @@ pub enum PopupAction {
         peer_node_id: String,
     },
 }
+// sirno:witness:unbill-tui:end
 
 // ---------------------------------------------------------------------------
 // TextInput helper

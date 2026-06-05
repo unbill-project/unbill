@@ -9,6 +9,7 @@ use crate::app::{AppState, SyncStatus};
 use crate::pane;
 use crate::popup::centered_rect;
 
+// sirno:witness:unbill-tui:begin
 /// Top-level render function. Composes panes, popup, and status bar.
 pub fn render(frame: &mut Frame, state: &AppState) {
     let full_area = frame.area();
@@ -41,6 +42,7 @@ pub fn render(frame: &mut Frame, state: &AppState) {
         popup.render(frame, popup_area);
     }
 }
+// sirno:witness:unbill-tui:end
 
 fn render_status_bar(frame: &mut Frame, area: ratatui::layout::Rect, state: &AppState) {
     let hints = if state.popup.is_some() {
