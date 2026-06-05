@@ -8,6 +8,35 @@ use crate::components::{
 use leptos::prelude::*;
 
 // sirno:witness:unbill-ui-native:begin
+const MAX_VISIBLE_NAMES: usize = 3;
+const MAX_NAME_LEN: usize = 12;
+
+fn truncate_name(name: &str) -> &str {
+    match name.char_indices().nth(MAX_NAME_LEN) {
+        Some((pos, _)) => &name[..pos],
+        None => name,
+    }
+}
+
+fn format_ledger_meta(user_names: &[String], currency: &str) -> String {
+    if user_names.is_empty() {
+        return format!("No users · {currency}");
+    }
+    let shown: Vec<&str> = user_names
+        .iter()
+        .take(MAX_VISIBLE_NAMES)
+        .map(|n| truncate_name(n))
+        .collect();
+    if user_names.len() <= MAX_VISIBLE_NAMES {
+        format!("{} · {currency}", shown.join(", "))
+    } else {
+        let remaining = user_names.len() - MAX_VISIBLE_NAMES;
+        format!("{} +{remaining} more · {currency}", shown.join(", "))
+    }
+}
+// sirno:witness:unbill-ui-native:end
+
+// sirno:witness:unbill-ui-native:begin
 #[component]
 pub fn LedgersPage(
     ledgers: Vec<LedgerSummary>,
@@ -42,7 +71,7 @@ pub fn LedgersPage(
                         view! {
                             <ListRow
                                 title=ledger.name
-                                meta=format!("{} users · {}", ledger.user_count, ledger.currency)
+                                meta=format_ledger_meta(&ledger.user_names, &ledger.currency)
                                 detail=detail
                                 selected=selected_ledger_id
                                     .as_ref()

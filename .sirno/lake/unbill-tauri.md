@@ -1,6 +1,6 @@
 ---
-core.name: Unbill Tauri
 core.desc: The desktop shell bridge and Tauri host for the native frontend.
+core.name: Unbill Tauri
 core.category:
   - core.concept
 core.belongs:
@@ -60,6 +60,8 @@ Generated Xcode files are not hand-edited.
 
 The command layer maps service state into frontend DTOs.
 Bootstrap data includes known peer devices across local ledgers.
+Ledger summaries include user display names so the frontend can show them
+without loading full ledger detail.
 Ledger detail includes only peer devices authorized for that ledger,
 so the frontend can render ledger-scoped sync actions without recomputing authorization.
 

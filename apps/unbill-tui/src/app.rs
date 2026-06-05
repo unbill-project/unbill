@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyModifiers};
@@ -36,6 +37,7 @@ pub struct AppState {
     pub ledger_cursor: usize,
     pub bill_cursor: usize,
     pub ledgers: Vec<LedgerMeta>,
+    pub ledger_user_names: HashMap<LedgerId, Vec<String>>,
     pub users: Vec<User>,
     pub bills: Vec<Bill>,
     pub settlement: Vec<SettlementTransaction>,
@@ -54,6 +56,7 @@ impl AppState {
             ledger_cursor: 0,
             bill_cursor: 0,
             ledgers: vec![],
+            ledger_user_names: HashMap::new(),
             users: vec![],
             bills: vec![],
             settlement: vec![],
@@ -640,6 +643,16 @@ async fn open_settings_popup(tab: TopTab, state: &mut AppState, svc: &Arc<Unbill
 pub async fn refresh_ledgers(svc: &Arc<UnbillConsole>, state: &mut AppState) {
     match svc.list_ledgers().await {
         Ok(ledgers) => {
+            let mut names = HashMap::new();
+            for meta in &ledgers {
+                if let Ok(users) = svc.list_users(meta.ledger_id).await {
+                    names.insert(
+                        meta.ledger_id,
+                        users.iter().map(|u| u.display_name.clone()).collect(),
+                    );
+                }
+            }
+            state.ledger_user_names = names;
             state.ledgers = ledgers;
             if state.ledger_cursor >= state.ledgers.len() && !state.ledgers.is_empty() {
                 state.ledger_cursor = state.ledgers.len() - 1;

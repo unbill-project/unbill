@@ -50,6 +50,7 @@ pub struct LedgerSummary {
     pub created_at_ms: i64,
     pub updated_at_ms: i64,
     pub user_count: usize,
+    pub user_names: Vec<String>,
     pub latest_bill_at_ms: Option<i64>,
 }
 
@@ -521,6 +522,8 @@ async fn summarize_ledger(
     let users = svc.list_users(lid).await.map_err(|e| e.to_string())?;
     let bills = svc.list_bills(lid).await.map_err(|e| e.to_string())?;
     let latest_bill_at_ms = bills.iter().map(|bill| bill.created_at.as_millis()).max();
+    let user_names = users.iter().map(|u| u.display_name.clone()).collect();
+
     Ok(LedgerSummary {
         ledger_id: lid.to_string(),
         name: meta.name,
@@ -528,6 +531,7 @@ async fn summarize_ledger(
         created_at_ms: meta.created_at.as_millis(),
         updated_at_ms: meta.updated_at.as_millis(),
         user_count: users.len(),
+        user_names,
         latest_bill_at_ms,
     })
 }

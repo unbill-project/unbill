@@ -39,6 +39,7 @@ struct LedgerSummaryDto {
     created_at_ms: i64,
     updated_at_ms: i64,
     user_count: usize,
+    user_names: Vec<String>,
     latest_bill_at_ms: Option<i64>,
 }
 
@@ -665,6 +666,8 @@ async fn summarize_ledger(
     let bills = service.list_bills(meta.ledger_id).await?;
     let latest_bill_at_ms = bills.iter().map(|bill| bill.created_at.as_millis()).max();
 
+    let user_names = users.iter().map(|u| u.display_name.clone()).collect();
+
     Ok(LedgerSummaryDto {
         ledger_id: meta.ledger_id.to_string(),
         name: meta.name,
@@ -672,6 +675,7 @@ async fn summarize_ledger(
         created_at_ms: meta.created_at.as_millis(),
         updated_at_ms: meta.updated_at.as_millis(),
         user_count: users.len(),
+        user_names,
         latest_bill_at_ms,
     })
 }

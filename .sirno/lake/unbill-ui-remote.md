@@ -1,6 +1,6 @@
 ---
-core.name: Unbill UI Remote
 core.desc: The browser frontend that connects to a hosted Unbill server over HTTP.
+core.name: Unbill UI Remote
 core.category:
   - core.concept
 core.belongs:

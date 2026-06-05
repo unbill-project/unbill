@@ -1,6 +1,6 @@
 ---
-core.name: UI Shared Model
 core.desc: The shared screens, flows, and cross-screen behavior for Unbill frontends.
+core.name: UI Shared Model
 core.category:
   - core.concept
 core.belongs:
@@ -35,6 +35,11 @@ flowchart LR
 
 The ledgers screen is the app entry point.
 It lists ledgers on the current device and provides create-ledger.
+Each ledger row shows the ledger name,
+user display names with currency,
+and latest bill timestamp or a placeholder when no bills exist.
+When a ledger has more than three users the meta line shows the first three names
+followed by a count of the remaining users.
 Ledgers are sorted by latest bill timestamp descending,
 with empty ledgers after active ledgers and name order as tie-breaker.
 Selecting a ledger changes page context only.
