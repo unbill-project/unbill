@@ -1,3 +1,4 @@
+# sirno:witness:development-workflow:begin
 [[repos]]
 repo = "https://github.com/pre-commit/pre-commit-hooks"
 rev = "v6.0.0"
@@ -30,3 +31,4 @@ rev = "v1.7.7"
 hooks = [
   { id = "actionlint" },
 ]
+# sirno:witness:development-workflow:end

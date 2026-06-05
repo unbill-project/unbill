@@ -263,11 +263,13 @@
           }
         );
       in
+      # sirno:witness:distribution-and-release:begin
       {
         packages = {
           inherit unbill-cli unbill-tui unbill-daemon unbill-tauri wasm-bindgen-cli;
           default = unbill-cli;
         };
       }
+      # sirno:witness:distribution-and-release:end
     );
 }

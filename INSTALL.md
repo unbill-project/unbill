@@ -1,3 +1,5 @@
+<!-- sirno:witness:compiled-markdown-artifacts:begin -->
+
 # Installing Unbill
 
 Unbill ships a **desktop app**, **CLI**, **TUI**, and **sync daemon** for
@@ -263,3 +265,5 @@ for your platform, then:
 ```sh
 cargo tauri build --manifest-path crates/unbill-tauri/Cargo.toml
 ```
+
+<!-- sirno:witness:compiled-markdown-artifacts:end -->
