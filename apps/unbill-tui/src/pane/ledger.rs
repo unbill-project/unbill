@@ -8,6 +8,13 @@ use ratatui::{
 use crate::app::AppState;
 use crate::pane::Pane;
 
+fn truncate_name(name: &str) -> &str {
+    match name.char_indices().nth(12) {
+        Some((pos, _)) => &name[..pos],
+        None => name,
+    }
+}
+
 pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
     let focused = state.focused_pane == Pane::Ledgers;
     let border_style = if focused {
@@ -34,7 +41,25 @@ pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
     let items: Vec<ListItem> = state
         .ledgers
         .iter()
-        .map(|l| ListItem::new(format!("{} ({})", l.name, l.currency.code())))
+        .map(|l| {
+            let user_part = match state.ledger_user_names.get(&l.ledger_id) {
+                Some(names) if names.len() > 3 => {
+                    let visible: Vec<&str> = names[..3].iter().map(|n| truncate_name(n)).collect();
+                    format!("{} +{} more", visible.join(", "), names.len() - 3)
+                }
+                Some(names) if !names.is_empty() => {
+                    let parts: Vec<&str> = names.iter().map(|n| truncate_name(n)).collect();
+                    parts.join(", ")
+                }
+                _ => "No users".to_owned(),
+            };
+            ListItem::new(format!(
+                "{} ({} · {})",
+                l.name,
+                user_part,
+                l.currency.code()
+            ))
+        })
         .collect();
 
     let mut list_state = ListState::default();

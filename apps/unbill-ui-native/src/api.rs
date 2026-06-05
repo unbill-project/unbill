@@ -36,6 +36,7 @@ pub struct LedgerSummary {
     pub created_at_ms: i64,
     pub updated_at_ms: i64,
     pub user_count: usize,
+    pub user_names: Vec<String>,
     pub latest_bill_at_ms: Option<i64>,
 }
 

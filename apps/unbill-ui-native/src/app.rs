@@ -912,6 +912,7 @@ mod tests {
             created_at_ms: 0,
             updated_at_ms: 0,
             user_count: 0,
+            user_names: vec![],
             latest_bill_at_ms: None,
         }
     }

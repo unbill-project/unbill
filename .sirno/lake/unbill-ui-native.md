@@ -1,6 +1,6 @@
 ---
-core.name: Unbill UI Native
 core.desc: The Leptos frontend hosted by the Tauri desktop shell.
+core.name: Unbill UI Native
 core.category:
   - core.concept
 core.belongs:
