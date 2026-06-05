@@ -48,10 +48,6 @@ fingerprint = "sha256:a8a8c895967789accc268fd1e137baae881137c2f6a9501c8c7abcfa43
 ]
 "core.refines" = ["bill-amendment"]
 
-[entries.console-reexports]
-fingerprint = "sha256:5f2d2d7cf1d1f88c09d4fa78035d7c0787664186aa7ffaa1b3f33d92311bbde3"
-"core.belongs" = ["unbill-console"]
-
 [entries.console-service]
 fingerprint = "sha256:3f64ebe7f959c218b962a55fc9bd0a739497cc74884c1de34518911b2abd57fb"
 "core.belongs" = ["unbill-console"]
@@ -117,10 +113,6 @@ fingerprint = "sha256:3f90bf67804a1024b5acde51ac1fcb064fe21ed40b8efa3605c88cf5d0
 [entries.distribution-and-release]
 fingerprint = "sha256:82d2ead9e7f92bb5324f739cd626611adfaf08896ba020fe06abe619e2873040"
 "core.belongs" = ["unbill"]
-
-[entries.documentation-coverage]
-fingerprint = "sha256:81e1826f20083478d6129446f84218a2ae31f244c8c273421067a22c75f529f2"
-"core.belongs" = ["development-workflow"]
 
 [entries.frontend-ui]
 fingerprint = "sha256:cbe7a8dd83eca70aefc01a3bdd2f800533b62c1a3cb7b4da07fc5a0f69281c03"
