@@ -12,6 +12,7 @@ use unbill_console::settlement::Settlement;
 // Output types
 // ---------------------------------------------------------------------------
 
+// sirno:witness:unbill-cli:begin
 #[derive(serde::Serialize)]
 pub struct LedgerOut {
     pub id: String,
@@ -134,6 +135,7 @@ pub fn settlement_out(s: &Settlement) -> SettlementOut {
             .collect(),
     }
 }
+// sirno:witness:unbill-cli:end
 
 // ---------------------------------------------------------------------------
 // Formatting helpers

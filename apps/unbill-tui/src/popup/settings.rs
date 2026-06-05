@@ -15,6 +15,7 @@ use super::{
 // Public tab selector
 // ---------------------------------------------------------------------------
 
+// sirno:witness:unbill-tui:begin
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum TopTab {
     Device,
@@ -71,6 +72,7 @@ pub struct SettingsPopup {
 
     error: Option<String>,
 }
+// sirno:witness:unbill-tui:end
 
 impl SettingsPopup {
     pub fn new(

@@ -7,6 +7,7 @@ use crate::components::{
 };
 use leptos::prelude::*;
 
+// sirno:witness:unbill-ui-remote:begin
 #[component]
 pub fn LedgersPage(
     ledgers: Vec<LedgerSummary>,
@@ -15,6 +16,7 @@ pub fn LedgersPage(
     on_select_ledger: Callback<String>,
     on_new_ledger: Callback<()>,
 ) -> impl IntoView {
+    // sirno:witness:unbill-ui-remote:end
     view! {
         <ScreenFrame
             header={view! {
@@ -57,6 +59,7 @@ pub fn LedgersPage(
     }
 }
 
+// sirno:witness:unbill-ui-remote:begin
 #[component]
 pub fn LedgerPage(
     detail: LedgerDetail,
@@ -67,6 +70,7 @@ pub fn LedgerPage(
     on_new_bill: Callback<()>,
     on_resolve_conflict: Callback<(String, Vec<String>)>,
 ) -> impl IntoView {
+    // sirno:witness:unbill-ui-remote:end
     let page_title = detail.summary.name.clone();
     let currency = detail.summary.currency.clone();
     let settlement_currency = currency.clone();
@@ -244,6 +248,7 @@ fn SyncDeviceRow(
     }
 }
 
+// sirno:witness:unbill-ui-remote:begin
 #[component]
 pub fn SettingsPopup(
     device_id: String,
@@ -264,6 +269,7 @@ pub fn SettingsPopup(
     on_create_invitation: Callback<()>,
     on_copy_invitation: Callback<()>,
 ) -> impl IntoView {
+    // sirno:witness:unbill-ui-remote:end
     let theme_mode = RwSignal::new(load_theme());
     let sidebar_class = if mobile_in_content {
         "settings-sidebar settings-sidebar-hidden"

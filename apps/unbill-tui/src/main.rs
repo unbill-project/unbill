@@ -26,6 +26,7 @@ async fn main() -> Result<()> {
         .with_writer(std::io::stderr)
         .init();
 
+    // sirno:witness:unbill-tui:begin
     let socket = UNBILL_PATH.socket_path()?;
     let channel = RpcAsymChannel::connect(&socket)
         .await
@@ -45,4 +46,5 @@ async fn main() -> Result<()> {
     terminal.show_cursor()?;
 
     result
+    // sirno:witness:unbill-tui:end
 }

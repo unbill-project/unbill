@@ -16,6 +16,7 @@ use wasm_bindgen::{JsCast, closure::Closure};
 
 const RANGER_BREAKPOINT: f64 = 1200.0;
 
+// sirno:witness:unbill-ui-remote:begin
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SurfaceMode {
     Compact,
@@ -66,6 +67,7 @@ impl SettingsPopupState {
         self.mobile_in_content = false;
     }
 }
+// sirno:witness:unbill-ui-remote:end
 
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -138,6 +140,7 @@ pub(crate) enum OverlayKind {
 
 #[component]
 pub fn App() -> impl IntoView {
+    // sirno:witness:unbill-ui-remote:begin
     let surface_mode = RwSignal::new(surface_mode_from_window());
     install_surface_mode_resize_listener(surface_mode);
     let device_id = RwSignal::new(String::new());
@@ -152,8 +155,6 @@ pub fn App() -> impl IntoView {
     let bill_editor = RwSignal::new(None::<BillEditorSeed>);
     let loading_count = RwSignal::new(0usize);
     let toast = use_toast();
-
-    // sirno:witness:unbill-ui-remote:begin
     let devices = RwSignal::new(Vec::<SyncDevice>::new());
     // sirno:witness:unbill-ui-remote:end
 
@@ -268,6 +269,7 @@ pub fn App() -> impl IntoView {
 
     reload_bootstrap();
 
+    // sirno:witness:unbill-ui-remote:begin
     // Service event loop: on LedgerUpdated, refresh only the affected signals.
     let mut events = api::subscribe();
     spawn_local(async move {
@@ -312,6 +314,7 @@ pub fn App() -> impl IntoView {
             }
         }
     });
+    // sirno:witness:unbill-ui-remote:end
 
     let open_ledger = move |ledger_id: String| {
         settings_popup.set(None);
