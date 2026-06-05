@@ -29,6 +29,12 @@ for terminal and browser display.
 `storage/` re-exports `LedgerStore` and `StorageResult` from `unbill-storage`
 for test scaffolding only (`#[cfg(test)]`).
 
+`net/` re-exports symmetric channel endpoint and protocol helpers unconditionally.
+
+Both modules are convenience surfaces.
+The durable storage design lives in `unbill-storage`,
+and the durable networking design lives in `unbill-symmetric-channel`.
+
 ```mermaid
 flowchart TB
     Service["service / UnbillConsole"]

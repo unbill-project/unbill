@@ -184,10 +184,10 @@
         "rust-overlay": "rust-overlay_2"
       },
       "locked": {
-        "lastModified": 1780621130,
+        "lastModified": 1780623535,
         "owner": "LighghtEeloo",
         "repo": "sirno",
-        "rev": "be1a7c68e0269589762417609b999455598414e3",
+        "rev": "bf379b6b095ab67430e8146c919f2dfbdb1dd4e1",
         "type": "github"
       },
       "original": {
