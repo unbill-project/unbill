@@ -1,11 +1,11 @@
 ---
-name: Users And Devices
-desc: The separation between accounting roles and authorized sync peers.
-category:
-  - concept
-belongs:
+core.desc: The separation between accounting roles and authorized sync peers.
+core.name: Users And Devices
+core.category:
+  - core.concept
+core.belongs:
   - unbill
-refines:
+core.refines:
   - data-model
 ---
 
@@ -34,8 +34,8 @@ Adding an already authorized `NodeId` is a no-op.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

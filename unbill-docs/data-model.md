@@ -1,11 +1,11 @@
 ---
-name: Data Model
-desc: The ledger, user, device, bill, and token objects that make up Unbill state.
-category:
-  - concept
-belongs:
+core.desc: The ledger, user, device, bill, and token objects that make up Unbill state.
+core.name: Data Model
+core.category:
+  - core.concept
+core.belongs:
   - unbill
-refines:
+core.refines:
   - design-principles
 ---
 
@@ -45,8 +45,8 @@ Runtime UI state and projection caches are not replicated ledger facts.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

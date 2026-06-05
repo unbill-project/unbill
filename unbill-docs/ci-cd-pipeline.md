@@ -1,9 +1,9 @@
 ---
-name: CI/CD Pipeline
-desc: The GitHub Actions build, release, package, and version-management design.
-category:
-  - concept
-belongs:
+core.desc: The GitHub Actions build, release, package, and version-management design.
+core.name: CI/CD Pipeline
+core.category:
+  - core.concept
+core.belongs:
   - distribution-and-release
 ---
 
@@ -164,8 +164,8 @@ Workspace crates inherit the version from `[workspace.package]` in `Cargo.toml`.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [distribution-and-release](distribution-and-release.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

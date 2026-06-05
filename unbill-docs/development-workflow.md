@@ -1,9 +1,9 @@
 ---
-name: Development Workflow
-desc: The design-first, test-first, and documentation discipline for changing Unbill.
-category:
-  - meta
-belongs:
+core.desc: The design-first, test-first, and documentation discipline for changing Unbill.
+core.name: Development Workflow
+core.category:
+  - core.meta
+core.belongs:
   - unbill
 ---
 
@@ -27,8 +27,8 @@ workflows,
 or release packaging.
 If `prek` is not installed,
 install it with `cargo install prek` or run the equivalent checks from `prek.toml`.
-The `mdformat` hook intentionally skips `unbill-docs`;
-use Sirno checks for lake structure and generated links.
+The `mdformat` hook intentionally skips Sirno lake paths;
+use Sirno checks for reservoir and projection structure.
 Use targeted tests in addition to `prek` for behavior changes.
 
 Test priority follows risk and locality:
@@ -59,9 +59,9 @@ but durable design facts should be represented as Sirno entries.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from):
+- core.belongs (from):
   - [compiled-markdown-artifacts](compiled-markdown-artifacts.md)
   - [documentation-coverage](documentation-coverage.md)
 

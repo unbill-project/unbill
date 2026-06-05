@@ -1,12 +1,12 @@
 ---
-name: Settlement
-desc: The deterministic integer-cent algorithm for suggested transfers.
-category:
-  - concept
-belongs:
+core.desc: The deterministic integer-cent algorithm for suggested transfers.
+core.name: Settlement
+core.category:
+  - core.concept
+core.belongs:
   - unbill
   - unbill-console
-refines:
+core.refines:
   - data-model
 ---
 
@@ -52,9 +52,9 @@ The settlement module owns balance math and reduction.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
   - [unbill-console](unbill-console.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

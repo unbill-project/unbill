@@ -1,12 +1,12 @@
 ---
-name: UI Shared Model
-desc: The shared screens, flows, and cross-screen behavior for Unbill frontends.
-category:
-  - concept
-belongs:
+core.desc: The shared screens, flows, and cross-screen behavior for Unbill frontends.
+core.name: UI Shared Model
+core.category:
+  - core.concept
+core.belongs:
   - frontend-ui
   - applications
-refines:
+core.refines:
   - device-console-split
 ---
 
@@ -99,9 +99,9 @@ and ledger-scoped actions refresh selected ledger detail when that detail could 
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [applications](applications.md)
   - [frontend-ui](frontend-ui.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

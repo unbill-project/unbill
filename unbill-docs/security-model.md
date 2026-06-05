@@ -1,11 +1,11 @@
 ---
-name: Security Model
-desc: The modest trust, transport identity, and authorization target for Unbill v1.
-category:
-  - concept
-belongs:
+core.desc: The modest trust, transport identity, and authorization target for Unbill v1.
+core.name: Security Model
+core.category:
+  - core.concept
+core.belongs:
   - unbill
-refines:
+core.refines:
   - project-boundaries
 ---
 
@@ -38,8 +38,8 @@ or relay metadata leakage.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

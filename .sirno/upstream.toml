@@ -1,0 +1,10 @@
+# This file is generated and managed by Sirno.
+# It records upstream dependency pins for Git.
+
+[upstreams.core]
+git = "https://github.com/LighghtEeloo/sirno"
+branch = "main"
+project = "."
+manifest = "core/Sirno.toml"
+lake = ".sirno/lake"
+commit = "bf379b6b095ab67430e8146c919f2dfbdb1dd4e1"

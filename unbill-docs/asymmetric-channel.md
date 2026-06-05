@@ -1,12 +1,12 @@
 ---
-name: Asymmetric Channel
-desc: The device-to-console trait and local, RPC, and HTTP implementations.
-category:
-  - concept
-belongs:
+core.desc: The device-to-console trait and local, RPC, and HTTP implementations.
+core.name: Asymmetric Channel
+core.category:
+  - core.concept
+core.belongs:
   - channels
   - workspace-layout
-refines:
+core.refines:
   - device-console-split
 ---
 
@@ -44,10 +44,10 @@ and reconnects after drops.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [channels](channels.md)
   - [workspace-layout](workspace-layout.md)
-- belongs (from):
+- core.belongs (from):
   - [server-http-api](server-http-api.md)
 
 > **Sirno generated links end.**

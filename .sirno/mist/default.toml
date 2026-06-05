@@ -1,0 +1,6 @@
+[projection]
+path = "unbill-docs"
+editable = true
+
+[render.structural]
+"core.belongs" = ["to", "from"]

@@ -1,12 +1,12 @@
 ---
-name: Unbill Storage
-desc: The persistence boundary for ledger snapshots, metadata, and local device data.
-category:
-  - concept
-belongs:
+core.desc: The persistence boundary for ledger snapshots, metadata, and local device data.
+core.name: Unbill Storage
+core.category:
+  - core.concept
+core.belongs:
   - storage
   - workspace-layout
-refines:
+core.refines:
   - shared-and-local-state
 ---
 
@@ -118,9 +118,9 @@ Broadcast event sends with no subscribers log at `warn` and stop forwarding.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [storage](storage.md)
   - [workspace-layout](workspace-layout.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

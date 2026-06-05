@@ -1,6 +1,9 @@
-______________________________________________________________________
-
-## name: sirno-editor description: >- Edit a Sirno-managed repository by reading its configured lake before source, docs, config, witness, or skill edits, then syncing entries and validating the result.
+---
+name: sirno-editor
+description: >-
+  Edit a Sirno-managed repository by reading its configured lake before source, docs, config,
+  witness, or skill edits, then syncing entries and validating the result.
+---
 
 # Sirno Editor
 

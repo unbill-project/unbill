@@ -1,9 +1,9 @@
 ---
-name: Console Reexports
-desc: The compatibility modules that expose storage and network types through unbill-console.
-category:
-  - concept
-belongs:
+core.desc: The compatibility modules that expose storage and network types through unbill-console.
+core.name: Console Reexports
+core.category:
+  - core.concept
+core.belongs:
   - unbill-console
 ---
 
@@ -23,8 +23,8 @@ They should not become separate sources of storage or networking design.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill-console](unbill-console.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

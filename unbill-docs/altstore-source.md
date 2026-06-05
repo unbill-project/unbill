@@ -1,9 +1,9 @@
 ---
-name: AltStore Source
-desc: The AltStore source JSON that distributes iOS builds to sideloading users.
-category:
-  - concept
-belongs:
+core.desc: The AltStore source JSON that distributes iOS builds to sideloading users.
+core.name: AltStore Source
+core.category:
+  - core.concept
+core.belongs:
   - distribution-and-release
 ---
 
@@ -58,8 +58,8 @@ and refuses to install apps whose declared permissions do not match.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [distribution-and-release](distribution-and-release.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

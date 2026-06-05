@@ -1,6 +1,9 @@
-______________________________________________________________________
-
-## name: sirno-curator description: >- Audit an existing Sirno-managed lake for clarity, focus, accurate structure, and witness alignment, then act on findings only with the user's approval.
+---
+name: sirno-curator
+description: >-
+  Audit an existing Sirno-managed lake for clarity, focus, accurate structure, and witness
+  alignment, then act on findings only with the user's approval.
+---
 
 # Sirno Curator
 

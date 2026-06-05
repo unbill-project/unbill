@@ -1,12 +1,12 @@
 ---
-name: UI Components
-desc: The pure Leptos component crate shared by Unbill frontends.
-category:
-  - concept
-belongs:
+core.desc: The pure Leptos component crate shared by Unbill frontends.
+core.name: UI Components
+core.category:
+  - core.concept
+core.belongs:
   - frontend-ui
   - workspace-layout
-refines:
+core.refines:
   - ui-shared-model
 ---
 
@@ -130,9 +130,9 @@ Component rendering is covered by consuming frontend crates.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [frontend-ui](frontend-ui.md)
   - [workspace-layout](workspace-layout.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

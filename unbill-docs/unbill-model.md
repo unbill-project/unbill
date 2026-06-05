@@ -1,11 +1,11 @@
 ---
-name: Unbill Model
-desc: The domain type and document crate shared across Unbill.
-category:
-  - concept
-belongs:
+core.desc: The domain type and document crate shared across Unbill.
+core.name: Unbill Model
+core.category:
+  - core.concept
+core.belongs:
   - workspace-layout
-refines:
+core.refines:
   - data-model
 ---
 
@@ -36,8 +36,8 @@ network and URL errors, ID parsing, and configuration errors.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [workspace-layout](workspace-layout.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

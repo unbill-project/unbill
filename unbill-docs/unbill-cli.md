@@ -1,11 +1,11 @@
 ---
-name: Unbill CLI
-desc: The thin command-line frontend for scripting, dogfooding, and e2e verification.
-category:
-  - concept
-belongs:
+core.desc: The thin command-line frontend for scripting, dogfooding, and e2e verification.
+core.name: Unbill CLI
+core.category:
+  - core.concept
+core.belongs:
   - applications
-refines:
+core.refines:
   - device-console-split
 ---
 
@@ -56,8 +56,8 @@ and one-shot peer sync flows.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [applications](applications.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

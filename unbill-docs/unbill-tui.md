@@ -1,12 +1,12 @@
 ---
-name: Unbill TUI
-desc: The keyboard-driven terminal frontend for Unbill.
-category:
-  - concept
-belongs:
+core.desc: The keyboard-driven terminal frontend for Unbill.
+core.name: Unbill TUI
+core.category:
+  - core.concept
+core.belongs:
   - frontend-ui
   - applications
-refines:
+core.refines:
   - ui-shared-model
 ---
 
@@ -94,9 +94,9 @@ and the TUI is validated manually against the same service exercised by CLI e2e 
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [applications](applications.md)
   - [frontend-ui](frontend-ui.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

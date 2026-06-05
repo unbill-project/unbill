@@ -1,11 +1,11 @@
 ---
-name: Shared And Local State
-desc: The boundary between replicated ledger facts and one-device convenience data.
-category:
-  - concept
-belongs:
+core.desc: The boundary between replicated ledger facts and one-device convenience data.
+core.name: Shared And Local State
+core.category:
+  - core.concept
+core.belongs:
   - unbill
-refines:
+core.refines:
   - data-model
 ---
 
@@ -53,8 +53,8 @@ flowchart TB
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [unbill](unbill.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

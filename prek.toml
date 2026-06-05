@@ -21,7 +21,7 @@ hooks = [
 repo = "https://github.com/hukkin/mdformat"
 rev = "0.7.22"
 hooks = [
-  { id = "mdformat", exclude = "^unbill-docs/" },
+  { id = "mdformat", exclude = "^(\\.agents/skills|\\.sirno/lake|unbill-docs)/" },
 ]
 
 [[repos]]

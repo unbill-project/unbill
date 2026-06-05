@@ -1,12 +1,12 @@
 ---
-name: Unbill UI Native
-desc: The Leptos frontend hosted by the Tauri desktop shell.
-category:
-  - concept
-belongs:
+core.desc: The Leptos frontend hosted by the Tauri desktop shell.
+core.name: Unbill UI Native
+core.category:
+  - core.concept
+core.belongs:
   - frontend-ui
   - applications
-refines:
+core.refines:
   - ui-shared-model
 ---
 
@@ -105,9 +105,9 @@ Tauri DTO assembly and command behavior are tested in the Tauri crate.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [applications](applications.md)
   - [frontend-ui](frontend-ui.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

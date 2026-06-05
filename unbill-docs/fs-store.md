@@ -1,12 +1,12 @@
 ---
-name: Fs Store
-desc: The flat-file LedgerStore for desktop and server deployments.
-category:
-  - concept
-belongs:
+core.desc: The flat-file LedgerStore for desktop and server deployments.
+core.name: Fs Store
+core.category:
+  - core.concept
+core.belongs:
   - storage
   - workspace-layout
-refines:
+core.refines:
   - unbill-storage
 ---
 
@@ -65,9 +65,9 @@ Coverage includes save, list, load, and device metadata round trips.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [storage](storage.md)
   - [workspace-layout](workspace-layout.md)
-- belongs (from): (none)
+- core.belongs (from): (none)
 
 > **Sirno generated links end.**

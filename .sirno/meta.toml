@@ -1,0 +1,25 @@
+# This file is a generated Sirno lockfile.
+# Sirno rewrites it from lake entry metadata when the registry changes.
+# Edit the lake entries that define meta fields.
+
+schema = 1
+
+[[intrinsics]]
+field = "core.desc"
+entry = "core.desc"
+
+[[intrinsics]]
+field = "core.name"
+entry = "core.name"
+
+[[structural]]
+field = "core.belongs"
+entry = "core.belongs"
+
+[[structural]]
+field = "core.category"
+entry = "core.category"
+
+[[structural]]
+field = "core.refines"
+entry = "core.refines"

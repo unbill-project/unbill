@@ -1,11 +1,11 @@
 ---
-name: Unbill Console
-desc: The console-side library that projects ledger state for every shell.
-category:
-  - concept
-belongs:
+core.desc: The console-side library that projects ledger state for every shell.
+core.name: Unbill Console
+core.category:
+  - core.concept
+core.belongs:
   - workspace-layout
-refines:
+core.refines:
   - device-console-split
 ---
 
@@ -63,9 +63,9 @@ Storage and transport are abstracted behind the asymmetric channel.
 
 > **Sirno generated links begin. Do not edit this section.**
 
-- belongs (to):
+- core.belongs (to):
   - [workspace-layout](workspace-layout.md)
-- belongs (from):
+- core.belongs (from):
   - [conflict-detection](conflict-detection.md)
   - [console-reexports](console-reexports.md)
   - [console-service](console-service.md)
