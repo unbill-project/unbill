@@ -1,6 +1,7 @@
 // unbill-console: the console-side library that projects ledger state for shells.
 // See unbill-docs/unbill-console.md for the module structure and invariants.
 
+// sirno:witness:unbill-console:begin
 pub mod conflict;
 pub mod error;
 pub use unbill_event as event;
@@ -10,3 +11,4 @@ pub mod qr;
 pub mod service;
 pub mod settlement;
 pub mod storage;
+// sirno:witness:unbill-console:end
