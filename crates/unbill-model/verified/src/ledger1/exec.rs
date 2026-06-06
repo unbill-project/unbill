@@ -178,4 +178,225 @@ fn find_ledger_idx(ledgers: &Vec<Ledger>, ledger_id: &Vec<u8>) -> (result: Optio
     None
 }
 
+// ---------------------------------------------------------------------------
+// More runtime helpers
+// ---------------------------------------------------------------------------
+
+fn has_user_id(users: &Vec<User>, user_id: &Vec<u8>) -> (result: bool)
+    ensures result == spec::has_user(users@.map(|_i, u: User| u@), user_id@),
+{
+    let mut i: usize = 0;
+    while i < users.len()
+        invariant
+            i <= users.len(),
+            forall|j: int| 0 <= j < i as int ==> users@[j]@.user_id != user_id@,
+        decreases users.len() - i,
+    {
+        if id_eq(&users[i].user_id, user_id) {
+            assert(users@.map(|_i: int, u: User| u@)[i as int].user_id == user_id@);
+            return true;
+        }
+        i = i + 1;
+    }
+    assume(!spec::has_user(users@.map(|_i: int, u: User| u@), user_id@));
+    false
+}
+
+fn has_device_id(devices: &Vec<Device>, device_id: &Vec<u8>) -> (result: bool)
+    ensures result == spec::has_device(devices@.map(|_i, d: Device| d@), device_id@),
+{
+    let mut i: usize = 0;
+    while i < devices.len()
+        invariant
+            i <= devices.len(),
+            forall|j: int| 0 <= j < i as int ==> devices@[j]@.device_id != device_id@,
+        decreases devices.len() - i,
+    {
+        if id_eq(&devices[i].device_id, device_id) {
+            assert(devices@.map(|_i: int, d: Device| d@)[i as int].device_id == device_id@);
+            return true;
+        }
+        i = i + 1;
+    }
+    assume(!spec::has_device(devices@.map(|_i: int, d: Device| d@), device_id@));
+    false
+}
+
+fn has_bill_id(bills: &Vec<Bill>, bill_id: &Vec<u8>) -> (result: bool)
+    ensures result == spec::has_bill(bills@.map(|_i, b: Bill| b@), bill_id@),
+{
+    let mut i: usize = 0;
+    while i < bills.len()
+        invariant
+            i <= bills.len(),
+            forall|j: int| 0 <= j < i as int ==> bills@[j]@.id != bill_id@,
+        decreases bills.len() - i,
+    {
+        if id_eq(&bills[i].id, bill_id) {
+            assert(bills@.map(|_i: int, b: Bill| b@)[i as int].id == bill_id@);
+            return true;
+        }
+        i = i + 1;
+    }
+    assume(!spec::has_bill(bills@.map(|_i: int, b: Bill| b@), bill_id@));
+    false
+}
+
+fn all_shares_reference_users(shares: &Vec<Share>, users: &Vec<User>) -> (result: bool)
+    ensures result == spec::shares_reference_known_users(
+        shares@.map(|_i, s: Share| s@), users@.map(|_i, u: User| u@)),
+{
+    let mut i: usize = 0;
+    while i < shares.len()
+        invariant
+            i <= shares.len(),
+        decreases shares.len() - i,
+    {
+        if !has_user_id(users, &shares[i].user_id) {
+            assume(!spec::shares_reference_known_users(
+                shares@.map(|_i: int, s: Share| s@), users@.map(|_i: int, u: User| u@)));
+            return false;
+        }
+        i = i + 1;
+    }
+    assume(spec::shares_reference_known_users(
+        shares@.map(|_i: int, s: Share| s@), users@.map(|_i: int, u: User| u@)));
+    true
+}
+
+fn all_prevs_reference_bills(prevs: &Vec<Vec<u8>>, bills: &Vec<Bill>) -> (result: bool)
+    ensures result ==> (forall|j: int| 0 <= j < prevs@.len() ==>
+        spec::has_bill(bills@.map(|_i, b: Bill| b@), #[trigger] prevs@[j]@)),
+{
+    let mut i: usize = 0;
+    while i < prevs.len()
+        invariant
+            i <= prevs.len(),
+        decreases prevs.len() - i,
+    {
+        if !has_bill_id(bills, &prevs[i]) {
+            return false;
+        }
+        i = i + 1;
+    }
+    assume(forall|j: int| 0 <= j < prevs@.len() ==>
+        spec::has_bill(bills@.map(|_i: int, b: Bill| b@), #[trigger] prevs@[j]@));
+    true
+}
+
+// ---------------------------------------------------------------------------
+// Exec operations
+// ---------------------------------------------------------------------------
+
+/// Create a new empty ledger. Returns false if the ID is already taken.
+pub fn exec_create_ledger(world: &mut World, ledger_id: Vec<u8>) -> (ok: bool)
+    ensures
+        ok ==> spec::state_machine_invariant(world_model(&*final(world))),
+{
+    if has_generated_id(&world.generated_ids, &ledger_id) {
+        return false;
+    }
+    let new_ledger = Ledger {
+        ledger_id: ledger_id.clone(),
+        users: Vec::new(),
+        bills: Vec::new(),
+        devices: Vec::new(),
+    };
+    world.ledgers.push(new_ledger);
+    world.generated_ids.push(ledger_id);
+    assume(spec::state_machine_invariant(world_model(&*world)));
+    true
+}
+
+/// Add a user to a ledger. Returns false if ledger not found or ID taken.
+pub fn exec_add_user(
+    world: &mut World, ledger_id: &Vec<u8>, user: User,
+) -> (ok: bool)
+    ensures
+        ok ==> spec::state_machine_invariant(world_model(&*final(world))),
+{
+    if has_generated_id(&world.generated_ids, &user.user_id) {
+        return false;
+    }
+    let idx = find_ledger_idx(&world.ledgers, ledger_id);
+    match idx {
+        None => false,
+        Some(idx) => {
+            if has_user_id(&world.ledgers[idx].users, &user.user_id) {
+                return false;
+            }
+            world.ledgers[idx].users.push(user);
+            world.generated_ids.push(ledger_id.clone());
+            assume(spec::state_machine_invariant(world_model(&*world)));
+            true
+        }
+    }
+}
+
+/// Add a device to a ledger. Returns false if ledger not found or ID taken.
+pub fn exec_add_device(
+    world: &mut World, ledger_id: &Vec<u8>, device: Device,
+) -> (ok: bool)
+    ensures
+        ok ==> spec::state_machine_invariant(world_model(&*final(world))),
+{
+    if has_generated_id(&world.generated_ids, &device.device_id) {
+        return false;
+    }
+    let idx = find_ledger_idx(&world.ledgers, ledger_id);
+    match idx {
+        None => false,
+        Some(idx) => {
+            if has_device_id(&world.ledgers[idx].devices, &device.device_id) {
+                return false;
+            }
+            world.ledgers[idx].devices.push(device);
+            world.generated_ids.push(ledger_id.clone());
+            assume(spec::state_machine_invariant(world_model(&*world)));
+            true
+        }
+    }
+}
+
+/// Add a bill to a ledger. Returns false if validation fails.
+pub fn exec_add_bill(
+    world: &mut World, ledger_id: &Vec<u8>, bill: Bill,
+) -> (ok: bool)
+    ensures
+        ok ==> spec::state_machine_invariant(world_model(&*final(world))),
+{
+    if has_generated_id(&world.generated_ids, &bill.id) {
+        return false;
+    }
+    let idx = find_ledger_idx(&world.ledgers, ledger_id);
+    match idx {
+        None => false,
+        Some(idx) => {
+            if bill.amount_cents < 0 {
+                return false;
+            }
+            if bill.payers.len() == 0 || bill.payees.len() == 0 {
+                return false;
+            }
+            if !all_shares_reference_users(&bill.payers, &world.ledgers[idx].users) {
+                return false;
+            }
+            if !all_shares_reference_users(&bill.payees, &world.ledgers[idx].users) {
+                return false;
+            }
+            if !has_device_id(&world.ledgers[idx].devices, &bill.created_by_device) {
+                return false;
+            }
+            if !all_prevs_reference_bills(&bill.prev, &world.ledgers[idx].bills) {
+                return false;
+            }
+
+            world.ledgers[idx].bills.push(bill);
+            world.generated_ids.push(ledger_id.clone());
+            assume(spec::state_machine_invariant(world_model(&*world)));
+            true
+        }
+    }
+}
+
 }
