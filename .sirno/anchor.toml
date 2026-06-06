@@ -114,6 +114,22 @@ fingerprint = "sha256:3f90bf67804a1024b5acde51ac1fcb064fe21ed40b8efa3605c88cf5d0
 fingerprint = "sha256:82d2ead9e7f92bb5324f739cd626611adfaf08896ba020fe06abe619e2873040"
 "core.belongs" = ["unbill"]
 
+[entries.formal-invariants]
+fingerprint = "sha256:7e58997efc61ed92cb13c9a9e69aac8932ca302bfd86d7125feed14d8b12759e"
+"core.belongs" = [
+    "unbill",
+    "formal-verification",
+]
+"core.refines" = [
+    "settlement",
+    "unbill-console",
+]
+
+[entries.formal-verification]
+fingerprint = "sha256:51ff39b3a2ecc4045e8c3c073125057c9e23c0d68cb031384016ac80560c7bbc"
+"core.belongs" = ["unbill"]
+"core.refines" = ["development-workflow"]
+
 [entries.frontend-ui]
 fingerprint = "sha256:cbe7a8dd83eca70aefc01a3bdd2f800533b62c1a3cb7b4da07fc5a0f69281c03"
 "core.belongs" = ["unbill"]
@@ -129,6 +145,49 @@ fingerprint = "sha256:191763e7b547f422593c1da3e4f37f1cf70b2ff146aabf8e8cffaac01d
 [entries.introduction]
 fingerprint = "sha256:f029da6fc81512257026567cce0568374d8c1b9d717ae1f3984e6cdea71307f9"
 "core.belongs" = ["unbill"]
+
+[entries.invariant-amend-preservation]
+fingerprint = "sha256:4ba405527fb44eb73d7ccf4f14f00c6e257dd311e1ce35efa26cd99425e78dc0"
+"core.belongs" = ["formal-invariants"]
+"core.refines" = ["bill-amendment"]
+
+[entries.invariant-conservation]
+fingerprint = "sha256:ae12a6e3d10b41dc3fbbd58075fb5846c040e8f64d0a4b337d7d6fca91d1aa98"
+"core.belongs" = ["formal-invariants"]
+"core.refines" = ["settlement"]
+
+[entries.invariant-derivation-determinism]
+fingerprint = "sha256:e3dd1e3efbc85c3008a7682053102494b112da8070e65395067f0ce88071041a"
+"core.belongs" = ["formal-invariants"]
+"core.refines" = [
+    "settlement",
+    "sync-behavior",
+]
+
+[entries.invariant-no-overflow]
+fingerprint = "sha256:5ea6809b16460265bf57932afc992dcc9dc68a90a3c24f67dc0201e7fdffee19"
+"core.belongs" = ["formal-invariants"]
+"core.refines" = ["settlement"]
+
+[entries.invariant-rounding-fairness]
+fingerprint = "sha256:39ae2065080bdb70b7ed44d98c490b11016a09b34f405a34e47c10ca71133496"
+"core.belongs" = ["formal-invariants"]
+"core.refines" = ["settlement"]
+
+[entries.invariant-settlement-balance]
+fingerprint = "sha256:dbc7d48086519557f5ff0abdbf465f15e2333f324b45dfc588d847c0c5c86bbf"
+"core.belongs" = ["formal-invariants"]
+"core.refines" = ["settlement"]
+
+[entries.invariant-split-completeness]
+fingerprint = "sha256:53364d77163094893c6005b9422a115c6256a5e0fc23e99b34360ba19b675941"
+"core.belongs" = ["formal-invariants"]
+"core.refines" = ["settlement"]
+
+[entries.invariant-well-formedness]
+fingerprint = "sha256:ae774b4839707c6908281f840d4e70b68dc910ba1ff7c4d0b43d4c09a79cfaa8"
+"core.belongs" = ["formal-invariants"]
+"core.refines" = ["data-model"]
 
 [entries.ledger-doc]
 fingerprint = "sha256:c00ff936fbc7b8a2b1cd3db03417229671925318bd80ec3e4fe26b778ab98cb3"

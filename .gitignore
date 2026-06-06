@@ -40,5 +40,8 @@ local.properties
 .mcp.json
 result
 
+# Verus build artifacts
+liblib.rlib
+
 # sirno misty lake
 unbill-docs

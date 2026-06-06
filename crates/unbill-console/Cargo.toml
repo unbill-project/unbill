@@ -8,6 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
+unbill-console-verified = { path = "verified" }
 unbill-model = { path = "../unbill-model" }
 unbill-event = { path = "../unbill-event" }
 unbill-asymmetric-channel = { path = "../unbill-asymmetric-channel" }

@@ -147,6 +147,8 @@ pub fn compute_from_balances(currency: Currency, balances: HashMap<UserId, i64>)
 /// The rounding remainder is assigned in full to a single user selected by
 /// `fnv1a(bill_id) mod len(shares)`, making the result deterministic across
 /// all peers for the same bill.
+///
+/// Delegates to the formally verified `split_shares` in `unbill-console-verified`.
 pub fn split_shares(
     shares: &[crate::model::Share],
     total_cents: i64,
@@ -159,20 +161,26 @@ pub fn split_shares(
     if total_weight == 0 {
         return shares.iter().map(|s| (s.user_id, 0)).collect();
     }
-    let mut amounts: Vec<(UserId, i64)> = shares
+
+    // Map Share → (u64 index, u32 weight) for the verified function.
+    let indexed_shares: Vec<(u64, u32)> = shares
         .iter()
-        .map(|s| {
-            let amount = (total_cents * s.shares as i64) / total_weight as i64;
-            (s.user_id, amount)
-        })
+        .enumerate()
+        .map(|(i, s)| (i as u64, s.shares))
         .collect();
-    let assigned: i64 = amounts.iter().map(|(_, a)| a).sum();
-    let remainder = total_cents - assigned;
-    if remainder != 0 {
-        let idx = fnv1a(bill_id.to_string().as_bytes()) as usize % shares.len();
-        amounts[idx].1 += remainder;
-    }
-    amounts
+    let remainder_idx = fnv1a(bill_id.to_string().as_bytes()) as usize;
+
+    let verified_result = unbill_console_verified::settlement::split_shares(
+        &indexed_shares,
+        total_cents,
+        remainder_idx,
+    );
+
+    // Map (u64 index, i64 amount) back to (UserId, i64).
+    verified_result
+        .into_iter()
+        .map(|(idx, amount)| (shares[idx as usize].user_id, amount))
+        .collect()
 }
 // sirno:witness:settlement:end
 

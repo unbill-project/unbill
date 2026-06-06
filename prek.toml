@@ -6,7 +6,6 @@ hooks = [
   { id = "check-yaml", exclude = "^crates/unbill-tauri/ios/" },
   { id = "check-toml" },
   { id = "check-merge-conflict" },
-  { id = "end-of-file-fixer" },
   { id = "trailing-whitespace" },
   { id = "mixed-line-ending", args = ["--fix=lf"] },
 ]

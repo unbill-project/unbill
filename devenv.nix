@@ -8,6 +8,46 @@
 let
   # libc++.so in nixpkgs is a 28-byte linker script; the emulator's dlopen
   # needs a real ELF.  Symlink the versioned ELFs under the bare names.
+  # Verus formal verification toolchain (prebuilt release).
+  # The verus binary finds its support files (vstd, z3, etc.) via the
+  # `verus-root` sentinel relative to the real executable.
+  verus = let
+    rust-pkgs = pkgs.extend inputs.rust-overlay.overlays.default;
+    rust195 = rust-pkgs.rust-bin.stable."1.95.0".default.override {
+      extensions = [ "rustc-dev" "llvm-tools" ];
+    };
+    verus-unwrapped = pkgs.stdenv.mkDerivation {
+      pname = "verus";
+      version = "0.2026.05.31";
+      src = pkgs.fetchzip {
+        url = "https://github.com/verus-lang/verus/releases/download/release/0.2026.05.31.5dd6d83/verus-0.2026.05.31.5dd6d83-x86-linux.zip";
+        hash = "sha256-/lAnjkRGmI8LF+p4IO03iHBNup8mnUasFGkQpAX7Dz0=";
+      };
+      nativeBuildInputs = [ pkgs.autoPatchelfHook ];
+      buildInputs = [ pkgs.stdenv.cc.cc.lib rust195 ];
+      installPhase = ''
+        mkdir -p $out/lib/verus
+        cp -r . $out/lib/verus/
+      '';
+    };
+  in pkgs.writeShellScriptBin "verus" ''
+    # Verus shells out to `rustup run 1.95.0 ...` to find rust_verify.
+    # We bypass rustup by putting a shim that directly execs the command,
+    # and adding the Rust 1.95.0 toolchain to PATH.
+    export VERUS_RUSTUP_SHIM_DIR=$(mktemp -d)
+    cat > "$VERUS_RUSTUP_SHIM_DIR/rustup" << 'RUSTUP_SHIM'
+    #!/bin/sh
+    case "$1" in
+      run) shift; shift; exec "$@" ;;
+      install) exit 0 ;;
+      *) echo "1.95.0-x86_64-unknown-linux-gnu (verus nix shim)" ;;
+    esac
+    RUSTUP_SHIM
+    chmod +x "$VERUS_RUSTUP_SHIM_DIR/rustup"
+    export PATH="$VERUS_RUSTUP_SHIM_DIR:${rust195}/bin:$PATH"
+    exec ${verus-unwrapped}/lib/verus/verus "$@"
+  '';
+
   libcxxELF = pkgs.runCommand "libcxx-elf" {} ''
     mkdir -p $out/lib
     ln -s ${pkgs.llvmPackages.libcxx}/lib/libc++.so.1.0    $out/lib/libc++.so
@@ -82,6 +122,7 @@ in
     pkgs.trunk
     pkgs.llvmPackages.bintools
     pkgs.prek
+    verus
     inputs.sirno.packages.${pkgs.system}.default
   ] ++ lib.optionals pkgs.stdenv.isLinux [
     # GTK/WebKit dependencies only needed on Linux
