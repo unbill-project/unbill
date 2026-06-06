@@ -8,27 +8,31 @@ verus! {
 // Data types
 // ---------------------------------------------------------------------------
 
-pub type ShareModel = (u64, u32);
+/// An identifier — modeled as a byte sequence (matching ULID string representation).
+pub type Id = Seq<u8>;
+
+/// A share: (user_id, weight).
+pub type ShareModel = (Id, u32);
 
 pub struct BillModel {
-    pub id: u64,
+    pub id: Id,
     pub amount_cents: i64,
     pub payers: Seq<ShareModel>,
     pub payees: Seq<ShareModel>,
-    pub prev: Seq<u64>,
-    pub created_by_device: u64,
+    pub prev: Seq<Id>,
+    pub created_by_device: Id,
 }
 
 pub struct UserModel {
-    pub user_id: u64,
+    pub user_id: Id,
 }
 
 pub struct DeviceModel {
-    pub device_id: u64,
+    pub device_id: Id,
 }
 
 pub struct LedgerModel {
-    pub ledger_id: u64,
+    pub ledger_id: Id,
     pub users: Seq<UserModel>,
     pub bills: Seq<BillModel>,
     pub devices: Seq<DeviceModel>,
@@ -38,30 +42,30 @@ pub struct LedgerModel {
 pub struct WorldModel {
     pub ledgers: Seq<LedgerModel>,
     /// The set of all IDs ever generated. Every new ID must not be in this set.
-    pub generated_ids: Set<u64>,
+    pub generated_ids: Set<Id>,
 }
 
 // ---------------------------------------------------------------------------
 // Helper predicates
 // ---------------------------------------------------------------------------
 
-pub open spec fn has_user(users: Seq<UserModel>, user_id: u64) -> bool {
+pub open spec fn has_user(users: Seq<UserModel>, user_id: Id) -> bool {
     exists|i: int| 0 <= i < users.len() && #[trigger] users[i].user_id == user_id
 }
 
-pub open spec fn has_device(devices: Seq<DeviceModel>, device_id: u64) -> bool {
+pub open spec fn has_device(devices: Seq<DeviceModel>, device_id: Id) -> bool {
     exists|i: int| 0 <= i < devices.len() && #[trigger] devices[i].device_id == device_id
 }
 
-pub open spec fn has_bill(bills: Seq<BillModel>, bill_id: u64) -> bool {
+pub open spec fn has_bill(bills: Seq<BillModel>, bill_id: Id) -> bool {
     exists|i: int| 0 <= i < bills.len() && #[trigger] bills[i].id == bill_id
 }
 
-pub open spec fn has_ledger(ledgers: Seq<LedgerModel>, ledger_id: u64) -> bool {
+pub open spec fn has_ledger(ledgers: Seq<LedgerModel>, ledger_id: Id) -> bool {
     exists|i: int| 0 <= i < ledgers.len() && #[trigger] ledgers[i].ledger_id == ledger_id
 }
 
-pub open spec fn find_ledger(ledgers: Seq<LedgerModel>, ledger_id: u64) -> int
+pub open spec fn find_ledger(ledgers: Seq<LedgerModel>, ledger_id: Id) -> int
     recommends has_ledger(ledgers, ledger_id),
 {
     choose|i: int| 0 <= i < ledgers.len() && ledgers[i].ledger_id == ledger_id
@@ -137,7 +141,7 @@ pub open spec fn ledger_well_formed(ledger: LedgerModel) -> bool {
 }
 
 /// All IDs in a ledger are tracked by the ID generator.
-pub open spec fn ledger_ids_in_generated(ledger: LedgerModel, generated: Set<u64>) -> bool {
+pub open spec fn ledger_ids_in_generated(ledger: LedgerModel, generated: Set<Id>) -> bool {
     &&& generated.contains(ledger.ledger_id)
     &&& forall|i: int| 0 <= i < ledger.users.len() ==>
         generated.contains(#[trigger] ledger.users[i].user_id)
@@ -152,12 +156,9 @@ pub open spec fn ledger_ids_in_generated(ledger: LedgerModel, generated: Set<u64
 // ---------------------------------------------------------------------------
 
 pub open spec fn state_machine_invariant(world: WorldModel) -> bool {
-    // Ledger IDs are unique across the world.
     &&& ledger_ids_unique(world.ledgers)
-    // Every ledger is individually well-formed.
     &&& forall|i: int| 0 <= i < world.ledgers.len() ==>
         ledger_well_formed(#[trigger] world.ledgers[i])
-    // All IDs across all ledgers are tracked by the generator.
     &&& forall|i: int| 0 <= i < world.ledgers.len() ==>
         ledger_ids_in_generated(#[trigger] world.ledgers[i], world.generated_ids)
 }
@@ -166,8 +167,7 @@ pub open spec fn state_machine_invariant(world: WorldModel) -> bool {
 // Transitions
 // ---------------------------------------------------------------------------
 
-/// Create a new empty ledger with a fresh ID.
-pub open spec fn create_ledger(pre: WorldModel, post: WorldModel, ledger_id: u64) -> bool {
+pub open spec fn create_ledger(pre: WorldModel, post: WorldModel, ledger_id: Id) -> bool {
     &&& !pre.generated_ids.contains(ledger_id)
     &&& post.ledgers == pre.ledgers.push(
         LedgerModel {
@@ -180,9 +180,8 @@ pub open spec fn create_ledger(pre: WorldModel, post: WorldModel, ledger_id: u64
     &&& post.generated_ids == pre.generated_ids.insert(ledger_id)
 }
 
-/// Add a user to an existing ledger with a fresh user ID.
 pub open spec fn add_user(
-    pre: WorldModel, post: WorldModel, ledger_id: u64, user: UserModel,
+    pre: WorldModel, post: WorldModel, ledger_id: Id, user: UserModel,
 ) -> bool {
     &&& has_ledger(pre.ledgers, ledger_id)
     &&& !pre.generated_ids.contains(user.user_id)
@@ -198,9 +197,8 @@ pub open spec fn add_user(
     &&& post.generated_ids == pre.generated_ids.insert(user.user_id)
 }
 
-/// Add a device to an existing ledger with a fresh device ID.
 pub open spec fn add_device(
-    pre: WorldModel, post: WorldModel, ledger_id: u64, device: DeviceModel,
+    pre: WorldModel, post: WorldModel, ledger_id: Id, device: DeviceModel,
 ) -> bool {
     &&& has_ledger(pre.ledgers, ledger_id)
     &&& !pre.generated_ids.contains(device.device_id)
@@ -216,9 +214,8 @@ pub open spec fn add_device(
     &&& post.generated_ids == pre.generated_ids.insert(device.device_id)
 }
 
-/// Add a bill to an existing ledger with a fresh bill ID.
 pub open spec fn add_bill(
-    pre: WorldModel, post: WorldModel, ledger_id: u64, bill: BillModel,
+    pre: WorldModel, post: WorldModel, ledger_id: Id, bill: BillModel,
 ) -> bool {
     &&& has_ledger(pre.ledgers, ledger_id)
     &&& !pre.generated_ids.contains(bill.id)

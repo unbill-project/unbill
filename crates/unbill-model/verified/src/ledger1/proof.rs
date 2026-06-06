@@ -41,7 +41,7 @@ proof fn other_ledger_ids_preserved(
     post_ledgers: Seq<LedgerModel>,
     idx: int,
     new_ledger: LedgerModel,
-    generated: Set<u64>,
+    generated: Set<Id>,
 )
     requires
         0 <= idx < pre_ledgers.len(),
@@ -68,7 +68,7 @@ proof fn other_ledger_ids_preserved(
 // create_ledger preserves invariant
 // ---------------------------------------------------------------------------
 
-pub proof fn create_ledger_preserves(pre: WorldModel, post: WorldModel, ledger_id: u64)
+pub proof fn create_ledger_preserves(pre: WorldModel, post: WorldModel, ledger_id: Id)
     requires
         state_machine_invariant(pre),
         create_ledger(pre, post, ledger_id),
@@ -125,7 +125,7 @@ pub proof fn create_ledger_preserves(pre: WorldModel, post: WorldModel, ledger_i
 // ---------------------------------------------------------------------------
 
 pub proof fn add_user_preserves(
-    pre: WorldModel, post: WorldModel, ledger_id: u64, user: UserModel,
+    pre: WorldModel, post: WorldModel, ledger_id: Id, user: UserModel,
 )
     requires
         state_machine_invariant(pre),
@@ -220,7 +220,7 @@ pub proof fn add_user_preserves(
 // ---------------------------------------------------------------------------
 
 pub proof fn add_device_preserves(
-    pre: WorldModel, post: WorldModel, ledger_id: u64, device: DeviceModel,
+    pre: WorldModel, post: WorldModel, ledger_id: Id, device: DeviceModel,
 )
     requires
         state_machine_invariant(pre),
@@ -294,7 +294,7 @@ pub proof fn add_device_preserves(
 // ---------------------------------------------------------------------------
 
 pub proof fn add_bill_preserves(
-    pre: WorldModel, post: WorldModel, ledger_id: u64, bill: BillModel,
+    pre: WorldModel, post: WorldModel, ledger_id: Id, bill: BillModel,
 )
     requires
         state_machine_invariant(pre),
