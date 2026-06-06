@@ -42,3 +42,7 @@ result
 
 # sirno misty lake
 unbill-docs
+
+# Creusot verification output
+verif/
+rustc-ice-*.txt
