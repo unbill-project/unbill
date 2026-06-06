@@ -1,10 +1,11 @@
 ---
-core.name: Formal Invariants
 core.desc: Formal properties the ledger system must satisfy, targeted for Creusot verification.
+core.name: Formal Invariants
 core.category:
   - core.concept
 core.belongs:
   - unbill
+  - formal-verification
 core.refines:
   - settlement
   - unbill-console
