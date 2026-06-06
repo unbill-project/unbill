@@ -71,9 +71,38 @@ The `std::error::Error` trait requires `dyn` in its `source()` method,
 so any crate using `thiserror` or `autosurgeon` (which generates `dyn Error`)
 cannot be compiled by Verus.
 
-The verified crate isolates pure arithmetic from the `dyn`-heavy dependency graph.
-Functions are parameterized over `u64` IDs instead of `UserId`/`BillId`.
+The verified crates isolate pure logic from the `dyn`-heavy dependency graph.
+IDs are modeled as `Seq<u8>` (matching ULID string representation).
 The `unbill-console` wrapper maps domain types to/from the verified types.
+
+## Ledger state machine
+
+The ledger model is in `crates/unbill-model/verified/`.
+Two iterations exist:
+- `ledger0` — single-ledger state machine (simpler, initial prototype).
+- `ledger1` — multi-ledger state machine with global ID generator.
+
+`ledger1` models:
+- `WorldModel` — list of ledgers + `generated_ids: Set<Id>`.
+- `Id = Seq<u8>` — string-based identifiers.
+- Types suffixed with `Model`: `BillModel`, `UserModel`, `DeviceModel`, `LedgerModel`, `ShareModel`.
+
+State machine invariant (`state_machine_invariant`):
+- Unique IDs for ledgers, users, devices, and bills.
+- Every bill references only known users and authorized devices.
+- Every bill's `prev` references point to existing bill IDs.
+- All IDs across all ledgers are tracked by the generator.
+
+Four transitions, each a single predicate `op(pre, post, ...) -> bool`:
+- `create_ledger` — new empty ledger with fresh ID.
+- `add_user` — add user to a specific ledger with fresh ID.
+- `add_device` — add device to a specific ledger with fresh ID.
+- `add_bill` — add well-formed bill with fresh ID.
+
+Each transition consumes a fresh ID from the generator,
+ensuring global uniqueness across all ledgers.
+The invariant is not embedded in the transition predicate —
+it is proved separately via `op_preserves` proof functions.
 
 ## Clippy
 
