@@ -146,5 +146,13 @@ pub proof fn floor_amounts_remainder_lemma(
     // The real content is that the split_shares function computes this correctly.
 }
 
+/// Lemma: spec_total_weight distributes over push.
+pub proof fn spec_total_weight_push(s: Seq<(u64, u32)>, x: (u64, u32))
+    ensures
+        spec_total_weight(s.push(x)) == spec_total_weight(s) + x.1 as int,
+{
+    assert(s.push(x).drop_last() =~= s);
+}
+
 }
 // sirno:witness:formal-invariants:end

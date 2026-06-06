@@ -21,44 +21,33 @@ pub fn split_shares(
     requires
         shares.len() > 0,
         total_cents >= 0,
+        // Total weight must be nonzero — can't distribute cents with no weight.
+        spec::spec_total_weight(shares@) > 0,
     ensures
         spec::amount_sum(result@) == total_cents as int,
         result.len() == shares.len(),
 {
-    // Sum weights using int to avoid overflow.
+    // Sum weights.
     let mut total_weight: u64 = 0;
     let mut i: usize = 0;
     while i < shares.len()
         invariant
             i <= shares.len(),
+            total_weight as int == spec::spec_total_weight(shares@.subrange(0, i as int)),
         decreases shares.len() - i,
     {
         assume(total_weight as int + shares[i as int].1 as int <= u64::MAX as int);
+        proof {
+            spec::spec_total_weight_push(shares@.subrange(0, i as int), shares[i as int]);
+            assert(shares@.subrange(0, i as int).push(shares[i as int]) =~= shares@.subrange(0, (i + 1) as int));
+        }
         total_weight = total_weight + shares[i].1 as u64;
         i = i + 1;
     }
-
-    if total_weight == 0 {
-        let mut result: Vec<(u64, i64)> = Vec::new();
-        let mut j: usize = 0;
-        while j < shares.len()
-            invariant
-                j <= shares.len(),
-                result.len() == j,
-                spec::amount_sum(result@) == 0,
-            decreases shares.len() - j,
-        {
-            proof {
-                spec::amount_sum_push_lemma(result@, (shares[j as int].0, 0i64));
-            }
-            result.push((shares[j].0, 0i64));
-            j = j + 1;
-        }
-        // total_weight == 0 means total_cents must be 0 for the postcondition.
-        // We assume this degenerate case satisfies the contract.
-        assume(total_cents == 0);
-        return result;
+    proof {
+        assert(shares@.subrange(0, shares@.len() as int) =~= shares@);
     }
+    assert(total_weight > 0);
 
     // Compute floor amounts and track the running sum.
     let mut amounts: Vec<(u64, i64)> = Vec::new();
@@ -70,9 +59,9 @@ pub fn split_shares(
             amounts.len() == k,
             spec::amount_sum(amounts@) == assigned as int,
             assigned >= 0,
+            total_weight > 0,
         decreases shares.len() - k,
     {
-        assume(total_weight > 0);
         let w: i64 = shares[k].1 as i64;
         assume(total_cents as int * w as int <= i64::MAX as int);
         assume(total_cents as int * w as int >= i64::MIN as int);
