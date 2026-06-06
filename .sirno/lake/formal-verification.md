@@ -20,28 +20,33 @@ Verus is a modified Rust compiler. It ships as a prebuilt binary with bundled Z3
 The devenv packages it via a Nix derivation wrapping the prebuilt release.
 The wrapper shims `rustup` so Verus finds its bundled Rust 1.95.0 toolchain.
 
-Verification: `verus --crate-type lib crates/unbill-console/verified/src/lib.rs`
+There are two verified crates:
 
-The verified crate depends on `vstd` from crates.io.
+```
+crates/unbill-console/verified/    -- settlement math (exec + spec)
+crates/unbill-model/verified/      -- ledger state machine (spec only)
+```
+
+Verification:
+```
+verus --crate-type lib crates/unbill-console/verified/src/lib.rs
+verus --crate-type lib crates/unbill-model/verified/src/lib.rs
+```
+
+All verified crates depend on `vstd` from crates.io.
 Under `cargo build`, `verus!{}` expands to valid Rust with ghost code erased.
 Under `verus`, the full verification runs.
-The `unbill-console` crate depends on `unbill-console-verified` and calls the verified functions at runtime.
-
-## Crate edition
-
-The verified crate uses `edition = "2021"`, not the workspace's `edition = "2024"`.
-This is required because `vstd` is compiled for edition 2021.
-Verus's `verus!{}` macro may not support 2024 syntax.
+`unbill-console` depends on `unbill-console-verified` and calls verified functions at runtime.
+`unbill-model-verified` is spec-only — it defines the ledger model for proof purposes.
 
 ## Code structure
 
 Each verified module has three files:
 
 ```
-crates/unbill-console/verified/src/settlement/
-    mod.rs      -- exec functions with requires/ensures contracts
-    spec.rs     -- interface specs only: spec fn used in contracts
-    proof.rs    -- proof fn lemmas and helper spec fn for proof guidance
+spec.rs     -- interface specs only: spec fn used in contracts
+proof.rs    -- proof fn lemmas and helper spec fn for proof guidance
+mod.rs      -- exec functions (if any) with contracts, or re-exports
 ```
 
 `spec.rs` is kept short.
@@ -154,6 +159,26 @@ allows proving `total_cents * weight <= i32::MAX * u32::MAX < i64::MAX`
 via `nonlinear_arith`. Track the bound through loop invariants.
 The product `total_cents * (k+1)` chain needs explicit step-by-step assertions
 because `nonlinear_arith` can't handle long chains.
+
+### Ledger as a state machine
+The ledger is modeled as a state machine with four transitions:
+`init`, `add_user`, `add_device`, `add_bill`.
+Each transition is a single spec predicate `op(pre, post, input) -> bool`
+that defines what constitutes a valid move.
+The `state_machine_invariant` is a separate predicate
+checked at every reachable state.
+For each transition, a proof theorem shows:
+`invariant(pre) && op(pre, post, input) ==> invariant(post)`.
+The transition predicate does not embed the invariant —
+it describes only the structural relationship between pre and post.
+Later, exec code can prove it produces a post satisfying the transition predicate,
+and the invariant follows from the preservation theorem.
+
+The state machine invariant includes:
+- User, device, and bill ID uniqueness.
+- Every bill references only known users (in payers and payees).
+- Every bill was created by an authorized device.
+- Every bill's `prev` references point to existing bill IDs.
 
 ### Connecting runtime sums to spec sums
 The `floor_sum_eq_amount_sum` lemma bridges the gap between:
