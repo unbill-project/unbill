@@ -2,7 +2,7 @@
 name = "unbill-console-verified"
 description = "Formally verified settlement math for unbill, proven with Verus."
 version.workspace = true
-edition = "2021"
+edition.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
