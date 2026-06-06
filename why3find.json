@@ -1,0 +1,13 @@
+{
+  "fast": 0.2,
+  "time": 2,
+  "depth": 6,
+  "packages": [ "creusot" ],
+  "provers": [ "z3" ],
+  "tactics": [ "compute_specified", "split_vc" ],
+  "drivers": [],
+  "warnoff": [ "unused_variable", "axiom_abstract" ],
+  "profile": [
+    { "prover": "z3@4.16.0", "size": 30, "time": 0.5 }
+  ]
+}

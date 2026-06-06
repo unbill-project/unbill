@@ -84,10 +84,7 @@ in
     pkgs.trunk
     pkgs.llvmPackages.bintools
     pkgs.prek
-    inputs.creusot.packages.${pkgs.system}.creusot
-    inputs.creusot.packages.${pkgs.system}.prelude
-    pkgs.why3
-    pkgs.z3
+    inputs.creusot.packages.${pkgs.system}.free
     inputs.sirno.packages.${pkgs.system}.default
   ] ++ lib.optionals pkgs.stdenv.isLinux [
     # GTK/WebKit dependencies only needed on Linux

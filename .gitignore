@@ -45,4 +45,5 @@ unbill-docs
 
 # Creusot verification output
 verif/
+.why3find/
 rustc-ice-*.txt

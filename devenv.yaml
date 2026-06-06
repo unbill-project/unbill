@@ -7,9 +7,6 @@ inputs:
         follows: nixpkgs
   creusot:
     url: github:creusot-rs/creusot
-    inputs:
-      nixpkgs:
-        follows: nixpkgs
   sirno:
     url: github:LighghtEeloo/sirno
     inputs:
