@@ -3,4 +3,4 @@
 // Verified with Verus: `verus --crate-type lib crates/unbill-model/verified/src/lib.rs`
 #![allow(clippy::ptr_arg, clippy::assign_op_pattern, deprecated, unused_imports)]
 
-pub mod ledger;
+pub mod ledger0;
