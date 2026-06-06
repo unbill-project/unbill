@@ -15,6 +15,8 @@ let
     ln -s ${pkgs.llvmPackages.libcxx}/lib/libc++abi.so.1.0 $out/lib/libc++abi.so
     ln -s ${pkgs.llvmPackages.libcxx}/lib/libc++abi.so.1.0 $out/lib/libc++abi.so.1
   '';
+
+
 in
 {
   # https://devenv.sh/languages/
@@ -82,6 +84,10 @@ in
     pkgs.trunk
     pkgs.llvmPackages.bintools
     pkgs.prek
+    inputs.creusot.packages.${pkgs.system}.creusot
+    inputs.creusot.packages.${pkgs.system}.prelude
+    pkgs.why3
+    pkgs.z3
     inputs.sirno.packages.${pkgs.system}.default
   ] ++ lib.optionals pkgs.stdenv.isLinux [
     # GTK/WebKit dependencies only needed on Linux
