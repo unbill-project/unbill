@@ -122,6 +122,9 @@ pub fn split_shares(
     let remainder_u: usize = remainder as usize;
 
     // Distribute remainder cents one-by-one to consecutive users.
+    // Ghost: save the floor amounts before distributing remainder.
+    let ghost floor_amounts = amounts@;
+
     let mut r: usize = 0;
     while r < remainder_u
         invariant
@@ -130,25 +133,80 @@ pub fn split_shares(
             amounts.len() == shares.len(),
             spec::amount_sum(amounts@) == assigned as int + r as int,
             shares.len() > 0,
+            total_cents >= 0,
             total_cents <= i32::MAX as i64,
             assigned >= 0,
-            total_cents >= 0,
             remainder_recipient_idx + shares.len() <= usize::MAX,
+            total_weight as int == spec::spec_total_weight(shares@),
+            total_weight > 0,
+            // Visited indices got +1, unvisited indices unchanged.
+            forall|j: int| 0 <= j < amounts@.len() ==> (
+                amounts@[j].1 == floor_amounts[j].1
+                || amounts@[j].1 == floor_amounts[j].1 + 1
+            ),
+            // Unvisited indices still at floor value.
+            forall|j: int| 0 <= j < amounts@.len() ==> (
+                (forall|r2: int| 0 <= r2 < r as int ==>
+                    #[trigger] ((remainder_recipient_idx as int + r2) % (shares.len() as int)) != j
+                ) ==> amounts@[j].1 == floor_amounts[j].1
+            ),
+            // Floor amounts are bounded (len matches shares).
+            floor_amounts.len() == shares.len(),
+            forall|j: int| 0 <= j < shares.len() ==> (
+                #[trigger] floor_amounts[j].1 >= 0 && floor_amounts[j].1 <= total_cents
+            ),
         decreases remainder_u - r,
     {
         assert(remainder_recipient_idx + r < remainder_recipient_idx + shares.len());
         let idx: usize = (remainder_recipient_idx + r) % shares.len();
         let old_val = amounts[idx];
-        assume(old_val.1 as int + 1 <= i64::MAX as int); // per-element overflow
+
+        // Prove old_val is at floor (not yet incremented) via distinct indices.
+        proof {
+            assert forall|r2: int| 0 <= r2 < r as int
+                implies #[trigger] ((remainder_recipient_idx as int + r2) % (shares.len() as int))
+                    != idx as int
+            by {
+                proof::mod_distinct(
+                    remainder_recipient_idx as int, r2, r as int, shares.len() as int,
+                );
+            }
+            // By the "unvisited" invariant: amounts[idx].1 == floor_amounts[idx].1.
+        }
+        assert(old_val.1 == floor_amounts[idx as int].1);
+        assert(old_val.1 >= 0);
+        proof {
+            // floor_amounts invariant: forall j in [0, len) ==> floor_amounts[j].1 <= total_cents.
+            // idx < shares.len() == floor_amounts length.
+            assert(floor_amounts[idx as int].1 <= total_cents);
+        }
+
         let new_val = (old_val.0, old_val.1 + 1);
         proof { proof::amount_sum_set_lemma(amounts@, idx as int, new_val); }
         amounts.set(idx, new_val);
         r = r + 1;
     }
-    // sum == assigned + remainder == total_cents. Conservation proved.
+
+    // After loop: sum == assigned + remainder == total_cents.
+    assert(spec::amount_sum(amounts@) == total_cents as int);
+    assert(amounts@.len() == shares.len());
     // Fairness: each amount is floor or floor+1.
-    // TODO: prove the fairness forall clause of split_shares_ensures.
-    assume(spec::split_shares_ensures(shares@, total_cents, amounts@));
+    assert(forall|j: int| 0 <= j < amounts@.len() ==> (
+        amounts@[j].1 == floor_amounts[j].1
+        || amounts@[j].1 == floor_amounts[j].1 + 1
+    ));
+    // Connect floor_amounts to floor_amount spec.
+    proof {
+        assert forall|j: int| 0 <= j < amounts@.len()
+            implies #[trigger] (amounts@[j].1 as int) >= spec::floor_amount(shares@, total_cents as int, j)
+                && amounts@[j].1 as int <= spec::floor_amount(shares@, total_cents as int, j) + 1
+        by {
+            assert(floor_amounts[j].1 as int
+                == (total_cents as int * shares@[j].1 as int) / (total_weight as int));
+            assert(spec::floor_amount(shares@, total_cents as int, j)
+                == (total_cents as int * shares@[j].1 as int) / spec::spec_total_weight(shares@));
+        }
+    }
     amounts
 }
 

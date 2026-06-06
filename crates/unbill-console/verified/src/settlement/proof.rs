@@ -353,6 +353,77 @@ pub proof fn floor_sum_remainder_lt_n(
     floor_sum_le_total(shares, total_cents, total_weight);
 }
 
+// ---------------------------------------------------------------------------
+// modular index lemmas
+// ---------------------------------------------------------------------------
+
+/// Lemma: (base + r1) % n != (base + r2) % n when r1 != r2 and both < n.
+pub proof fn mod_distinct(base: int, r1: int, r2: int, n: int)
+    requires
+        n > 0,
+        0 <= r1 < n,
+        0 <= r2 < n,
+        r1 != r2,
+    ensures
+        (base + r1) % n != (base + r2) % n,
+{
+    let b = base % n;
+    vstd::arithmetic::div_mod::lemma_mod_division_less_than_divisor(base, n);
+    // 0 <= b < n, so 0 <= b + ri < 2n for ri in [0, n).
+    // Compute (base + ri) % n via lemma_mod_adds:
+    // (base + ri) % n depends on whether b + ri < n or not.
+    // Case analysis on b + r1 and b + r2:
+    vstd::arithmetic::div_mod::lemma_mod_adds(base, r1, n);
+    vstd::arithmetic::div_mod::lemma_mod_adds(base, r2, n);
+
+    // When a%n + b%n < n: (a+b)%n == a%n + b%n.
+    // r1 < n, so r1%n == r1 (by small_mod). Same for r2.
+    vstd::arithmetic::div_mod::lemma_small_mod(r1 as nat, n as nat);
+    vstd::arithmetic::div_mod::lemma_small_mod(r2 as nat, n as nat);
+    // So: if b + r1 < n: (base+r1)%n == b + r1.
+    //     if b + r1 >= n: (base+r1)%n == b + r1 - n (since b+r1 < 2n).
+    // Same pattern for r2.
+    // In all cases: the results differ because r1 != r2.
+
+    // Compute (base+r1)%n and (base+r2)%n via case analysis.
+    // base = q*n + b where b = base%n, 0 <= b < n.
+    // base+ri = q*n + b + ri.
+    // If b+ri < n: (base+ri)%n = b+ri (since base+ri = q*n + (b+ri), 0 <= b+ri < n).
+    // If b+ri >= n: (base+ri)%n = b+ri-n (since base+ri = (q+1)*n + (b+ri-n), 0 <= b+ri-n < n).
+    let q = base / n;
+    vstd::arithmetic::div_mod::lemma_fundamental_div_mod(base, n);
+    assert(base == n * q + b);
+
+    // Case: b + r1 < n
+    if b + r1 < n {
+        assert(base + r1 == q * n + (b + r1)) by(nonlinear_arith)
+            requires base == n * q + b;
+        vstd::arithmetic::div_mod::lemma_fundamental_div_mod_converse_mod(base + r1, n, q, b + r1);
+        // Now (base+r1)%n == b + r1.
+    } else {
+        assert(base + r1 == (q + 1) * n + (b + r1 - n)) by(nonlinear_arith)
+            requires base == n * q + b;
+        vstd::arithmetic::div_mod::lemma_fundamental_div_mod_converse_mod(base + r1, n, q + 1, b + r1 - n);
+        // Now (base+r1)%n == b + r1 - n.
+    }
+
+    if b + r2 < n {
+        assert(base + r2 == q * n + (b + r2)) by(nonlinear_arith)
+            requires base == n * q + b;
+        vstd::arithmetic::div_mod::lemma_fundamental_div_mod_converse_mod(base + r2, n, q, b + r2);
+    } else {
+        assert(base + r2 == (q + 1) * n + (b + r2 - n)) by(nonlinear_arith)
+            requires base == n * q + b;
+        vstd::arithmetic::div_mod::lemma_fundamental_div_mod_converse_mod(base + r2, n, q + 1, b + r2 - n);
+    }
+
+    // In all four cases, the values differ because r1 != r2.
+}
+
+// ---------------------------------------------------------------------------
+// floor_sum / amount_sum bridge
+// ---------------------------------------------------------------------------
+
 /// Lemma: when each amounts[j].1 == floor(t*w_j/W), amount_sum == floor_sum.
 pub proof fn floor_sum_eq_amount_sum(
     shares: Seq<(u64, u32)>,
