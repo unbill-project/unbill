@@ -2,6 +2,7 @@
 // This is the production code — unbill-console calls these functions at runtime.
 
 use vstd::prelude::*;
+use vstd::slice::SliceAdditionalExecFns;
 
 pub mod spec;
 

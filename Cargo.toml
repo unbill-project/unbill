@@ -11,6 +11,7 @@ members = [
     "crates/unbill-asymmetric-channel",
     "crates/unbill-device",
     "crates/unbill-console",
+    "crates/unbill-console/verified",
     "crates/unbill-event",
     "crates/unbill-symmetric-channel",
     "crates/unbill-model",
