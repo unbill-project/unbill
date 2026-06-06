@@ -29,6 +29,15 @@ pub open spec fn spec_total_weight(shares: Seq<(u64, u32)>) -> int
     }
 }
 
+/// The floor amount for share i: floor(total_cents * w_i / total_weight).
+pub open spec fn floor_amount(
+    shares: Seq<(u64, u32)>,
+    total_cents: int,
+    i: int,
+) -> int {
+    (total_cents * shares[i].1 as int) / spec_total_weight(shares)
+}
+
 /// Precondition for split_shares.
 pub open spec fn split_shares_requires(
     shares: Seq<(u64, u32)>,
@@ -49,8 +58,15 @@ pub open spec fn split_shares_ensures(
     total_cents: i64,
     result: Seq<(u64, i64)>,
 ) -> bool {
+    // Conservation: amounts sum exactly to total_cents.
     &&& amount_sum(result) == total_cents as int
+    // Length preservation.
     &&& result.len() == shares.len()
+    // Fairness: every share is either floor or floor + 1 of the ideal proportion.
+    // No user is more than 1 cent away from their exact share.
+    &&& forall|i: int| 0 <= i < result.len() ==>
+        #[trigger] result[i].1 as int >= floor_amount(shares, total_cents as int, i)
+        && result[i].1 as int <= floor_amount(shares, total_cents as int, i) + 1
 }
 
 }

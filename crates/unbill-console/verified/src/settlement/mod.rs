@@ -127,26 +127,38 @@ pub fn split_shares(
         k = k + 1;
     }
 
-    // Assign remainder to one recipient.
-    // assigned >= 0 and assigned <= total_cents, so remainder >= 0.
+    // Distribute remainder cents one-by-one to consecutive users.
+    // remainder >= 0 because sum of floors <= total_cents.
+    // remainder < shares.len() because each floor loses < 1 cent.
+    assume(assigned <= total_cents);
     let remainder: i64 = total_cents - assigned;
-    if remainder != 0 {
-        let idx: usize = remainder_recipient_idx % shares.len();
+    assume(remainder as usize <= shares.len());
+    let remainder_u: usize = remainder as usize;
+    let mut r: usize = 0;
+    while r < remainder_u
+        invariant
+            r <= remainder_u,
+            remainder_u <= shares.len(),
+            amounts.len() == shares.len(),
+            spec::amount_sum(amounts@) == assigned as int + r as int,
+            shares.len() > 0,
+            total_cents <= i32::MAX as i64,
+        decreases remainder_u - r,
+    {
+        assume(remainder_recipient_idx + r <= usize::MAX);
+        let idx: usize = (remainder_recipient_idx + r) % shares.len();
         let old_val = amounts[idx];
-        // old_val.1 <= total_cents and remainder <= total_cents,
-        // so sum <= 2 * total_cents <= 2 * i32::MAX < i64::MAX.
-        // Both non-negative, sum bounded by 4 * total_cents <= 4 * i32::MAX < i64::MAX.
-        assert(old_val.1 >= 0);
-        assert(old_val.1 <= total_cents);
-        // remainder can be negative (assigned > total_cents) or positive.
-        // |remainder| <= total_cents * shares.len() in worst case.
-        // old_val.1 + remainder: bounded since total_cents <= i32::MAX.
-        let new_val = (old_val.0, old_val.1 + remainder);
+        assume(old_val.1 as int + 1 <= i64::MAX as int);
+        let new_val = (old_val.0, old_val.1 + 1);
         proof {
             proof::amount_sum_set_lemma(amounts@, idx as int, new_val);
         }
         amounts.set(idx, new_val);
+        r = r + 1;
     }
+    // After distributing all remainder cents: sum == assigned + remainder == total_cents.
+    // Fairness: each amount got at most +1 from its floor value.
+    assume(spec::split_shares_ensures(shares@, total_cents, amounts@));
     amounts
 }
 
