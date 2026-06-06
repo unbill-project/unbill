@@ -4,6 +4,7 @@
 use vstd::prelude::*;
 use vstd::slice::SliceAdditionalExecFns;
 
+pub mod proof;
 pub mod spec;
 
 // sirno:witness:formal-invariants:begin
@@ -52,10 +53,10 @@ pub fn split_shares(
         decreases shares.len() - i,
     {
         proof {
-            spec::spec_total_weight_push(shares@.subrange(0, i as int), shares[i as int]);
+            proof::spec_total_weight_push(shares@.subrange(0, i as int), shares[i as int]);
             assert(shares@.subrange(0, i as int).push(shares[i as int])
                 =~= shares@.subrange(0, (i + 1) as int));
-            spec::spec_total_weight_partial_le(shares@, (i + 1) as int);
+            proof::spec_total_weight_partial_le(shares@, (i + 1) as int);
             // After adding: total_weight == spec_total_weight(subrange(0, i+1))
             //               <= spec_total_weight(shares) <= u64::MAX
         }
@@ -108,7 +109,7 @@ pub fn split_shares(
 
         // amount <= total_cents because w <= total_weight.
         proof {
-            spec::spec_total_weight_includes_each(shares@, k as int);
+            proof::spec_total_weight_includes_each(shares@, k as int);
         }
         assert(w as int <= total_weight as int);
         assert(amount <= total_cents) by(nonlinear_arith)
@@ -132,7 +133,7 @@ pub fn split_shares(
                      shares.len() as int >= 0, shares.len() as int <= i32::MAX as int;
 
         proof {
-            spec::amount_sum_push_lemma(amounts@, (shares[k as int].0, amount));
+            proof::amount_sum_push_lemma(amounts@, (shares[k as int].0, amount));
         }
         amounts.push((shares[k].0, amount));
         assigned = assigned + amount;
@@ -155,7 +156,7 @@ pub fn split_shares(
         // old_val.1 + remainder: bounded since total_cents <= i32::MAX.
         let new_val = (old_val.0, old_val.1 + remainder);
         proof {
-            spec::amount_sum_set_lemma(amounts@, idx as int, new_val);
+            proof::amount_sum_set_lemma(amounts@, idx as int, new_val);
         }
         amounts.set(idx, new_val);
     }
