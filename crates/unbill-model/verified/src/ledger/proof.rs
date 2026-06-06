@@ -7,7 +7,7 @@ use vstd::prelude::*;
 verus! {
 
 /// Proof: init produces a state satisfying the invariant.
-pub proof fn init_preserves(post: Ledger, ledger_id: u64)
+pub proof fn init_preserves(post: LedgerModel, ledger_id: u64)
     requires
         init(post, ledger_id),
     ensures
@@ -17,7 +17,7 @@ pub proof fn init_preserves(post: Ledger, ledger_id: u64)
 }
 
 /// Proof: add_user preserves the invariant.
-pub proof fn add_user_preserves(pre: Ledger, post: Ledger, user: User)
+pub proof fn add_user_preserves(pre: LedgerModel, post: LedgerModel, user: UserModel)
     requires
         state_machine_invariant(pre),
         add_user(pre, post, user),
@@ -78,7 +78,7 @@ pub proof fn add_user_preserves(pre: Ledger, post: Ledger, user: User)
 }
 
 /// Proof: add_device preserves the invariant.
-pub proof fn add_device_preserves(pre: Ledger, post: Ledger, device: Device)
+pub proof fn add_device_preserves(pre: LedgerModel, post: LedgerModel, device: DeviceModel)
     requires
         state_machine_invariant(pre),
         add_device(pre, post, device),
@@ -123,7 +123,7 @@ pub proof fn add_device_preserves(pre: Ledger, post: Ledger, device: Device)
 }
 
 /// Proof: add_bill preserves the invariant.
-pub proof fn add_bill_preserves(pre: Ledger, post: Ledger, bill: Bill)
+pub proof fn add_bill_preserves(pre: LedgerModel, post: LedgerModel, bill: BillModel)
     requires
         state_machine_invariant(pre),
         add_bill(pre, post, bill),
