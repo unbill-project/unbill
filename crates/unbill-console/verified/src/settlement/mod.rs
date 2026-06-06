@@ -24,22 +24,9 @@ pub fn split_shares(
     remainder_recipient_idx: usize,
 ) -> (result: Vec<(u64, i64)>)
     requires
-        shares.len() > 0,
-        total_cents >= 0,
-        // Bounded so that total_cents * max_weight fits in i64.
-        // i64::MAX = 9_223_372_036_854_775_807 > 2^32 * 2^31 = 2^63.
-        // With total_cents < 2^31 and weights < 2^32, the product < 2^63.
-        total_cents <= i32::MAX as i64,
-        shares.len() <= i32::MAX as usize,
-        // Total weight must be nonzero.
-        spec::spec_total_weight(shares@) > 0,
-        // Total weight fits in u64 (trivially true for practical inputs).
-        spec::spec_total_weight(shares@) <= u64::MAX as int,
-        // Total weight fits in i64 for division.
-        spec::spec_total_weight(shares@) <= i64::MAX as int,
+        spec::split_shares_requires(shares@, total_cents),
     ensures
-        spec::amount_sum(result@) == total_cents as int,
-        result.len() == shares.len(),
+        spec::split_shares_ensures(shares@, total_cents, result@),
 {
     // Sum weights.
     let mut total_weight: u64 = 0;
