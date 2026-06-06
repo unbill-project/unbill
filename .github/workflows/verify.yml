@@ -1,0 +1,49 @@
+name: Verify
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'crates/unbill-console/verified/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'crates/unbill-console/verified/**'
+
+env:
+  VERUS_VERSION: "0.2026.05.31.5dd6d83"
+  RUST_TOOLCHAIN: "1.95.0"
+
+# sirno:witness:ci-cd-pipeline:begin
+jobs:
+  verus:
+    name: Verus formal verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Verus
+        id: cache-verus
+        uses: actions/cache@v4
+        with:
+          path: ~/.verus
+          key: verus-${{ env.VERUS_VERSION }}-x86-linux
+
+      - name: Download Verus
+        if: steps.cache-verus.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.verus
+          curl -sL "https://github.com/verus-lang/verus/releases/download/release/${{ env.VERUS_VERSION }}/verus-${{ env.VERUS_VERSION }}-x86-linux.zip" -o /tmp/verus.zip
+          unzip -o /tmp/verus.zip -d ~/.verus
+          rm /tmp/verus.zip
+
+      - name: Install Rust toolchain for Verus
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustc-dev,llvm-tools
+
+      - name: Verify split_shares
+        run: |
+          ~/.verus/verus-x86-linux/verus --crate-type lib crates/unbill-console/verified/src/lib.rs
+# sirno:witness:ci-cd-pipeline:end
