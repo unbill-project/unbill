@@ -1,13 +1,15 @@
 {
-  "fast": 0.2,
-  "time": 2,
-  "depth": 6,
+  "fast": 0.5,
+  "time": 5,
+  "depth": 8,
   "packages": [ "creusot" ],
-  "provers": [ "z3" ],
+  "provers": [ "z3", "cvc5", "cvc4" ],
   "tactics": [ "compute_specified", "split_vc" ],
   "drivers": [],
   "warnoff": [ "unused_variable", "axiom_abstract" ],
   "profile": [
-    { "prover": "z3@4.16.0", "size": 30, "time": 0.5 }
+    { "prover": "z3@4.15.3", "size": 30, "time": 0.5 },
+    { "prover": "cvc5@1.3.1", "size": 45, "time": 0.5 },
+    { "prover": "cvc4@1.8", "size": 40, "time": 0.5 }
   ]
 }

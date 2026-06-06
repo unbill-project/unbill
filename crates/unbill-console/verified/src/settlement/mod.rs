@@ -1,6 +1,9 @@
 // Verified settlement math: split shares and minimum-cash-flow reduction.
 // This is the production code — unbill-console calls these functions at runtime.
 
+#[allow(unused_imports)]
+use creusot_std::macros::*;
+
 pub mod spec;
 
 // sirno:witness:formal-invariants:begin
@@ -18,6 +21,7 @@ pub mod spec;
 /// * `shares` — (id, weight) pairs for each participant
 /// * `total_cents` — the bill total in minor currency units
 /// * `remainder_recipient_idx` — index into `shares` for the rounding remainder
+#[ensures(spec::amount_sum(result@) == total_cents@)]
 pub fn split_shares<Id: Copy>(
     shares: &[(Id, u32)],
     total_cents: i64,
@@ -26,22 +30,48 @@ pub fn split_shares<Id: Copy>(
     if shares.is_empty() {
         return vec![];
     }
-    let total_weight: u32 = shares.iter().map(|(_, w)| w).sum();
-    if total_weight == 0 {
-        return shares.iter().map(|(id, _)| (*id, 0)).collect();
+
+    // Sum weights with an indexed loop so Creusot can track the invariant.
+    let mut total_weight: u32 = 0;
+    let mut i: usize = 0;
+    #[invariant(i@ <= shares@.len())]
+    while i < shares.len() {
+        total_weight += shares[i].1;
+        i += 1;
     }
-    let mut amounts: Vec<(Id, i64)> = shares
-        .iter()
-        .map(|(id, weight)| {
-            let amount = (total_cents * *weight as i64) / total_weight as i64;
-            (*id, amount)
-        })
-        .collect();
-    let assigned: i64 = amounts.iter().map(|(_, a)| a).sum();
+
+    if total_weight == 0 {
+        let mut result: Vec<(Id, i64)> = Vec::new();
+        let mut j: usize = 0;
+        #[invariant(j@ <= shares@.len())]
+        #[invariant(result@.len() == j@)]
+        #[invariant(spec::amount_sum(result@) == 0)]
+        while j < shares.len() {
+            result.push((shares[j].0, 0));
+            j += 1;
+        }
+        return result;
+    }
+
+    // Compute floor amounts and track the running sum.
+    let mut amounts: Vec<(Id, i64)> = Vec::new();
+    let mut assigned: i64 = 0;
+    let mut k: usize = 0;
+    #[invariant(k@ <= shares@.len())]
+    #[invariant(amounts@.len() == k@)]
+    #[invariant(spec::amount_sum(amounts@) == assigned@)]
+    while k < shares.len() {
+        let amount = (total_cents * shares[k].1 as i64) / total_weight as i64;
+        amounts.push((shares[k].0, amount));
+        assigned += amount;
+        k += 1;
+    }
+
+    // Assign remainder to one recipient.
     let remainder = total_cents - assigned;
     if remainder != 0 {
         let idx = remainder_recipient_idx % shares.len();
-        amounts[idx].1 += remainder;
+        amounts[idx] = (amounts[idx].0, amounts[idx].1 + remainder);
     }
     amounts
 }
