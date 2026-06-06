@@ -95,5 +95,289 @@ pub proof fn spec_total_weight_partial_le(shares: Seq<(u64, u32)>, n: int)
     }
 }
 
+// ---------------------------------------------------------------------------
+// floor division lemmas
+// ---------------------------------------------------------------------------
+
+/// Lemma: floor(a * b / c) <= a when 0 <= b <= c and c > 0.
+pub proof fn floor_div_le(a: int, b: int, c: int)
+    requires
+        a >= 0,
+        b >= 0,
+        b <= c,
+        c > 0,
+    ensures
+        (a * b) / c <= a,
+{
+    assert(a * b <= a * c) by(nonlinear_arith)
+        requires a >= 0, b <= c;
+    assert(a * b >= 0) by(nonlinear_arith)
+        requires a >= 0, b >= 0;
+    // Use vstd's monotonicity lemma: x <= y && z > 0 ==> x/z <= y/z.
+    vstd::arithmetic::div_mod::lemma_div_is_ordered(a * b, a * c, c);
+    // (a*b)/c <= (a*c)/c. Now show (a*c)/c == a.
+    // a*c == c*a, and c*a/c == a by definition.
+    assert(a * c == c * a) by(nonlinear_arith);
+    vstd::arithmetic::div_mod::lemma_div_multiples_vanish(a, c);
+}
+
+/// Lemma: floor(a * b / c) >= 0 when a >= 0, b >= 0, c > 0.
+pub proof fn floor_div_nonneg(a: int, b: int, c: int)
+    requires
+        a >= 0,
+        b >= 0,
+        c > 0,
+    ensures
+        (a * b) / c >= 0,
+{
+    assert(a * b >= 0) by(nonlinear_arith)
+        requires a >= 0, b >= 0;
+}
+
+// ---------------------------------------------------------------------------
+// sum-of-floors lemmas
+// ---------------------------------------------------------------------------
+
+/// Helper spec: sum of floor amounts.
+pub open spec fn floor_sum(
+    shares: Seq<(u64, u32)>,
+    total_cents: int,
+    total_weight: int,
+) -> int
+    decreases shares.len(),
+{
+    if shares.len() == 0 {
+        0
+    } else {
+        floor_sum(shares.drop_last(), total_cents, total_weight)
+            + (total_cents * shares.last().1 as int) / total_weight
+    }
+}
+
+/// Lemma: floor_sum <= t * partial_weight / W.
+/// This is the key inductive property. When partial_weight == W, gives floor_sum <= t.
+pub proof fn floor_sum_le_proportional(
+    shares: Seq<(u64, u32)>,
+    total_cents: int,
+    total_weight: int,
+)
+    requires
+        total_cents >= 0,
+        total_weight > 0,
+    ensures
+        floor_sum(shares, total_cents, total_weight) * total_weight
+            <= total_cents * spec_total_weight(shares),
+    decreases shares.len(),
+{
+    if shares.len() > 0 {
+        floor_sum_le_proportional(shares.drop_last(), total_cents, total_weight);
+        let w = shares.last().1 as int;
+        let fs_init = floor_sum(shares.drop_last(), total_cents, total_weight);
+        let tw_init = spec_total_weight(shares.drop_last());
+        let floor_last = (total_cents * w) / total_weight;
+        // IH: fs_init * W <= t * tw_init
+        // Need: (fs_init + floor_last) * W <= t * (tw_init + w)
+        // i.e.: fs_init * W + floor_last * W <= t * tw_init + t * w
+        // By IH: fs_init * W <= t * tw_init
+        // By def of floor: floor_last * W <= t * w (since floor_last <= t*w/W means floor_last*W <= t*w)
+        assert(floor_last * total_weight <= total_cents * w) by(nonlinear_arith)
+            requires total_weight > 0, floor_last == (total_cents * w) / total_weight;
+        assert((fs_init + floor_last) * total_weight <= total_cents * tw_init + total_cents * w) by(nonlinear_arith)
+            requires fs_init * total_weight <= total_cents * tw_init,
+                     floor_last * total_weight <= total_cents * w;
+        assert(total_cents * tw_init + total_cents * w == total_cents * (tw_init + w)) by(nonlinear_arith);
+    }
+}
+
+/// Lemma: floor_sum <= total_cents when total_weight == spec_total_weight(shares).
+pub proof fn floor_sum_le_total(
+    shares: Seq<(u64, u32)>,
+    total_cents: int,
+    total_weight: int,
+)
+    requires
+        total_cents >= 0,
+        total_weight > 0,
+        total_weight == spec_total_weight(shares),
+    ensures
+        floor_sum(shares, total_cents, total_weight) <= total_cents,
+{
+    floor_sum_le_proportional(shares, total_cents, total_weight);
+    // fs * W <= t * W, so fs <= t.
+    assert(floor_sum(shares, total_cents, total_weight) <= total_cents) by(nonlinear_arith)
+        requires floor_sum(shares, total_cents, total_weight) * total_weight
+                    <= total_cents * total_weight,
+                 total_weight > 0;
+}
+
+/// Lemma: floor_sum >= 0.
+pub proof fn floor_sum_nonneg(
+    shares: Seq<(u64, u32)>,
+    total_cents: int,
+    total_weight: int,
+)
+    requires
+        total_cents >= 0,
+        total_weight > 0,
+    ensures
+        floor_sum(shares, total_cents, total_weight) >= 0,
+    decreases shares.len(),
+{
+    if shares.len() > 0 {
+        floor_sum_nonneg(shares.drop_last(), total_cents, total_weight);
+        floor_div_nonneg(total_cents, shares.last().1 as int, total_weight);
+    }
+}
+
+/// Lemma: total rounding loss < n.
+/// Proved by: floor_sum * W >= t * sum(w_i) - n * W + n (each floor loses < 1).
+/// Equivalently: t * sum(w_i) - floor_sum * W < n * W.
+pub proof fn floor_sum_loss_bound(
+    shares: Seq<(u64, u32)>,
+    total_cents: int,
+    total_weight: int,
+)
+    requires
+        total_cents >= 0,
+        total_weight > 0,
+        shares.len() > 0,
+    ensures
+        total_cents * spec_total_weight(shares)
+            - floor_sum(shares, total_cents, total_weight) * total_weight
+            < shares.len() as int * total_weight,
+        total_cents * spec_total_weight(shares)
+            - floor_sum(shares, total_cents, total_weight) * total_weight
+            >= 0,
+    decreases shares.len(),
+{
+    if shares.len() == 1 {
+        // Single element: loss = t*w - floor(t*w/W)*W ∈ [0, W).
+        let w = shares.last().1 as int;
+        let floor_val = (total_cents * w) / total_weight;
+        assert(total_cents * w - floor_val * total_weight >= 0) by(nonlinear_arith)
+            requires total_cents >= 0, w >= 0, total_weight > 0,
+                     floor_val == (total_cents * w) / total_weight;
+        assert(total_cents * w - floor_val * total_weight < total_weight) by(nonlinear_arith)
+            requires total_weight > 0, floor_val == (total_cents * w) / total_weight,
+                     total_cents >= 0, w >= 0;
+        spec_total_weight_nonneg(shares.drop_last());
+        assert(shares.drop_last().len() == 0);
+        assert(spec_total_weight(shares.drop_last()) == 0);
+        assert(floor_sum(shares.drop_last(), total_cents, total_weight) == 0);
+    } else {
+        floor_sum_loss_bound(shares.drop_last(), total_cents, total_weight);
+        let w = shares.last().1 as int;
+        let floor_last = (total_cents * w) / total_weight;
+        // Per-term loss: t*w - floor_last * W ∈ [0, W).
+        // This is just (t*w) % W, which is in [0, W).
+        // The inductive step adds one term with loss < W.
+        assert(total_cents * w - floor_last * total_weight >= 0) by(nonlinear_arith)
+            requires total_cents >= 0, w >= 0, total_weight > 0,
+                     floor_last == (total_cents * w) / total_weight;
+        assert(total_cents * w - floor_last * total_weight < total_weight) by(nonlinear_arith)
+            requires total_weight > 0, floor_last == (total_cents * w) / total_weight,
+                     total_cents >= 0, w >= 0;
+        spec_total_weight_nonneg(shares.drop_last());
+        let tw_init = spec_total_weight(shares.drop_last());
+        let fs_init = floor_sum(shares.drop_last(), total_cents, total_weight);
+        // IH: t * tw_init - fs_init * W < (n-1) * W and >= 0.
+        // New: t * (tw_init + w) - (fs_init + floor_last) * W
+        //    = (t * tw_init - fs_init * W) + (t * w - floor_last * W)
+        //    < (n-1) * W + W = n * W.
+        assert(total_cents * (tw_init + w) - (fs_init + floor_last) * total_weight
+            == (total_cents * tw_init - fs_init * total_weight)
+                + (total_cents * w - floor_last * total_weight)) by(nonlinear_arith);
+        assert((total_cents * tw_init - fs_init * total_weight)
+                + (total_cents * w - floor_last * total_weight)
+            < (shares.drop_last().len() as int) * total_weight + total_weight) by(nonlinear_arith)
+            requires
+                total_cents * tw_init - fs_init * total_weight < shares.drop_last().len() as int * total_weight,
+                total_cents * w - floor_last * total_weight < total_weight,
+                total_cents * tw_init - fs_init * total_weight >= 0,
+                total_cents * w - floor_last * total_weight >= 0;
+        assert(shares.drop_last().len() + 1 == shares.len());
+        assert(spec_total_weight(shares) == tw_init + w);
+        assert(floor_sum(shares, total_cents, total_weight) == fs_init + floor_last);
+        // Connect all the pieces for the postcondition.
+        assert(total_cents * (tw_init + w) == total_cents * tw_init + total_cents * w) by(nonlinear_arith);
+        assert((fs_init + floor_last) * total_weight == fs_init * total_weight + floor_last * total_weight) by(nonlinear_arith);
+        assert(total_cents * spec_total_weight(shares)
+            - floor_sum(shares, total_cents, total_weight) * total_weight
+            == (total_cents * tw_init - fs_init * total_weight)
+                + (total_cents * w - floor_last * total_weight));
+        assert((total_cents * tw_init - fs_init * total_weight)
+                + (total_cents * w - floor_last * total_weight)
+            < shares.drop_last().len() as int * total_weight + total_weight);
+        let n = shares.len() as int;
+        let n1 = shares.drop_last().len() as int;
+        assert(n == n1 + 1);
+        let il = total_cents * tw_init - fs_init * total_weight;
+        let ll = total_cents * w - floor_last * total_weight;
+        assert(total_cents * spec_total_weight(shares)
+            - floor_sum(shares, total_cents, total_weight) * total_weight
+            == il + ll);
+        assert(il + ll < n1 * total_weight + total_weight);
+        assert(n1 * total_weight + total_weight == n * total_weight) by(nonlinear_arith)
+            requires n == n1 + 1;
+    }
+}
+
+/// Lemma: remainder < n when total_weight == spec_total_weight(shares).
+pub proof fn floor_sum_remainder_lt_n(
+    shares: Seq<(u64, u32)>,
+    total_cents: int,
+    total_weight: int,
+)
+    requires
+        total_cents >= 0,
+        total_weight > 0,
+        total_weight == spec_total_weight(shares),
+    ensures
+        total_cents - floor_sum(shares, total_cents, total_weight) < shares.len(),
+        total_cents - floor_sum(shares, total_cents, total_weight) >= 0,
+{
+    floor_sum_loss_bound(shares, total_cents, total_weight);
+    // We have: t * W - floor_sum * W < n * W and >= 0.
+    // Since total_weight == W: (t - floor_sum) * W < n * W.
+    // Dividing by W > 0: t - floor_sum < n.
+    assert((total_cents - floor_sum(shares, total_cents, total_weight)) * total_weight
+        == total_cents * total_weight
+            - floor_sum(shares, total_cents, total_weight) * total_weight) by(nonlinear_arith);
+    assert((total_cents - floor_sum(shares, total_cents, total_weight)) * total_weight
+        < shares.len() as int * total_weight);
+    assert(total_cents - floor_sum(shares, total_cents, total_weight) < shares.len()) by(nonlinear_arith)
+        requires
+            (total_cents - floor_sum(shares, total_cents, total_weight)) * total_weight
+                < shares.len() as int * total_weight,
+            total_weight > 0;
+    floor_sum_le_total(shares, total_cents, total_weight);
+}
+
+/// Lemma: when each amounts[j].1 == floor(t*w_j/W), amount_sum == floor_sum.
+pub proof fn floor_sum_eq_amount_sum(
+    shares: Seq<(u64, u32)>,
+    amounts: Seq<(u64, i64)>,
+    total_cents: int,
+    total_weight: int,
+)
+    requires
+        shares.len() == amounts.len(),
+        total_weight > 0,
+        total_cents >= 0,
+        forall|j: int| 0 <= j < amounts.len() ==>
+            amounts[j].1 as int == (total_cents * shares[j].1 as int) / total_weight,
+    ensures
+        amount_sum(amounts) == floor_sum(shares, total_cents, total_weight),
+    decreases shares.len(),
+{
+    if shares.len() > 0 {
+        floor_sum_eq_amount_sum(
+            shares.drop_last(), amounts.drop_last(), total_cents, total_weight,
+        );
+        // amounts.last().1 == floor(t * shares.last().1 / W) == last term of floor_sum.
+        assert(amounts.last().1 as int == (total_cents * shares.last().1 as int) / total_weight);
+    }
+}
+
 }
 // sirno:witness:formal-invariants:end
