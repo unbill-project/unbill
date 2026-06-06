@@ -7626,6 +7626,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "unbill-model-verified"
+version = "0.0.3"
+dependencies = [
+ "vstd",
+]
+
+[[package]]
 name = "unbill-server"
 version = "0.0.3"
 dependencies = [
