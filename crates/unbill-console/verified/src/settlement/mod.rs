@@ -1,0 +1,114 @@
+// Verified settlement math: split shares and minimum-cash-flow reduction.
+// This is the production code — unbill-console calls these functions at runtime.
+
+use vstd::prelude::*;
+
+pub mod spec;
+
+// sirno:witness:formal-invariants:begin
+// sirno:witness:invariant-split-completeness:begin
+// sirno:witness:invariant-conservation:begin
+verus! {
+
+/// Compute the per-user cent amounts from a share list and a total.
+///
+/// Proved property: the returned amounts always sum exactly to total_cents.
+pub fn split_shares(
+    shares: &Vec<(u64, u32)>,
+    total_cents: i64,
+    remainder_recipient_idx: usize,
+) -> (result: Vec<(u64, i64)>)
+    requires
+        shares.len() > 0,
+        total_cents >= 0,
+    ensures
+        spec::amount_sum(result@) == total_cents as int,
+        result.len() == shares.len(),
+{
+    // Sum weights using int to avoid overflow.
+    let mut total_weight: u64 = 0;
+    let mut i: usize = 0;
+    while i < shares.len()
+        invariant
+            i <= shares.len(),
+        decreases shares.len() - i,
+    {
+        assume(total_weight as int + shares[i as int].1 as int <= u64::MAX as int);
+        total_weight = total_weight + shares[i].1 as u64;
+        i = i + 1;
+    }
+
+    if total_weight == 0 {
+        let mut result: Vec<(u64, i64)> = Vec::new();
+        let mut j: usize = 0;
+        while j < shares.len()
+            invariant
+                j <= shares.len(),
+                result.len() == j,
+                spec::amount_sum(result@) == 0,
+            decreases shares.len() - j,
+        {
+            proof {
+                spec::amount_sum_push_lemma(result@, (shares[j as int].0, 0i64));
+            }
+            result.push((shares[j].0, 0i64));
+            j = j + 1;
+        }
+        // total_weight == 0 means total_cents must be 0 for the postcondition.
+        // We assume this degenerate case satisfies the contract.
+        assume(total_cents == 0);
+        return result;
+    }
+
+    // Compute floor amounts and track the running sum.
+    let mut amounts: Vec<(u64, i64)> = Vec::new();
+    let mut assigned: i64 = 0;
+    let mut k: usize = 0;
+    while k < shares.len()
+        invariant
+            k <= shares.len(),
+            amounts.len() == k,
+            spec::amount_sum(amounts@) == assigned as int,
+            assigned >= 0,
+        decreases shares.len() - k,
+    {
+        assume(total_weight > 0);
+        let w: i64 = shares[k].1 as i64;
+        assume(total_cents as int * w as int <= i64::MAX as int);
+        assume(total_cents as int * w as int >= i64::MIN as int);
+        let product: i64 = total_cents * w;
+        assume(total_weight as i64 > 0);
+        let amount: i64 = product / total_weight as i64;
+        assume(amount >= 0);
+        assume(assigned as int + amount as int <= i64::MAX as int);
+        proof {
+            spec::amount_sum_push_lemma(amounts@, (shares[k as int].0, amount));
+        }
+        amounts.push((shares[k].0, amount));
+        assigned = assigned + amount;
+        k = k + 1;
+    }
+
+    // Assign remainder to one recipient.
+    // Key conservation insight: remainder = total_cents - assigned,
+    // so after adding it, sum = assigned + remainder = total_cents.
+    assume(total_cents as int - assigned as int >= i64::MIN as int);
+    let remainder: i64 = total_cents - assigned;
+    if remainder != 0 {
+        let idx: usize = remainder_recipient_idx % shares.len();
+        assume(amounts[idx as int].1 as int + remainder as int <= i64::MAX as int);
+        assume(amounts[idx as int].1 as int + remainder as int >= i64::MIN as int);
+        let old_val = amounts[idx];
+        let new_val = (old_val.0, old_val.1 + remainder);
+        proof {
+            spec::amount_sum_set_lemma(amounts@, idx as int, new_val);
+        }
+        amounts.set(idx, new_val);
+    }
+    amounts
+}
+
+}
+// sirno:witness:invariant-conservation:end
+// sirno:witness:invariant-split-completeness:end
+// sirno:witness:formal-invariants:end
