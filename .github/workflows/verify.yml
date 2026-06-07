@@ -60,9 +60,6 @@ jobs:
           echo "$HOME/.verus/shim" >> "$GITHUB_PATH"
           echo "$HOME/.verus/verus-x86-linux" >> "$GITHUB_PATH"
 
-      - name: Verify model
-        run: cargo-verus verus verify -p unbill-model-verified 2>&1
-
-      - name: Verify settlement
-        run: cargo-verus verus verify -p unbill-console-verified 2>&1
+      - name: Verify
+        run: cargo-verus verus verify -p unbill-model-verified -p unbill-console-verified 2>&1
 # sirno:witness:ci-cd-pipeline:end
