@@ -124,6 +124,30 @@ pub open spec fn bill_well_formed(
 }
 
 // ---------------------------------------------------------------------------
+// Split shares precondition
+// ---------------------------------------------------------------------------
+
+/// Precondition for splitting one share list at a given total.
+pub open spec fn split_shares_requires(
+    shares: Seq<ShareSpec>,
+    total_cents: i64,
+) -> bool {
+    &&& shares.len() > 0
+    &&& total_cents >= 0
+    &&& total_cents <= i32::MAX as i64
+    &&& shares.len() <= i32::MAX as int
+    &&& total_weight(shares) > 0
+    &&& total_weight(shares) <= u64::MAX as int
+    &&& total_weight(shares) <= i64::MAX as int
+}
+
+/// Both payer and payee sides of a bill satisfy split_shares_requires.
+pub open spec fn bill_splittable(bill: BillSpec) -> bool {
+    &&& split_shares_requires(bill.payers, bill.amount_cents)
+    &&& split_shares_requires(bill.payees, bill.amount_cents)
+}
+
+// ---------------------------------------------------------------------------
 // State machine invariant
 // ---------------------------------------------------------------------------
 
@@ -138,6 +162,8 @@ pub open spec fn ledger_invariant(ledger: LedgerStateSpec) -> bool {
             ledger.devices,
             ledger.bills,
         )
+    &&& forall|i: int| 0 <= i < ledger.bills.len() ==>
+        bill_splittable(#[trigger] ledger.bills[i])
 }
 
 // ---------------------------------------------------------------------------
@@ -193,6 +219,7 @@ pub open spec fn add_bill(
     &&& bill.payees.len() > 0
     &&& total_weight(bill.payers) > 0
     &&& total_weight(bill.payees) > 0
+    &&& bill_splittable(bill)
     &&& shares_reference_known_users(bill.payers, pre.users)
     &&& shares_reference_known_users(bill.payees, pre.users)
     &&& has_device(pre.devices, bill.created_by_device)
