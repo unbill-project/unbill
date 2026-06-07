@@ -3,6 +3,7 @@
 
 use super::proof;
 use super::spec;
+use unbill_model_verified::ledger::exec::Bill;
 use vstd::prelude::*;
 use vstd::slice::SliceAdditionalExecFns;
 
@@ -250,16 +251,21 @@ pub fn compute_from_balances(
 }
 
 /// Accumulate one bill into a balance vector.
-/// Adds payer_amounts at payer_indices, subtracts payee_amounts at payee_indices.
-/// Proves: if payer_total == payee_total, seq_sum(balances) == 0 is preserved.
+/// Takes a Bill from the verified ledger model plus the split_shares results.
+/// Proves: since split_shares guarantees both sides sum to bill.amount_cents,
+/// the balance zero-sum invariant is preserved.
 pub fn accumulate_bill(
     balances: &mut Vec<i64>,
+    bill: &Bill,
     payer_amounts: &Vec<i64>,
     payer_indices: &Vec<usize>,
     payee_amounts: &Vec<i64>,
     payee_indices: &Vec<usize>,
 )
     requires
+        // Amounts correspond to the bill's shares.
+        payer_amounts.len() == bill.payers.len(),
+        payee_amounts.len() == bill.payees.len(),
         payer_amounts.len() == payer_indices.len(),
         payee_amounts.len() == payee_indices.len(),
         // All indices in bounds.
@@ -267,8 +273,9 @@ pub fn accumulate_bill(
             (#[trigger] payer_indices@[i]) < old(balances).len(),
         forall|i: int| 0 <= i < payee_indices.len() ==>
             (#[trigger] payee_indices@[i]) < old(balances).len(),
-        // Conservation: payer total == payee total (from split_shares).
-        spec::seq_sum(payer_amounts@) == spec::seq_sum(payee_amounts@),
+        // Conservation from split_shares: both sides sum to amount_cents.
+        spec::seq_sum(payer_amounts@) == bill.amount_cents as int,
+        spec::seq_sum(payee_amounts@) == bill.amount_cents as int,
         // Initial balance sum is 0.
         spec::seq_sum(old(balances)@) == 0,
         // Bounded to avoid overflow.

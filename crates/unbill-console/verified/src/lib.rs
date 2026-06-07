@@ -4,7 +4,13 @@
 //
 // Clippy lints are suppressed because Verus requires specific code patterns
 // (e.g. `a = a + b` instead of `a += b`, `&Vec` instead of `&[_]`).
-#![allow(clippy::ptr_arg, clippy::assign_op_pattern, deprecated, unused_imports)]
+#![allow(
+    clippy::ptr_arg,
+    clippy::assign_op_pattern,
+    deprecated,
+    unused_imports,
+    unused_variables
+)]
 
 pub use unbill_model_verified::ledger::exec::Share;
 
