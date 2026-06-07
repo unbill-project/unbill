@@ -6,6 +6,9 @@
 use automerge::AutoCommit;
 use autosurgeon::{hydrate, reconcile};
 
+use unbill_model_verified::ledger::exec as v;
+
+use crate::verified_bridge::{ledger_to_model, model_to_ledger};
 use crate::{
     Bill, BillId, Currency, Device, EffectiveBills, Ledger, LedgerId, NewBill, NewDevice, NewUser,
     NodeId, Timestamp, UnbillError, User, UserId,
@@ -13,6 +16,7 @@ use crate::{
 
 type Result<T> = std::result::Result<T, UnbillError>;
 
+#[cfg(test)]
 const CURRENT_SCHEMA_VERSION: u32 = 1;
 
 // ---------------------------------------------------------------------------
@@ -27,16 +31,13 @@ pub(super) fn init_ledger(
     currency: Currency,
     created_at: Timestamp,
 ) -> Result<()> {
-    let ledger = Ledger {
-        ledger_id,
-        schema_version: CURRENT_SCHEMA_VERSION,
-        name,
-        currency,
-        created_at,
-        users: vec![],
-        bills: vec![],
-        devices: vec![],
-    };
+    let model = v::exec_init(
+        ledger_id.to_string().into_bytes(),
+        name.into_bytes(),
+        currency.code().as_bytes().to_vec(),
+        created_at.as_millis(),
+    );
+    let ledger = model_to_ledger(&model).map_err(|e| UnbillError::Reconcile(e.0))?;
     reconcile(doc, &ledger).map_err(|e| UnbillError::Reconcile(e.to_string()))
 }
 
@@ -55,8 +56,9 @@ pub(super) fn add_bill(
     created_by_device: NodeId,
     now: Timestamp,
 ) -> Result<BillId> {
-    let mut ledger = get_ledger(doc)?;
+    let ledger = get_ledger(doc)?;
 
+    // Validation — same checks as before.
     let user_ids: std::collections::HashSet<UserId> =
         ledger.users.iter().map(|user| user.user_id).collect();
 
@@ -77,17 +79,41 @@ pub(super) fn add_bill(
         }
     }
 
+    // Mutation through verified model.
     let bill_id = BillId::new();
-    ledger.bills.push(Bill {
-        id: bill_id,
-        amount_cents: input.amount_cents,
-        description: input.description,
-        payers: input.payers,
-        payees: input.payees,
-        prev: input.prev,
-        created_at: now,
-        created_by_device,
-    });
+    let mut model = ledger_to_model(&ledger);
+    v::exec_add_bill(
+        &mut model,
+        v::Bill {
+            id: bill_id.to_string().into_bytes(),
+            amount_cents: input.amount_cents,
+            description: input.description.into_bytes(),
+            payers: input
+                .payers
+                .iter()
+                .map(|s| v::Share {
+                    user_id: s.user_id.to_string().into_bytes(),
+                    weight: s.shares,
+                })
+                .collect(),
+            payees: input
+                .payees
+                .iter()
+                .map(|s| v::Share {
+                    user_id: s.user_id.to_string().into_bytes(),
+                    weight: s.shares,
+                })
+                .collect(),
+            prev: input
+                .prev
+                .iter()
+                .map(|id| id.to_string().into_bytes())
+                .collect(),
+            created_at: now.as_millis(),
+            created_by_device: created_by_device.to_string().into_bytes(),
+        },
+    );
+    let ledger = model_to_ledger(&model).map_err(|e| UnbillError::Reconcile(e.0))?;
     reconcile(doc, &ledger).map_err(|e| UnbillError::Reconcile(e.to_string()))?;
     Ok(bill_id)
 }
@@ -121,7 +147,7 @@ pub(super) fn list_bills(doc: &AutoCommit) -> Result<EffectiveBills> {
 // ---------------------------------------------------------------------------
 
 pub(super) fn add_user(doc: &mut AutoCommit, input: NewUser, now: Timestamp) -> Result<()> {
-    let mut ledger = get_ledger(doc)?;
+    let ledger = get_ledger(doc)?;
     if ledger
         .users
         .iter()
@@ -129,11 +155,16 @@ pub(super) fn add_user(doc: &mut AutoCommit, input: NewUser, now: Timestamp) -> 
     {
         return Ok(());
     }
-    ledger.users.push(User {
-        user_id: input.user_id,
-        display_name: input.display_name,
-        added_at: now,
-    });
+    let mut model = ledger_to_model(&ledger);
+    v::exec_add_user(
+        &mut model,
+        v::User {
+            user_id: input.user_id.to_string().into_bytes(),
+            display_name: input.display_name.into_bytes(),
+            added_at: now.as_millis(),
+        },
+    );
+    let ledger = model_to_ledger(&model).map_err(|e| UnbillError::Reconcile(e.0))?;
     reconcile(doc, &ledger).map_err(|e| UnbillError::Reconcile(e.to_string()))
 }
 
@@ -147,14 +178,19 @@ pub(super) fn list_users(doc: &AutoCommit) -> Result<Vec<User>> {
 // ---------------------------------------------------------------------------
 
 pub(super) fn add_device(doc: &mut AutoCommit, input: NewDevice, now: Timestamp) -> Result<()> {
-    let mut ledger = get_ledger(doc)?;
+    let ledger = get_ledger(doc)?;
     if ledger.devices.iter().any(|d| d.node_id == input.node_id) {
         return Ok(());
     }
-    ledger.devices.push(Device {
-        node_id: input.node_id,
-        added_at: now,
-    });
+    let mut model = ledger_to_model(&ledger);
+    v::exec_add_device(
+        &mut model,
+        v::Device {
+            node_id: input.node_id.to_string().into_bytes(),
+            added_at: now.as_millis(),
+        },
+    );
+    let ledger = model_to_ledger(&model).map_err(|e| UnbillError::Reconcile(e.0))?;
     reconcile(doc, &ledger).map_err(|e| UnbillError::Reconcile(e.to_string()))
 }
 
