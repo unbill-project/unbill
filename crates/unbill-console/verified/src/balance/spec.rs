@@ -1,5 +1,4 @@
-// Settlement balance specification.
-// Models the greedy creditor-debtor matching and proves conservation.
+// Settlement balance specification — all spec functions live here.
 
 use vstd::prelude::*;
 
@@ -55,10 +54,21 @@ pub open spec fn transaction_sum(transactions: Seq<TransactionSpec>) -> int
     }
 }
 
-/// All elements are positive.
+/// All transactions have positive amounts.
 pub open spec fn all_positive_transactions(transactions: Seq<TransactionSpec>) -> bool {
     forall|i: int| 0 <= i < transactions.len() ==>
         (#[trigger] transactions[i]).amount_cents > 0
+}
+
+/// Sum of elements in a range [from, to).
+pub open spec fn range_sum(s: Seq<i64>, from: int, to: int) -> int
+    decreases to - from,
+{
+    if from >= to {
+        0
+    } else {
+        s[from] as int + range_sum(s, from + 1, to)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -70,16 +80,19 @@ pub open spec fn settle_requires(balances: Seq<i64>) -> bool {
     &&& seq_sum(balances) == 0
     &&& balances.len() <= i32::MAX as int
     &&& positive_sum(balances) <= i64::MAX as int
+    // Each value bounded to prevent overflow on negation.
+    &&& forall|i: int| 0 <= i < balances.len() ==>
+        #[trigger] balances[i] > i64::MIN && balances[i] < i64::MAX
 }
 
-/// Postcondition: conservation — transaction total equals creditor total.
+/// Postcondition: conservation and positivity.
 pub open spec fn settle_ensures(
     balances: Seq<i64>,
     transactions: Seq<TransactionSpec>,
 ) -> bool {
-    // Conservation: total moved == total credits == total debts.
+    // Conservation: total moved == total credits.
     &&& transaction_sum(transactions) == positive_sum(balances)
-    // All amounts are positive (no zero-value or negative transactions).
+    // All amounts are positive.
     &&& all_positive_transactions(transactions)
 }
 
