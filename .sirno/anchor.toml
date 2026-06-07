@@ -175,7 +175,7 @@ fingerprint = "sha256:39ae2065080bdb70b7ed44d98c490b11016a09b34f405a34e47c10ca71
 "core.refines" = ["settlement"]
 
 [entries.invariant-settlement-balance]
-fingerprint = "sha256:dbc7d48086519557f5ff0abdbf465f15e2333f324b45dfc588d847c0c5c86bbf"
+fingerprint = "sha256:2add52dfbe48d5721823dced1d12a5eb5281603d76010ffd4ca8007422b9d0c7"
 "core.belongs" = ["formal-invariants"]
 "core.refines" = ["settlement"]
 
