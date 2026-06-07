@@ -1,7 +1,7 @@
 // Verified settlement math: split shares and minimum-cash-flow reduction.
 // This is the production code — unbill-console calls these functions at runtime.
 
-use unbill_model_verified::ledger::exec::Share;
+use unbill_model_verified::ledger::exec::*;
 use unbill_model_verified::ledger::proof::*;
 use unbill_model_verified::ledger::spec::*;
 use vstd::prelude::*;
@@ -15,14 +15,6 @@ pub mod spec;
 // sirno:witness:invariant-conservation:begin
 verus! {
 
-/// Convert exec-level shares to spec-level shares without relying on
-/// cross-crate View unfolding (which Z3 cannot beta-reduce through map+lambda).
-pub open spec fn shares_to_specs(shares: Seq<Share>) -> Seq<ShareSpec> {
-    Seq::new(shares.len() as nat, |i: int|
-        ShareSpec { user_id: shares[i].user_id@, weight: shares[i].weight }
-    )
-}
-
 /// Compute the per-share cent amounts from a share list and a total.
 /// Returns a Vec<i64> of amounts indexed by position in shares.
 pub fn split_shares(
@@ -31,7 +23,7 @@ pub fn split_shares(
     remainder_recipient_idx: usize,
 ) -> (result: Vec<i64>)
     requires
-        spec::split_shares_requires(shares_to_specs(shares@), total_cents),
+        split_shares_requires(shares_to_specs(shares@), total_cents),
         // Bounded index to avoid usize overflow in remainder loop.
         remainder_recipient_idx <= usize::MAX - shares.len(),
     ensures

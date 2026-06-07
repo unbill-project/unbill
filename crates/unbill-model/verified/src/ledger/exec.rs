@@ -59,6 +59,14 @@ impl View for Share {
     }
 }
 
+/// Convert a Seq<Share> to Seq<ShareSpec> without relying on cross-crate View unfolding.
+/// Use this in exec function contracts instead of `shares@.map(|_i, s| s@)`.
+pub open spec fn shares_to_specs(shares: Seq<Share>) -> Seq<spec::ShareSpec> {
+    Seq::new(shares.len() as nat, |i: int|
+        spec::ShareSpec { user_id: shares[i].user_id@, weight: shares[i].weight }
+    )
+}
+
 impl View for User {
     type V = spec::UserSpec;
     open spec fn view(&self) -> spec::UserSpec {

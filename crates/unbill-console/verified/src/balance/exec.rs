@@ -262,12 +262,12 @@ pub fn compute_balances(
         unbill_model_verified::ledger::spec::ledger_invariant(ledger@),
         // split_shares preconditions for every bill.
         forall|b: int| 0 <= b < ledger.bills.len() ==> (
-            crate::settlement::spec::split_shares_requires(
-                crate::settlement::shares_to_specs((#[trigger] ledger.bills@[b]).payers@),
+            unbill_model_verified::ledger::spec::split_shares_requires(
+                unbill_model_verified::ledger::exec::shares_to_specs((#[trigger] ledger.bills@[b]).payers@),
                 ledger.bills@[b].amount_cents,
             )
-            && crate::settlement::spec::split_shares_requires(
-                crate::settlement::shares_to_specs(ledger.bills@[b].payees@),
+            && unbill_model_verified::ledger::spec::split_shares_requires(
+                unbill_model_verified::ledger::exec::shares_to_specs(ledger.bills@[b].payees@),
                 ledger.bills@[b].amount_cents,
             )
         ),
@@ -317,12 +317,12 @@ pub fn compute_balances(
             spec::seq_sum(balances@) == 0,
             unbill_model_verified::ledger::spec::ledger_invariant(ledger@),
             forall|k: int| 0 <= k < ledger.bills.len() ==> (
-                crate::settlement::spec::split_shares_requires(
-                    crate::settlement::shares_to_specs((#[trigger] ledger.bills@[k]).payers@),
+                unbill_model_verified::ledger::spec::split_shares_requires(
+                    unbill_model_verified::ledger::exec::shares_to_specs((#[trigger] ledger.bills@[k]).payers@),
                     ledger.bills@[k].amount_cents,
                 )
-                && crate::settlement::spec::split_shares_requires(
-                    crate::settlement::shares_to_specs(ledger.bills@[k].payees@),
+                && unbill_model_verified::ledger::spec::split_shares_requires(
+                    unbill_model_verified::ledger::exec::shares_to_specs(ledger.bills@[k].payees@),
                     ledger.bills@[k].amount_cents,
                 )
             ),

@@ -29,20 +29,6 @@ pub open spec fn floor_amount(
     (total_cents * shares[i].weight as int) / total_weight(shares)
 }
 
-/// Precondition for split_shares.
-pub open spec fn split_shares_requires(
-    shares: Seq<ShareSpec>,
-    total_cents: i64,
-) -> bool {
-    &&& shares.len() > 0
-    &&& total_cents >= 0
-    &&& total_cents <= i32::MAX as i64
-    &&& shares.len() <= i32::MAX as int
-    &&& total_weight(shares) > 0
-    &&& total_weight(shares) <= u64::MAX as int
-    &&& total_weight(shares) <= i64::MAX as int
-}
-
 /// Postcondition for split_shares.
 pub open spec fn split_shares_ensures(
     shares: Seq<ShareSpec>,
