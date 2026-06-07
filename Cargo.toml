@@ -15,6 +15,7 @@ members = [
     "crates/unbill-event",
     "crates/unbill-symmetric-channel",
     "crates/unbill-model",
+    "crates/unbill-model/verified",
     "crates/unbill-storage",
     "crates/unbill-store-fs",
     "crates/unbill-store-memory",

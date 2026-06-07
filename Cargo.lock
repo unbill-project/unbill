@@ -7622,7 +7622,15 @@ dependencies = [
  "serde",
  "thiserror 2.0.18",
  "ulid",
+ "unbill-model-verified",
  "web-time",
+]
+
+[[package]]
+name = "unbill-model-verified"
+version = "0.0.3"
+dependencies = [
+ "vstd",
 ]
 
 [[package]]

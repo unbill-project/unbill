@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - 'crates/unbill-console/verified/**'
+      - 'crates/unbill-model/verified/**'
   pull_request:
     branches: [main]
     paths:
       - 'crates/unbill-console/verified/**'
+      - 'crates/unbill-model/verified/**'
 
 env:
   VERUS_VERSION: "0.2026.05.31.5dd6d83"
@@ -46,4 +48,8 @@ jobs:
       - name: Verify split_shares
         run: |
           ~/.verus/verus-x86-linux/verus --crate-type lib crates/unbill-console/verified/src/lib.rs
+
+      - name: Verify ledger model
+        run: |
+          ~/.verus/verus-x86-linux/verus --crate-type lib --rlimit 30 crates/unbill-model/verified/src/lib.rs
 # sirno:witness:ci-cd-pipeline:end

@@ -1,0 +1,11 @@
+[package]
+name = "unbill-model-verified"
+description = "Formally verified ledger model for unbill, proven with Verus."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+vstd = { version = "=0.0.0-2026-05-31-0205", default-features = false }

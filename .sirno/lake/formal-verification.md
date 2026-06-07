@@ -20,85 +20,165 @@ Verus is a modified Rust compiler. It ships as a prebuilt binary with bundled Z3
 The devenv packages it via a Nix derivation wrapping the prebuilt release.
 The wrapper shims `rustup` so Verus finds its bundled Rust 1.95.0 toolchain.
 
-Verification: `verus --crate-type lib crates/unbill-console/verified/src/lib.rs`
-
-The verified crate depends on `vstd` from crates.io.
+All verified crates depend on `vstd` from crates.io.
 Under `cargo build`, `verus!{}` expands to valid Rust with ghost code erased.
 Under `verus`, the full verification runs.
-The `unbill-console` crate depends on `unbill-console-verified` and calls the verified functions at runtime.
+Verified crates use the workspace edition (2024).
 
-## Crate edition
+## Three-layer model architecture
 
-The verified crate uses `edition = "2021"`, not the workspace's `edition = "2024"`.
-This is required because `vstd` is compiled for edition 2021.
-Verus's `verus!{}` macro may not support 2024 syntax.
+The verification model mirrors the production architecture in three layers,
+from bottom to top:
+
+### Layer 1: LedgerStateModel
+
+The lowest layer. Structurally equivalent to the production `Ledger` struct.
+Contains ledger_id, users, bills, devices — every field the production type has.
+
+Spec types use `Seq` for reasoning (`spec.rs`).
+Runtime types use `Vec` for execution (`exec.rs`).
+Two conversion functions bridge the production CRDT `Ledger` and the model:
+- `ledger_to_model`: production Ledger → LedgerStateModel
+- `model_to_ledger`: LedgerStateModel → production Ledger
+Their correctness is covered by tests, not Verus,
+because Automerge types are outside Verus's reach.
+
+Each ledger operation (add_user, add_device, add_bill) is a single transition predicate
+`op(pre, post, input) -> bool` that defines a valid move.
+A state machine invariant is proved preserved by each transition.
+
+### Layer 2: DeviceStateModel
+
+Represents one device's local state. A struct containing:
+- `device_id`: the device's own identity.
+- `ledgers`: the ledgers this device manages.
+- Future: local metadata, sync state.
+
+This matches the production architecture where each device
+(CLI, TUI, Tauri app, daemon) holds multiple ledgers,
+each backed by a separate Automerge document.
+
+### Layer 3: WorldModel
+
+The global picture. Contains:
+- `devices`: the set of all devices in the system.
+- `ulid_state`: tracks all generated IDs to ensure global uniqueness.
+- Future: network model for sync/merge.
+
+ULID uniqueness is modeled as a formal property:
+`ulid_unique(state)` asserts all generated IDs are distinct.
+We *trust* that `Ulid::new()` produces fresh IDs (axiom),
+but we *describe* the uniqueness property formally
+so downstream proofs can depend on it.
+
+The three layers are designed so that future modules can:
+- Prove conservation across bill operations (layer 1).
+- Prove device-level invariants (layer 2).
+- Prove sync correctness and global uniqueness (layer 3).
+
+## Production wiring
+
+All mutations in `ops.rs` flow through verified exec functions:
+
+```
+CRDT → hydrate → Ledger → ledger_to_model → LedgerState
+                                                 ↓ (verified exec)
+CRDT ← reconcile ← Ledger ← model_to_ledger ← LedgerState
+```
+
+`init_ledger`, `add_user`, `add_device`, `add_bill` in `ops.rs`
+each call the corresponding verified exec function.
+Validation (user exists, bill ID valid) stays in `ops.rs` before calling exec.
+The exec functions do the actual push — proved to preserve `ledger_invariant`.
+
+The bridge (`verified_bridge.rs` in `unbill-model`) provides:
+- `ledger_to_model(ledger: &Ledger) -> LedgerState`
+- `model_to_ledger(model: &LedgerState) -> Result<Ledger, BridgeError>`
+
+Round-trip tested: `ledger_to_model ∘ model_to_ledger` preserves all fields.
+
+The key bridge proof lemma `seq_map_push` connects `Vec::push`
+through `View` to spec `Seq::push`, enabling Verus to verify
+that the exec push satisfies the spec transition predicate.
 
 ## Code structure
 
-Each verified module has three files:
+Each verified module has up to four files:
 
 ```
-crates/unbill-console/verified/src/settlement/
-    mod.rs      -- exec functions with requires/ensures contracts
-    spec.rs     -- interface specs only: spec fn used in contracts
-    proof.rs    -- proof fn lemmas and helper spec fn for proof guidance
+spec.rs     -- spec types (Seq-based) and interface predicates
+proof.rs    -- proof fn lemmas for invariant preservation
+exec.rs     -- runtime types (Vec-based) and exec functions
+mod.rs      -- module re-exports
 ```
 
-`spec.rs` is kept short.
-It defines only the `spec fn` that appear in `requires`/`ensures` clauses
-of public functions: `amount_sum`, `spec_total_weight`, `floor_amount`,
-`split_shares_requires`, `split_shares_ensures`.
-No lemmas, no proof utilities, no executable code.
+`spec.rs` is kept short: only spec fn used in contracts.
+`proof.rs` contains proof utilities referenced only from `proof {}` blocks.
+`exec.rs` contains runtime types and exec functions callable by production code.
 
-`proof.rs` contains proof utilities:
-`proof fn` lemmas that establish properties of the spec functions,
-and any helper `spec fn` needed only for proof decomposition.
-These are never referenced from contracts — only from `proof {}` blocks.
-
-`mod.rs` contains the `exec fn` implementations inside `verus!{}` blocks.
-Contracts reference `spec.rs` definitions.
-Inline `proof {}` blocks invoke lemmas from `proof.rs` to guide the solver.
-
-## Why a separate crate
+## Why separate verified crates
 
 Verus cannot process crates that use `dyn` trait objects.
-The `std::error::Error` trait requires `dyn` in its `source()` method,
-so any crate using `thiserror` or `autosurgeon` (which generates `dyn Error`)
-cannot be compiled by Verus.
+`thiserror` and `autosurgeon` generate `dyn Error`,
+so production model crates cannot be compiled by Verus.
 
-The verified crate isolates pure arithmetic from the `dyn`-heavy dependency graph.
-Functions are parameterized over `u64` IDs instead of `UserId`/`BillId`.
-The `unbill-console` wrapper maps domain types to/from the verified types.
-
-## Clippy
-
-The verified crate suppresses clippy lints at the crate level:
-`ptr_arg` (Verus requires `&Vec` not `&[_]`),
-`assign_op_pattern` (Verus requires `a = a + b` not `a += b`),
-`deprecated` (vstd's `SliceAdditionalExecFns::set`),
-`unused_imports` (vstd imports used only by Verus, erased under cargo).
+Verified crates isolate pure logic from the `dyn`-heavy dependency graph.
+IDs are modeled as `Seq<u8>` (spec) / `Vec<u8>` (exec),
+matching the production ULID string representation.
+Production code maps domain types to/from verified types at the boundary.
 
 ## Contract pattern
 
-Each public function has a single `requires` predicate and a single `ensures` predicate,
-both named after the function:
+Each public exec function has a single requires and ensures predicate,
+named after the function:
 
 ```
 requires spec::split_shares_requires(shares@, total_cents),
 ensures  spec::split_shares_ensures(shares@, total_cents, result@),
 ```
 
-The predicates bundle all clauses. This keeps the function signature clean
-and makes the specification easy to find in `spec.rs`.
+Each ledger operation is a single spec predicate `op(pre, post, input) -> bool`.
+The state machine invariant is separate — not embedded in the transition predicate.
+Preservation is proved as: `invariant(pre) && op(pre, post, input) ==> invariant(post)`.
+
+## Clippy
+
+Verified crates suppress clippy lints at the crate level:
+`ptr_arg` (Verus requires `&Vec` not `&[_]`),
+`assign_op_pattern` (Verus requires `a = a + b` not `a += b`),
+`len_zero` (Verus requires `len() == 0` not `is_empty()`),
+`deprecated` (vstd's `SliceAdditionalExecFns::set`),
+`unused_imports` (vstd imports erased under cargo).
 
 ## Verification workflow
 
-1. Define or update the specification in `spec.rs`.
-2. Write or update proof lemmas in `proof.rs`.
-3. Implement the function in `mod.rs` with contracts and proof blocks.
-4. Run `verus --crate-type lib crates/unbill-console/verified/src/lib.rs`.
+1. Define spec types and predicates in `spec.rs`.
+2. Write proof lemmas in `proof.rs`.
+3. Implement exec functions in `exec.rs` with contracts and proof blocks.
+4. Run `verus --crate-type lib <crate>/src/lib.rs`.
 5. All verified code compiles with `cargo build` (`verus!{}` strips ghost code).
-6. Run `cargo test -p unbill-console` to confirm integration.
+6. Write tests for the spec↔production type conversion functions.
+
+## What works well for verification
+
+Mathematical properties with clear invariants:
+- Sum preservation (split_shares conservation).
+- Fairness bounds (each share within 1 cent of ideal).
+- Overflow absence (arithmetic stays within type bounds).
+
+These are properties that tests can't fully cover
+because the input space is too large for exhaustive testing.
+
+## What is less suited for verification
+
+Structural validation (IDs unique, references valid)
+that production code already enforces at runtime.
+The proof effort is high and the insight is low —
+the invariants restate checks that `ops.rs` already performs.
+
+The Vec↔Seq bridge (mapping between runtime Vec and spec Seq)
+is mechanical and tedious. Minimizing the gap between
+spec types and exec types reduces this overhead.
 
 ## Lessons learned
 
@@ -110,54 +190,31 @@ Loops must be explicit `while` with `invariant` and `decreases` clauses.
 Z3's default solver cannot reason about products and quotients.
 Use `assert(...) by(nonlinear_arith) requires ...;` to dispatch
 nonlinear goals to a specialized solver.
-Keep the `requires` minimal — only the facts the nonlinear solver needs.
 
 ### `ext_eq` (`=~=`) for sequence equalities
 When proving two `Seq` values are equal (e.g., `s.push(x).drop_last() =~= s`),
 use extensional equality. The solver cannot derive this from axioms alone.
 
 ### Modular arithmetic needs manual case analysis
-Z3 struggles with `%`. Prove modular properties by:
-1. Using `vstd::arithmetic::div_mod::lemma_fundamental_div_mod` to decompose `x = q*d + r`.
-2. Using `lemma_fundamental_div_mod_converse_mod` to establish `r == x % d`.
-3. Case-splitting on whether `b + r < n` or `b + r >= n`.
-The `mod_distinct` lemma (distinct indices under modular wrap) required
-explicit case analysis across four cases.
-
-### Floor division bounds require multiplicative reasoning
-To prove `floor(a*b/c) <= a` when `b <= c`:
-1. Prove `a*b <= a*c` via `nonlinear_arith`.
-2. Use `vstd::arithmetic::div_mod::lemma_div_is_ordered` for monotonicity.
-3. Use `lemma_div_multiples_vanish` for `(c*a)/c == a`.
+Z3 struggles with `%`. Use vstd `lemma_fundamental_div_mod` to decompose,
+`lemma_fundamental_div_mod_converse_mod` to establish remainders,
+and case-split on whether the sum wraps around.
 
 ### Sum-of-floors requires a proportional bound
-To prove `Σ floor(t*w_i/W) <= t`:
-1. Prove the stronger `floor_sum * W <= t * Σw_i` by induction.
-2. Each step uses `floor_last * W <= t * w_last` (from floor definition).
-3. When `Σw_i == W`, conclude `floor_sum <= t`.
+Prove `floor_sum * W <= t * Σw_i` by induction.
+Each step uses `floor_last * W <= t * w_last`.
+When `Σw_i == W`, conclude `floor_sum <= t`.
 
-To prove remainder `< n`:
-1. Prove `t * Σw_i - floor_sum * W < n * W` (each floor loses `< W`).
-2. Divide by `W > 0` to get `t - floor_sum < n`.
+### Ghost state for remainder distribution
+Track `floor_amounts` snapshot and per-element invariant (floor or floor+1).
+Use `mod_distinct` lemma to prove each index visited at most once.
 
-### Track ghost state for the remainder loop
-The remainder distribution loop needs ghost state to prove fairness:
-- `floor_amounts`: snapshot of amounts before remainder distribution.
-- Per-element invariant: each amount is either `floor_amounts[j].1` or `floor_amounts[j].1 + 1`.
-- "Unvisited" invariant: indices not yet touched still equal their floor value.
-- The `mod_distinct` lemma proves the current index was not previously visited.
-
-### Overflow requires preconditions, not runtime checks
+### Overflow requires preconditions
 Verus checks every arithmetic operation for overflow.
-Adding `requires total_cents <= i32::MAX, shares.len() <= i32::MAX`
-allows proving `total_cents * weight <= i32::MAX * u32::MAX < i64::MAX`
-via `nonlinear_arith`. Track the bound through loop invariants.
-The product `total_cents * (k+1)` chain needs explicit step-by-step assertions
-because `nonlinear_arith` can't handle long chains.
+Add bounded preconditions and track bounds through loop invariants.
 
-### Connecting runtime sums to spec sums
-The `floor_sum_eq_amount_sum` lemma bridges the gap between:
-- `amount_sum(amounts@)` — the recursive spec sum over the Vec's view.
-- `floor_sum(shares@, t, W)` — the recursive spec sum over floor divisions.
-When each `amounts[j].1 == floor(t * shares[j].1 / W)` (tracked as a loop invariant),
-these two sums are equal. Proved by induction over `drop_last`.
+### Vec↔Seq bridge lemmas
+To connect runtime `Vec<T>` views to spec `Seq<T::View>`:
+- Use `assert(vec@.map(|i, x| x@)[k] == vec@[k]@)` to distribute map.
+- Prove `has_foo_true` and `has_foo_false` lemmas by contradiction or witness.
+- Triggers cannot contain lambdas — trigger on `vec[k]` not `vec.map(f)[k]`.
