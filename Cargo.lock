@@ -7622,6 +7622,7 @@ dependencies = [
  "serde",
  "thiserror 2.0.18",
  "ulid",
+ "unbill-model-verified",
  "web-time",
 ]
 
