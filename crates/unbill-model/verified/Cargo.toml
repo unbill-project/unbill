@@ -8,4 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
-vstd = { version = "=0.0.0-2026-05-31-0205", default-features = false }
+vstd = "=0.0.0-2026-05-31-0205"
+
+[package.metadata.verus]
+verify = true

@@ -30,23 +30,36 @@ let
         cp -r . $out/lib/verus/
       '';
     };
-  in pkgs.writeShellScriptBin "verus" ''
-    # Verus shells out to `rustup run 1.95.0 ...` to find rust_verify.
-    # We bypass rustup by putting a shim that directly execs the command,
-    # and adding the Rust 1.95.0 toolchain to PATH.
-    export VERUS_RUSTUP_SHIM_DIR=$(mktemp -d)
-    cat > "$VERUS_RUSTUP_SHIM_DIR/rustup" << 'RUSTUP_SHIM'
-    #!/bin/sh
-    case "$1" in
-      run) shift; shift; exec "$@" ;;
-      install) exit 0 ;;
-      *) echo "1.95.0-x86_64-unknown-linux-gnu (verus nix shim)" ;;
-    esac
-    RUSTUP_SHIM
-    chmod +x "$VERUS_RUSTUP_SHIM_DIR/rustup"
-    export PATH="$VERUS_RUSTUP_SHIM_DIR:${rust195}/bin:$PATH"
-    exec ${verus-unwrapped}/lib/verus/verus "$@"
-  '';
+
+    # Shared setup for verus and cargo-verus: rustup shim + Rust 1.95.0 on PATH.
+    verus-env = ''
+      export VERUS_RUSTUP_SHIM_DIR=$(mktemp -d)
+      cat > "$VERUS_RUSTUP_SHIM_DIR/rustup" << 'RUSTUP_SHIM'
+      #!/bin/sh
+      case "$1" in
+        run) shift; shift; exec "$@" ;;
+        install) exit 0 ;;
+        *) echo "1.95.0-x86_64-unknown-linux-gnu (verus nix shim)" ;;
+      esac
+      RUSTUP_SHIM
+      chmod +x "$VERUS_RUSTUP_SHIM_DIR/rustup"
+      export PATH="$VERUS_RUSTUP_SHIM_DIR:${rust195}/bin:${verus-unwrapped}/lib/verus:$PATH"
+    '';
+
+    verus-bin = pkgs.writeShellScriptBin "verus" ''
+      ${verus-env}
+      exec ${verus-unwrapped}/lib/verus/verus "$@"
+    '';
+
+    cargo-verus-bin = pkgs.writeShellScriptBin "cargo-verus" ''
+      ${verus-env}
+      exec ${verus-unwrapped}/lib/verus/cargo-verus "$@"
+    '';
+
+  in pkgs.symlinkJoin {
+      name = "verus-tools";
+      paths = [ verus-bin cargo-verus-bin ];
+    };
 
   libcxxELF = pkgs.runCommand "libcxx-elf" {} ''
     mkdir -p $out/lib
