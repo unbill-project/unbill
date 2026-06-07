@@ -7575,6 +7575,7 @@ dependencies = [
 name = "unbill-console-verified"
 version = "0.0.3"
 dependencies = [
+ "unbill-model-verified",
  "vstd",
 ]
 

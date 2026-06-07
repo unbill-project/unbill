@@ -45,11 +45,21 @@ jobs:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
           components: rustc-dev,llvm-tools
 
-      - name: Verify split_shares
+      - name: Set up cargo-verus
         run: |
-          ~/.verus/verus-x86-linux/verus --crate-type lib crates/unbill-console/verified/src/lib.rs
+          mkdir -p ~/.verus/shim
+          cat > ~/.verus/shim/rustup << 'RUSTUP_SHIM'
+          #!/bin/sh
+          case "$1" in
+            run) shift; shift; [ "$1" = "--" ] && shift; exec "$@" ;;
+            install) exit 0 ;;
+            *) echo "1.95.0-x86_64-unknown-linux-gnu (ci shim)" ;;
+          esac
+          RUSTUP_SHIM
+          chmod +x ~/.verus/shim/rustup
+          echo "$HOME/.verus/shim" >> "$GITHUB_PATH"
+          echo "$HOME/.verus/verus-x86-linux" >> "$GITHUB_PATH"
 
-      - name: Verify ledger model
-        run: |
-          ~/.verus/verus-x86-linux/verus --crate-type lib --rlimit 30 crates/unbill-model/verified/src/lib.rs
+      - name: Verify
+        run: cargo-verus verus verify -p unbill-model-verified -p unbill-console-verified 2>&1
 # sirno:witness:ci-cd-pipeline:end

@@ -1,6 +1,9 @@
 ---
 core.desc: The structure and tooling for formally verifying unbill's ledger invariants with Verus.
 core.name: Formal Verification
+meta:
+  frozen:
+    - reviewed
 core.category:
   - core.meta
 core.belongs:
@@ -22,8 +25,21 @@ The wrapper shims `rustup` so Verus finds its bundled Rust 1.95.0 toolchain.
 
 All verified crates depend on `vstd` from crates.io.
 Under `cargo build`, `verus!{}` expands to valid Rust with ghost code erased.
-Under `verus`, the full verification runs.
+Under `cargo-verus`, the full verification runs.
 Verified crates use the workspace edition (2024).
+
+### cargo-verus for cross-crate verification
+
+The standalone `verus` command cannot resolve Cargo dependencies.
+When one verified crate depends on another (e.g. console-verified → model-verified),
+use `cargo-verus verus verify -p <package>` instead.
+
+cargo-verus uses `RUSTC_WRAPPER` to invoke the Verus compiler through Cargo.
+It needs a `rustup` shim on PATH because Verus internally calls `rustup run`.
+The devenv and CI both provide this shim.
+
+Each verified crate must declare `[package.metadata.verus] verify = true`
+in its `Cargo.toml` for cargo-verus to process it.
 
 ## Three-layer model architecture
 
@@ -127,14 +143,46 @@ IDs are modeled as `Seq<u8>` (spec) / `Vec<u8>` (exec),
 matching the production ULID string representation.
 Production code maps domain types to/from verified types at the boundary.
 
+## Cross-crate type sharing
+
+The settlement module in `unbill-console-verified` reuses `Share`/`ShareSpec`
+and `total_weight` lemmas from `unbill-model-verified`.
+
+### Wildcard imports for erased items
+
+Under `cargo build`, Verus spec/proof fns are erased from the compiled output.
+Named imports of erased items (`use model::proof::{total_weight_push}`) fail with E0432.
+Use wildcard imports (`use model::proof::*`) instead — they silently import nothing
+when items are erased, and import everything under cargo-verus.
+
+### Cross-crate View unfolding
+
+Z3 cannot beta-reduce `shares@.map(|_i, s: Share| s@)` across crate boundaries.
+The `open spec fn view()` trait impl from the model crate is not unfolded
+by the SMT solver when used in the consumer crate.
+
+The workaround is a local `open spec fn` using `Seq::new` with explicit
+struct construction, bypassing the View trait entirely:
+
+```
+pub open spec fn shares_to_specs(shares: Seq<Share>) -> Seq<ShareSpec> {
+    Seq::new(shares.len() as nat, |i: int|
+        ShareSpec { user_id: shares[i].user_id@, weight: shares[i].weight }
+    )
+}
+```
+
+This gives Verus direct `Seq::new` axiom access for element properties
+(`spec_shares[i].weight == shares@[i].weight` becomes trivially true).
+
 ## Contract pattern
 
 Each public exec function has a single requires and ensures predicate,
 named after the function:
 
 ```
-requires spec::split_shares_requires(shares@, total_cents),
-ensures  spec::split_shares_ensures(shares@, total_cents, result@),
+requires spec::split_shares_requires(shares_to_specs(shares@), total_cents),
+ensures  spec::split_shares_ensures(shares_to_specs(shares@), total_cents, result@),
 ```
 
 Each ledger operation is a single spec predicate `op(pre, post, input) -> bool`.
@@ -155,7 +203,7 @@ Verified crates suppress clippy lints at the crate level:
 1. Define spec types and predicates in `spec.rs`.
 2. Write proof lemmas in `proof.rs`.
 3. Implement exec functions in `exec.rs` with contracts and proof blocks.
-4. Run `verus --crate-type lib <crate>/src/lib.rs`.
+4. Run `cargo-verus verus verify -p <crate>` (for cross-crate deps).
 5. All verified code compiles with `cargo build` (`verus!{}` strips ghost code).
 6. Write tests for the spec↔production type conversion functions.
 
@@ -215,6 +263,11 @@ Add bounded preconditions and track bounds through loop invariants.
 
 ### Vec↔Seq bridge lemmas
 To connect runtime `Vec<T>` views to spec `Seq<T::View>`:
-- Use `assert(vec@.map(|i, x| x@)[k] == vec@[k]@)` to distribute map.
+- `Vec<T>@` gives `Seq<T>` not `Seq<T::V>`. Use `.map(|_i, s| s@)` or `Seq::new`.
 - Prove `has_foo_true` and `has_foo_false` lemmas by contradiction or witness.
 - Triggers cannot contain lambdas — trigger on `vec[k]` not `vec.map(f)[k]`.
+
+### Cross-crate View does not unfold
+Z3 cannot beta-reduce through `Seq::map` + lambda + cross-crate `View::view()`.
+Use `Seq::new` with explicit field construction instead of `.map(|_i, s| s@)`.
+See "Cross-crate View unfolding" above for the full pattern.

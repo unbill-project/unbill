@@ -144,9 +144,9 @@ pub fn compute_from_balances(currency: Currency, balances: HashMap<UserId, i64>)
 /// Compute the per-user cent amounts from a share list and a total.
 ///
 /// Each user receives `floor((total_cents × share_weight) / total_weight)`.
-/// The rounding remainder is assigned in full to a single user selected by
-/// `fnv1a(bill_id) mod len(shares)`, making the result deterministic across
-/// all peers for the same bill.
+/// The rounding remainder is distributed one cent at a time to consecutive
+/// users starting at `fnv1a(bill_id) mod len(shares)`, making the result
+/// deterministic across all peers for the same bill.
 ///
 /// Delegates to the formally verified `split_shares` in `unbill-console-verified`.
 pub fn split_shares(
@@ -162,24 +162,27 @@ pub fn split_shares(
         return shares.iter().map(|s| (s.user_id, 0)).collect();
     }
 
-    // Map Share → (u64 index, u32 weight) for the verified function.
-    let indexed_shares: Vec<(u64, u32)> = shares
+    // Map production Share → model Share for the verified function.
+    let model_shares: Vec<unbill_console_verified::Share> = shares
         .iter()
-        .enumerate()
-        .map(|(i, s)| (i as u64, s.shares))
+        .map(|s| unbill_console_verified::Share {
+            user_id: s.user_id.to_string().into_bytes(),
+            weight: s.shares,
+        })
         .collect();
     let remainder_idx = fnv1a(bill_id.to_string().as_bytes()) as usize;
 
-    let verified_result = unbill_console_verified::settlement::split_shares(
-        &indexed_shares,
+    let verified_amounts = unbill_console_verified::settlement::split_shares(
+        &model_shares,
         total_cents,
         remainder_idx,
     );
 
-    // Map (u64 index, i64 amount) back to (UserId, i64).
-    verified_result
+    // Pair amounts with user_ids by position.
+    verified_amounts
         .into_iter()
-        .map(|(idx, amount)| (shares[idx as usize].user_id, amount))
+        .enumerate()
+        .map(|(i, amount)| (shares[i].user_id, amount))
         .collect()
 }
 // sirno:witness:settlement:end

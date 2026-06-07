@@ -34,6 +34,66 @@ pub proof fn seq_map_push<A, B>(seq: Seq<A>, x: A, f: spec_fn(int, A) -> B)
 }
 
 
+// ---------------------------------------------------------------------------
+// total_weight lemmas
+// ---------------------------------------------------------------------------
+
+/// total_weight distributes over push.
+pub proof fn total_weight_push(s: Seq<ShareSpec>, x: ShareSpec)
+    ensures
+        total_weight(s.push(x)) == total_weight(s) + x.weight as int,
+{
+    assert(s.push(x).drop_last() =~= s);
+}
+
+/// total_weight is always non-negative.
+pub proof fn total_weight_nonneg(shares: Seq<ShareSpec>)
+    ensures
+        total_weight(shares) >= 0,
+    decreases shares.len(),
+{
+    if shares.len() > 0 {
+        total_weight_nonneg(shares.drop_last());
+    }
+}
+
+/// Each individual weight is <= total weight.
+pub proof fn total_weight_includes_each(shares: Seq<ShareSpec>, idx: int)
+    requires
+        0 <= idx < shares.len(),
+    ensures
+        shares[idx].weight as int <= total_weight(shares),
+    decreases shares.len(),
+{
+    if shares.len() == 1 {
+        assert(shares.drop_last() =~= Seq::<ShareSpec>::empty());
+    } else if idx == shares.len() - 1 {
+        total_weight_nonneg(shares.drop_last());
+    } else {
+        total_weight_includes_each(shares.drop_last(), idx);
+    }
+}
+
+/// Partial weight sum is <= total weight.
+pub proof fn total_weight_partial_le(shares: Seq<ShareSpec>, n: int)
+    requires
+        0 <= n <= shares.len(),
+    ensures
+        total_weight(shares.subrange(0, n)) <= total_weight(shares),
+    decreases shares.len(),
+{
+    if n == shares.len() {
+        assert(shares.subrange(0, n) =~= shares);
+    } else if shares.len() > 0 {
+        total_weight_partial_le(shares.drop_last(), n);
+        assert(shares.subrange(0, n) =~= shares.drop_last().subrange(0, n));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Transition preservation
+// ---------------------------------------------------------------------------
+
 pub proof fn init_preserves(
     post: LedgerStateSpec,
     ledger_id: Seq<u8>,

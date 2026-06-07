@@ -6,4 +6,6 @@
 // (e.g. `a = a + b` instead of `a += b`, `&Vec` instead of `&[_]`).
 #![allow(clippy::ptr_arg, clippy::assign_op_pattern, deprecated, unused_imports)]
 
+pub use unbill_model_verified::ledger::exec::Share;
+
 pub mod settlement;
