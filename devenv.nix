@@ -37,7 +37,7 @@ let
       cat > "$VERUS_RUSTUP_SHIM_DIR/rustup" << 'RUSTUP_SHIM'
       #!/bin/sh
       case "$1" in
-        run) shift; shift; exec "$@" ;;
+        run) shift; shift; [ "$1" = "--" ] && shift; exec "$@" ;;
         install) exit 0 ;;
         *) echo "1.95.0-x86_64-unknown-linux-gnu (verus nix shim)" ;;
       esac
