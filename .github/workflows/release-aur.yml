@@ -27,13 +27,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update pkgver in PKGBUILD
+      - name: Update version metadata in PKGBUILD
         run: |
-          VERSION="${{ inputs.tag }}"
-          VERSION="${VERSION#v}"
-          VERSION="${VERSION//-/.}"
-          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" .github/aur/${{ matrix.package }}/PKGBUILD
+          TAG="${{ inputs.tag }}"
+          PKGVER="${TAG#v}"
+          PKGVER="${PKGVER//-/.}"
+          sed -i "s/^pkgver=.*/pkgver=${PKGVER}/" .github/aur/${{ matrix.package }}/PKGBUILD
           sed -i "s/^pkgrel=.*/pkgrel=1/" .github/aur/${{ matrix.package }}/PKGBUILD
+          sed -i "s/^_tag=.*/_tag=${TAG}/" .github/aur/${{ matrix.package }}/PKGBUILD
 
       - name: Release ${{ matrix.package }} to AUR
         uses: jbouter/aur-releaser@v0.0.8

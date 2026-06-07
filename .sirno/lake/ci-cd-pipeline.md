@@ -117,6 +117,8 @@ It delegates package publishing to AUR and Homebrew workflows when their package
 
 `release-aur.yml` publishes one AUR package per matrix entry.
 It derives `pkgver` from the tag by stripping a leading `v` and replacing hyphens with dots.
+It writes the exact GitHub release tag into `_tag` separately from `pkgver`,
+so stable `v*` tags and nightly hyphenated tags resolve the correct release asset URLs.
 It resets `pkgrel` to 1,
 then uses `jbouter/aur-releaser` with `AUR_SSH_KEY`.
 
