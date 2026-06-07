@@ -76,6 +76,31 @@ The three layers are designed so that future modules can:
 - Prove device-level invariants (layer 2).
 - Prove sync correctness and global uniqueness (layer 3).
 
+## Production wiring
+
+All mutations in `ops.rs` flow through verified exec functions:
+
+```
+CRDT → hydrate → Ledger → ledger_to_model → LedgerState
+                                                 ↓ (verified exec)
+CRDT ← reconcile ← Ledger ← model_to_ledger ← LedgerState
+```
+
+`init_ledger`, `add_user`, `add_device`, `add_bill` in `ops.rs`
+each call the corresponding verified exec function.
+Validation (user exists, bill ID valid) stays in `ops.rs` before calling exec.
+The exec functions do the actual push — proved to preserve `ledger_invariant`.
+
+The bridge (`verified_bridge.rs` in `unbill-model`) provides:
+- `ledger_to_model(ledger: &Ledger) -> LedgerState`
+- `model_to_ledger(model: &LedgerState) -> Result<Ledger, BridgeError>`
+
+Round-trip tested: `ledger_to_model ∘ model_to_ledger` preserves all fields.
+
+The key bridge proof lemma `seq_map_push` connects `Vec::push`
+through `View` to spec `Seq::push`, enabling Verus to verify
+that the exec push satisfies the spec transition predicate.
+
 ## Code structure
 
 Each verified module has up to four files:
