@@ -126,7 +126,7 @@ fingerprint = "sha256:7e58997efc61ed92cb13c9a9e69aac8932ca302bfd86d7125feed14d8b
 ]
 
 [entries.formal-verification]
-fingerprint = "sha256:fec771f61064da5ae6f1801a71a0319940d3b9e3d37b1c157aaed668d5bb61f2"
+fingerprint = "sha256:d2d2de9696d32ff031325230005eb2845112706487ebf4da34709d13054c1a6c"
 "core.belongs" = ["unbill"]
 "core.refines" = ["development-workflow"]
 

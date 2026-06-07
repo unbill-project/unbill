@@ -119,18 +119,62 @@ that the exec push satisfies the spec transition predicate.
 
 ## Code structure
 
-Each verified module has up to four files:
+Each verified module has up to four files.
+Not all are required — omit files that would be empty.
 
 ```
 spec.rs     -- spec types (Seq-based) and interface predicates
-proof.rs    -- proof fn lemmas for invariant preservation
+proof.rs    -- proof fn lemmas invoked from `proof {}` blocks
 exec.rs     -- runtime types (Vec-based) and exec functions
-mod.rs      -- module re-exports
+mod.rs      -- module root; re-exports and/or exec code
 ```
 
-`spec.rs` is kept short: only spec fn used in contracts.
-`proof.rs` contains proof utilities referenced only from `proof {}` blocks.
-`exec.rs` contains runtime types and exec functions callable by production code.
+### spec.rs
+
+The public interface of the module's verification.
+Contains only `open spec fn` definitions used in `requires`/`ensures` contracts:
+precondition predicates, postcondition predicates, type definitions, helper specs.
+No proof logic. No exec code. Kept minimal.
+
+### proof.rs
+
+Proof-only utilities: `proof fn` lemmas and helper `open spec fn` definitions
+that exist only to guide Z3. These are invoked from `proof {}` blocks
+inside exec functions. Never called at runtime.
+
+### exec.rs
+
+Runtime types and exec functions that production code can call.
+Each exec function has contracts (`requires`/`ensures`) referencing spec.rs,
+and `proof {}` blocks invoking proof.rs lemmas.
+Contains `View` impls mapping exec types to spec types.
+
+### mod.rs
+
+Module root. Either just re-exports submodules,
+or contains exec code directly (as in `unbill-console-verified/settlement/mod.rs`
+where the exec function lives in mod.rs alongside `pub mod proof; pub mod spec;`).
+
+### Example: `unbill-model-verified/src/ledger/`
+
+```
+mod.rs   -- pub mod exec; pub mod proof; pub mod spec;
+spec.rs  -- ShareSpec, BillSpec, LedgerStateSpec, total_weight,
+             ledger_invariant, transition predicates (init, add_user, ...)
+proof.rs -- seq_map_push, total_weight_push/nonneg/includes_each/partial_le,
+             init_preserves, add_user_preserves, add_device_preserves, add_bill_preserves
+exec.rs  -- Share, Bill, User, Device, LedgerState (Vec-based),
+             View impls, exec_init, exec_add_user, exec_add_device, exec_add_bill
+```
+
+### Example: `unbill-console-verified/src/settlement/`
+
+```
+mod.rs   -- pub mod proof; pub mod spec; + split_shares exec function
+spec.rs  -- amount_sum, floor_amount, split_shares_requires, split_shares_ensures
+proof.rs -- amount_sum lemmas, floor_sum lemmas, mod_distinct, floor_sum_eq_amount_sum
+           (no exec.rs — the exec function lives in mod.rs)
+```
 
 ## Why separate verified crates
 
