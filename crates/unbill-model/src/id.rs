@@ -27,6 +27,11 @@ impl Ulid {
     pub fn from_u128(n: u128) -> Self {
         Self(ulid::Ulid(n))
     }
+
+    /// Extract the raw `u128` value.
+    pub fn to_u128(self) -> u128 {
+        self.0.0
+    }
 }
 
 impl Default for Ulid {
@@ -105,6 +110,10 @@ macro_rules! define_id {
 
             pub fn as_ulid(self) -> Ulid {
                 self.0
+            }
+
+            pub fn to_u128(self) -> u128 {
+                self.0.to_u128()
             }
         }
 

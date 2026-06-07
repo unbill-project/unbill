@@ -168,7 +168,7 @@ pub fn split_shares(
     let model_shares: Vec<unbill_console_verified::Share> = shares
         .iter()
         .map(|s| unbill_console_verified::Share {
-            user_id: s.user_id.to_string().into_bytes(),
+            user_id: s.user_id.to_u128(),
             weight: s.shares,
         })
         .collect();

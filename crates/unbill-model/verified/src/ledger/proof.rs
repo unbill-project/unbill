@@ -96,7 +96,7 @@ pub proof fn total_weight_partial_le(shares: Seq<ShareSpec>, n: int)
 
 pub proof fn init_preserves(
     post: LedgerStateSpec,
-    ledger_id: Seq<u8>,
+    ledger_id: u128,
     name: Seq<u8>,
     currency: Seq<u8>,
     created_at: i64,

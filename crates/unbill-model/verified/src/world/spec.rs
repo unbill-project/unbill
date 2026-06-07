@@ -14,7 +14,7 @@ verus! {
 /// Tracks all IDs ever generated. Axiomatically, ULID generation
 /// always produces an ID not in this set.
 pub struct UlidStateSpec {
-    pub generated: Set<Seq<u8>>,
+    pub generated: Set<u128>,
 }
 
 pub struct WorldSpec {
@@ -27,14 +27,14 @@ pub struct WorldSpec {
 // ---------------------------------------------------------------------------
 
 pub open spec fn has_device_in_world(
-    devices: Seq<DeviceStateSpec>, device_id: Seq<u8>,
+    devices: Seq<DeviceStateSpec>, device_id: u128,
 ) -> bool {
     exists|i: int| 0 <= i < devices.len()
         && #[trigger] devices[i].device_id == device_id
 }
 
 pub open spec fn find_device(
-    devices: Seq<DeviceStateSpec>, device_id: Seq<u8>,
+    devices: Seq<DeviceStateSpec>, device_id: u128,
 ) -> int
     recommends has_device_in_world(devices, device_id),
 {
@@ -65,13 +65,7 @@ pub open spec fn all_ids_tracked(world: WorldSpec) -> bool {
         && 0 <= k < world.devices[i].ledgers[j].users.len()
         ==> world.ulid_state.generated.contains(
             #[trigger] world.devices[i].ledgers[j].users[k].user_id)
-    // All device-in-ledger IDs tracked.
-    &&& forall|i: int, j: int, k: int|
-        0 <= i < world.devices.len()
-        && 0 <= j < world.devices[i].ledgers.len()
-        && 0 <= k < world.devices[i].ledgers[j].devices.len()
-        ==> world.ulid_state.generated.contains(
-            #[trigger] world.devices[i].ledgers[j].devices[k].node_id)
+    // Note: device-in-ledger node_ids are Ed25519 keys (not ULIDs), not tracked here.
     // All bill IDs tracked.
     &&& forall|i: int, j: int, k: int|
         0 <= i < world.devices.len()
@@ -84,7 +78,7 @@ pub open spec fn all_ids_tracked(world: WorldSpec) -> bool {
 /// ULID uniqueness property: the generator has produced all tracked IDs,
 /// and any fresh ID from the generator will not collide with any existing ID.
 /// This is the axiom we trust about Ulid::new().
-pub open spec fn ulid_fresh(ulid_state: UlidStateSpec, new_id: Seq<u8>) -> bool {
+pub open spec fn ulid_fresh(ulid_state: UlidStateSpec, new_id: u128) -> bool {
     !ulid_state.generated.contains(new_id)
 }
 
@@ -105,7 +99,7 @@ pub open spec fn world_invariant(world: WorldSpec) -> bool {
 
 /// Register a new device in the world.
 pub open spec fn register_device(
-    pre: WorldSpec, post: WorldSpec, device_id: Seq<u8>,
+    pre: WorldSpec, post: WorldSpec, device_id: u128,
 ) -> bool {
     &&& ulid_fresh(pre.ulid_state, device_id)
     &&& !has_device_in_world(pre.devices, device_id)
@@ -123,8 +117,8 @@ pub open spec fn register_device(
 /// Create a ledger on a specific device.
 pub open spec fn world_create_ledger(
     pre: WorldSpec, post: WorldSpec,
-    device_id: Seq<u8>,
-    ledger_id: Seq<u8>,
+    device_id: u128,
+    ledger_id: u128,
     name: Seq<u8>,
     currency: Seq<u8>,
     created_at: i64,
@@ -171,7 +165,7 @@ pub open spec fn world_create_ledger(
 /// Add a user on a specific device + ledger.
 pub open spec fn world_add_user(
     pre: WorldSpec, post: WorldSpec,
-    device_id: Seq<u8>, ledger_id: Seq<u8>, user: UserSpec,
+    device_id: u128, ledger_id: u128, user: UserSpec,
 ) -> bool {
     &&& has_device_in_world(pre.devices, device_id)
     &&& ulid_fresh(pre.ulid_state, user.user_id)
@@ -200,10 +194,17 @@ pub open spec fn world_add_user(
 /// Add a device-in-ledger on a specific device + ledger.
 pub open spec fn world_add_device_to_ledger(
     pre: WorldSpec, post: WorldSpec,
-    device_id: Seq<u8>, ledger_id: Seq<u8>, new_device: DeviceSpec,
+    device_id: u128, ledger_id: u128, new_device: DeviceSpec,
 ) -> bool {
     &&& has_device_in_world(pre.devices, device_id)
-    &&& ulid_fresh(pre.ulid_state, new_device.node_id)
+    // node_id is an Ed25519 key, not a ULID.
+    // Uniqueness must be ensured by the caller (not via ULID freshness).
+    &&& !has_device(
+        {let didx = find_device(pre.devices, device_id);
+         let pre_device = pre.devices[didx];
+         let lidx = find_ledger(pre_device.ledgers, ledger_id);
+         pre_device.ledgers[lidx].devices},
+        new_device.node_id)
     &&& {
         let didx = find_device(pre.devices, device_id);
         let pre_device = pre.devices[didx];
@@ -219,9 +220,7 @@ pub open spec fn world_add_device_to_ledger(
                 }),
                 ..pre_device
             }),
-            ulid_state: UlidStateSpec {
-                generated: pre.ulid_state.generated.insert(new_device.node_id),
-            },
+            ulid_state: pre.ulid_state,
         }
     }
 }
@@ -229,7 +228,7 @@ pub open spec fn world_add_device_to_ledger(
 /// Add a bill on a specific device + ledger.
 pub open spec fn world_add_bill(
     pre: WorldSpec, post: WorldSpec,
-    device_id: Seq<u8>, ledger_id: Seq<u8>, bill: BillSpec,
+    device_id: u128, ledger_id: u128, bill: BillSpec,
 ) -> bool {
     &&& has_device_in_world(pre.devices, device_id)
     &&& ulid_fresh(pre.ulid_state, bill.id)

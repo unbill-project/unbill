@@ -56,7 +56,7 @@ proof fn update_preserves_ledger_ids_unique(
 
 pub proof fn create_ledger_preserves(
     pre: DeviceStateSpec, post: DeviceStateSpec,
-    ledger_id: Seq<u8>, name: Seq<u8>, currency: Seq<u8>, created_at: i64,
+    ledger_id: u128, name: Seq<u8>, currency: Seq<u8>, created_at: i64,
 )
     requires
         device_invariant(pre),
@@ -88,7 +88,7 @@ pub proof fn create_ledger_preserves(
 
 pub proof fn device_add_user_preserves(
     pre: DeviceStateSpec, post: DeviceStateSpec,
-    ledger_id: Seq<u8>, user: UserSpec,
+    ledger_id: u128, user: UserSpec,
 )
     requires
         device_invariant(pre),
@@ -106,7 +106,7 @@ pub proof fn device_add_user_preserves(
 
 pub proof fn device_add_device_preserves(
     pre: DeviceStateSpec, post: DeviceStateSpec,
-    ledger_id: Seq<u8>, device: DeviceSpec,
+    ledger_id: u128, device: DeviceSpec,
 )
     requires
         device_invariant(pre),
@@ -124,7 +124,7 @@ pub proof fn device_add_device_preserves(
 
 pub proof fn device_add_bill_preserves(
     pre: DeviceStateSpec, post: DeviceStateSpec,
-    ledger_id: Seq<u8>, bill: BillSpec,
+    ledger_id: u128, bill: BillSpec,
 )
     requires
         device_invariant(pre),

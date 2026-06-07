@@ -1,36 +1,36 @@
 // Layer 1: LedgerStateModel — spec types.
-// Mirrors the production Ledger/Bill/User/Device/Share structs exactly.
-// All IDs are Seq<u8> (matching ULID string representation).
+// Mirrors the production Ledger/Bill/User/Device/Share structs.
+// All IDs are u128 (matching ULID's native 128-bit representation).
 
 use vstd::prelude::*;
 
 verus! {
 
 // ---------------------------------------------------------------------------
-// Spec types (Seq-based, for reasoning)
+// Spec types (Seq-based for collections, u128 for IDs)
 // ---------------------------------------------------------------------------
 
 /// Mirrors production `Share { user_id: UserId, shares: u32 }`.
 pub struct ShareSpec {
-    pub user_id: Seq<u8>,
+    pub user_id: u128,
     pub weight: u32,
 }
 
 /// Mirrors production `Bill`.
 pub struct BillSpec {
-    pub id: Seq<u8>,
+    pub id: u128,
     pub amount_cents: i64,
     pub description: Seq<u8>,
     pub payers: Seq<ShareSpec>,
     pub payees: Seq<ShareSpec>,
-    pub prev: Seq<Seq<u8>>,
+    pub prev: Seq<u128>,
     pub created_at: i64,
     pub created_by_device: Seq<u8>,
 }
 
 /// Mirrors production `User`.
 pub struct UserSpec {
-    pub user_id: Seq<u8>,
+    pub user_id: u128,
     pub display_name: Seq<u8>,
     pub added_at: i64,
 }
@@ -43,7 +43,7 @@ pub struct DeviceSpec {
 
 /// Mirrors production `Ledger`.
 pub struct LedgerStateSpec {
-    pub ledger_id: Seq<u8>,
+    pub ledger_id: u128,
     pub schema_version: u32,
     pub name: Seq<u8>,
     pub currency: Seq<u8>,
@@ -57,7 +57,7 @@ pub struct LedgerStateSpec {
 // Helper predicates
 // ---------------------------------------------------------------------------
 
-pub open spec fn has_user(users: Seq<UserSpec>, user_id: Seq<u8>) -> bool {
+pub open spec fn has_user(users: Seq<UserSpec>, user_id: u128) -> bool {
     exists|i: int| 0 <= i < users.len() && #[trigger] users[i].user_id == user_id
 }
 
@@ -65,7 +65,7 @@ pub open spec fn has_device(devices: Seq<DeviceSpec>, node_id: Seq<u8>) -> bool 
     exists|i: int| 0 <= i < devices.len() && #[trigger] devices[i].node_id == node_id
 }
 
-pub open spec fn has_bill(bills: Seq<BillSpec>, bill_id: Seq<u8>) -> bool {
+pub open spec fn has_bill(bills: Seq<BillSpec>, bill_id: u128) -> bool {
     exists|i: int| 0 <= i < bills.len() && #[trigger] bills[i].id == bill_id
 }
 
@@ -148,6 +148,23 @@ pub open spec fn bill_splittable(bill: BillSpec) -> bool {
 }
 
 // ---------------------------------------------------------------------------
+// Effective bill filtering
+// ---------------------------------------------------------------------------
+
+/// A bill is superseded if any other bill references it in its prev list.
+pub open spec fn is_superseded(bills: Seq<BillSpec>, idx: int) -> bool {
+    exists|j: int, k: int|
+        0 <= j < bills.len() && j != idx
+        && 0 <= k < bills[j].prev.len()
+        && #[trigger] bills[j].prev[k] == bills[idx].id
+}
+
+/// A bill is effective if it is not superseded.
+pub open spec fn is_effective(bills: Seq<BillSpec>, idx: int) -> bool {
+    0 <= idx < bills.len() && !is_superseded(bills, idx)
+}
+
+// ---------------------------------------------------------------------------
 // State machine invariant
 // ---------------------------------------------------------------------------
 
@@ -173,7 +190,7 @@ pub open spec fn ledger_invariant(ledger: LedgerStateSpec) -> bool {
 /// Initialize a fresh empty ledger.
 pub open spec fn init(
     post: LedgerStateSpec,
-    ledger_id: Seq<u8>,
+    ledger_id: u128,
     name: Seq<u8>,
     currency: Seq<u8>,
     created_at: i64,

@@ -275,11 +275,11 @@ pub fn compute_balances(
         forall|b: int, s: int| #![trigger ledger.bills@[b].payers@[s]]
             0 <= b < ledger.bills.len() && 0 <= s < ledger.bills@[b].payers.len() ==>
             exists|k: int| 0 <= k < ledger.users.len()
-                && (#[trigger] ledger.users@[k]).user_id@ == ledger.bills@[b].payers@[s].user_id@,
+                && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[b].payers@[s].user_id,
         forall|b: int, s: int| #![trigger ledger.bills@[b].payees@[s]]
             0 <= b < ledger.bills.len() && 0 <= s < ledger.bills@[b].payees.len() ==>
             exists|k: int| 0 <= k < ledger.users.len()
-                && (#[trigger] ledger.users@[k]).user_id@ == ledger.bills@[b].payees@[s].user_id@,
+                && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[b].payees@[s].user_id,
         // Overflow bound: total amount across all bills fits in i64/4.
         // (Guarantees no individual balance exceeds i64/2 during accumulation.)
         ledger.bills.len() <= i32::MAX as usize,
@@ -329,11 +329,11 @@ pub fn compute_balances(
             forall|k: int, s: int| #![trigger ledger.bills@[k].payers@[s]]
                 0 <= k < ledger.bills.len() && 0 <= s < ledger.bills@[k].payers.len() ==>
                 exists|j: int| 0 <= j < ledger.users.len()
-                    && (#[trigger] ledger.users@[j]).user_id@ == ledger.bills@[k].payers@[s].user_id@,
+                    && (#[trigger] ledger.users@[j]).user_id == ledger.bills@[k].payers@[s].user_id,
             forall|k: int, s: int| #![trigger ledger.bills@[k].payees@[s]]
                 0 <= k < ledger.bills.len() && 0 <= s < ledger.bills@[k].payees.len() ==>
                 exists|j: int| 0 <= j < ledger.users.len()
-                    && (#[trigger] ledger.users@[j]).user_id@ == ledger.bills@[k].payees@[s].user_id@,
+                    && (#[trigger] ledger.users@[j]).user_id == ledger.bills@[k].payees@[s].user_id,
             ledger.bills.len() <= i32::MAX as usize,
             forall|k: int| 0 <= k < ledger.bills.len() ==>
                 (#[trigger] ledger.bills@[k]).amount_cents >= 0
@@ -377,7 +377,7 @@ pub fn compute_balances(
                 forall|s: int| #![trigger bill.payers@[s]]
                     0 <= s < bill.payers.len() ==>
                     exists|k: int| 0 <= k < ledger.users.len()
-                        && (#[trigger] ledger.users@[k]).user_id@ == bill.payers@[s].user_id@,
+                        && (#[trigger] ledger.users@[k]).user_id == bill.payers@[s].user_id,
                 // Amounts non-negative (from split_shares ensures).
                 forall|s: int| 0 <= s < payer_amounts.len() ==> (#[trigger] payer_amounts@[s]) >= 0,
                 forall|k: int| 0 <= k < balances.len() ==> (
@@ -387,7 +387,7 @@ pub fn compute_balances(
             decreases payer_amounts.len() - i,
         {
             // User exists: from precondition (exec-level user existence).
-            let user_idx = find_user_index(&ledger.users, &bill.payers[i].user_id);
+            let user_idx = find_user_index(&ledger.users, bill.payers[i].user_id);
             let old_val = balances[user_idx];
             let amt = payer_amounts[i];
             // Overflow: old_val within i64/2 and amt <= i32::MAX.
@@ -423,7 +423,7 @@ pub fn compute_balances(
                 forall|s: int| #![trigger bill.payees@[s]]
                     0 <= s < bill.payees.len() ==>
                     exists|k: int| 0 <= k < ledger.users.len()
-                        && (#[trigger] ledger.users@[k]).user_id@ == bill.payees@[s].user_id@,
+                        && (#[trigger] ledger.users@[k]).user_id == bill.payees@[s].user_id,
                 forall|s: int| 0 <= s < payee_amounts.len() ==> (#[trigger] payee_amounts@[s]) >= 0,
                 forall|k: int| 0 <= k < balances.len() ==> (
                     #[trigger] balances@[k] > -4611686018427387903i64
@@ -431,7 +431,7 @@ pub fn compute_balances(
                 ),
             decreases payee_amounts.len() - j,
         {
-            let user_idx = find_user_index(&ledger.users, &bill.payees[j].user_id);
+            let user_idx = find_user_index(&ledger.users, bill.payees[j].user_id);
             let old_val = balances[user_idx];
             let amt = payee_amounts[j];
             assert(old_val as int - amt as int >= i64::MIN as int) by(nonlinear_arith)
@@ -460,9 +460,9 @@ pub fn compute_balances(
 
 /// Find the index of a user_id in the users list.
 /// Requires: the user exists (guaranteed by ledger_invariant + bill_well_formed).
-fn find_user_index(users: &Vec<User>, user_id: &Vec<u8>) -> (idx: usize)
+fn find_user_index(users: &Vec<User>, user_id: u128) -> (idx: usize)
     requires
-        exists|i: int| 0 <= i < users.len() && users@[i].user_id@ == user_id@,
+        exists|i: int| 0 <= i < users.len() && (#[trigger] users@[i]).user_id == user_id,
     ensures
         idx < users.len(),
 {
@@ -470,16 +470,15 @@ fn find_user_index(users: &Vec<User>, user_id: &Vec<u8>) -> (idx: usize)
     while k < users.len()
         invariant
             k <= users.len(),
-            forall|j: int| 0 <= j < k ==> users@[j].user_id@ != user_id@,
-            exists|i: int| k <= i < users.len() && users@[i].user_id@ == user_id@,
+            forall|j: int| 0 <= j < k ==> (#[trigger] users@[j]).user_id != user_id,
+            exists|i: int| k <= i < users.len() && (#[trigger] users@[i]).user_id == user_id,
         decreases users.len() - k,
     {
-        if users[k].user_id == *user_id {
+        if users[k].user_id == user_id {
             return k;
         }
         k = k + 1;
     }
-    // Unreachable: precondition guarantees user exists.
     proof { assert(false); }
     0
 }
