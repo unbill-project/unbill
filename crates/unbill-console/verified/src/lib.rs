@@ -8,4 +8,5 @@
 
 pub use unbill_model_verified::ledger::exec::Share;
 
+pub mod balance;
 pub mod settlement;

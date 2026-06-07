@@ -5,6 +5,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::model::{BillId, Currency, EffectiveBills, Ledger, User, UserId};
 
+pub mod verified_bridge;
+
 // sirno:witness:settlement:begin
 /// A single suggested settlement transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
