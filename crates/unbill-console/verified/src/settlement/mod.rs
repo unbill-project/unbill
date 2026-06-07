@@ -8,6 +8,7 @@ use vstd::prelude::*;
 use vstd::slice::SliceAdditionalExecFns;
 
 pub mod effective;
+pub mod exec;
 pub mod proof;
 pub mod spec;
 
@@ -69,7 +70,7 @@ pub fn split_shares(
             k <= shares.len(),
             amounts.len() == k,
             spec_shares == shares_to_specs(shares@),
-            spec::amount_sum(amounts@) == assigned as int,
+            spec::seq_sum(amounts@) == assigned as int,
             assigned >= 0,
             assigned as int <= total_cents as int * k as int,
             tw > 0,
@@ -109,7 +110,7 @@ pub fn split_shares(
         assert(total_cents as int * shares.len() as int <= i32::MAX as int * i32::MAX as int) by(nonlinear_arith)
             requires total_cents as int >= 0, total_cents as int <= i32::MAX as int,
                      shares.len() as int >= 0, shares.len() as int <= i32::MAX as int;
-        proof { proof::amount_sum_push_lemma(amounts@, amount); }
+        proof { proof::seq_sum_push(amounts@, amount); }
         amounts.push(amount);
         assigned = assigned + amount;
         k = k + 1;
@@ -121,7 +122,7 @@ pub fn split_shares(
         proof::floor_sum_le_total(spec_shares, total_cents as int, tw as int);
         proof::floor_sum_remainder_lt_n(spec_shares, total_cents as int, tw as int);
         // Connect assigned to floor_sum: we tracked that each amount[j] == floor(t*w_j/W).
-        proof::floor_sum_eq_amount_sum(spec_shares, amounts@, total_cents as int, tw as int);
+        proof::floor_sum_eq_seq_sum(spec_shares, amounts@, total_cents as int, tw as int);
     }
     assert(assigned <= total_cents);
     let remainder: i64 = total_cents - assigned;
@@ -139,7 +140,7 @@ pub fn split_shares(
             r <= remainder_u,
             remainder_u < shares.len(),
             amounts.len() == shares.len(),
-            spec::amount_sum(amounts@) == assigned as int + r as int,
+            spec::seq_sum(amounts@) == assigned as int + r as int,
             shares.len() > 0,
             total_cents >= 0,
             total_cents <= i32::MAX as i64,
@@ -188,13 +189,13 @@ pub fn split_shares(
         }
 
         let new_val = old_val + 1;
-        proof { proof::amount_sum_set_lemma(amounts@, idx as int, new_val); }
+        proof { proof::seq_sum_update(amounts@, idx as int, new_val); }
         amounts.set(idx, new_val);
         r = r + 1;
     }
 
     // After loop: sum == assigned + remainder == total_cents.
-    assert(spec::amount_sum(amounts@) == total_cents as int);
+    assert(spec::seq_sum(amounts@) == total_cents as int);
     assert(amounts@.len() == shares.len());
     // Fairness: each amount is floor or floor+1.
     assert(forall|j: int| 0 <= j < amounts@.len() ==> (
@@ -221,7 +222,7 @@ pub fn split_shares(
 pub fn compute_settlement(
     ledger: &LedgerState,
     remainder_indices: &Vec<usize>,
-) -> (transactions: Vec<crate::balance::exec::Transaction>)
+) -> (transactions: Vec<exec::Transaction>)
     requires
         ledger_invariant(ledger@),
         remainder_indices.len() == ledger.bills.len(),
@@ -258,10 +259,10 @@ pub fn compute_settlement(
             u <= ledger.users.len(),
             balances.len() == u,
             user_ids.len() == u,
-            crate::balance::spec::seq_sum(balances@) == 0,
+            spec::seq_sum(balances@) == 0,
         decreases ledger.users.len() - u,
     {
-        proof { crate::balance::proof::seq_sum_push(balances@, 0i64); }
+        proof { proof::seq_sum_push(balances@, 0i64); }
         balances.push(0i64);
         user_ids.push(ledger.users[u].user_id);
         u = u + 1;
@@ -275,8 +276,8 @@ pub fn compute_settlement(
     // Step 4: Greedy matching.
     // TODO: Process effective bills here. After processing, balances sum to 0
     // and settle_requires holds. For now, skeleton assumes it.
-    assume(crate::balance::spec::settle_requires(balances@));
-    let transactions = crate::balance::exec::compute_from_balances(&user_ids, &balances);
+    assume(spec::settle_requires(balances@));
+    let transactions = exec::compute_from_balances(&user_ids, &balances);
     transactions
 }
 

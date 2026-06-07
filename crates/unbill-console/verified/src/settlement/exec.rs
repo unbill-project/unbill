@@ -3,7 +3,8 @@
 
 use super::proof;
 use super::spec;
-use unbill_model_verified::ledger::exec::{Bill, LedgerState, User};
+use unbill_model_verified::ledger::exec::*;
+use unbill_model_verified::ledger::spec::*;
 use vstd::prelude::*;
 use vstd::slice::SliceAdditionalExecFns;
 
@@ -357,12 +358,7 @@ pub fn compute_balances(
             &bill.payees, bill.amount_cents, 0,
         );
 
-        // Bridge: split_shares ensures amount_sum == amount_cents.
-        // Connect to seq_sum for our invariant.
-        proof {
-            proof::amount_sum_eq_seq_sum(payer_amounts@);
-            proof::amount_sum_eq_seq_sum(payee_amounts@);
-        }
+        // split_shares ensures: seq_sum(result@) == amount_cents.
 
         // Add payer credits to balances.
         let mut i: usize = 0;
@@ -460,7 +456,7 @@ pub fn compute_balances(
 
 /// Find the index of a user_id in the users list.
 /// Requires: the user exists (guaranteed by ledger_invariant + bill_well_formed).
-fn find_user_index(users: &Vec<User>, user_id: u128) -> (idx: usize)
+pub fn find_user_index(users: &Vec<User>, user_id: u128) -> (idx: usize)
     requires
         exists|i: int| 0 <= i < users.len() && (#[trigger] users@[i]).user_id == user_id,
     ensures

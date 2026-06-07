@@ -12,21 +12,21 @@ use vstd::seq_lib::*;
 verus! {
 
 // ---------------------------------------------------------------------------
-// amount_sum lemmas
+// seq_sum lemmas
 // ---------------------------------------------------------------------------
 
-pub proof fn amount_sum_push_lemma(s: Seq<i64>, x: i64)
+pub proof fn seq_sum_push(s: Seq<i64>, x: i64)
     ensures
-        amount_sum(s.push(x)) == amount_sum(s) + x as int,
+        seq_sum(s.push(x)) == seq_sum(s) + x as int,
 {
     assert(s.push(x).drop_last() =~= s);
 }
 
-pub proof fn amount_sum_set_lemma(s: Seq<i64>, idx: int, new_val: i64)
+pub proof fn seq_sum_update(s: Seq<i64>, idx: int, new_val: i64)
     requires
         0 <= idx < s.len(),
     ensures
-        amount_sum(s.update(idx, new_val)) == amount_sum(s) - s[idx] as int + new_val as int,
+        seq_sum(s.update(idx, new_val)) == seq_sum(s) - s[idx] as int + new_val as int,
     decreases s.len(),
 {
     if s.len() == 1 {
@@ -36,7 +36,7 @@ pub proof fn amount_sum_set_lemma(s: Seq<i64>, idx: int, new_val: i64)
         assert(s.update(idx, new_val).drop_last() =~= s.drop_last());
     } else {
         assert(s.update(idx, new_val).drop_last() =~= s.drop_last().update(idx, new_val));
-        amount_sum_set_lemma(s.drop_last(), idx, new_val);
+        seq_sum_update(s.drop_last(), idx, new_val);
     }
 }
 
@@ -215,10 +215,10 @@ pub proof fn mod_distinct(base: int, r1: int, r2: int, n: int)
 }
 
 // ---------------------------------------------------------------------------
-// floor_sum / amount_sum bridge
+// floor_sum / seq_sum bridge
 // ---------------------------------------------------------------------------
 
-pub proof fn floor_sum_eq_amount_sum(
+pub proof fn floor_sum_eq_seq_sum(
     shares: Seq<ShareSpec>, amounts: Seq<i64>, total_cents: int, tw: int,
 )
     requires
@@ -226,12 +226,115 @@ pub proof fn floor_sum_eq_amount_sum(
         forall|j: int| 0 <= j < amounts.len() ==>
             amounts[j] as int == (total_cents * shares[j].weight as int) / tw,
     ensures
-        amount_sum(amounts) == floor_sum(shares, total_cents, tw),
+        seq_sum(amounts) == floor_sum(shares, total_cents, tw),
     decreases shares.len(),
 {
     if shares.len() > 0 {
-        floor_sum_eq_amount_sum(shares.drop_last(), amounts.drop_last(), total_cents, tw);
+        floor_sum_eq_seq_sum(shares.drop_last(), amounts.drop_last(), total_cents, tw);
         assert(amounts.last() as int == (total_cents * shares.last().weight as int) / tw);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// transaction_sum lemma
+// ---------------------------------------------------------------------------
+
+pub proof fn transaction_sum_push(s: Seq<TransactionSpec>, t: TransactionSpec)
+    ensures
+        transaction_sum(s.push(t)) == transaction_sum(s) + t.amount_cents,
+{
+    assert(s.push(t).drop_last() =~= s);
+}
+
+// ---------------------------------------------------------------------------
+// range_sum lemmas
+// ---------------------------------------------------------------------------
+
+pub proof fn range_sum_eq_seq_sum(s: Seq<i64>)
+    ensures range_sum(s, 0, s.len() as int) == seq_sum(s),
+    decreases s.len(),
+{
+    if s.len() > 0 {
+        range_sum_split_last(s, 0, s.len() as int);
+        range_sum_eq_seq_sum(s.drop_last());
+        range_sum_prefix_eq(s, s.drop_last(), 0, s.len() as int - 1);
+    }
+}
+
+proof fn range_sum_split_last(s: Seq<i64>, from: int, to: int)
+    requires 0 <= from < to, to <= s.len(),
+    ensures range_sum(s, from, to) == range_sum(s, from, to - 1) + s[to - 1] as int,
+    decreases to - from,
+{
+    if from == to - 1 {
+        assert(range_sum(s, from + 1, to) == 0);
+        assert(range_sum(s, from, to) == s[from] as int);
+        assert(range_sum(s, from, to - 1) == 0);
+        assert(s[to - 1] == s[from]);
+    } else {
+        range_sum_split_last(s, from + 1, to);
+    }
+}
+
+pub proof fn range_sum_prefix_eq(s1: Seq<i64>, s2: Seq<i64>, from: int, to: int)
+    requires
+        to <= s1.len(), to <= s2.len(),
+        0 <= from,
+        forall|j: int| from <= j < to ==> s1[j] == s2[j],
+    ensures
+        range_sum(s1, from, to) == range_sum(s2, from, to),
+    decreases to - from,
+{
+    if from < to {
+        range_sum_prefix_eq(s1, s2, from + 1, to);
+    }
+}
+
+pub proof fn range_sum_step(s: Seq<i64>, from: int, to: int)
+    requires 0 <= from < to, to <= s.len(),
+    ensures range_sum(s, from, to) == s[from] as int + range_sum(s, from + 1, to),
+{}
+
+pub proof fn range_sum_update(s: Seq<i64>, from: int, to: int, idx: int, new_val: i64)
+    requires 0 <= from <= idx < to, to <= s.len(),
+    ensures
+        range_sum(s.update(idx, new_val), from, to)
+            == range_sum(s, from, to) - s[idx] as int + new_val as int,
+    decreases to - from,
+{
+    if from == idx {
+        assert(s.update(idx, new_val)[from] == new_val);
+        range_sum_rest_eq(s, s.update(idx, new_val), from + 1, to);
+    } else {
+        assert(s.update(idx, new_val)[from] == s[from]);
+        range_sum_update(s, from + 1, to, idx, new_val);
+    }
+}
+
+proof fn range_sum_rest_eq(s1: Seq<i64>, s2: Seq<i64>, from: int, to: int)
+    requires
+        s1.len() == s2.len(),
+        to <= s1.len(),
+        forall|j: int| from <= j < to ==> s1[j] == s2[j],
+    ensures
+        range_sum(s1, from, to) == range_sum(s2, from, to),
+    decreases to - from,
+{
+    if from < to {
+        range_sum_rest_eq(s1, s2, from + 1, to);
+    }
+}
+
+pub proof fn range_sum_nonneg(s: Seq<i64>, from: int, to: int)
+    requires
+        0 <= from, to <= s.len(),
+        forall|j: int| from <= j < to ==> #[trigger] s[j] >= 0,
+    ensures
+        range_sum(s, from, to) >= 0,
+    decreases to - from,
+{
+    if from < to {
+        range_sum_nonneg(s, from + 1, to);
     }
 }
 

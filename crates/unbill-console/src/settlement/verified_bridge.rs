@@ -2,7 +2,7 @@
 
 use crate::model::UserId;
 
-use unbill_console_verified::balance::exec as v;
+use unbill_console_verified::settlement::exec as v;
 
 /// Convert a balance map to the verified format and compute settlement.
 pub fn compute_from_balances_verified(balances: &[(UserId, i64)]) -> Vec<super::Transaction> {
