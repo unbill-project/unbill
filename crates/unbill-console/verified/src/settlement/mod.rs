@@ -7,6 +7,7 @@ use unbill_model_verified::ledger::spec::*;
 use vstd::prelude::*;
 use vstd::slice::SliceAdditionalExecFns;
 
+pub mod effective;
 pub mod proof;
 pub mod spec;
 
