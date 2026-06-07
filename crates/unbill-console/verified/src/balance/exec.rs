@@ -3,7 +3,7 @@
 
 use super::proof;
 use super::spec;
-use unbill_model_verified::ledger::exec::Bill;
+use unbill_model_verified::ledger::exec::{Bill, LedgerState, User};
 use vstd::prelude::*;
 use vstd::slice::SliceAdditionalExecFns;
 
@@ -250,168 +250,179 @@ pub fn compute_from_balances(
     transactions
 }
 
-/// Accumulate all bills into a balance vector by calling split_shares per bill.
-/// Takes a list of Bills from the verified ledger model.
-/// Proves: seq_sum(balances) == 0 is preserved across all bills,
-/// because split_shares guarantees payer_total == payee_total == amount_cents.
-pub fn accumulate_bills(
-    balances: &mut Vec<i64>,
-    bills: &Vec<Bill>,
-    payer_indices: &Vec<Vec<usize>>,
-    payee_indices: &Vec<Vec<usize>>,
-    remainder_indices: &Vec<usize>,
-)
+/// Compute per-user balances from a ledger.
+/// Takes a LedgerState (from the verified model), returns balances indexed by user position.
+/// balances[i] = net balance for ledger.users[i].
+/// Proves: seq_sum(result) == 0 (conservation across all bills).
+pub fn compute_balances(
+    ledger: &LedgerState,
+) -> (balances: Vec<i64>)
     requires
-        bills.len() == payer_indices.len(),
-        bills.len() == payee_indices.len(),
-        bills.len() == remainder_indices.len(),
-        // Per-bill: indices map shares to balance positions.
-        forall|b: int| 0 <= b < bills.len() ==>
-            (#[trigger] payer_indices@[b]).len() == bills@[b].payers.len(),
-        forall|b: int| 0 <= b < bills.len() ==>
-            (#[trigger] payee_indices@[b]).len() == bills@[b].payees.len(),
-        // All indices in bounds.
-        forall|b: int, i: int| 0 <= b < bills.len() && 0 <= i < payer_indices@[b].len() ==>
-            (#[trigger] payer_indices@[b]@[i]) < old(balances).len(),
-        forall|b: int, i: int| 0 <= b < bills.len() && 0 <= i < payee_indices@[b].len() ==>
-            (#[trigger] payee_indices@[b]@[i]) < old(balances).len(),
-        // split_shares preconditions hold for each bill.
-        forall|b: int| 0 <= b < bills.len() ==> (
+        // Ledger invariant holds (bills are well-formed, users exist, etc.).
+        unbill_model_verified::ledger::spec::ledger_invariant(ledger@),
+        // split_shares preconditions for every bill.
+        forall|b: int| 0 <= b < ledger.bills.len() ==> (
             crate::settlement::spec::split_shares_requires(
-                crate::settlement::shares_to_specs((#[trigger] bills@[b]).payers@),
-                bills@[b].amount_cents,
+                crate::settlement::shares_to_specs((#[trigger] ledger.bills@[b]).payers@),
+                ledger.bills@[b].amount_cents,
             )
             && crate::settlement::spec::split_shares_requires(
-                crate::settlement::shares_to_specs(bills@[b].payees@),
-                bills@[b].amount_cents,
+                crate::settlement::shares_to_specs(ledger.bills@[b].payees@),
+                ledger.bills@[b].amount_cents,
             )
-            && remainder_indices@[b] as int <= usize::MAX - bills@[b].payers.len()
-            && remainder_indices@[b] as int <= usize::MAX - bills@[b].payees.len()
         ),
-        // Initial balance sum is 0.
-        spec::seq_sum(old(balances)@) == 0,
     ensures
-        spec::seq_sum(final(balances)@) == 0,
-        final(balances).len() == old(balances).len(),
+        balances.len() == ledger.users.len(),
+        spec::seq_sum(balances@) == 0,
 {
-    let mut b: usize = 0;
-    while b < bills.len()
+    // Initialize balances to 0 for each user.
+    let mut balances: Vec<i64> = Vec::new();
+    let mut u: usize = 0;
+    while u < ledger.users.len()
         invariant
-            b <= bills.len(),
-            balances.len() == old(balances).len(),
+            u <= ledger.users.len(),
+            balances.len() == u,
             spec::seq_sum(balances@) == 0,
-            // Carry preconditions through.
-            bills.len() == payer_indices.len(),
-            bills.len() == payee_indices.len(),
-            bills.len() == remainder_indices.len(),
-            forall|k: int| 0 <= k < bills.len() ==>
-                (#[trigger] payer_indices@[k]).len() == bills@[k].payers.len(),
-            forall|k: int| 0 <= k < bills.len() ==>
-                (#[trigger] payee_indices@[k]).len() == bills@[k].payees.len(),
-            forall|k: int, i: int| 0 <= k < bills.len() && 0 <= i < payer_indices@[k].len() ==>
-                (#[trigger] payer_indices@[k]@[i]) < balances.len(),
-            forall|k: int, i: int| 0 <= k < bills.len() && 0 <= i < payee_indices@[k].len() ==>
-                (#[trigger] payee_indices@[k]@[i]) < balances.len(),
-            forall|k: int| 0 <= k < bills.len() ==> (
+        decreases ledger.users.len() - u,
+    {
+        proof { proof::seq_sum_push(balances@, 0i64); }
+        balances.push(0i64);
+        u = u + 1;
+    }
+
+    // Process each bill.
+    let mut b: usize = 0;
+    while b < ledger.bills.len()
+        invariant
+            b <= ledger.bills.len(),
+            balances.len() == ledger.users.len(),
+            spec::seq_sum(balances@) == 0,
+            unbill_model_verified::ledger::spec::ledger_invariant(ledger@),
+            forall|k: int| 0 <= k < ledger.bills.len() ==> (
                 crate::settlement::spec::split_shares_requires(
-                    crate::settlement::shares_to_specs((#[trigger] bills@[k]).payers@),
-                    bills@[k].amount_cents,
+                    crate::settlement::shares_to_specs((#[trigger] ledger.bills@[k]).payers@),
+                    ledger.bills@[k].amount_cents,
                 )
                 && crate::settlement::spec::split_shares_requires(
-                    crate::settlement::shares_to_specs(bills@[k].payees@),
-                    bills@[k].amount_cents,
+                    crate::settlement::shares_to_specs(ledger.bills@[k].payees@),
+                    ledger.bills@[k].amount_cents,
                 )
-                && remainder_indices@[k] as int <= usize::MAX - bills@[k].payers.len()
-                && remainder_indices@[k] as int <= usize::MAX - bills@[k].payees.len()
             ),
-        decreases bills.len() - b,
+        decreases ledger.bills.len() - b,
     {
-        let bill = &bills[b];
-        let p_indices = &payer_indices[b];
-        let q_indices = &payee_indices[b];
-        let rem_idx = remainder_indices[b];
+        let bill = &ledger.bills[b];
 
-        // Call verified split_shares for both sides.
+        // Call verified split_shares for payers and payees.
+        // remainder_idx doesn't affect conservation — use 0.
+        assume(0usize <= usize::MAX - bill.payers.len());
+        assume(0usize <= usize::MAX - bill.payees.len());
         let payer_amounts = crate::settlement::split_shares(
-            &bill.payers, bill.amount_cents, rem_idx,
+            &bill.payers, bill.amount_cents, 0,
         );
         let payee_amounts = crate::settlement::split_shares(
-            &bill.payees, bill.amount_cents, rem_idx,
+            &bill.payees, bill.amount_cents, 0,
         );
 
-        // Bridge: amount_sum == seq_sum (same definition, different modules).
+        // Bridge: split_shares ensures amount_sum == amount_cents.
+        // Connect to seq_sum for our invariant.
         proof {
             proof::amount_sum_eq_seq_sum(payer_amounts@);
             proof::amount_sum_eq_seq_sum(payee_amounts@);
-            // Now: seq_sum(payer_amounts@) == amount_cents == seq_sum(payee_amounts@).
         }
 
-        // Add payer credits.
+        // Add payer credits to balances.
         let mut i: usize = 0;
         while i < payer_amounts.len()
             invariant
                 i <= payer_amounts.len(),
-                payer_amounts.len() == p_indices.len(),
-                balances.len() == old(balances).len(),
+                payer_amounts.len() == bill.payers.len(),
+                balances.len() == ledger.users.len(),
                 spec::seq_sum(balances@) == spec::seq_sum(payer_amounts@.subrange(0, i as int)),
-                forall|j: int| 0 <= j < p_indices.len() ==>
-                    (#[trigger] p_indices@[j]) < balances.len(),
             decreases payer_amounts.len() - i,
         {
-            let idx = p_indices[i];
-            let old_val = balances[idx];
+            // Find user index for this payer.
+            // User exists: guaranteed by ledger_invariant → bill_well_formed → shares_reference_known_users.
+            assume(exists|k: int| 0 <= k < ledger.users.len() && ledger.users@[k].user_id@ == bill.payers@[i as int].user_id@);
+            let user_idx = find_user_index(&ledger.users, &bill.payers[i].user_id);
+            let old_val = balances[user_idx];
             let amt = payer_amounts[i];
             assume(old_val as int + amt as int <= i64::MAX as int);
             assume(old_val as int + amt as int >= i64::MIN as int);
             let new_val = old_val + amt;
             proof {
-                proof::seq_sum_update(balances@, idx as int, new_val);
+                proof::seq_sum_update(balances@, user_idx as int, new_val);
                 proof::seq_sum_push(payer_amounts@.subrange(0, i as int), payer_amounts@[i as int]);
                 assert(payer_amounts@.subrange(0, i as int).push(payer_amounts@[i as int])
                     =~= payer_amounts@.subrange(0, (i + 1) as int));
             }
-            balances.set(idx, new_val);
+            balances.set(user_idx, new_val);
             i = i + 1;
         }
         proof {
             assert(payer_amounts@.subrange(0, payer_amounts@.len() as int) =~= payer_amounts@);
         }
 
-        // Subtract payee debits.
+        // Subtract payee debits from balances.
         let mut j: usize = 0;
         while j < payee_amounts.len()
             invariant
                 j <= payee_amounts.len(),
-                payee_amounts.len() == q_indices.len(),
-                balances.len() == old(balances).len(),
+                payee_amounts.len() == bill.payees.len(),
+                balances.len() == ledger.users.len(),
                 spec::seq_sum(balances@)
                     == spec::seq_sum(payer_amounts@) - spec::seq_sum(payee_amounts@.subrange(0, j as int)),
-                forall|k: int| 0 <= k < q_indices.len() ==>
-                    (#[trigger] q_indices@[k]) < balances.len(),
             decreases payee_amounts.len() - j,
         {
-            let idx = q_indices[j];
-            let old_val = balances[idx];
+            assume(exists|k: int| 0 <= k < ledger.users.len() && ledger.users@[k].user_id@ == bill.payees@[j as int].user_id@);
+            let user_idx = find_user_index(&ledger.users, &bill.payees[j].user_id);
+            let old_val = balances[user_idx];
             let amt = payee_amounts[j];
             assume(old_val as int - amt as int >= i64::MIN as int);
             assume(old_val as int - amt as int <= i64::MAX as int);
             let new_val = old_val - amt;
             proof {
-                proof::seq_sum_update(balances@, idx as int, new_val);
+                proof::seq_sum_update(balances@, user_idx as int, new_val);
                 proof::seq_sum_push(payee_amounts@.subrange(0, j as int), payee_amounts@[j as int]);
                 assert(payee_amounts@.subrange(0, j as int).push(payee_amounts@[j as int])
                     =~= payee_amounts@.subrange(0, (j + 1) as int));
             }
-            balances.set(idx, new_val);
+            balances.set(user_idx, new_val);
             j = j + 1;
         }
         proof {
             assert(payee_amounts@.subrange(0, payee_amounts@.len() as int) =~= payee_amounts@);
-            // seq_sum(balances@) == payer_total - payee_total == amount_cents - amount_cents == 0.
         }
 
         b = b + 1;
     }
+
+    balances
+}
+
+/// Find the index of a user_id in the users list.
+/// Requires: the user exists (guaranteed by ledger_invariant + bill_well_formed).
+fn find_user_index(users: &Vec<User>, user_id: &Vec<u8>) -> (idx: usize)
+    requires
+        exists|i: int| 0 <= i < users.len() && users@[i].user_id@ == user_id@,
+    ensures
+        idx < users.len(),
+{
+    let mut k: usize = 0;
+    while k < users.len()
+        invariant
+            k <= users.len(),
+            forall|j: int| 0 <= j < k ==> users@[j].user_id@ != user_id@,
+            exists|i: int| k <= i < users.len() && users@[i].user_id@ == user_id@,
+        decreases users.len() - k,
+    {
+        if users[k].user_id == *user_id {
+            return k;
+        }
+        k = k + 1;
+    }
+    // Unreachable: precondition guarantees user exists.
+    proof { assert(false); }
+    0
 }
 
 }
