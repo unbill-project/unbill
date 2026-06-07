@@ -10,8 +10,8 @@ verus! {
 
 /// A settlement transaction at the spec level.
 pub struct TransactionSpec {
-    pub from_user_id: Seq<u8>,
-    pub to_user_id: Seq<u8>,
+    pub from_user_id: u128,
+    pub to_user_id: u128,
     pub amount_cents: int,
 }
 

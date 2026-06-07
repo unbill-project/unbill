@@ -11,8 +11,8 @@ verus! {
 
 /// A settlement transaction (runtime).
 pub struct Transaction {
-    pub from_user_id: Vec<u8>,
-    pub to_user_id: Vec<u8>,
+    pub from_user_id: u128,
+    pub to_user_id: u128,
     pub amount_cents: i64,
 }
 
@@ -20,19 +20,19 @@ impl View for Transaction {
     type V = spec::TransactionSpec;
     open spec fn view(&self) -> spec::TransactionSpec {
         spec::TransactionSpec {
-            from_user_id: self.from_user_id@,
-            to_user_id: self.to_user_id@,
+            from_user_id: self.from_user_id,
+            to_user_id: self.to_user_id,
             amount_cents: self.amount_cents as int,
         }
     }
 }
 
-/// Convert exec transactions to spec (avoids View unfolding issues with map).
+/// Convert exec transactions to spec.
 pub open spec fn transactions_to_specs(ts: Seq<Transaction>) -> Seq<spec::TransactionSpec> {
     Seq::new(ts.len() as nat, |i: int|
         spec::TransactionSpec {
-            from_user_id: ts[i].from_user_id@,
-            to_user_id: ts[i].to_user_id@,
+            from_user_id: ts[i].from_user_id,
+            to_user_id: ts[i].to_user_id,
             amount_cents: ts[i].amount_cents as int,
         }
     )
@@ -42,7 +42,7 @@ pub open spec fn transactions_to_specs(ts: Seq<Transaction>) -> Seq<spec::Transa
 /// Input: user_ids and corresponding balances where positive = creditor, negative = debtor.
 /// Balances must sum to zero.
 pub fn compute_from_balances(
-    user_ids: &Vec<Vec<u8>>,
+    user_ids: &Vec<u128>,
     balances: &Vec<i64>,
 ) -> (transactions: Vec<Transaction>)
     requires
@@ -52,9 +52,9 @@ pub fn compute_from_balances(
         spec::settle_ensures(balances@, transactions_to_specs(transactions@)),
 {
     // Separate into creditors and debtors.
-    let mut creditor_ids: Vec<Vec<u8>> = Vec::new();
+    let mut creditor_ids: Vec<u128> = Vec::new();
     let mut creditor_amounts: Vec<i64> = Vec::new();
-    let mut debtor_ids: Vec<Vec<u8>> = Vec::new();
+    let mut debtor_ids: Vec<u128> = Vec::new();
     let mut debtor_amounts: Vec<i64> = Vec::new();
 
     let ghost mut cred_sum: int = 0;
@@ -90,7 +90,7 @@ pub fn compute_from_balances(
                 proof::seq_sum_push(creditor_amounts@, b);
                 cred_sum = cred_sum + b as int;
             }
-            creditor_ids.push(user_ids[i].clone());
+            creditor_ids.push(user_ids[i]);
             creditor_amounts.push(b);
         } else if b < 0 {
             let neg_b: i64 = -b;
@@ -98,7 +98,7 @@ pub fn compute_from_balances(
                 proof::seq_sum_push(debtor_amounts@, neg_b);
                 debt_sum = debt_sum + neg_b as int;
             }
-            debtor_ids.push(user_ids[i].clone());
+            debtor_ids.push(user_ids[i]);
             debtor_amounts.push(neg_b);
         }
         i = i + 1;
@@ -172,8 +172,8 @@ pub fn compute_from_balances(
             let ghost old_transactions = transactions@;
 
             transactions.push(Transaction {
-                from_user_id: debtor_ids[di].clone(),
-                to_user_id: creditor_ids[ci].clone(),
+                from_user_id: debtor_ids[di],
+                to_user_id: creditor_ids[ci],
                 amount_cents: amount,
             });
 
