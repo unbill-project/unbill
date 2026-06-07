@@ -111,6 +111,7 @@ proof fn range_sum_rest_eq(s1: Seq<i64>, s2: Seq<i64>, from: int, to: int)
     }
 }
 
+
 /// range_sum of all non-negative values is non-negative.
 pub proof fn range_sum_nonneg(s: Seq<i64>, from: int, to: int)
     requires

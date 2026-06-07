@@ -74,6 +74,8 @@ pub fn compute_from_balances(
             cred_sum == spec::positive_sum(balances@.subrange(0, i as int)),
             cred_sum == spec::seq_sum(creditor_amounts@),
             debt_sum == spec::seq_sum(debtor_amounts@),
+            // Key: cred - debt tracks seq_sum of processed portion.
+            cred_sum - debt_sum == spec::seq_sum(balances@.subrange(0, i as int)),
         decreases balances.len() - i,
     {
         let b = balances[i];
@@ -111,7 +113,10 @@ pub fn compute_from_balances(
     proof {
         // Connect seq_sum to range_sum for the loop invariant.
         proof::range_sum_eq_seq_sum(creditor_amounts@);
-        // Now: range_sum(creditor_amounts@, 0, len) == seq_sum(creditor_amounts@) == cred_sum == original_credit_total.
+        proof::range_sum_eq_seq_sum(debtor_amounts@);
+        // After first loop: cred_sum - debt_sum == seq_sum(balances@) == 0.
+        // Therefore cred_sum == debt_sum.
+        assert(balances@.subrange(0, balances@.len() as int) =~= balances@);
     }
 
     // Greedy matching loop.
@@ -131,8 +136,10 @@ pub fn compute_from_balances(
                 #[trigger] creditor_amounts@[j] >= 0,
             forall|j: int| di as int <= j < debtor_amounts.len() ==>
                 #[trigger] debtor_amounts@[j] >= 0,
-            // Conservation: emitted + remaining credits == original total.
+            // Conservation: emitted + remaining == original (both sides).
             emitted_sum + spec::range_sum(creditor_amounts@, ci as int, creditor_amounts@.len() as int)
+                == original_credit_total,
+            emitted_sum + spec::range_sum(debtor_amounts@, di as int, debtor_amounts@.len() as int)
                 == original_credit_total,
             emitted_sum >= 0,
             // Ghost sum tracks spec-level transaction sum.
@@ -151,6 +158,9 @@ pub fn compute_from_balances(
             }
             ci = ci + 1;
         } else if debt == 0 {
+            proof {
+                proof::range_sum_step(debtor_amounts@, di as int, debtor_amounts@.len() as int);
+            }
             di = di + 1;
         } else {
             let amount: i64 = if credit <= debt { credit } else { debt };
@@ -170,17 +180,35 @@ pub fn compute_from_balances(
             let new_debt: i64 = debt - amount;
 
             proof {
-                // Transaction sum after push.
+                // transactions@ == old_transactions.push(t) where t.amount_cents == amount.
                 assert(transactions@.drop_last() =~= old_transactions);
                 assert(transactions@.last().amount_cents == amount);
-                // TODO: connect transactions_to_specs push to transaction_sum increase.
-                assume(spec::transaction_sum(transactions_to_specs(transactions@))
-                    == spec::transaction_sum(transactions_to_specs(old_transactions)) + amount as int);
-                assume(spec::all_positive_transactions(transactions_to_specs(transactions@)));
+
+                // transactions_to_specs push: drop_last of new == old, last has amount.
+                let new_specs = transactions_to_specs(transactions@);
+                let old_specs = transactions_to_specs(old_transactions);
+                assert(new_specs.len() == old_specs.len() + 1);
+                assert(new_specs.last().amount_cents == amount as int);
+                assert(new_specs.drop_last() =~= old_specs);
+                // Therefore transaction_sum increases by amount.
+                proof::transaction_sum_push(old_specs, new_specs.last());
+
+                // All positive: old was all positive, new element is positive.
+                assert forall|i: int| 0 <= i < new_specs.len()
+                    implies (#[trigger] new_specs[i]).amount_cents > 0
+                by {
+                    if i < old_specs.len() {
+                        assert(new_specs[i] == old_specs[i]);
+                    }
+                }
 
                 proof::range_sum_update(
                     creditor_amounts@, ci as int,
                     creditor_amounts@.len() as int, ci as int, new_credit,
+                );
+                proof::range_sum_update(
+                    debtor_amounts@, di as int,
+                    debtor_amounts@.len() as int, di as int, new_debt,
                 );
                 emitted_sum = emitted_sum + amount as int;
             }
@@ -197,12 +225,25 @@ pub fn compute_from_balances(
         }
     }
 
-    // After loop: prove postcondition.
+    // After loop: prove remaining credits == 0.
     proof {
-        assume(spec::range_sum(creditor_amounts@, ci as int, creditor_amounts@.len() as int) == 0);
-        // emitted_sum == original_credit_total == positive_sum(balances@).
-        // transaction_sum(transactions_to_specs(transactions@)) == emitted_sum.
-        // Therefore settle_ensures holds.
+        // Loop exited: !(ci < creds.len() && di < debts.len()).
+        // So ci >= creds.len() OR di >= debts.len().
+        // Case 1: ci >= creds.len() → range_sum(creds, ci, len) == 0 (empty range).
+        // Case 2: di >= debts.len() → range_sum(debts, di, len) == 0 (empty range).
+        //   From debt invariant: emitted_sum + 0 == original_credit_total.
+        //   From credit invariant: emitted_sum + range_sum(creds, ci, len) == original_credit_total.
+        //   So range_sum(creds, ci, len) == 0.
+        if ci >= creditor_amounts.len() {
+            // Empty range.
+        } else {
+            // di >= debtor_amounts.len(), so debt range is empty.
+            assert(spec::range_sum(debtor_amounts@, di as int, debtor_amounts@.len() as int) == 0);
+            // From invariants: emitted_sum == original_credit_total.
+            // And: emitted_sum + range_sum(creds, ci, len) == original_credit_total.
+            // So: range_sum(creds, ci, len) == 0.
+            proof::range_sum_nonneg(creditor_amounts@, ci as int, creditor_amounts@.len() as int);
+        }
     }
 
     transactions
