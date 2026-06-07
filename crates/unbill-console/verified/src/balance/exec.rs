@@ -250,113 +250,167 @@ pub fn compute_from_balances(
     transactions
 }
 
-/// Accumulate one bill into a balance vector.
-/// Takes a Bill from the verified ledger model plus the split_shares results.
-/// Proves: since split_shares guarantees both sides sum to bill.amount_cents,
-/// the balance zero-sum invariant is preserved.
-pub fn accumulate_bill(
+/// Accumulate all bills into a balance vector by calling split_shares per bill.
+/// Takes a list of Bills from the verified ledger model.
+/// Proves: seq_sum(balances) == 0 is preserved across all bills,
+/// because split_shares guarantees payer_total == payee_total == amount_cents.
+pub fn accumulate_bills(
     balances: &mut Vec<i64>,
-    bill: &Bill,
-    payer_amounts: &Vec<i64>,
-    payer_indices: &Vec<usize>,
-    payee_amounts: &Vec<i64>,
-    payee_indices: &Vec<usize>,
+    bills: &Vec<Bill>,
+    payer_indices: &Vec<Vec<usize>>,
+    payee_indices: &Vec<Vec<usize>>,
+    remainder_indices: &Vec<usize>,
 )
     requires
-        // Amounts correspond to the bill's shares.
-        payer_amounts.len() == bill.payers.len(),
-        payee_amounts.len() == bill.payees.len(),
-        payer_amounts.len() == payer_indices.len(),
-        payee_amounts.len() == payee_indices.len(),
+        bills.len() == payer_indices.len(),
+        bills.len() == payee_indices.len(),
+        bills.len() == remainder_indices.len(),
+        // Per-bill: indices map shares to balance positions.
+        forall|b: int| 0 <= b < bills.len() ==>
+            (#[trigger] payer_indices@[b]).len() == bills@[b].payers.len(),
+        forall|b: int| 0 <= b < bills.len() ==>
+            (#[trigger] payee_indices@[b]).len() == bills@[b].payees.len(),
         // All indices in bounds.
-        forall|i: int| 0 <= i < payer_indices.len() ==>
-            (#[trigger] payer_indices@[i]) < old(balances).len(),
-        forall|i: int| 0 <= i < payee_indices.len() ==>
-            (#[trigger] payee_indices@[i]) < old(balances).len(),
-        // Conservation from split_shares: both sides sum to amount_cents.
-        spec::seq_sum(payer_amounts@) == bill.amount_cents as int,
-        spec::seq_sum(payee_amounts@) == bill.amount_cents as int,
+        forall|b: int, i: int| 0 <= b < bills.len() && 0 <= i < payer_indices@[b].len() ==>
+            (#[trigger] payer_indices@[b]@[i]) < old(balances).len(),
+        forall|b: int, i: int| 0 <= b < bills.len() && 0 <= i < payee_indices@[b].len() ==>
+            (#[trigger] payee_indices@[b]@[i]) < old(balances).len(),
+        // split_shares preconditions hold for each bill.
+        forall|b: int| 0 <= b < bills.len() ==> (
+            crate::settlement::spec::split_shares_requires(
+                crate::settlement::shares_to_specs((#[trigger] bills@[b]).payers@),
+                bills@[b].amount_cents,
+            )
+            && crate::settlement::spec::split_shares_requires(
+                crate::settlement::shares_to_specs(bills@[b].payees@),
+                bills@[b].amount_cents,
+            )
+            && remainder_indices@[b] as int <= usize::MAX - bills@[b].payers.len()
+            && remainder_indices@[b] as int <= usize::MAX - bills@[b].payees.len()
+        ),
         // Initial balance sum is 0.
         spec::seq_sum(old(balances)@) == 0,
-        // Bounded to avoid overflow.
-        old(balances).len() <= i32::MAX as usize,
     ensures
         spec::seq_sum(final(balances)@) == 0,
         final(balances).len() == old(balances).len(),
 {
-    let ghost mut running_sum: int = 0;
-
-    // Add payer credits.
-    let mut i: usize = 0;
-    while i < payer_amounts.len()
+    let mut b: usize = 0;
+    while b < bills.len()
         invariant
-            i <= payer_amounts.len(),
-            payer_amounts.len() == payer_indices.len(),
+            b <= bills.len(),
             balances.len() == old(balances).len(),
-            // Sum changed by exactly the payer amounts processed so far.
-            spec::seq_sum(balances@) == running_sum,
-            running_sum == spec::seq_sum(payer_amounts@.subrange(0, i as int)),
-            forall|j: int| 0 <= j < payer_indices.len() ==>
-                (#[trigger] payer_indices@[j]) < balances.len(),
-        decreases payer_amounts.len() - i,
+            spec::seq_sum(balances@) == 0,
+            // Carry preconditions through.
+            bills.len() == payer_indices.len(),
+            bills.len() == payee_indices.len(),
+            bills.len() == remainder_indices.len(),
+            forall|k: int| 0 <= k < bills.len() ==>
+                (#[trigger] payer_indices@[k]).len() == bills@[k].payers.len(),
+            forall|k: int| 0 <= k < bills.len() ==>
+                (#[trigger] payee_indices@[k]).len() == bills@[k].payees.len(),
+            forall|k: int, i: int| 0 <= k < bills.len() && 0 <= i < payer_indices@[k].len() ==>
+                (#[trigger] payer_indices@[k]@[i]) < balances.len(),
+            forall|k: int, i: int| 0 <= k < bills.len() && 0 <= i < payee_indices@[k].len() ==>
+                (#[trigger] payee_indices@[k]@[i]) < balances.len(),
+            forall|k: int| 0 <= k < bills.len() ==> (
+                crate::settlement::spec::split_shares_requires(
+                    crate::settlement::shares_to_specs((#[trigger] bills@[k]).payers@),
+                    bills@[k].amount_cents,
+                )
+                && crate::settlement::spec::split_shares_requires(
+                    crate::settlement::shares_to_specs(bills@[k].payees@),
+                    bills@[k].amount_cents,
+                )
+                && remainder_indices@[k] as int <= usize::MAX - bills@[k].payers.len()
+                && remainder_indices@[k] as int <= usize::MAX - bills@[k].payees.len()
+            ),
+        decreases bills.len() - b,
     {
-        let idx = payer_indices[i];
-        let old_val = balances[idx];
-        let amt = payer_amounts[i];
-        // Overflow safety: trusted (production amounts bounded by bill total <= i32::MAX).
-        assume(old_val as int + amt as int <= i64::MAX as int);
-        assume(old_val as int + amt as int >= i64::MIN as int);
-        let new_val = old_val + amt;
+        let bill = &bills[b];
+        let p_indices = &payer_indices[b];
+        let q_indices = &payee_indices[b];
+        let rem_idx = remainder_indices[b];
+
+        // Call verified split_shares for both sides.
+        let payer_amounts = crate::settlement::split_shares(
+            &bill.payers, bill.amount_cents, rem_idx,
+        );
+        let payee_amounts = crate::settlement::split_shares(
+            &bill.payees, bill.amount_cents, rem_idx,
+        );
+
+        // Bridge: amount_sum == seq_sum (same definition, different modules).
         proof {
-            proof::seq_sum_update(balances@, idx as int, new_val);
-            proof::seq_sum_push(payer_amounts@.subrange(0, i as int), payer_amounts[i as int]);
-            assert(payer_amounts@.subrange(0, i as int).push(payer_amounts@[i as int])
-                =~= payer_amounts@.subrange(0, (i + 1) as int));
-            running_sum = running_sum + payer_amounts[i as int] as int;
+            proof::amount_sum_eq_seq_sum(payer_amounts@);
+            proof::amount_sum_eq_seq_sum(payee_amounts@);
+            // Now: seq_sum(payer_amounts@) == amount_cents == seq_sum(payee_amounts@).
         }
-        balances.set(idx, new_val);
-        i = i + 1;
-    }
 
-    proof {
-        assert(payer_amounts@.subrange(0, payer_amounts@.len() as int) =~= payer_amounts@);
-        // running_sum == seq_sum(payer_amounts@) == seq_sum(payee_amounts@).
-    }
-
-    // Subtract payee debits.
-    let mut j: usize = 0;
-    while j < payee_amounts.len()
-        invariant
-            j <= payee_amounts.len(),
-            payee_amounts.len() == payee_indices.len(),
-            balances.len() == old(balances).len(),
-            // Sum == payer_total - payee amounts processed so far.
-            spec::seq_sum(balances@)
-                == spec::seq_sum(payer_amounts@) - spec::seq_sum(payee_amounts@.subrange(0, j as int)),
-            forall|k: int| 0 <= k < payee_indices.len() ==>
-                (#[trigger] payee_indices@[k]) < balances.len(),
-        decreases payee_amounts.len() - j,
-    {
-        let idx = payee_indices[j];
-        let old_val = balances[idx];
-        let amt = payee_amounts[j];
-        // Overflow safety: trusted (production amounts bounded by bill total <= i32::MAX).
-        assume(old_val as int - amt as int >= i64::MIN as int);
-        assume(old_val as int - amt as int <= i64::MAX as int);
-        let new_val = old_val - amt;
+        // Add payer credits.
+        let mut i: usize = 0;
+        while i < payer_amounts.len()
+            invariant
+                i <= payer_amounts.len(),
+                payer_amounts.len() == p_indices.len(),
+                balances.len() == old(balances).len(),
+                spec::seq_sum(balances@) == spec::seq_sum(payer_amounts@.subrange(0, i as int)),
+                forall|j: int| 0 <= j < p_indices.len() ==>
+                    (#[trigger] p_indices@[j]) < balances.len(),
+            decreases payer_amounts.len() - i,
+        {
+            let idx = p_indices[i];
+            let old_val = balances[idx];
+            let amt = payer_amounts[i];
+            assume(old_val as int + amt as int <= i64::MAX as int);
+            assume(old_val as int + amt as int >= i64::MIN as int);
+            let new_val = old_val + amt;
+            proof {
+                proof::seq_sum_update(balances@, idx as int, new_val);
+                proof::seq_sum_push(payer_amounts@.subrange(0, i as int), payer_amounts@[i as int]);
+                assert(payer_amounts@.subrange(0, i as int).push(payer_amounts@[i as int])
+                    =~= payer_amounts@.subrange(0, (i + 1) as int));
+            }
+            balances.set(idx, new_val);
+            i = i + 1;
+        }
         proof {
-            proof::seq_sum_update(balances@, idx as int, new_val);
-            proof::seq_sum_push(payee_amounts@.subrange(0, j as int), payee_amounts[j as int]);
-            assert(payee_amounts@.subrange(0, j as int).push(payee_amounts@[j as int])
-                =~= payee_amounts@.subrange(0, (j + 1) as int));
+            assert(payer_amounts@.subrange(0, payer_amounts@.len() as int) =~= payer_amounts@);
         }
-        balances.set(idx, new_val);
-        j = j + 1;
-    }
 
-    proof {
-        assert(payee_amounts@.subrange(0, payee_amounts@.len() as int) =~= payee_amounts@);
-        // seq_sum(balances@) == payer_total - payee_total == 0.
+        // Subtract payee debits.
+        let mut j: usize = 0;
+        while j < payee_amounts.len()
+            invariant
+                j <= payee_amounts.len(),
+                payee_amounts.len() == q_indices.len(),
+                balances.len() == old(balances).len(),
+                spec::seq_sum(balances@)
+                    == spec::seq_sum(payer_amounts@) - spec::seq_sum(payee_amounts@.subrange(0, j as int)),
+                forall|k: int| 0 <= k < q_indices.len() ==>
+                    (#[trigger] q_indices@[k]) < balances.len(),
+            decreases payee_amounts.len() - j,
+        {
+            let idx = q_indices[j];
+            let old_val = balances[idx];
+            let amt = payee_amounts[j];
+            assume(old_val as int - amt as int >= i64::MIN as int);
+            assume(old_val as int - amt as int <= i64::MAX as int);
+            let new_val = old_val - amt;
+            proof {
+                proof::seq_sum_update(balances@, idx as int, new_val);
+                proof::seq_sum_push(payee_amounts@.subrange(0, j as int), payee_amounts@[j as int]);
+                assert(payee_amounts@.subrange(0, j as int).push(payee_amounts@[j as int])
+                    =~= payee_amounts@.subrange(0, (j + 1) as int));
+            }
+            balances.set(idx, new_val);
+            j = j + 1;
+        }
+        proof {
+            assert(payee_amounts@.subrange(0, payee_amounts@.len() as int) =~= payee_amounts@);
+            // seq_sum(balances@) == payer_total - payee_total == amount_cents - amount_cents == 0.
+        }
+
+        b = b + 1;
     }
 }
 

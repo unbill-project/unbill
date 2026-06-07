@@ -5,6 +5,17 @@ use vstd::prelude::*;
 
 verus! {
 
+/// Bridge: amount_sum (from settlement spec) == seq_sum (from balance spec).
+/// Both are defined identically; this proves it by induction.
+pub proof fn amount_sum_eq_seq_sum(s: Seq<i64>)
+    ensures crate::settlement::spec::amount_sum(s) == seq_sum(s),
+    decreases s.len(),
+{
+    if s.len() > 0 {
+        amount_sum_eq_seq_sum(s.drop_last());
+    }
+}
+
 /// seq_sum distributes over push.
 pub proof fn seq_sum_push(s: Seq<i64>, x: i64)
     ensures
