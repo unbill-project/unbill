@@ -11,7 +11,7 @@ verus! {
 // ---------------------------------------------------------------------------
 
 pub struct DeviceStateSpec {
-    pub device_id: u128,
+    pub node_id: Seq<u8>,
     pub ledgers: Seq<LedgerStateSpec>,
 }
 
