@@ -1,9 +1,38 @@
-// Layer 1: Proofs that each transition preserves ledger_invariant.
+// Layer 1: Proofs that each transition preserves ledger_invariant,
+// plus bridge lemmas for connecting runtime Vec to spec Seq through View.
 
 use super::spec::*;
 use vstd::prelude::*;
 
 verus! {
+
+// ---------------------------------------------------------------------------
+// Bridge lemmas: map distributes over push
+// ---------------------------------------------------------------------------
+
+/// seq.push(x).map(f) =~= seq.map(f).push(f(seq.len(), x))
+/// where f: spec_fn(int, A) -> B (Verus Seq::map takes index + value).
+pub proof fn seq_map_push<A, B>(seq: Seq<A>, x: A, f: spec_fn(int, A) -> B)
+    ensures
+        seq.push(x).map(f) =~= seq.map(f).push(f(seq.len() as int, x)),
+{
+    let pushed = seq.push(x);
+    let mapped_pushed = pushed.map(f);
+    let mapped_orig = seq.map(f);
+    assert forall|i: int| 0 <= i < mapped_pushed.len()
+        implies (#[trigger] mapped_pushed[i]) == mapped_orig.push(f(seq.len() as int, x))[i]
+    by {
+        if i < seq.len() {
+            assert(mapped_pushed[i] == f(i, pushed[i]));
+            assert(pushed[i] == seq[i]);
+            assert(mapped_orig[i] == f(i, seq[i]));
+        } else {
+            assert(i == seq.len());
+            assert(mapped_pushed[i] == f(i, x));
+        }
+    }
+}
+
 
 pub proof fn init_preserves(
     post: LedgerStateSpec,

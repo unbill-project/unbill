@@ -112,4 +112,87 @@ impl View for LedgerState {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Exec operations
+// ---------------------------------------------------------------------------
+
+/// Create a fresh empty ledger.
+pub fn exec_init(
+    ledger_id: Vec<u8>,
+    name: Vec<u8>,
+    currency: Vec<u8>,
+    created_at: i64,
+) -> (result: LedgerState)
+    ensures
+        spec::init(result@, ledger_id@, name@, currency@, created_at),
+        spec::ledger_invariant(result@),
+{
+    let result = LedgerState {
+        ledger_id,
+        schema_version: 1,
+        name,
+        currency,
+        created_at,
+        users: Vec::new(),
+        bills: Vec::new(),
+        devices: Vec::new(),
+    };
+    proof { super::proof::init_preserves(result@, result.ledger_id@, result.name@, result.currency@, created_at); }
+    result
+}
+
+/// Add a user to a ledger.
+pub fn exec_add_user(ledger: &mut LedgerState, user: User)
+    requires
+        spec::ledger_invariant(old(ledger)@),
+        !spec::has_user(old(ledger)@.users, user@.user_id),
+    ensures
+        spec::add_user(old(ledger)@, final(ledger)@, user@),
+        spec::ledger_invariant(final(ledger)@),
+{
+    let ghost pre = ledger@;
+    ledger.users.push(user);
+    proof {
+        super::proof::seq_map_push::<User, spec::UserSpec>(old(ledger).users@, user, |_i: int, u: User| u@);
+        assert(ledger@ =~= spec::LedgerStateSpec { users: pre.users.push(user@), ..pre });
+        super::proof::add_user_preserves(pre, ledger@, user@);
+    }
+}
+
+/// Add a device to a ledger.
+pub fn exec_add_device(ledger: &mut LedgerState, device: Device)
+    requires
+        spec::ledger_invariant(old(ledger)@),
+        !spec::has_device(old(ledger)@.devices, device@.node_id),
+    ensures
+        spec::add_device(old(ledger)@, final(ledger)@, device@),
+        spec::ledger_invariant(final(ledger)@),
+{
+    let ghost pre = ledger@;
+    ledger.devices.push(device);
+    proof {
+        super::proof::seq_map_push::<Device, spec::DeviceSpec>(old(ledger).devices@, device, |_i: int, d: Device| d@);
+        assert(ledger@ =~= spec::LedgerStateSpec { devices: pre.devices.push(device@), ..pre });
+        super::proof::add_device_preserves(pre, ledger@, device@);
+    }
+}
+
+/// Add a bill to a ledger.
+pub fn exec_add_bill(ledger: &mut LedgerState, bill: Bill)
+    requires
+        spec::ledger_invariant(old(ledger)@),
+        spec::add_bill(old(ledger)@, spec::LedgerStateSpec { bills: old(ledger)@.bills.push(bill@), ..old(ledger)@ }, bill@),
+    ensures
+        spec::add_bill(old(ledger)@, final(ledger)@, bill@),
+        spec::ledger_invariant(final(ledger)@),
+{
+    let ghost pre = ledger@;
+    ledger.bills.push(bill);
+    proof {
+        super::proof::seq_map_push::<Bill, spec::BillSpec>(old(ledger).bills@, bill, |_i: int, b: Bill| b@);
+        assert(ledger@ =~= spec::LedgerStateSpec { bills: pre.bills.push(bill@), ..pre });
+        super::proof::add_bill_preserves(pre, ledger@, bill@);
+    }
+}
+
 }
