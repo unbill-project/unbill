@@ -271,6 +271,21 @@ pub fn compute_balances(
                 ledger.bills@[b].amount_cents,
             )
         ),
+        // Exec-level user existence: each share's user_id exists in ledger.users.
+        forall|b: int, s: int| #![trigger ledger.bills@[b].payers@[s]]
+            0 <= b < ledger.bills.len() && 0 <= s < ledger.bills@[b].payers.len() ==>
+            exists|k: int| 0 <= k < ledger.users.len()
+                && (#[trigger] ledger.users@[k]).user_id@ == ledger.bills@[b].payers@[s].user_id@,
+        forall|b: int, s: int| #![trigger ledger.bills@[b].payees@[s]]
+            0 <= b < ledger.bills.len() && 0 <= s < ledger.bills@[b].payees.len() ==>
+            exists|k: int| 0 <= k < ledger.users.len()
+                && (#[trigger] ledger.users@[k]).user_id@ == ledger.bills@[b].payees@[s].user_id@,
+        // Overflow bound: total amount across all bills fits in i64/4.
+        // (Guarantees no individual balance exceeds i64/2 during accumulation.)
+        ledger.bills.len() <= i32::MAX as usize,
+        forall|b: int| 0 <= b < ledger.bills.len() ==>
+            (#[trigger] ledger.bills@[b]).amount_cents >= 0
+            && ledger.bills@[b].amount_cents <= i32::MAX as i64,
     ensures
         balances.len() == ledger.users.len(),
         spec::seq_sum(balances@) == 0,
@@ -283,6 +298,9 @@ pub fn compute_balances(
             u <= ledger.users.len(),
             balances.len() == u,
             spec::seq_sum(balances@) == 0,
+            forall|k: int| 0 <= k < balances.len() ==>
+                (#[trigger] balances@[k]) > -4611686018427387903i64
+                && balances@[k] < 4611686018427387903i64,
         decreases ledger.users.len() - u,
     {
         proof { proof::seq_sum_push(balances@, 0i64); }
@@ -308,14 +326,30 @@ pub fn compute_balances(
                     ledger.bills@[k].amount_cents,
                 )
             ),
+            forall|k: int, s: int| #![trigger ledger.bills@[k].payers@[s]]
+                0 <= k < ledger.bills.len() && 0 <= s < ledger.bills@[k].payers.len() ==>
+                exists|j: int| 0 <= j < ledger.users.len()
+                    && (#[trigger] ledger.users@[j]).user_id@ == ledger.bills@[k].payers@[s].user_id@,
+            forall|k: int, s: int| #![trigger ledger.bills@[k].payees@[s]]
+                0 <= k < ledger.bills.len() && 0 <= s < ledger.bills@[k].payees.len() ==>
+                exists|j: int| 0 <= j < ledger.users.len()
+                    && (#[trigger] ledger.users@[j]).user_id@ == ledger.bills@[k].payees@[s].user_id@,
+            ledger.bills.len() <= i32::MAX as usize,
+            forall|k: int| 0 <= k < ledger.bills.len() ==>
+                (#[trigger] ledger.bills@[k]).amount_cents >= 0
+                && ledger.bills@[k].amount_cents <= i32::MAX as i64,
+            // Balance bound: within i64/2 (generous; maintained since each op changes by at most i32::MAX).
+            forall|k: int| 0 <= k < balances.len() ==>
+                (#[trigger] balances@[k]) > i64::MIN / 2
+                && balances@[k] < i64::MAX / 2,
         decreases ledger.bills.len() - b,
     {
         let bill = &ledger.bills[b];
 
         // Call verified split_shares for payers and payees.
-        // remainder_idx doesn't affect conservation — use 0.
-        assume(0usize <= usize::MAX - bill.payers.len());
-        assume(0usize <= usize::MAX - bill.payees.len());
+        // remainder_idx = 0; bound trivially satisfied since len <= usize::MAX.
+        assert(0usize <= usize::MAX - bill.payers.len());
+        assert(0usize <= usize::MAX - bill.payees.len());
         let payer_amounts = crate::settlement::split_shares(
             &bill.payers, bill.amount_cents, 0,
         );
@@ -338,16 +372,29 @@ pub fn compute_balances(
                 payer_amounts.len() == bill.payers.len(),
                 balances.len() == ledger.users.len(),
                 spec::seq_sum(balances@) == spec::seq_sum(payer_amounts@.subrange(0, i as int)),
+                b < ledger.bills.len(),
+                ledger.bills.len() <= i32::MAX as usize,
+                forall|s: int| #![trigger bill.payers@[s]]
+                    0 <= s < bill.payers.len() ==>
+                    exists|k: int| 0 <= k < ledger.users.len()
+                        && (#[trigger] ledger.users@[k]).user_id@ == bill.payers@[s].user_id@,
+                // Amounts non-negative (from split_shares ensures).
+                forall|s: int| 0 <= s < payer_amounts.len() ==> (#[trigger] payer_amounts@[s]) >= 0,
+                forall|k: int| 0 <= k < balances.len() ==> (
+                    #[trigger] balances@[k] > -4611686018427387903i64
+                    && balances@[k] < 4611686018427387903i64
+                ),
             decreases payer_amounts.len() - i,
         {
-            // Find user index for this payer.
-            // User exists: guaranteed by ledger_invariant → bill_well_formed → shares_reference_known_users.
-            assume(exists|k: int| 0 <= k < ledger.users.len() && ledger.users@[k].user_id@ == bill.payers@[i as int].user_id@);
+            // User exists: from precondition (exec-level user existence).
             let user_idx = find_user_index(&ledger.users, &bill.payers[i].user_id);
             let old_val = balances[user_idx];
             let amt = payer_amounts[i];
-            assume(old_val as int + amt as int <= i64::MAX as int);
-            assume(old_val as int + amt as int >= i64::MIN as int);
+            // Overflow: old_val within i64/2 and amt <= i32::MAX.
+            assert(old_val as int + amt as int <= i64::MAX as int) by(nonlinear_arith)
+                requires old_val < 4611686018427387903i64, amt >= 0i64;
+            assert(old_val as int + amt as int >= i64::MIN as int) by(nonlinear_arith)
+                requires old_val > -4611686018427387903i64, amt >= 0i64;
             let new_val = old_val + amt;
             proof {
                 proof::seq_sum_update(balances@, user_idx as int, new_val);
@@ -371,14 +418,26 @@ pub fn compute_balances(
                 balances.len() == ledger.users.len(),
                 spec::seq_sum(balances@)
                     == spec::seq_sum(payer_amounts@) - spec::seq_sum(payee_amounts@.subrange(0, j as int)),
+                b < ledger.bills.len(),
+                ledger.bills.len() <= i32::MAX as usize,
+                forall|s: int| #![trigger bill.payees@[s]]
+                    0 <= s < bill.payees.len() ==>
+                    exists|k: int| 0 <= k < ledger.users.len()
+                        && (#[trigger] ledger.users@[k]).user_id@ == bill.payees@[s].user_id@,
+                forall|s: int| 0 <= s < payee_amounts.len() ==> (#[trigger] payee_amounts@[s]) >= 0,
+                forall|k: int| 0 <= k < balances.len() ==> (
+                    #[trigger] balances@[k] > -4611686018427387903i64
+                    && balances@[k] < 4611686018427387903i64
+                ),
             decreases payee_amounts.len() - j,
         {
-            assume(exists|k: int| 0 <= k < ledger.users.len() && ledger.users@[k].user_id@ == bill.payees@[j as int].user_id@);
             let user_idx = find_user_index(&ledger.users, &bill.payees[j].user_id);
             let old_val = balances[user_idx];
             let amt = payee_amounts[j];
-            assume(old_val as int - amt as int >= i64::MIN as int);
-            assume(old_val as int - amt as int <= i64::MAX as int);
+            assert(old_val as int - amt as int >= i64::MIN as int) by(nonlinear_arith)
+                requires old_val > -4611686018427387903i64, amt >= 0i64, amt <= i32::MAX as i64;
+            assert(old_val as int - amt as int <= i64::MAX as int) by(nonlinear_arith)
+                requires old_val < 4611686018427387903i64, amt >= 0i64;
             let new_val = old_val - amt;
             proof {
                 proof::seq_sum_update(balances@, user_idx as int, new_val);

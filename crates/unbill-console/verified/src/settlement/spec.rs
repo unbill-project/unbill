@@ -57,6 +57,8 @@ pub open spec fn split_shares_ensures(
     &&& forall|i: int| 0 <= i < result.len() ==>
         #[trigger] result[i] as int >= floor_amount(shares, total_cents as int, i)
         && result[i] as int <= floor_amount(shares, total_cents as int, i) + 1
+    // Non-negative: each amount >= 0.
+    &&& forall|i: int| 0 <= i < result.len() ==> result[i] >= 0
 }
 
 }
