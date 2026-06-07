@@ -71,6 +71,23 @@ pub open spec fn range_sum(s: Seq<i64>, from: int, to: int) -> int
     }
 }
 
+/// Precondition for accumulate_bill.
+pub open spec fn accumulate_requires(
+    balances: Seq<i64>,
+    payer_total: int,
+    payee_total: int,
+) -> bool {
+    // Conservation from split_shares: payer amounts sum == payee amounts sum.
+    &&& payer_total == payee_total
+    // Balance sum starts at 0.
+    &&& seq_sum(balances) == 0
+}
+
+/// Postcondition for accumulate_bill: sum still 0.
+pub open spec fn accumulate_ensures(balances: Seq<i64>) -> bool {
+    seq_sum(balances) == 0
+}
+
 // ---------------------------------------------------------------------------
 // Contract predicates
 // ---------------------------------------------------------------------------

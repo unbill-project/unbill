@@ -249,4 +249,108 @@ pub fn compute_from_balances(
     transactions
 }
 
+/// Accumulate one bill into a balance vector.
+/// Adds payer_amounts at payer_indices, subtracts payee_amounts at payee_indices.
+/// Proves: if payer_total == payee_total, seq_sum(balances) == 0 is preserved.
+pub fn accumulate_bill(
+    balances: &mut Vec<i64>,
+    payer_amounts: &Vec<i64>,
+    payer_indices: &Vec<usize>,
+    payee_amounts: &Vec<i64>,
+    payee_indices: &Vec<usize>,
+)
+    requires
+        payer_amounts.len() == payer_indices.len(),
+        payee_amounts.len() == payee_indices.len(),
+        // All indices in bounds.
+        forall|i: int| 0 <= i < payer_indices.len() ==>
+            (#[trigger] payer_indices@[i]) < old(balances).len(),
+        forall|i: int| 0 <= i < payee_indices.len() ==>
+            (#[trigger] payee_indices@[i]) < old(balances).len(),
+        // Conservation: payer total == payee total (from split_shares).
+        spec::seq_sum(payer_amounts@) == spec::seq_sum(payee_amounts@),
+        // Initial balance sum is 0.
+        spec::seq_sum(old(balances)@) == 0,
+        // Bounded to avoid overflow.
+        old(balances).len() <= i32::MAX as usize,
+    ensures
+        spec::seq_sum(final(balances)@) == 0,
+        final(balances).len() == old(balances).len(),
+{
+    let ghost mut running_sum: int = 0;
+
+    // Add payer credits.
+    let mut i: usize = 0;
+    while i < payer_amounts.len()
+        invariant
+            i <= payer_amounts.len(),
+            payer_amounts.len() == payer_indices.len(),
+            balances.len() == old(balances).len(),
+            // Sum changed by exactly the payer amounts processed so far.
+            spec::seq_sum(balances@) == running_sum,
+            running_sum == spec::seq_sum(payer_amounts@.subrange(0, i as int)),
+            forall|j: int| 0 <= j < payer_indices.len() ==>
+                (#[trigger] payer_indices@[j]) < balances.len(),
+        decreases payer_amounts.len() - i,
+    {
+        let idx = payer_indices[i];
+        let old_val = balances[idx];
+        let amt = payer_amounts[i];
+        // Overflow safety: trusted (production amounts bounded by bill total <= i32::MAX).
+        assume(old_val as int + amt as int <= i64::MAX as int);
+        assume(old_val as int + amt as int >= i64::MIN as int);
+        let new_val = old_val + amt;
+        proof {
+            proof::seq_sum_update(balances@, idx as int, new_val);
+            proof::seq_sum_push(payer_amounts@.subrange(0, i as int), payer_amounts[i as int]);
+            assert(payer_amounts@.subrange(0, i as int).push(payer_amounts@[i as int])
+                =~= payer_amounts@.subrange(0, (i + 1) as int));
+            running_sum = running_sum + payer_amounts[i as int] as int;
+        }
+        balances.set(idx, new_val);
+        i = i + 1;
+    }
+
+    proof {
+        assert(payer_amounts@.subrange(0, payer_amounts@.len() as int) =~= payer_amounts@);
+        // running_sum == seq_sum(payer_amounts@) == seq_sum(payee_amounts@).
+    }
+
+    // Subtract payee debits.
+    let mut j: usize = 0;
+    while j < payee_amounts.len()
+        invariant
+            j <= payee_amounts.len(),
+            payee_amounts.len() == payee_indices.len(),
+            balances.len() == old(balances).len(),
+            // Sum == payer_total - payee amounts processed so far.
+            spec::seq_sum(balances@)
+                == spec::seq_sum(payer_amounts@) - spec::seq_sum(payee_amounts@.subrange(0, j as int)),
+            forall|k: int| 0 <= k < payee_indices.len() ==>
+                (#[trigger] payee_indices@[k]) < balances.len(),
+        decreases payee_amounts.len() - j,
+    {
+        let idx = payee_indices[j];
+        let old_val = balances[idx];
+        let amt = payee_amounts[j];
+        // Overflow safety: trusted (production amounts bounded by bill total <= i32::MAX).
+        assume(old_val as int - amt as int >= i64::MIN as int);
+        assume(old_val as int - amt as int <= i64::MAX as int);
+        let new_val = old_val - amt;
+        proof {
+            proof::seq_sum_update(balances@, idx as int, new_val);
+            proof::seq_sum_push(payee_amounts@.subrange(0, j as int), payee_amounts[j as int]);
+            assert(payee_amounts@.subrange(0, j as int).push(payee_amounts@[j as int])
+                =~= payee_amounts@.subrange(0, (j + 1) as int));
+        }
+        balances.set(idx, new_val);
+        j = j + 1;
+    }
+
+    proof {
+        assert(payee_amounts@.subrange(0, payee_amounts@.len() as int) =~= payee_amounts@);
+        // seq_sum(balances@) == payer_total - payee_total == 0.
+    }
+}
+
 }

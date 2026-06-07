@@ -112,6 +112,23 @@ proof fn range_sum_rest_eq(s1: Seq<i64>, s2: Seq<i64>, from: int, to: int)
 }
 
 
+/// Updating one element changes seq_sum by the difference.
+pub proof fn seq_sum_update(s: Seq<i64>, idx: int, new_val: i64)
+    requires 0 <= idx < s.len(),
+    ensures seq_sum(s.update(idx, new_val)) == seq_sum(s) - s[idx] as int + new_val as int,
+    decreases s.len(),
+{
+    if s.len() == 1 {
+        assert(s.update(idx, new_val).drop_last() =~= Seq::<i64>::empty());
+        assert(s.drop_last() =~= Seq::<i64>::empty());
+    } else if idx == s.len() - 1 {
+        assert(s.update(idx, new_val).drop_last() =~= s.drop_last());
+    } else {
+        assert(s.update(idx, new_val).drop_last() =~= s.drop_last().update(idx, new_val));
+        seq_sum_update(s.drop_last(), idx, new_val);
+    }
+}
+
 /// range_sum of all non-negative values is non-negative.
 pub proof fn range_sum_nonneg(s: Seq<i64>, from: int, to: int)
     requires
