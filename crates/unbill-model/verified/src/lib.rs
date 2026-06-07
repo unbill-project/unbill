@@ -9,4 +9,5 @@
     unused_imports
 )]
 
+pub mod device;
 pub mod ledger;
