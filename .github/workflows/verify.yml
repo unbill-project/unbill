@@ -60,24 +60,9 @@ jobs:
           echo "$HOME/.verus/shim" >> "$GITHUB_PATH"
           echo "$HOME/.verus/verus-x86-linux" >> "$GITHUB_PATH"
 
-      - name: Verify all crates
-        run: |
-          cargo-verus verus verify --workspace \
-            --exclude unbill-cli \
-            --exclude unbill-console \
-            --exclude unbill-daemon \
-            --exclude unbill-device \
-            --exclude unbill-event \
-            --exclude unbill-model \
-            --exclude unbill-server \
-            --exclude unbill-storage \
-            --exclude unbill-store-fs \
-            --exclude unbill-store-memory \
-            --exclude unbill-symmetric-channel \
-            --exclude unbill-asymmetric-channel \
-            --exclude unbill-tauri \
-            --exclude unbill-tui \
-            --exclude unbill-ui-components \
-            --exclude unbill-ui-native \
-            --exclude unbill-ui-remote
+      - name: Verify model
+        run: cargo-verus verus verify -p unbill-model-verified
+
+      - name: Verify settlement
+        run: cargo-verus verus verify -p unbill-console-verified
 # sirno:witness:ci-cd-pipeline:end
