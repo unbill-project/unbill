@@ -67,6 +67,62 @@ pub open spec fn shares_to_specs(shares: Seq<Share>) -> Seq<spec::ShareSpec> {
     )
 }
 
+// ---------------------------------------------------------------------------
+// Bridge lemmas: connect View (cross-crate opaque) to Seq::new (unfoldable).
+// Consumer crates call these to establish the equivalence once.
+// ---------------------------------------------------------------------------
+
+/// bill@.payers =~= shares_to_specs(bill.payers@), and similarly for payees.
+/// Also bridges scalar fields.
+pub proof fn bill_bridge(bill: Bill)
+    ensures
+        bill@.payers =~= shares_to_specs(bill.payers@),
+        bill@.payees =~= shares_to_specs(bill.payees@),
+        bill@.id == bill.id,
+        bill@.amount_cents == bill.amount_cents,
+        bill@.prev == bill.prev@,
+        bill@.created_at == bill.created_at,
+        bill@.created_by_device == bill.created_by_device@,
+        bill@.description == bill.description@,
+        bill@.payers.len() == bill.payers@.len(),
+        bill@.payees.len() == bill.payees@.len(),
+{
+    // Prove payers extensional equality.
+    assert forall|i: int| 0 <= i < bill@.payers.len()
+        implies (#[trigger] bill@.payers[i]) == shares_to_specs(bill.payers@)[i]
+    by {}
+    // Prove payees extensional equality.
+    assert forall|i: int| 0 <= i < bill@.payees.len()
+        implies (#[trigger] bill@.payees[i]) == shares_to_specs(bill.payees@)[i]
+    by {}
+}
+
+/// For a share: share@ == ShareSpec { user_id: share.user_id, weight: share.weight }.
+pub proof fn share_bridge(share: Share)
+    ensures
+        share@.user_id == share.user_id,
+        share@.weight == share.weight,
+{}
+
+/// For a user: user@.user_id == user.user_id.
+pub proof fn user_bridge(user: User)
+    ensures
+        user@.user_id == user.user_id,
+        user@.display_name == user.display_name@,
+        user@.added_at == user.added_at,
+{}
+
+/// split_shares_requires on shares_to_specs(bill.payers@) follows from bill_splittable(bill@).
+pub proof fn bill_splittable_bridge(bill: Bill)
+    requires spec::bill_splittable(bill@),
+    ensures
+        spec::split_shares_requires(shares_to_specs(bill.payers@), bill.amount_cents),
+        spec::split_shares_requires(shares_to_specs(bill.payees@), bill.amount_cents),
+{
+    bill_bridge(bill);
+    // bill@.payers =~= shares_to_specs(bill.payers@), so total_weight is the same.
+}
+
 impl View for User {
     type V = spec::UserSpec;
     open spec fn view(&self) -> spec::UserSpec {
