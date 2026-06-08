@@ -227,35 +227,83 @@ pub fn compute_settlement(
     remainder_indices: &Vec<usize>,
 ) -> (transactions: Vec<exec::Transaction>)
     requires
-        ledger_invariant(ledger@),
-        remainder_indices.len() == ledger.bills.len(),
-        // All prev references valid at exec level.
-        forall|i: int| #![trigger ledger.bills@[i]]
-            0 <= i < ledger.bills.len() ==>
-            forall|k: int| #![trigger ledger.bills@[i].prev@[k]]
-                0 <= k < ledger.bills@[i].prev.len() ==>
-                exists|j: int| 0 <= j < ledger.bills.len() && (#[trigger] ledger.bills@[j]).id == ledger.bills@[i].prev@[k],
-        // Exec-level user existence for all shares.
-        forall|i: int, s: int| #![trigger ledger.bills@[i].payers@[s]]
-            0 <= i < ledger.bills.len() && 0 <= s < ledger.bills@[i].payers.len() ==>
-            exists|k: int| 0 <= k < ledger.users.len()
-                && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[i].payers@[s].user_id,
-        forall|i: int, s: int| #![trigger ledger.bills@[i].payees@[s]]
-            0 <= i < ledger.bills.len() && 0 <= s < ledger.bills@[i].payees.len() ==>
-            exists|k: int| 0 <= k < ledger.users.len()
-                && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[i].payees@[s].user_id,
-        // Overflow bounds.
-        ledger.users.len() <= i32::MAX as usize,
-        ledger.bills.len() <= i32::MAX as usize,
-        // split_shares preconditions at exec level.
-        forall|i: int| #![trigger ledger.bills@[i]]
-            0 <= i < ledger.bills.len() ==>
-            split_shares_requires(shares_to_specs(ledger.bills@[i].payers@), ledger.bills@[i].amount_cents)
-            && split_shares_requires(shares_to_specs(ledger.bills@[i].payees@), ledger.bills@[i].amount_cents),
-        // Remainder indices bounded.
-        forall|i: int| 0 <= i < remainder_indices.len() ==>
-            (#[trigger] remainder_indices@[i]) <= usize::MAX - (i32::MAX as usize),
+        spec::compute_settlement_requires(
+            ledger@, ledger.bills.len() as int, ledger.users.len() as int, remainder_indices@,
+        ),
 {
+    // Bridge spec-level preconditions to exec-level triggers.
+    // The spec predicate operates on LedgerStateSpec; the callees need
+    // quantifiers over ledger.bills@[i] (exec view).  Bridge lemmas
+    // connect them: ledger@.bills[i] == ledger.bills@[i]@.
+    proof {
+        assert forall|i: int, k: int| #![trigger ledger.bills@[i].prev@[k]]
+            0 <= i < ledger.bills.len()
+            && 0 <= k < ledger.bills@[i].prev.len()
+            implies exists|j: int| 0 <= j < ledger.bills.len()
+                && (#[trigger] ledger.bills@[j]).id == ledger.bills@[i].prev@[k]
+        by {
+            ledger_bill_at(*ledger, i);
+            bill_bridge(ledger.bills@[i]);
+            let target = ledger.bills@[i].prev@[k];
+            let j = choose|j: int| 0 <= j < ledger@.bills.len()
+                && ledger@.bills[j].id == target;
+            ledger_bill_at(*ledger, j);
+        }
+
+        assert forall|bi: int| 0 <= bi < ledger.bills.len()
+            implies split_shares_requires(
+                shares_to_specs((#[trigger] ledger.bills@[bi]).payers@),
+                ledger.bills@[bi].amount_cents,
+            ) && split_shares_requires(
+                shares_to_specs(ledger.bills@[bi].payees@),
+                ledger.bills@[bi].amount_cents,
+            )
+        by {
+            ledger_bill_at(*ledger, bi);
+            bill_splittable_bridge(ledger.bills@[bi]);
+        }
+
+        assert forall|bi: int, s: int| #![trigger ledger.bills@[bi].payers@[s]]
+            0 <= bi < ledger.bills.len()
+            && 0 <= s < ledger.bills@[bi].payers.len()
+            implies exists|k: int| 0 <= k < ledger.users.len()
+                && (#[trigger] ledger.users@[k]).user_id
+                    == ledger.bills@[bi].payers@[s].user_id
+        by {
+            ledger_bill_at(*ledger, bi);
+            bill_bridge(ledger.bills@[bi]);
+            // Force spec-level trigger for the user-existence quantifier.
+            let _ = ledger@.bills[bi].payers[s];
+            // uid equality: spec payers[s].user_id == exec payers@[s].user_id.
+            assert(ledger@.bills[bi].payers[s].user_id == ledger.bills@[bi].payers@[s].user_id);
+            // From spec predicate: exists user matching uid.
+            let uid = ledger.bills@[bi].payers@[s].user_id;
+            // spec-level users.len() == exec-level users.len().
+            assert(ledger@.users.len() == ledger.users.len());
+            let k = choose|k: int| 0 <= k < ledger@.users.len()
+                && ledger@.users[k].user_id == uid;
+            ledger_user_at(*ledger, k);
+        }
+
+        assert forall|bi: int, s: int| #![trigger ledger.bills@[bi].payees@[s]]
+            0 <= bi < ledger.bills.len()
+            && 0 <= s < ledger.bills@[bi].payees.len()
+            implies exists|k: int| 0 <= k < ledger.users.len()
+                && (#[trigger] ledger.users@[k]).user_id
+                    == ledger.bills@[bi].payees@[s].user_id
+        by {
+            ledger_bill_at(*ledger, bi);
+            bill_bridge(ledger.bills@[bi]);
+            let _ = ledger@.bills[bi].payees[s];
+            assert(ledger@.bills[bi].payees[s].user_id == ledger.bills@[bi].payees@[s].user_id);
+            let uid = ledger.bills@[bi].payees@[s].user_id;
+            assert(ledger@.users.len() == ledger.users.len());
+            let k = choose|k: int| 0 <= k < ledger@.users.len()
+                && ledger@.users[k].user_id == uid;
+            ledger_user_at(*ledger, k);
+        }
+    }
+
     // Step 1: Filter effective bills.
     let effective_indices = effective::filter_effective_indices(&ledger.bills);
 
