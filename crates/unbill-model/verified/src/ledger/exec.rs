@@ -280,4 +280,44 @@ pub fn exec_add_bill(ledger: &mut LedgerState, bill: Bill)
     }
 }
 
+// ---------------------------------------------------------------------------
+// Try wrappers: check + exec in one call
+// ---------------------------------------------------------------------------
+
+pub fn try_add_user(ledger: &mut LedgerState, user: User) -> (result: Result<(), super::check::AddUserError>)
+    requires spec::ledger_invariant(old(ledger)@),
+    ensures
+        result.is_ok() ==> spec::add_user(old(ledger)@, final(ledger)@, user@)
+                         && spec::ledger_invariant(final(ledger)@),
+        result.is_err() ==> final(ledger)@ == old(ledger)@,
+{
+    super::check::check_add_user(ledger, &user)?;
+    exec_add_user(ledger, user);
+    Ok(())
+}
+
+pub fn try_add_device(ledger: &mut LedgerState, device: Device) -> (result: Result<(), super::check::AddDeviceError>)
+    requires spec::ledger_invariant(old(ledger)@),
+    ensures
+        result.is_ok() ==> spec::add_device(old(ledger)@, final(ledger)@, device@)
+                         && spec::ledger_invariant(final(ledger)@),
+        result.is_err() ==> final(ledger)@ == old(ledger)@,
+{
+    super::check::check_add_device(ledger, &device)?;
+    exec_add_device(ledger, device);
+    Ok(())
+}
+
+pub fn try_add_bill(ledger: &mut LedgerState, bill: Bill) -> (result: Result<(), super::check::AddBillError>)
+    requires spec::ledger_invariant(old(ledger)@),
+    ensures
+        result.is_ok() ==> spec::add_bill(old(ledger)@, final(ledger)@, bill@)
+                         && spec::ledger_invariant(final(ledger)@),
+        result.is_err() ==> final(ledger)@ == old(ledger)@,
+{
+    super::check::check_add_bill(ledger, &bill)?;
+    exec_add_bill(ledger, bill);
+    Ok(())
+}
+
 }
