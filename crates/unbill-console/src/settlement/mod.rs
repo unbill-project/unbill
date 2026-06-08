@@ -174,7 +174,7 @@ pub fn split_shares(
         .collect();
     let remainder_idx = fnv1a(bill_id.to_string().as_bytes()) as usize;
 
-    let verified_amounts = unbill_console_verified::settlement::split_shares(
+    let verified_amounts = unbill_console_verified::settlement::exec::split_shares(
         &model_shares,
         total_cents,
         remainder_idx,
