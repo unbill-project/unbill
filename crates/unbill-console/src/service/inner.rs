@@ -309,45 +309,40 @@ impl UnbillConsole {
 
     // sirno:witness:settlement:begin
     /// Compute net settlement for a user across all ledgers they participate in,
-    /// grouped by currency.
+    /// grouped by currency.  Each ledger is settled independently via the
+    /// verified pipeline; results are then merged by currency and filtered
+    /// to transactions involving the user.
     pub async fn compute_settlement_for_user(
         &self,
         user_id: UserId,
     ) -> Result<Vec<settlement::Settlement>> {
-        let mut by_currency: std::collections::HashMap<
-            Currency,
-            std::collections::HashMap<UserId, i64>,
-        > = std::collections::HashMap::new();
+        let mut by_currency: std::collections::HashMap<Currency, Vec<settlement::Transaction>> =
+            std::collections::HashMap::new();
 
         for meta in self.channel.list_ledgers().await? {
             let doc = self.take_doc(meta.ledger_id).await?;
-            let users = doc.list_users()?;
-            if users.iter().any(|user| user.user_id == user_id) {
-                let currency = doc.get_ledger()?.currency;
-                let bills = doc.list_bills()?;
-                self.put_doc(meta.ledger_id, doc).await;
-                let balances = by_currency.entry(currency).or_default();
-                settlement::accumulate_balances(&users, &bills, balances);
-            } else {
-                self.put_doc(meta.ledger_id, doc).await;
+            let ledger = doc.get_ledger()?;
+            self.put_doc(meta.ledger_id, doc).await;
+            if !ledger.users.iter().any(|u| u.user_id == user_id) {
+                continue;
             }
+            let s = settlement::compute_settlement(&ledger);
+            let txns = by_currency.entry(s.currency).or_default();
+            txns.extend(
+                s.transactions
+                    .into_iter()
+                    .filter(|t| t.from_user_id == user_id || t.to_user_id == user_id),
+            );
         }
 
-        let mut results = Vec::new();
-        for (currency, balances) in by_currency {
-            let full = settlement::compute_from_balances(currency, balances);
-            let transactions: Vec<_> = full
-                .transactions
-                .into_iter()
-                .filter(|t| t.from_user_id == user_id || t.to_user_id == user_id)
-                .collect();
-            if !transactions.is_empty() {
-                results.push(settlement::Settlement {
-                    currency,
-                    transactions,
-                });
-            }
-        }
+        let results: Vec<_> = by_currency
+            .into_iter()
+            .filter(|(_, txns)| !txns.is_empty())
+            .map(|(currency, transactions)| settlement::Settlement {
+                currency,
+                transactions,
+            })
+            .collect();
         Ok(results)
     }
 
@@ -794,14 +789,27 @@ mod tests {
         svc.add_bill(lid2, bob_pays).await.unwrap();
 
         let alice = UserId::from_u128(1);
+        let bob = UserId::from_u128(2);
         let settlements = svc.compute_settlement_for_user(alice).await.unwrap();
         assert_eq!(settlements.len(), 1);
         let s = &settlements[0];
         assert_eq!(s.currency.code(), "USD");
-        assert_eq!(s.transactions.len(), 1);
-        assert_eq!(s.transactions[0].amount_cents, 2000);
-        assert_eq!(s.transactions[0].from_user_id, UserId::from_u128(2));
-        assert_eq!(s.transactions[0].to_user_id, UserId::from_u128(1));
+        // Per-ledger settlement: L1 bob→alice $30, L2 alice→bob $10.
+        assert_eq!(s.transactions.len(), 2);
+        let to_alice: i64 = s
+            .transactions
+            .iter()
+            .filter(|t| t.to_user_id == alice && t.from_user_id == bob)
+            .map(|t| t.amount_cents)
+            .sum();
+        let to_bob: i64 = s
+            .transactions
+            .iter()
+            .filter(|t| t.to_user_id == bob && t.from_user_id == alice)
+            .map(|t| t.amount_cents)
+            .sum();
+        assert_eq!(to_alice, 3000);
+        assert_eq!(to_bob, 1000);
     }
 
     #[tokio::test]
