@@ -10,8 +10,9 @@ use unbill_model_verified::ledger::exec as v;
 
 use crate::verified_bridge::{ledger_to_model, model_to_ledger};
 use crate::{
-    Bill, BillId, Currency, Device, EffectiveBills, Ledger, LedgerId, NewBill, NewDevice, NewUser,
-    NodeId, Timestamp, UnbillError, User, UserId,
+    AddBillOpError, AddDeviceOpError, AddUserOpError, Bill, BillId, Currency, Device,
+    EffectiveBills, Ledger, LedgerId, NewBill, NewDevice, NewUser, NodeId, Timestamp, UnbillError,
+    User,
 };
 
 type Result<T> = std::result::Result<T, UnbillError>;
@@ -55,34 +56,11 @@ pub(super) fn add_bill(
     input: NewBill,
     created_by_device: NodeId,
     now: Timestamp,
-) -> Result<BillId> {
-    let ledger = get_ledger(doc)?;
-
-    // Validation — same checks as before.
-    let user_ids: std::collections::HashSet<UserId> =
-        ledger.users.iter().map(|user| user.user_id).collect();
-
-    let all_users = input
-        .payers
-        .iter()
-        .chain(input.payees.iter())
-        .map(|s| &s.user_id);
-    for user_id in all_users {
-        if !user_ids.contains(user_id) {
-            return Err(UnbillError::UserNotInLedger(user_id.to_string()));
-        }
-    }
-
-    for prev_id in &input.prev {
-        if !ledger.bills.iter().any(|b| &b.id == prev_id) {
-            return Err(UnbillError::BillNotFound(prev_id.to_string()));
-        }
-    }
-
-    // Mutation through verified model.
+) -> std::result::Result<BillId, AddBillOpError> {
+    let ledger = get_ledger(doc).map_err(|e| AddBillOpError::Reconcile(e.to_string()))?;
     let bill_id = BillId::new();
     let mut model = ledger_to_model(&ledger);
-    v::exec_add_bill(
+    v::try_add_bill(
         &mut model,
         v::Bill {
             id: bill_id.to_u128(),
@@ -108,9 +86,9 @@ pub(super) fn add_bill(
             created_at: now.as_millis(),
             created_by_device: created_by_device.to_string().into_bytes(),
         },
-    );
-    let ledger = model_to_ledger(&model).map_err(|e| UnbillError::Reconcile(e.0))?;
-    reconcile(doc, &ledger).map_err(|e| UnbillError::Reconcile(e.to_string()))?;
+    )?;
+    let ledger = model_to_ledger(&model).map_err(|e| AddBillOpError::Reconcile(e.0))?;
+    reconcile(doc, &ledger).map_err(|e| AddBillOpError::Reconcile(e.to_string()))?;
     Ok(bill_id)
 }
 
@@ -142,26 +120,23 @@ pub(super) fn list_bills(doc: &AutoCommit) -> Result<EffectiveBills> {
 // Users
 // ---------------------------------------------------------------------------
 
-pub(super) fn add_user(doc: &mut AutoCommit, input: NewUser, now: Timestamp) -> Result<()> {
-    let ledger = get_ledger(doc)?;
-    if ledger
-        .users
-        .iter()
-        .any(|user| user.user_id == input.user_id)
-    {
-        return Ok(());
-    }
+pub(super) fn add_user(
+    doc: &mut AutoCommit,
+    input: NewUser,
+    now: Timestamp,
+) -> std::result::Result<(), AddUserOpError> {
+    let ledger = get_ledger(doc).map_err(|e| AddUserOpError::Reconcile(e.to_string()))?;
     let mut model = ledger_to_model(&ledger);
-    v::exec_add_user(
+    v::try_add_user(
         &mut model,
         v::User {
             user_id: input.user_id.to_u128(),
             display_name: input.display_name.into_bytes(),
             added_at: now.as_millis(),
         },
-    );
-    let ledger = model_to_ledger(&model).map_err(|e| UnbillError::Reconcile(e.0))?;
-    reconcile(doc, &ledger).map_err(|e| UnbillError::Reconcile(e.to_string()))
+    )?;
+    let ledger = model_to_ledger(&model).map_err(|e| AddUserOpError::Reconcile(e.0))?;
+    reconcile(doc, &ledger).map_err(|e| AddUserOpError::Reconcile(e.to_string()))
 }
 
 pub(super) fn list_users(doc: &AutoCommit) -> Result<Vec<User>> {
@@ -173,21 +148,22 @@ pub(super) fn list_users(doc: &AutoCommit) -> Result<Vec<User>> {
 // Devices
 // ---------------------------------------------------------------------------
 
-pub(super) fn add_device(doc: &mut AutoCommit, input: NewDevice, now: Timestamp) -> Result<()> {
-    let ledger = get_ledger(doc)?;
-    if ledger.devices.iter().any(|d| d.node_id == input.node_id) {
-        return Ok(());
-    }
+pub(super) fn add_device(
+    doc: &mut AutoCommit,
+    input: NewDevice,
+    now: Timestamp,
+) -> std::result::Result<(), AddDeviceOpError> {
+    let ledger = get_ledger(doc).map_err(|e| AddDeviceOpError::Reconcile(e.to_string()))?;
     let mut model = ledger_to_model(&ledger);
-    v::exec_add_device(
+    v::try_add_device(
         &mut model,
         v::Device {
             node_id: input.node_id.to_string().into_bytes(),
             added_at: now.as_millis(),
         },
-    );
-    let ledger = model_to_ledger(&model).map_err(|e| UnbillError::Reconcile(e.0))?;
-    reconcile(doc, &ledger).map_err(|e| UnbillError::Reconcile(e.to_string()))
+    )?;
+    let ledger = model_to_ledger(&model).map_err(|e| AddDeviceOpError::Reconcile(e.0))?;
+    reconcile(doc, &ledger).map_err(|e| AddDeviceOpError::Reconcile(e.to_string()))
 }
 
 pub(super) fn list_devices(doc: &AutoCommit) -> Result<Vec<Device>> {
@@ -202,7 +178,8 @@ pub(super) fn list_devices(doc: &AutoCommit) -> Result<Vec<Device>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Currency, Share};
+    use crate::{Currency, Share, UserId};
+    use unbill_model_verified::ledger::check as vc;
 
     fn device() -> NodeId {
         NodeId::from_seed(1)
@@ -235,6 +212,7 @@ mod tests {
 
     fn doc_with_users(user_ids: &[UserId]) -> AutoCommit {
         let mut doc = fresh_doc();
+        add_device(&mut doc, NewDevice { node_id: device() }, ts(0)).unwrap();
         let mut ledger = get_ledger(&doc).unwrap();
         for &user_id in user_ids {
             ledger.users.push(User {
@@ -307,8 +285,13 @@ mod tests {
             ts(1),
         );
         assert!(
-            matches!(result, Err(UnbillError::UserNotInLedger(_))),
-            "expected UserNotInLedger, got {result:?}"
+            matches!(
+                result,
+                Err(AddBillOpError::Check(
+                    vc::AddBillError::PayerNotInLedger { .. }
+                ))
+            ),
+            "expected PayerNotInLedger, got {result:?}"
         );
     }
 
@@ -355,7 +338,7 @@ mod tests {
     }
 
     #[test]
-    fn test_add_device_duplicate_is_noop() {
+    fn test_add_device_duplicate_is_error() {
         let mut doc = fresh_doc();
         add_device(
             &mut doc,
@@ -365,14 +348,20 @@ mod tests {
             ts(0),
         )
         .unwrap();
-        add_device(
+        let result = add_device(
             &mut doc,
             NewDevice {
                 node_id: NodeId::from_seed(1),
             },
             ts(1),
-        )
-        .unwrap();
+        );
+        assert!(
+            matches!(
+                result,
+                Err(AddDeviceOpError::Check(vc::AddDeviceError::DuplicateDevice))
+            ),
+            "expected DuplicateDevice, got {result:?}"
+        );
         assert_eq!(list_devices(&doc).unwrap().len(), 1);
     }
 }

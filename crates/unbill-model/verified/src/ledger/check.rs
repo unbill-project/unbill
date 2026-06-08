@@ -56,9 +56,9 @@ pub enum AddBillError {
     ZeroPayerWeight { index: usize },
     #[cfg_attr(feature = "thiserror", error("payee at index {index} has zero weight"))]
     ZeroPayeeWeight { index: usize },
-    #[cfg_attr(feature = "thiserror", error("payer at index {index} not in ledger"))]
+    #[cfg_attr(feature = "thiserror", error("payer at index {index} is not in this ledger"))]
     PayerNotInLedger { index: usize },
-    #[cfg_attr(feature = "thiserror", error("payee at index {index} not in ledger"))]
+    #[cfg_attr(feature = "thiserror", error("payee at index {index} is not in this ledger"))]
     PayeeNotInLedger { index: usize },
     #[cfg_attr(feature = "thiserror", error("device not in ledger"))]
     DeviceNotInLedger,
