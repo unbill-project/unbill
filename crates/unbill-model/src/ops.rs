@@ -32,7 +32,7 @@ pub(super) fn init_ledger(
     created_at: Timestamp,
 ) -> Result<()> {
     let model = v::exec_init(
-        ledger_id.to_string().into_bytes(),
+        ledger_id.to_u128(),
         name.into_bytes(),
         currency.code().as_bytes().to_vec(),
         created_at.as_millis(),
@@ -85,14 +85,14 @@ pub(super) fn add_bill(
     v::exec_add_bill(
         &mut model,
         v::Bill {
-            id: bill_id.to_string().into_bytes(),
+            id: bill_id.to_u128(),
             amount_cents: input.amount_cents,
             description: input.description.into_bytes(),
             payers: input
                 .payers
                 .iter()
                 .map(|s| v::Share {
-                    user_id: s.user_id.to_string().into_bytes(),
+                    user_id: s.user_id.to_u128(),
                     weight: s.shares,
                 })
                 .collect(),
@@ -100,15 +100,11 @@ pub(super) fn add_bill(
                 .payees
                 .iter()
                 .map(|s| v::Share {
-                    user_id: s.user_id.to_string().into_bytes(),
+                    user_id: s.user_id.to_u128(),
                     weight: s.shares,
                 })
                 .collect(),
-            prev: input
-                .prev
-                .iter()
-                .map(|id| id.to_string().into_bytes())
-                .collect(),
+            prev: input.prev.iter().map(|id| id.to_u128()).collect(),
             created_at: now.as_millis(),
             created_by_device: created_by_device.to_string().into_bytes(),
         },
@@ -159,7 +155,7 @@ pub(super) fn add_user(doc: &mut AutoCommit, input: NewUser, now: Timestamp) -> 
     v::exec_add_user(
         &mut model,
         v::User {
-            user_id: input.user_id.to_string().into_bytes(),
+            user_id: input.user_id.to_u128(),
             display_name: input.display_name.into_bytes(),
             added_at: now.as_millis(),
         },

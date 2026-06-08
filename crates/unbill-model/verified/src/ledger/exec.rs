@@ -7,27 +7,27 @@ use vstd::prelude::*;
 verus! {
 
 // ---------------------------------------------------------------------------
-// Runtime types (Vec-based, mirrors production structs)
+// Runtime types (u128 for IDs, Vec for collections)
 // ---------------------------------------------------------------------------
 
 pub struct Share {
-    pub user_id: Vec<u8>,
+    pub user_id: u128,
     pub weight: u32,
 }
 
 pub struct Bill {
-    pub id: Vec<u8>,
+    pub id: u128,
     pub amount_cents: i64,
     pub description: Vec<u8>,
     pub payers: Vec<Share>,
     pub payees: Vec<Share>,
-    pub prev: Vec<Vec<u8>>,
+    pub prev: Vec<u128>,
     pub created_at: i64,
     pub created_by_device: Vec<u8>,
 }
 
 pub struct User {
-    pub user_id: Vec<u8>,
+    pub user_id: u128,
     pub display_name: Vec<u8>,
     pub added_at: i64,
 }
@@ -38,7 +38,7 @@ pub struct Device {
 }
 
 pub struct LedgerState {
-    pub ledger_id: Vec<u8>,
+    pub ledger_id: u128,
     pub schema_version: u32,
     pub name: Vec<u8>,
     pub currency: Vec<u8>,
@@ -55,15 +55,95 @@ pub struct LedgerState {
 impl View for Share {
     type V = spec::ShareSpec;
     open spec fn view(&self) -> spec::ShareSpec {
-        spec::ShareSpec { user_id: self.user_id@, weight: self.weight }
+        spec::ShareSpec { user_id: self.user_id, weight: self.weight }
     }
+}
+
+/// Convert a Seq<Share> to Seq<ShareSpec>.
+/// With u128 IDs, this is simpler — no cross-crate View issues.
+pub open spec fn shares_to_specs(shares: Seq<Share>) -> Seq<spec::ShareSpec> {
+    Seq::new(shares.len() as nat, |i: int|
+        spec::ShareSpec { user_id: shares[i].user_id, weight: shares[i].weight }
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Bridge lemmas: connect View (cross-crate opaque) to Seq::new (unfoldable).
+// Consumer crates call these to establish the equivalence once.
+// ---------------------------------------------------------------------------
+
+/// bill@.payers =~= shares_to_specs(bill.payers@), and similarly for payees.
+/// Also bridges scalar fields.
+pub proof fn bill_bridge(bill: Bill)
+    ensures
+        bill@.payers =~= shares_to_specs(bill.payers@),
+        bill@.payees =~= shares_to_specs(bill.payees@),
+        bill@.id == bill.id,
+        bill@.amount_cents == bill.amount_cents,
+        bill@.prev == bill.prev@,
+        bill@.created_at == bill.created_at,
+        bill@.created_by_device == bill.created_by_device@,
+        bill@.description == bill.description@,
+        bill@.payers.len() == bill.payers@.len(),
+        bill@.payees.len() == bill.payees@.len(),
+{
+    // Prove payers extensional equality.
+    assert forall|i: int| 0 <= i < bill@.payers.len()
+        implies (#[trigger] bill@.payers[i]) == shares_to_specs(bill.payers@)[i]
+    by {}
+    // Prove payees extensional equality.
+    assert forall|i: int| 0 <= i < bill@.payees.len()
+        implies (#[trigger] bill@.payees[i]) == shares_to_specs(bill.payees@)[i]
+    by {}
+}
+
+/// For a share: share@ == ShareSpec { user_id: share.user_id, weight: share.weight }.
+pub proof fn share_bridge(share: Share)
+    ensures
+        share@.user_id == share.user_id,
+        share@.weight == share.weight,
+{}
+
+/// For a user: user@.user_id == user.user_id.
+pub proof fn user_bridge(user: User)
+    ensures
+        user@.user_id == user.user_id,
+        user@.display_name == user.display_name@,
+        user@.added_at == user.added_at,
+{}
+
+/// split_shares_requires on shares_to_specs(bill.payers@) follows from bill_splittable(bill@).
+pub proof fn bill_splittable_bridge(bill: Bill)
+    requires spec::bill_splittable(bill@),
+    ensures
+        spec::split_shares_requires(shares_to_specs(bill.payers@), bill.amount_cents),
+        spec::split_shares_requires(shares_to_specs(bill.payees@), bill.amount_cents),
+{
+    bill_bridge(bill);
+    // bill@.payers =~= shares_to_specs(bill.payers@), so total_weight is the same.
+}
+
+/// Bridge: ledger@.bills[i] == ledger.bills@[i]@ (connects LedgerState View to direct access).
+pub proof fn ledger_bill_at(ledger: LedgerState, i: int)
+    requires 0 <= i < ledger.bills.len(),
+    ensures ledger@.bills[i] == ledger.bills@[i]@,
+{
+    assert(ledger@.bills[i] == ledger.bills@.map(|_j: int, b: Bill| b@)[i]);
+}
+
+/// Bridge: ledger@.users[i] == ledger.users@[i]@ (connects LedgerState View to direct access).
+pub proof fn ledger_user_at(ledger: LedgerState, i: int)
+    requires 0 <= i < ledger.users.len(),
+    ensures ledger@.users[i] == ledger.users@[i]@,
+{
+    assert(ledger@.users[i] == ledger.users@.map(|_j: int, u: User| u@)[i]);
 }
 
 impl View for User {
     type V = spec::UserSpec;
     open spec fn view(&self) -> spec::UserSpec {
         spec::UserSpec {
-            user_id: self.user_id@,
+            user_id: self.user_id,
             display_name: self.display_name@,
             added_at: self.added_at,
         }
@@ -84,12 +164,12 @@ impl View for Bill {
     type V = spec::BillSpec;
     open spec fn view(&self) -> spec::BillSpec {
         spec::BillSpec {
-            id: self.id@,
+            id: self.id,
             amount_cents: self.amount_cents,
             description: self.description@,
             payers: self.payers@.map(|_i, s: Share| s@),
             payees: self.payees@.map(|_i, s: Share| s@),
-            prev: self.prev@.map(|_i, v: Vec<u8>| v@),
+            prev: self.prev@,
             created_at: self.created_at,
             created_by_device: self.created_by_device@,
         }
@@ -100,7 +180,7 @@ impl View for LedgerState {
     type V = spec::LedgerStateSpec;
     open spec fn view(&self) -> spec::LedgerStateSpec {
         spec::LedgerStateSpec {
-            ledger_id: self.ledger_id@,
+            ledger_id: self.ledger_id,
             schema_version: self.schema_version,
             name: self.name@,
             currency: self.currency@,
@@ -118,13 +198,13 @@ impl View for LedgerState {
 
 /// Create a fresh empty ledger.
 pub fn exec_init(
-    ledger_id: Vec<u8>,
+    ledger_id: u128,
     name: Vec<u8>,
     currency: Vec<u8>,
     created_at: i64,
 ) -> (result: LedgerState)
     ensures
-        spec::init(result@, ledger_id@, name@, currency@, created_at),
+        spec::init(result@, ledger_id, name@, currency@, created_at),
         spec::ledger_invariant(result@),
 {
     let result = LedgerState {
@@ -137,7 +217,7 @@ pub fn exec_init(
         bills: Vec::new(),
         devices: Vec::new(),
     };
-    proof { super::proof::init_preserves(result@, result.ledger_id@, result.name@, result.currency@, created_at); }
+    proof { super::proof::init_preserves(result@, ledger_id, result.name@, result.currency@, created_at); }
     result
 }
 
@@ -146,6 +226,7 @@ pub fn exec_add_user(ledger: &mut LedgerState, user: User)
     requires
         spec::ledger_invariant(old(ledger)@),
         !spec::has_user(old(ledger)@.users, user@.user_id),
+        old(ledger).users.len() < i32::MAX as usize,
     ensures
         spec::add_user(old(ledger)@, final(ledger)@, user@),
         spec::ledger_invariant(final(ledger)@),
@@ -164,6 +245,7 @@ pub fn exec_add_device(ledger: &mut LedgerState, device: Device)
     requires
         spec::ledger_invariant(old(ledger)@),
         !spec::has_device(old(ledger)@.devices, device@.node_id),
+        old(ledger).devices.len() < i32::MAX as usize,
     ensures
         spec::add_device(old(ledger)@, final(ledger)@, device@),
         spec::ledger_invariant(final(ledger)@),
@@ -182,6 +264,7 @@ pub fn exec_add_bill(ledger: &mut LedgerState, bill: Bill)
     requires
         spec::ledger_invariant(old(ledger)@),
         spec::add_bill(old(ledger)@, spec::LedgerStateSpec { bills: old(ledger)@.bills.push(bill@), ..old(ledger)@ }, bill@),
+        old(ledger).bills.len() < i32::MAX as usize,
     ensures
         spec::add_bill(old(ledger)@, final(ledger)@, bill@),
         spec::ledger_invariant(final(ledger)@),

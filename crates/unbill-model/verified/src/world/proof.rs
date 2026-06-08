@@ -30,51 +30,49 @@ proof fn other_devices_invariant(
     }
 }
 
-/// Helper: updating one device (same device_id) preserves device_ids_unique_in_world.
-proof fn update_preserves_device_ids_unique(
+/// Helper: updating one device (same node_id) preserves node_ids_unique_in_world.
+proof fn update_preserves_node_ids_unique(
     pre: Seq<DeviceStateSpec>,
     idx: int,
     new_device: DeviceStateSpec,
 )
     requires
         0 <= idx < pre.len(),
-        device_ids_unique_in_world(pre),
-        new_device.device_id == pre[idx].device_id,
+        node_ids_unique_in_world(pre),
+        new_device.node_id == pre[idx].node_id,
     ensures
-        device_ids_unique_in_world(pre.update(idx, new_device)),
+        node_ids_unique_in_world(pre.update(idx, new_device)),
 {
     assert forall|i: int, j: int|
         0 <= i < pre.update(idx, new_device).len()
         && 0 <= j < pre.update(idx, new_device).len()
         && i != j
-        implies #[trigger] pre.update(idx, new_device)[i].device_id
-            != #[trigger] pre.update(idx, new_device)[j].device_id
+        implies #[trigger] pre.update(idx, new_device)[i].node_id
+            != #[trigger] pre.update(idx, new_device)[j].node_id
     by {
-        if i == idx { assert(pre.update(idx, new_device)[i].device_id == pre[idx].device_id); }
-        if j == idx { assert(pre.update(idx, new_device)[j].device_id == pre[idx].device_id); }
+        if i == idx { assert(pre.update(idx, new_device)[i].node_id == pre[idx].node_id); }
+        if j == idx { assert(pre.update(idx, new_device)[j].node_id == pre[idx].node_id); }
     }
 }
 
 pub proof fn register_device_preserves(
-    pre: WorldSpec, post: WorldSpec, device_id: Seq<u8>,
+    pre: WorldSpec, post: WorldSpec, node_id: Seq<u8>,
 )
     requires
         world_invariant(pre),
-        register_device(pre, post, device_id),
+        register_device(pre, post, node_id),
     ensures
         world_invariant(post),
 {
-    // Device IDs unique: new device_id is fresh (not in generated, all existing IDs are in generated).
+    // Node IDs unique: new node_id not in pre (from !has_device_in_world precondition).
     assert forall|i: int, j: int|
         0 <= i < post.devices.len() && 0 <= j < post.devices.len() && i != j
-        implies #[trigger] post.devices[i].device_id != #[trigger] post.devices[j].device_id
+        implies #[trigger] post.devices[i].node_id != #[trigger] post.devices[j].node_id
     by {
         if i == pre.devices.len() as int {
-            assert(!pre.ulid_state.generated.contains(device_id));
-            assert(pre.ulid_state.generated.contains(pre.devices[j].device_id));
+            assert(has_device_in_world(pre.devices, post.devices[j].node_id));
         } else if j == pre.devices.len() as int {
-            assert(!pre.ulid_state.generated.contains(device_id));
-            assert(pre.ulid_state.generated.contains(pre.devices[i].device_id));
+            assert(has_device_in_world(pre.devices, post.devices[i].node_id));
         }
     }
 
@@ -84,31 +82,20 @@ pub proof fn register_device_preserves(
     by {
         if i < pre.devices.len() as int { assert(post.devices[i] == pre.devices[i]); }
     }
-
-    // All IDs tracked: old IDs still in superset, new device_id inserted.
-    assert(all_ids_tracked(post)) by {
-        assert forall|i: int| 0 <= i < post.devices.len()
-            implies post.ulid_state.generated.contains(#[trigger] post.devices[i].device_id)
-        by {
-            if i < pre.devices.len() as int {
-                assert(pre.ulid_state.generated.contains(pre.devices[i].device_id));
-            }
-        }
-    }
 }
 
 pub proof fn world_create_ledger_preserves(
     pre: WorldSpec, post: WorldSpec,
-    device_id: Seq<u8>, ledger_id: Seq<u8>,
+    node_id: Seq<u8>, ledger_id: u128,
     name: Seq<u8>, currency: Seq<u8>, created_at: i64,
 )
     requires
         world_invariant(pre),
-        world_create_ledger(pre, post, device_id, ledger_id, name, currency, created_at),
+        world_create_ledger(pre, post, node_id, ledger_id, name, currency, created_at),
     ensures
         world_invariant(post),
 {
-    let didx = find_device(pre.devices, device_id);
+    let didx = find_device(pre.devices, node_id);
     let pre_device = pre.devices[didx];
 
     // The new ledger_id is fresh in the ULID state, so it can't collide
@@ -126,17 +113,11 @@ pub proof fn world_create_ledger_preserves(
 
     let post_device = post.devices[didx];
     crate::device::proof::create_ledger_preserves(pre_device, post_device, ledger_id, name, currency, created_at);
-    update_preserves_device_ids_unique(pre.devices, didx, post_device);
+    update_preserves_node_ids_unique(pre.devices, didx, post_device);
     other_devices_invariant(pre.devices, post.devices, didx, post_device);
 
-    // All IDs tracked.
+    // All IDs tracked (device node_ids not tracked — they're Ed25519 keys).
     assert(all_ids_tracked(post)) by {
-        assert forall|i: int| 0 <= i < post.devices.len()
-            implies post.ulid_state.generated.contains(#[trigger] post.devices[i].device_id)
-        by {
-            if i == didx { assert(post.devices[i].device_id == pre_device.device_id); }
-            assert(pre.ulid_state.generated.contains(pre.devices[i].device_id));
-        }
         assert forall|i: int, j: int|
             0 <= i < post.devices.len()
             && 0 <= j < (#[trigger] post.devices[i]).ledgers.len()
@@ -156,45 +137,18 @@ pub proof fn world_create_ledger_preserves(
 }
 
 /// Helper: prove all_ids_tracked after updating one device and inserting one ID.
-proof fn all_ids_tracked_after_device_update(
-    pre: WorldSpec,
-    post_devices: Seq<DeviceStateSpec>,
-    post_ulid: UlidStateSpec,
-    didx: int,
-)
-    requires
-        all_ids_tracked(pre),
-        0 <= didx < pre.devices.len(),
-        post_devices == pre.devices.update(didx, post_devices[didx]),
-        post_devices[didx].device_id == pre.devices[didx].device_id,
-        // post_ulid is a superset of pre.ulid_state.generated.
-        forall|id: Seq<u8>| pre.ulid_state.generated.contains(id) ==>
-            post_ulid.generated.contains(id),
-    ensures
-        forall|i: int| 0 <= i < post_devices.len() ==>
-            post_ulid.generated.contains(#[trigger] post_devices[i].device_id),
-{
-    assert forall|i: int| 0 <= i < post_devices.len()
-        implies post_ulid.generated.contains(#[trigger] post_devices[i].device_id)
-    by {
-        if i == didx {
-            assert(post_devices[i].device_id == pre.devices[didx].device_id);
-        }
-        assert(pre.ulid_state.generated.contains(pre.devices[i].device_id));
-    }
-}
 
 pub proof fn world_add_user_preserves(
     pre: WorldSpec, post: WorldSpec,
-    device_id: Seq<u8>, ledger_id: Seq<u8>, user: UserSpec,
+    node_id: Seq<u8>, ledger_id: u128, user: UserSpec,
 )
     requires
         world_invariant(pre),
-        world_add_user(pre, post, device_id, ledger_id, user),
+        world_add_user(pre, post, node_id, ledger_id, user),
     ensures
         world_invariant(post),
 {
-    let didx = find_device(pre.devices, device_id);
+    let didx = find_device(pre.devices, node_id);
     let pre_dev = pre.devices[didx];
     let lidx = find_ledger(pre_dev.ledgers, ledger_id);
     let pre_ledger = pre_dev.ledgers[lidx];
@@ -213,9 +167,9 @@ pub proof fn world_add_user_preserves(
     }
 
     crate::device::proof::device_add_user_preserves(pre_dev, post_dev, ledger_id, user);
-    update_preserves_device_ids_unique(pre.devices, didx, post_dev);
+    update_preserves_node_ids_unique(pre.devices, didx, post_dev);
     other_devices_invariant(pre.devices, post.devices, didx, post_dev);
-    all_ids_tracked_after_device_update(pre, post.devices, post.ulid_state, didx);
+    // Device node_ids are Ed25519 keys — not tracked in ULID state.
 
     assert(all_ids_tracked(post)) by {
         assert forall|i: int, j: int|
@@ -239,17 +193,7 @@ pub proof fn world_add_user_preserves(
             else if i == didx { assert(post.devices[i].ledgers[j] == pre_dev.ledgers[j]); }
             else { assert(post.devices[i] == pre.devices[i]); }
         }
-        assert forall|i: int, j: int, k: int|
-            0 <= i < post.devices.len()
-            && 0 <= j < post.devices[i].ledgers.len()
-            && 0 <= k < post.devices[i].ledgers[j].devices.len()
-            implies post.ulid_state.generated.contains(
-                #[trigger] post.devices[i].ledgers[j].devices[k].node_id)
-        by {
-            if i == didx && j == lidx { assert(post.devices[i].ledgers[j].devices[k] == pre_ledger.devices[k]); }
-            else if i == didx { assert(post.devices[i].ledgers[j] == pre_dev.ledgers[j]); }
-            else { assert(post.devices[i] == pre.devices[i]); }
-        }
+        // node_id tracking removed (Ed25519 keys, not ULIDs).
         assert forall|i: int, j: int, k: int|
             0 <= i < post.devices.len()
             && 0 <= j < post.devices[i].ledgers.len()
@@ -266,15 +210,15 @@ pub proof fn world_add_user_preserves(
 
 pub proof fn world_add_device_to_ledger_preserves(
     pre: WorldSpec, post: WorldSpec,
-    device_id: Seq<u8>, ledger_id: Seq<u8>, new_device: DeviceSpec,
+    node_id: Seq<u8>, ledger_id: u128, new_device: DeviceSpec,
 )
     requires
         world_invariant(pre),
-        world_add_device_to_ledger(pre, post, device_id, ledger_id, new_device),
+        world_add_device_to_ledger(pre, post, node_id, ledger_id, new_device),
     ensures
         world_invariant(post),
 {
-    let didx = find_device(pre.devices, device_id);
+    let didx = find_device(pre.devices, node_id);
     let pre_dev = pre.devices[didx];
     let lidx = find_ledger(pre_dev.ledgers, ledger_id);
     let pre_ledger = pre_dev.ledgers[lidx];
@@ -284,18 +228,12 @@ pub proof fn world_add_device_to_ledger_preserves(
         ..pre_dev
     };
 
-    assert(!has_device(pre_ledger.devices, new_device.node_id)) by {
-        if has_device(pre_ledger.devices, new_device.node_id) {
-            let k = choose|k: int| 0 <= k < pre_ledger.devices.len()
-                && pre_ledger.devices[k].node_id == new_device.node_id;
-            assert(pre.ulid_state.generated.contains(new_device.node_id));
-        }
-    }
+    // !has_device is now a precondition of world_add_device_to_ledger.
 
     crate::device::proof::device_add_device_preserves(pre_dev, post_dev, ledger_id, new_device);
-    update_preserves_device_ids_unique(pre.devices, didx, post_dev);
+    update_preserves_node_ids_unique(pre.devices, didx, post_dev);
     other_devices_invariant(pre.devices, post.devices, didx, post_dev);
-    all_ids_tracked_after_device_update(pre, post.devices, post.ulid_state, didx);
+    // Device node_ids are Ed25519 keys — not tracked in ULID state.
 
     assert(all_ids_tracked(post)) by {
         assert forall|i: int, j: int|
@@ -318,18 +256,7 @@ pub proof fn world_add_device_to_ledger_preserves(
             else if i == didx { assert(post.devices[i].ledgers[j] == pre_dev.ledgers[j]); }
             else { assert(post.devices[i] == pre.devices[i]); }
         }
-        assert forall|i: int, j: int, k: int|
-            0 <= i < post.devices.len()
-            && 0 <= j < post.devices[i].ledgers.len()
-            && 0 <= k < post.devices[i].ledgers[j].devices.len()
-            implies post.ulid_state.generated.contains(
-                #[trigger] post.devices[i].ledgers[j].devices[k].node_id)
-        by {
-            if i == didx && j == lidx && k == pre_ledger.devices.len() as int { }
-            else if i == didx && j == lidx { assert(post.devices[i].ledgers[j].devices[k] == pre_ledger.devices[k]); }
-            else if i == didx { assert(post.devices[i].ledgers[j] == pre_dev.ledgers[j]); }
-            else { assert(post.devices[i] == pre.devices[i]); }
-        }
+        // node_id tracking removed (Ed25519 keys, not ULIDs).
         assert forall|i: int, j: int, k: int|
             0 <= i < post.devices.len()
             && 0 <= j < post.devices[i].ledgers.len()
@@ -346,15 +273,15 @@ pub proof fn world_add_device_to_ledger_preserves(
 
 pub proof fn world_add_bill_preserves(
     pre: WorldSpec, post: WorldSpec,
-    device_id: Seq<u8>, ledger_id: Seq<u8>, bill: BillSpec,
+    node_id: Seq<u8>, ledger_id: u128, bill: BillSpec,
 )
     requires
         world_invariant(pre),
-        world_add_bill(pre, post, device_id, ledger_id, bill),
+        world_add_bill(pre, post, node_id, ledger_id, bill),
     ensures
         world_invariant(post),
 {
-    let didx = find_device(pre.devices, device_id);
+    let didx = find_device(pre.devices, node_id);
     let pre_dev = pre.devices[didx];
     let lidx = find_ledger(pre_dev.ledgers, ledger_id);
     let pre_ledger = pre_dev.ledgers[lidx];
@@ -373,9 +300,9 @@ pub proof fn world_add_bill_preserves(
     }
 
     crate::device::proof::device_add_bill_preserves(pre_dev, post_dev, ledger_id, bill);
-    update_preserves_device_ids_unique(pre.devices, didx, post_dev);
+    update_preserves_node_ids_unique(pre.devices, didx, post_dev);
     other_devices_invariant(pre.devices, post.devices, didx, post_dev);
-    all_ids_tracked_after_device_update(pre, post.devices, post.ulid_state, didx);
+    // Device node_ids are Ed25519 keys — not tracked in ULID state.
 
     assert(all_ids_tracked(post)) by {
         assert forall|i: int, j: int|
@@ -398,17 +325,7 @@ pub proof fn world_add_bill_preserves(
             else if i == didx { assert(post.devices[i].ledgers[j] == pre_dev.ledgers[j]); }
             else { assert(post.devices[i] == pre.devices[i]); }
         }
-        assert forall|i: int, j: int, k: int|
-            0 <= i < post.devices.len()
-            && 0 <= j < post.devices[i].ledgers.len()
-            && 0 <= k < post.devices[i].ledgers[j].devices.len()
-            implies post.ulid_state.generated.contains(
-                #[trigger] post.devices[i].ledgers[j].devices[k].node_id)
-        by {
-            if i == didx && j == lidx { assert(post.devices[i].ledgers[j].devices[k] == pre_ledger.devices[k]); }
-            else if i == didx { assert(post.devices[i].ledgers[j] == pre_dev.ledgers[j]); }
-            else { assert(post.devices[i] == pre.devices[i]); }
-        }
+        // node_id tracking removed (Ed25519 keys, not ULIDs).
         assert forall|i: int, j: int, k: int|
             0 <= i < post.devices.len()
             && 0 <= j < post.devices[i].ledgers.len()

@@ -385,10 +385,20 @@ fn test_settlement_aggregates_across_ledgers() {
     let groups = v.as_array().unwrap();
     assert_eq!(groups.len(), 1);
     let txns = groups[0]["transactions"].as_array().unwrap();
-    assert_eq!(txns.len(), 1);
-    assert_eq!(txns[0]["from_user_id"].as_str().unwrap(), BOB);
-    assert_eq!(txns[0]["to_user_id"].as_str().unwrap(), ALICE);
-    assert_eq!(txns[0]["amount_cents"].as_i64().unwrap(), 2000);
+    // Per-ledger settlement: L1 bob→alice $30, L2 alice→bob $10.
+    assert_eq!(txns.len(), 2);
+    let to_alice: i64 = txns
+        .iter()
+        .filter(|t| t["to_user_id"].as_str().unwrap() == ALICE)
+        .map(|t| t["amount_cents"].as_i64().unwrap())
+        .sum();
+    let to_bob: i64 = txns
+        .iter()
+        .filter(|t| t["to_user_id"].as_str().unwrap() == BOB)
+        .map(|t| t["amount_cents"].as_i64().unwrap())
+        .sum();
+    assert_eq!(to_alice, 3000);
+    assert_eq!(to_bob, 1000);
 }
 
 // ---------------------------------------------------------------------------

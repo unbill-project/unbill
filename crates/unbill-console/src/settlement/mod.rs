@@ -1,9 +1,7 @@
 // Settlement algorithm: who owes whom after applying all bills.
 // See unbill-docs/settlement.md for the two-step algorithm.
 
-use std::collections::{HashMap, HashSet};
-
-use crate::model::{BillId, Currency, EffectiveBills, Ledger, User, UserId};
+use crate::model::{BillId, Currency, Ledger, UserId};
 
 // sirno:witness:settlement:begin
 /// A single suggested settlement transaction.
@@ -50,94 +48,28 @@ pub fn compute_bill_split(
 
 /// Compute settlement for a single ledger.
 ///
-/// Derives effective bills from `ledger.bills`, accumulates per-user balances,
-/// and applies the greedy minimum-cash-flow reduction.
+/// Delegates the entire pipeline (filter effective bills → split shares →
+/// accumulate balances → greedy matching) to the formally verified
+/// `compute_settlement` in `unbill-console-verified`.
 pub fn compute_settlement(ledger: &Ledger) -> Settlement {
-    let superseded: HashSet<BillId> = ledger
+    let model = unbill_model::verified_bridge::ledger_to_model(ledger);
+    let remainder_indices: Vec<usize> = ledger
         .bills
         .iter()
-        .flat_map(|b| b.prev.iter().copied())
+        .map(|b| fnv1a(b.id.to_string().as_bytes()) as usize)
         .collect();
-    let mut balances: HashMap<UserId, i64> = HashMap::new();
-    for bill in ledger.bills.iter().filter(|b| !superseded.contains(&b.id)) {
-        for (user_id, amount) in split_shares(&bill.payers, bill.amount_cents, bill.id) {
-            *balances.entry(user_id).or_default() += amount;
-        }
-        for (user_id, amount) in split_shares(&bill.payees, bill.amount_cents, bill.id) {
-            *balances.entry(user_id).or_default() -= amount;
-        }
-    }
-    compute_from_balances(ledger.currency, balances)
-}
-
-/// Accumulate net balances (positive = owed money, negative = owes money) from
-/// one set of users + bills into an existing balance map.
-///
-/// Calling this for multiple ledgers and passing the same map each time produces
-/// cross-ledger aggregated balances.
-pub fn accumulate_balances(
-    users: &[User],
-    bills: &EffectiveBills,
-    balances: &mut HashMap<UserId, i64>,
-) {
-    for user in users.iter() {
-        balances.entry(user.user_id).or_insert(0);
-    }
-    for bill in bills.iter() {
-        for (user_id, amount) in split_shares(&bill.payers, bill.amount_cents, bill.id) {
-            *balances.entry(user_id).or_default() += amount;
-        }
-        for (user_id, amount) in split_shares(&bill.payees, bill.amount_cents, bill.id) {
-            *balances.entry(user_id).or_default() -= amount;
-        }
-    }
-}
-
-/// Compute minimum-cash-flow settlement from a pre-built balance map.
-pub fn compute_from_balances(currency: Currency, balances: HashMap<UserId, i64>) -> Settlement {
-    let mut creditors: Vec<(UserId, i64)> = balances
-        .iter()
-        .filter(|&(_, &b)| b > 0)
-        .map(|(id, &b)| (*id, b))
-        .collect();
-    let mut debtors: Vec<(UserId, i64)> = balances
-        .iter()
-        .filter(|&(_, &b)| b < 0)
-        .map(|(id, &b)| (*id, -b))
-        .collect();
-
-    creditors.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
-    debtors.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
-
-    let mut transactions = Vec::new();
-    let mut ci = 0;
-    let mut di = 0;
-
-    while ci < creditors.len() && di < debtors.len() {
-        let (creditor_id, ref mut credit) = creditors[ci];
-        let (debtor_id, ref mut debt) = debtors[di];
-
-        let amount = (*credit).min(*debt);
-        transactions.push(Transaction {
-            from_user_id: debtor_id,
-            to_user_id: creditor_id,
-            amount_cents: amount,
-        });
-
-        *credit -= amount;
-        *debt -= amount;
-
-        if *credit == 0 {
-            ci += 1;
-        }
-        if *debt == 0 {
-            di += 1;
-        }
-    }
-
+    let verified_txns =
+        unbill_console_verified::settlement::exec::compute_settlement(&model, &remainder_indices);
     Settlement {
-        currency,
-        transactions,
+        currency: ledger.currency,
+        transactions: verified_txns
+            .into_iter()
+            .map(|t| Transaction {
+                from_user_id: UserId::from_u128(t.from_user_id),
+                to_user_id: UserId::from_u128(t.to_user_id),
+                amount_cents: t.amount_cents,
+            })
+            .collect(),
     }
 }
 
@@ -166,13 +98,13 @@ pub fn split_shares(
     let model_shares: Vec<unbill_console_verified::Share> = shares
         .iter()
         .map(|s| unbill_console_verified::Share {
-            user_id: s.user_id.to_string().into_bytes(),
+            user_id: s.user_id.to_u128(),
             weight: s.shares,
         })
         .collect();
     let remainder_idx = fnv1a(bill_id.to_string().as_bytes()) as usize;
 
-    let verified_amounts = unbill_console_verified::settlement::split_shares(
+    let verified_amounts = unbill_console_verified::settlement::exec::split_shares(
         &model_shares,
         total_cents,
         remainder_idx,
@@ -200,6 +132,8 @@ fn fnv1a(data: &[u8]) -> u64 {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
     use crate::model::{Bill, BillId, LedgerId, NodeId, Share, Timestamp, User, UserId};
 
@@ -511,5 +445,131 @@ mod tests {
             .map(|t| t.amount_cents)
             .sum();
         assert_eq!(total_to_alice, 3000);
+    }
+
+    // --- bridge: verified pipeline produces correct results ---
+
+    #[test]
+    fn test_bridge_empty_ledger_no_transactions() {
+        let ledger = make_ledger(vec![user(alice()), user(bob())], vec![]);
+        let s = compute_settlement(&ledger);
+        assert!(s.transactions.is_empty());
+    }
+
+    #[test]
+    fn test_bridge_all_transactions_positive() {
+        let ledger = make_ledger(
+            vec![user(alice()), user(bob()), user(carol())],
+            vec![
+                equal_bill(1, alice(), 9000, &[alice(), bob(), carol()]),
+                equal_bill(2, bob(), 3000, &[alice(), carol()]),
+            ],
+        );
+        let s = compute_settlement(&ledger);
+        for t in &s.transactions {
+            assert!(t.amount_cents > 0, "transaction amount must be positive");
+        }
+    }
+
+    #[test]
+    fn test_bridge_transaction_user_ids_from_ledger() {
+        let ledger = make_ledger(
+            vec![user(alice()), user(bob()), user(carol())],
+            vec![equal_bill(1, alice(), 6000, &[alice(), bob(), carol()])],
+        );
+        let s = compute_settlement(&ledger);
+        let user_ids: std::collections::HashSet<UserId> =
+            ledger.users.iter().map(|u| u.user_id).collect();
+        for t in &s.transactions {
+            assert!(
+                user_ids.contains(&t.from_user_id),
+                "from_user_id {:?} not in ledger",
+                t.from_user_id
+            );
+            assert!(
+                user_ids.contains(&t.to_user_id),
+                "to_user_id {:?} not in ledger",
+                t.to_user_id
+            );
+        }
+    }
+
+    #[test]
+    fn test_bridge_settlement_conserves_net_zero() {
+        // Net transfers across all users must sum to zero.
+        let ledger = make_ledger(
+            vec![user(alice()), user(bob()), user(carol())],
+            vec![
+                equal_bill(1, alice(), 9000, &[alice(), bob(), carol()]),
+                equal_bill(2, bob(), 6000, &[bob(), carol()]),
+            ],
+        );
+        let net = net_transfer_balances(&ledger);
+        let sum: i64 = net.values().sum();
+        assert_eq!(sum, 0, "net transfers must sum to zero");
+    }
+
+    #[test]
+    fn test_bridge_split_shares_conservation() {
+        // Bridge split_shares must conserve the total across any weight distribution.
+        let shares = vec![
+            Share {
+                user_id: alice(),
+                shares: 3,
+            },
+            Share {
+                user_id: bob(),
+                shares: 2,
+            },
+            Share {
+                user_id: carol(),
+                shares: 1,
+            },
+        ];
+        for total in [1, 100, 999, 1000, 9999, 100_000] {
+            let amounts = split_shares(&shares, total, bid(42));
+            let sum: i64 = amounts.iter().map(|(_, c)| c).sum();
+            assert_eq!(sum, total, "conservation violated for total={total}");
+            for (_, c) in &amounts {
+                assert!(*c >= 0, "negative amount for total={total}");
+            }
+        }
+    }
+
+    #[test]
+    fn test_bridge_split_shares_user_id_preservation() {
+        // Bridge must map verified amounts back to the correct user_ids.
+        let shares = vec![
+            Share {
+                user_id: alice(),
+                shares: 1,
+            },
+            Share {
+                user_id: bob(),
+                shares: 1,
+            },
+        ];
+        let amounts = split_shares(&shares, 100, bid(1));
+        assert_eq!(amounts.len(), 2);
+        assert_eq!(amounts[0].0, alice());
+        assert_eq!(amounts[1].0, bob());
+    }
+
+    #[test]
+    fn test_bridge_idempotent_settlement() {
+        // If balances are already even, settlement should produce nothing.
+        // Alice pays $50 for alice+bob, bob pays $50 for alice+bob → net zero.
+        let ledger = make_ledger(
+            vec![user(alice()), user(bob())],
+            vec![
+                equal_bill(1, alice(), 5000, &[alice(), bob()]),
+                equal_bill(2, bob(), 5000, &[alice(), bob()]),
+            ],
+        );
+        let s = compute_settlement(&ledger);
+        assert!(
+            s.transactions.is_empty(),
+            "balanced ledger should have no transactions"
+        );
     }
 }

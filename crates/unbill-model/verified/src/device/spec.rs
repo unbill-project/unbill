@@ -11,7 +11,7 @@ verus! {
 // ---------------------------------------------------------------------------
 
 pub struct DeviceStateSpec {
-    pub device_id: Seq<u8>,
+    pub node_id: Seq<u8>,
     pub ledgers: Seq<LedgerStateSpec>,
 }
 
@@ -19,11 +19,11 @@ pub struct DeviceStateSpec {
 // Helper predicates
 // ---------------------------------------------------------------------------
 
-pub open spec fn has_ledger(ledgers: Seq<LedgerStateSpec>, ledger_id: Seq<u8>) -> bool {
+pub open spec fn has_ledger(ledgers: Seq<LedgerStateSpec>, ledger_id: u128) -> bool {
     exists|i: int| 0 <= i < ledgers.len() && #[trigger] ledgers[i].ledger_id == ledger_id
 }
 
-pub open spec fn find_ledger(ledgers: Seq<LedgerStateSpec>, ledger_id: Seq<u8>) -> int
+pub open spec fn find_ledger(ledgers: Seq<LedgerStateSpec>, ledger_id: u128) -> int
     recommends has_ledger(ledgers, ledger_id),
 {
     choose|i: int| 0 <= i < ledgers.len() && ledgers[i].ledger_id == ledger_id
@@ -39,8 +39,6 @@ pub open spec fn ledger_ids_unique(ledgers: Seq<LedgerStateSpec>) -> bool {
 // State machine invariant
 // ---------------------------------------------------------------------------
 
-/// Every ledger on this device satisfies its own invariant,
-/// and ledger IDs are unique across the device.
 pub open spec fn device_invariant(device: DeviceStateSpec) -> bool {
     &&& ledger_ids_unique(device.ledgers)
     &&& forall|i: int| 0 <= i < device.ledgers.len() ==>
@@ -51,11 +49,10 @@ pub open spec fn device_invariant(device: DeviceStateSpec) -> bool {
 // Transitions
 // ---------------------------------------------------------------------------
 
-/// Create a new empty ledger on this device.
 pub open spec fn create_ledger(
     pre: DeviceStateSpec,
     post: DeviceStateSpec,
-    ledger_id: Seq<u8>,
+    ledger_id: u128,
     name: Seq<u8>,
     currency: Seq<u8>,
     created_at: i64,
@@ -79,10 +76,9 @@ pub open spec fn create_ledger(
     }
 }
 
-/// Perform an add_user on a specific ledger.
 pub open spec fn device_add_user(
     pre: DeviceStateSpec, post: DeviceStateSpec,
-    ledger_id: Seq<u8>, user: UserSpec,
+    ledger_id: u128, user: UserSpec,
 ) -> bool {
     &&& has_ledger(pre.ledgers, ledger_id)
     &&& {
@@ -96,10 +92,9 @@ pub open spec fn device_add_user(
     }
 }
 
-/// Perform an add_device on a specific ledger.
 pub open spec fn device_add_device(
     pre: DeviceStateSpec, post: DeviceStateSpec,
-    ledger_id: Seq<u8>, device: DeviceSpec,
+    ledger_id: u128, device: DeviceSpec,
 ) -> bool {
     &&& has_ledger(pre.ledgers, ledger_id)
     &&& {
@@ -113,10 +108,9 @@ pub open spec fn device_add_device(
     }
 }
 
-/// Perform an add_bill on a specific ledger.
 pub open spec fn device_add_bill(
     pre: DeviceStateSpec, post: DeviceStateSpec,
-    ledger_id: Seq<u8>, bill: BillSpec,
+    ledger_id: u128, bill: BillSpec,
 ) -> bool {
     &&& has_ledger(pre.ledgers, ledger_id)
     &&& {
