@@ -328,11 +328,13 @@ pub fn compute_settlement(
         let payee_amounts = split_shares(&bill.payees, bill.amount_cents, rem_idx);
 
         // Accumulate payer credits.
+        let payer_len = bill.payers.len();
         let mut i: usize = 0;
         while i < payer_amounts.len()
             invariant
                 i <= payer_amounts.len(),
-                payer_amounts.len() == bill.payers.len(),
+                payer_amounts.len() == payer_len,
+                payer_len == ledger.bills@[bill_idx as int].payers.len(),
                 balances.len() == ledger.users.len(),
                 spec::seq_sum(balances@) == spec::seq_sum(payer_amounts@.subrange(0, i as int)),
                 bill_idx < ledger.bills.len(),
@@ -342,11 +344,8 @@ pub fn compute_settlement(
                         && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[bill_idx as int].payers@[s].user_id,
             decreases payer_amounts.len() - i,
         {
-            proof {
-                // Trigger the quantifier by mentioning the spec term.
-                let _ = ledger.bills@[bill_idx as int].payers@[i as int];
-            }
-            let user_idx = exec::find_user_index(&ledger.users, ledger.bills[bill_idx].payers[i].user_id);
+            let uid: u128 = ledger.bills[bill_idx].payers[i].user_id;
+            let user_idx = exec::find_user_index(&ledger.users, uid);
             let old_val = balances[user_idx];
             let amt = payer_amounts[i];
             assume(old_val as int + amt as int <= i64::MAX as int);
@@ -366,11 +365,13 @@ pub fn compute_settlement(
         }
 
         // Accumulate payee debits.
+        let payee_len = bill.payees.len();
         let mut j: usize = 0;
         while j < payee_amounts.len()
             invariant
                 j <= payee_amounts.len(),
-                payee_amounts.len() == bill.payees.len(),
+                payee_amounts.len() == payee_len,
+                payee_len == ledger.bills@[bill_idx as int].payees.len(),
                 balances.len() == ledger.users.len(),
                 spec::seq_sum(balances@)
                     == spec::seq_sum(payer_amounts@) - spec::seq_sum(payee_amounts@.subrange(0, j as int)),
@@ -381,10 +382,8 @@ pub fn compute_settlement(
                         && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[bill_idx as int].payees@[s].user_id,
             decreases payee_amounts.len() - j,
         {
-            proof {
-                let _ = ledger.bills@[bill_idx as int].payees@[j as int];
-            }
-            let user_idx = exec::find_user_index(&ledger.users, ledger.bills[bill_idx].payees[j].user_id);
+            let uid: u128 = ledger.bills[bill_idx].payees[j].user_id;
+            let user_idx = exec::find_user_index(&ledger.users, uid);
             let old_val = balances[user_idx];
             let amt = payee_amounts[j];
             assume(old_val as int - amt as int >= i64::MIN as int);
