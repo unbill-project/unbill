@@ -473,5 +473,72 @@ pub proof fn partial_sum_le_total(s: Seq<i64>, n: int)
     }
 }
 
+// ---------------------------------------------------------------------------
+// positive_sum update lemmas
+// ---------------------------------------------------------------------------
+
+/// positive_sum of a sequence where all elements are zero is zero.
+pub proof fn positive_sum_all_zero(s: Seq<i64>)
+    requires forall|k: int| 0 <= k < s.len() ==> (#[trigger] s[k]) == 0i64,
+    ensures positive_sum(s) == 0,
+    decreases s.len(),
+{
+    if s.len() > 0 {
+        assert forall|k: int| 0 <= k < s.drop_last().len()
+            implies (#[trigger] s.drop_last()[k]) == 0i64
+        by { assert(s.drop_last()[k] == s[k]); }
+        positive_sum_all_zero(s.drop_last());
+    }
+}
+
+/// Increasing one element increases positive_sum by at most the delta.
+pub proof fn positive_sum_update_add(s: Seq<i64>, idx: int, new_val: i64)
+    requires
+        0 <= idx < s.len(),
+        new_val as int >= s[idx] as int,
+    ensures
+        positive_sum(s.update(idx, new_val))
+            <= positive_sum(s) + (new_val as int - s[idx] as int),
+    decreases s.len(),
+{
+    let delta = new_val as int - s[idx] as int;
+    if s.len() == 1 {
+        assert(s.update(idx, new_val).drop_last() =~= Seq::<i64>::empty());
+        assert(s.drop_last() =~= Seq::<i64>::empty());
+    } else if idx == s.len() - 1 {
+        // Last element changed.
+        assert(s.update(idx, new_val).drop_last() =~= s.drop_last());
+        // positive_sum(s.update) = positive_sum(s.drop_last()) + max(0, new_val)
+        // positive_sum(s) = positive_sum(s.drop_last()) + max(0, s[idx])
+        // Change = max(0, new_val) - max(0, s[idx]) ≤ new_val - s[idx] = delta.
+    } else {
+        // Element before the last; recurse on drop_last.
+        assert(s.update(idx, new_val).drop_last() =~= s.drop_last().update(idx, new_val));
+        assert(s.update(idx, new_val).last() == s.last());
+        positive_sum_update_add(s.drop_last(), idx, new_val);
+    }
+}
+
+/// Decreasing one element does not increase positive_sum.
+pub proof fn positive_sum_update_sub(s: Seq<i64>, idx: int, new_val: i64)
+    requires
+        0 <= idx < s.len(),
+        new_val as int <= s[idx] as int,
+    ensures
+        positive_sum(s.update(idx, new_val)) <= positive_sum(s),
+    decreases s.len(),
+{
+    if s.len() == 1 {
+        assert(s.update(idx, new_val).drop_last() =~= Seq::<i64>::empty());
+        assert(s.drop_last() =~= Seq::<i64>::empty());
+    } else if idx == s.len() - 1 {
+        assert(s.update(idx, new_val).drop_last() =~= s.drop_last());
+    } else {
+        assert(s.update(idx, new_val).drop_last() =~= s.drop_last().update(idx, new_val));
+        assert(s.update(idx, new_val).last() == s.last());
+        positive_sum_update_sub(s.drop_last(), idx, new_val);
+    }
+}
+
 }
 // sirno:witness:formal-invariants:end

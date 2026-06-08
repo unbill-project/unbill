@@ -322,10 +322,6 @@ pub fn compute_settlement(
     }
 
     // Step 4: Greedy matching.
-    // settle_requires: sum==0 ✓, len<=i32::MAX ✓, each bounded ✓,
-    // positive_sum <= i64::MAX: TODO prove from total bill amounts.
-    assume(spec::positive_sum(balances@) <= i64::MAX as int);
-    assert(spec::settle_requires(balances@));
     let transactions = exec::compute_from_balances(&user_ids, &balances);
     transactions
 }

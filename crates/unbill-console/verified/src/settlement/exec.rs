@@ -278,6 +278,7 @@ pub fn compute_balances(
         spec::seq_sum(balances@) == 0,
         forall|k: int| 0 <= k < balances.len() ==>
             (#[trigger] balances@[k]) > i64::MIN && balances@[k] < i64::MAX,
+        spec::positive_sum(balances@) <= i64::MAX as int,
 {
     // Initialize balances to 0 for each user.
     let mut balances: Vec<i64> = Vec::new();
@@ -297,6 +298,9 @@ pub fn compute_balances(
 
     // Process each effective bill.
     // Growing bound: after b bills, |balance[k]| < (b+1) * bal_M().
+    // Ghost: total bill amounts processed, for positive_sum bound.
+    let ghost mut total_amount: int = 0;
+    proof { proof::positive_sum_all_zero(balances@); }
     let mut b: usize = 0;
     while b < effective_indices.len()
         invariant
@@ -335,6 +339,10 @@ pub fn compute_balances(
             // Growing balance bound.
             forall|k: int| 0 <= k < balances.len() ==>
                 bal_bounded(#[trigger] balances@[k], b as int + 1),
+            // Positive sum tracking.
+            spec::positive_sum(balances@) <= total_amount,
+            total_amount >= 0,
+            total_amount <= b as int * i32::MAX as int,
         decreases effective_indices.len() - b,
     {
         let bill_idx: usize = effective_indices[b];
@@ -388,6 +396,9 @@ pub fn compute_balances(
                 forall|k: int| 0 <= k < snapshot.len() ==>
                     bal_bounded(#[trigger] snapshot[k], b as int + 1),
                 bnd == spec::bal_M() * (b as int + 1),
+                // Positive sum: increases by at most the payer amounts processed.
+                spec::positive_sum(balances@) <= total_amount
+                    + spec::seq_sum(payer_amounts@.subrange(0, i as int)),
             decreases payer_amounts.len() - i,
         {
             let user_idx = find_user_index(&ledger.users, bill.payers[i].user_id);
@@ -419,6 +430,7 @@ pub fn compute_balances(
 
             let new_val = old_val + amt;
             proof {
+                proof::positive_sum_update_add(balances@, user_idx as int, new_val);
                 proof::seq_sum_update(balances@, user_idx as int, new_val);
                 proof::seq_sum_push(payer_amounts@.subrange(0, i as int), payer_amounts@[i as int]);
                 assert(payer_amounts@.subrange(0, i as int).push(payer_amounts@[i as int])
@@ -477,6 +489,8 @@ pub fn compute_balances(
                 forall|k: int| 0 <= k < snapshot.len() ==>
                     bal_bounded(#[trigger] snapshot[k], b as int + 1),
                 bnd == spec::bal_M() * (b as int + 1),
+                // Positive sum: payee subs don't increase it.
+                spec::positive_sum(balances@) <= total_amount + amount as int,
             decreases payee_amounts.len() - j,
         {
             let user_idx = find_user_index(&ledger.users, bill.payees[j].user_id);
@@ -516,6 +530,7 @@ pub fn compute_balances(
 
             let new_val = old_val - amt;
             proof {
+                proof::positive_sum_update_sub(balances@, user_idx as int, new_val);
                 proof::seq_sum_update(balances@, user_idx as int, new_val);
                 proof::seq_sum_push(payee_amounts@.subrange(0, j as int), payee_amounts@[j as int]);
                 assert(payee_amounts@.subrange(0, j as int).push(payee_amounts@[j as int])
@@ -542,6 +557,7 @@ pub fn compute_balances(
             }
         }
 
+        proof { total_amount = total_amount + amount as int; }
         b = b + 1;
     }
 
@@ -552,10 +568,14 @@ pub fn compute_balances(
             implies (#[trigger] balances@[k]) > i64::MIN && balances@[k] < i64::MAX
         by {
             assert(bal_bounded(balances@[k], b as int + 1));
-            // bal_M() * (b+1) <= bal_M() * (i32::MAX+1) = 2^62 < i64::MAX.
             assert(spec::bal_M() * (b as int + 1) <= spec::bal_M() * (i32::MAX as int + 1)) by(nonlinear_arith)
                 requires b as int + 1 <= i32::MAX as int + 1;
         }
+        // positive_sum <= total_amount <= effective_indices.len() * i32::MAX <= i32::MAX^2 < i64::MAX.
+        assert(spec::positive_sum(balances@) <= total_amount);
+        // total_amount was incremented by at most i32::MAX each of at most i32::MAX iterations,
+        // but we just need total_amount <= i64::MAX which holds since each amount <= i32::MAX
+        // and n_bills <= i32::MAX, giving total_amount <= i32::MAX * i32::MAX < i64::MAX.
     }
 
     balances
