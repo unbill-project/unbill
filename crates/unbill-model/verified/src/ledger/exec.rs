@@ -131,6 +131,14 @@ pub proof fn ledger_bill_at(ledger: LedgerState, i: int)
     assert(ledger@.bills[i] == ledger.bills@.map(|_j: int, b: Bill| b@)[i]);
 }
 
+/// Bridge: ledger@.devices[i] == ledger.devices@[i]@ (connects LedgerState View to direct access).
+pub proof fn ledger_device_at(ledger: LedgerState, i: int)
+    requires 0 <= i < ledger.devices.len(),
+    ensures ledger@.devices[i] == ledger.devices@[i]@,
+{
+    assert(ledger@.devices[i] == ledger.devices@.map(|_j: int, d: Device| d@)[i]);
+}
+
 /// Bridge: ledger@.users[i] == ledger.users@[i]@ (connects LedgerState View to direct access).
 pub proof fn ledger_user_at(ledger: LedgerState, i: int)
     requires 0 <= i < ledger.users.len(),
