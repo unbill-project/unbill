@@ -140,44 +140,14 @@ pub open spec fn bal_M() -> int {
 // ---------------------------------------------------------------------------
 
 /// Precondition for compute_settlement (the full pipeline entry point).
-/// Expressed over LedgerStateSpec + exec-level Vec lengths so both
-/// spec reasoning and exec callers can use it.
+/// All ledger-validity properties are folded into ledger_invariant.
+/// Only settlement-specific requirements remain here.
 pub open spec fn compute_settlement_requires(
     ledger: LedgerStateSpec,
-    bills_exec_len: int,
-    users_exec_len: int,
     remainder_indices: Seq<usize>,
 ) -> bool {
-    // Ledger invariant.
     &&& ledger_invariant(ledger)
-    // Remainder indices match bills.
-    &&& remainder_indices.len() == bills_exec_len
-    // All prev references point to existing bills (exec-level).
-    &&& forall|i: int| #![trigger ledger.bills[i]]
-        0 <= i < ledger.bills.len() ==>
-        forall|k: int| #![trigger ledger.bills[i].prev[k]]
-            0 <= k < ledger.bills[i].prev.len() ==>
-            exists|j: int| 0 <= j < ledger.bills.len()
-                && (#[trigger] ledger.bills[j]).id == ledger.bills[i].prev[k]
-    // User existence for payers.
-    &&& forall|i: int, s: int| #![trigger ledger.bills[i].payers[s]]
-        0 <= i < ledger.bills.len() && 0 <= s < ledger.bills[i].payers.len() ==>
-        exists|k: int| 0 <= k < ledger.users.len()
-            && (#[trigger] ledger.users[k]).user_id == ledger.bills[i].payers[s].user_id
-    // User existence for payees.
-    &&& forall|i: int, s: int| #![trigger ledger.bills[i].payees[s]]
-        0 <= i < ledger.bills.len() && 0 <= s < ledger.bills[i].payees.len() ==>
-        exists|k: int| 0 <= k < ledger.users.len()
-            && (#[trigger] ledger.users[k]).user_id == ledger.bills[i].payees[s].user_id
-    // Overflow bounds.
-    &&& users_exec_len <= i32::MAX as int
-    &&& bills_exec_len <= i32::MAX as int
-    // split_shares preconditions.
-    &&& forall|i: int| #![trigger ledger.bills[i]]
-        0 <= i < ledger.bills.len() ==>
-        split_shares_requires(ledger.bills[i].payers, ledger.bills[i].amount_cents)
-        && split_shares_requires(ledger.bills[i].payees, ledger.bills[i].amount_cents)
-    // Remainder indices bounded for split_shares remainder loop.
+    &&& remainder_indices.len() == ledger.bills.len()
     &&& forall|i: int| 0 <= i < remainder_indices.len() ==>
         (#[trigger] remainder_indices[i]) <= usize::MAX - (i32::MAX as usize)
 }

@@ -227,9 +227,7 @@ pub fn compute_settlement(
     remainder_indices: &Vec<usize>,
 ) -> (transactions: Vec<exec::Transaction>)
     requires
-        spec::compute_settlement_requires(
-            ledger@, ledger.bills.len() as int, ledger.users.len() as int, remainder_indices@,
-        ),
+        spec::compute_settlement_requires(ledger@, remainder_indices@),
 {
     // Bridge spec-level preconditions to exec-level triggers.
     // The spec predicate operates on LedgerStateSpec; the callees need

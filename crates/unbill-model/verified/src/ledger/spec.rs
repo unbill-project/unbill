@@ -181,6 +181,10 @@ pub open spec fn ledger_invariant(ledger: LedgerStateSpec) -> bool {
         )
     &&& forall|i: int| 0 <= i < ledger.bills.len() ==>
         bill_splittable(#[trigger] ledger.bills[i])
+    // Size bounds for overflow safety.
+    &&& ledger.users.len() <= i32::MAX as int
+    &&& ledger.bills.len() <= i32::MAX as int
+    &&& ledger.devices.len() <= i32::MAX as int
 }
 
 // ---------------------------------------------------------------------------
@@ -205,29 +209,31 @@ pub open spec fn init(
     &&& post.devices.len() == 0
 }
 
-/// Add a user. Fresh user_id required.
+/// Add a user. Fresh user_id required; ledger must have room.
 pub open spec fn add_user(
     pre: LedgerStateSpec, post: LedgerStateSpec, user: UserSpec,
 ) -> bool {
     &&& !has_user(pre.users, user.user_id)
+    &&& pre.users.len() < i32::MAX as int
     &&& post == LedgerStateSpec {
         users: pre.users.push(user),
         ..pre
     }
 }
 
-/// Add a device. Fresh node_id required.
+/// Add a device. Fresh node_id required; ledger must have room.
 pub open spec fn add_device(
     pre: LedgerStateSpec, post: LedgerStateSpec, device: DeviceSpec,
 ) -> bool {
     &&& !has_device(pre.devices, device.node_id)
+    &&& pre.devices.len() < i32::MAX as int
     &&& post == LedgerStateSpec {
         devices: pre.devices.push(device),
         ..pre
     }
 }
 
-/// Add a bill. Well-formed bill with fresh ID required.
+/// Add a bill. Well-formed bill with fresh ID required; ledger must have room.
 pub open spec fn add_bill(
     pre: LedgerStateSpec, post: LedgerStateSpec, bill: BillSpec,
 ) -> bool {
@@ -243,6 +249,7 @@ pub open spec fn add_bill(
     &&& forall|j: int| 0 <= j < bill.prev.len() ==>
         has_bill(pre.bills, #[trigger] bill.prev[j])
     &&& !has_bill(pre.bills, bill.id)
+    &&& pre.bills.len() < i32::MAX as int
     &&& post == LedgerStateSpec {
         bills: pre.bills.push(bill),
         ..pre
