@@ -1,6 +1,9 @@
 ---
-core.name: Users And Devices
 core.desc: The separation between accounting roles and authorized sync peers.
+core.name: Users And Devices
+meta:
+  frozen:
+    - reviewed
 core.category:
   - core.concept
 core.belongs:
@@ -27,5 +30,5 @@ the creating device is added automatically when the ledger is created,
 or a host adds a subsequent device through the join protocol.
 There is no device removal in the current design.
 
-`add_device` is idempotent.
-Adding an already authorized `NodeId` is a no-op.
+`add_device` returns an error when the `NodeId` is already authorized.
+Callers that want idempotent behavior catch the `DuplicateDevice` check error.
