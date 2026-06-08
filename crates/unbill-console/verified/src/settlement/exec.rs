@@ -251,12 +251,13 @@ pub fn compute_from_balances(
     transactions
 }
 
-/// Compute per-user balances from a ledger.
-/// Takes a LedgerState (from the verified model), returns balances indexed by user position.
-/// balances[i] = net balance for ledger.users[i].
-/// Proves: seq_sum(result) == 0 (conservation across all bills).
+/// Compute per-user balances from effective bills in a ledger.
+/// Takes effective bill indices and remainder indices.
+/// Proves: seq_sum(result) == 0 (conservation).
 pub fn compute_balances(
     ledger: &LedgerState,
+    effective_indices: &Vec<usize>,
+    remainder_indices: &Vec<usize>,
 ) -> (balances: Vec<i64>)
     requires
         // Ledger invariant holds (bills are well-formed, users exist, etc.).

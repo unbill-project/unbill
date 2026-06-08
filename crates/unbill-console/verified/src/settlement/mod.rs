@@ -213,6 +213,9 @@ pub fn split_shares(
             assert(spec::floor_amount(spec_shares, total_cents as int, j)
                 == (total_cents as int * spec_shares[j].weight as int) / total_weight(spec_shares));
         }
+        // Bounded: each amount <= total_cents (from conservation + non-negativity).
+        // sum == total_cents, all >= 0, so each <= total_cents.
+        proof::seq_sum_le_each(amounts@, total_cents);
     }
     amounts
 }
@@ -255,158 +258,23 @@ pub fn compute_settlement(
     // Step 1: Filter effective bills.
     let effective_indices = effective::filter_effective_indices(&ledger.bills);
 
-    // Step 2+3: Accumulate balances from effective bills.
-    let mut balances: Vec<i64> = Vec::new();
+    // Step 2: Accumulate balances from effective bills.
+    let balances = exec::compute_balances(ledger, &effective_indices, remainder_indices);
+
+    // Step 3: Build user_id vector for greedy matching.
     let mut user_ids: Vec<u128> = Vec::new();
     let mut u: usize = 0;
     while u < ledger.users.len()
         invariant
             u <= ledger.users.len(),
-            balances.len() == u,
             user_ids.len() == u,
-            spec::seq_sum(balances@) == 0,
         decreases ledger.users.len() - u,
     {
-        proof { proof::seq_sum_push(balances@, 0i64); }
-        balances.push(0i64);
         user_ids.push(ledger.users[u].user_id);
         u = u + 1;
     }
 
-    // Step 2: Process each effective bill — split and accumulate.
-    let mut ei: usize = 0;
-    while ei < effective_indices.len()
-        invariant
-            ei <= effective_indices.len(),
-            balances.len() == ledger.users.len(),
-            user_ids.len() == ledger.users.len(),
-            spec::seq_sum(balances@) == 0,
-            // Effective indices are valid bill indices.
-            forall|k: int| 0 <= k < effective_indices.len() ==>
-                (#[trigger] effective_indices@[k]) < ledger.bills.len(),
-            effective_indices.len() <= ledger.bills.len(),
-            // Carry preconditions through.
-            ledger_invariant(ledger@),
-            ledger.bills.len() <= i32::MAX as usize,
-            forall|i: int| #![trigger ledger.bills@[i]]
-                0 <= i < ledger.bills.len() ==>
-                forall|k: int| #![trigger ledger.bills@[i].prev@[k]]
-                    0 <= k < ledger.bills@[i].prev.len() ==>
-                    exists|j: int| 0 <= j < ledger.bills.len() && (#[trigger] ledger.bills@[j]).id == ledger.bills@[i].prev@[k],
-            forall|i: int, s: int| #![trigger ledger.bills@[i].payers@[s]]
-                0 <= i < ledger.bills.len() && 0 <= s < ledger.bills@[i].payers.len() ==>
-                exists|k: int| 0 <= k < ledger.users.len()
-                    && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[i].payers@[s].user_id,
-            forall|i: int, s: int| #![trigger ledger.bills@[i].payees@[s]]
-                0 <= i < ledger.bills.len() && 0 <= s < ledger.bills@[i].payees.len() ==>
-                exists|k: int| 0 <= k < ledger.users.len()
-                    && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[i].payees@[s].user_id,
-            forall|i: int| #![trigger ledger.bills@[i]]
-                0 <= i < ledger.bills.len() ==>
-                split_shares_requires(shares_to_specs(ledger.bills@[i].payers@), ledger.bills@[i].amount_cents)
-                && split_shares_requires(shares_to_specs(ledger.bills@[i].payees@), ledger.bills@[i].amount_cents),
-            forall|i: int| 0 <= i < remainder_indices.len() ==>
-                (#[trigger] remainder_indices@[i]) <= usize::MAX - (i32::MAX as usize),
-            remainder_indices.len() == ledger.bills.len(),
-        decreases effective_indices.len() - ei,
-    {
-        let bill_idx = effective_indices[ei];
-        let bill = &ledger.bills[bill_idx];
-        let rem_idx = remainder_indices[bill_idx];
-
-        // Bridge: connect ledger_invariant (spec) to exec-level split_shares precondition.
-        proof {
-            // ledger@.bills[i] == ledger.bills@[i]@ — connects View to direct access.
-            unbill_model_verified::ledger::exec::ledger_bill_at(*ledger, bill_idx as int);
-            // Now: bill_splittable(ledger@.bills[bill_idx]) == bill_splittable(ledger.bills@[bill_idx]@)
-            // bill_splittable_bridge needs bill_splittable(bill@):
-            unbill_model_verified::ledger::exec::bill_splittable_bridge(ledger.bills@[bill_idx as int]);
-        }
-
-        // Split payers and payees.
-        let payer_amounts = split_shares(&bill.payers, bill.amount_cents, rem_idx);
-        let payee_amounts = split_shares(&bill.payees, bill.amount_cents, rem_idx);
-
-        // Accumulate payer credits.
-        let payer_len = bill.payers.len();
-        let mut i: usize = 0;
-        while i < payer_amounts.len()
-            invariant
-                i <= payer_amounts.len(),
-                payer_amounts.len() == payer_len,
-                payer_len == ledger.bills@[bill_idx as int].payers.len(),
-                balances.len() == ledger.users.len(),
-                spec::seq_sum(balances@) == spec::seq_sum(payer_amounts@.subrange(0, i as int)),
-                bill_idx < ledger.bills.len(),
-                forall|s: int| #![trigger ledger.bills@[bill_idx as int].payers@[s]]
-                    0 <= s < ledger.bills@[bill_idx as int].payers.len() ==>
-                    exists|k: int| 0 <= k < ledger.users.len()
-                        && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[bill_idx as int].payers@[s].user_id,
-            decreases payer_amounts.len() - i,
-        {
-            let uid: u128 = ledger.bills[bill_idx].payers[i].user_id;
-            let user_idx = exec::find_user_index(&ledger.users, uid);
-            let old_val = balances[user_idx];
-            let amt = payer_amounts[i];
-            assume(old_val as int + amt as int <= i64::MAX as int);
-            assume(old_val as int + amt as int >= i64::MIN as int);
-            let new_val = old_val + amt;
-            proof {
-                proof::seq_sum_update(balances@, user_idx as int, new_val);
-                proof::seq_sum_push(payer_amounts@.subrange(0, i as int), payer_amounts@[i as int]);
-                assert(payer_amounts@.subrange(0, i as int).push(payer_amounts@[i as int])
-                    =~= payer_amounts@.subrange(0, (i + 1) as int));
-            }
-            balances.set(user_idx, new_val);
-            i = i + 1;
-        }
-        proof {
-            assert(payer_amounts@.subrange(0, payer_amounts@.len() as int) =~= payer_amounts@);
-        }
-
-        // Accumulate payee debits.
-        let payee_len = bill.payees.len();
-        let mut j: usize = 0;
-        while j < payee_amounts.len()
-            invariant
-                j <= payee_amounts.len(),
-                payee_amounts.len() == payee_len,
-                payee_len == ledger.bills@[bill_idx as int].payees.len(),
-                balances.len() == ledger.users.len(),
-                spec::seq_sum(balances@)
-                    == spec::seq_sum(payer_amounts@) - spec::seq_sum(payee_amounts@.subrange(0, j as int)),
-                bill_idx < ledger.bills.len(),
-                forall|s: int| #![trigger ledger.bills@[bill_idx as int].payees@[s]]
-                    0 <= s < ledger.bills@[bill_idx as int].payees.len() ==>
-                    exists|k: int| 0 <= k < ledger.users.len()
-                        && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[bill_idx as int].payees@[s].user_id,
-            decreases payee_amounts.len() - j,
-        {
-            let uid: u128 = ledger.bills[bill_idx].payees[j].user_id;
-            let user_idx = exec::find_user_index(&ledger.users, uid);
-            let old_val = balances[user_idx];
-            let amt = payee_amounts[j];
-            assume(old_val as int - amt as int >= i64::MIN as int);
-            assume(old_val as int - amt as int <= i64::MAX as int);
-            let new_val = old_val - amt;
-            proof {
-                proof::seq_sum_update(balances@, user_idx as int, new_val);
-                proof::seq_sum_push(payee_amounts@.subrange(0, j as int), payee_amounts@[j as int]);
-                assert(payee_amounts@.subrange(0, j as int).push(payee_amounts@[j as int])
-                    =~= payee_amounts@.subrange(0, (j + 1) as int));
-            }
-            balances.set(user_idx, new_val);
-            j = j + 1;
-        }
-        proof {
-            assert(payee_amounts@.subrange(0, payee_amounts@.len() as int) =~= payee_amounts@);
-            // seq_sum(balances@) == payer_total - payee_total == amount_cents - amount_cents == 0.
-        }
-
-        ei = ei + 1;
-    }
-
-    // Step 3: Greedy matching.
+    // Step 4: Greedy matching.
     assume(spec::settle_requires(balances@));
     let transactions = exec::compute_from_balances(&user_ids, &balances);
     transactions

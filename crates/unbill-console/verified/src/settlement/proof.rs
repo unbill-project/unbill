@@ -236,6 +236,59 @@ pub proof fn floor_sum_eq_seq_sum(
 }
 
 // ---------------------------------------------------------------------------
+// seq_sum bound lemma
+// ---------------------------------------------------------------------------
+
+/// If all elements >= 0 and sum == total, then each element <= total.
+pub proof fn seq_sum_le_each(s: Seq<i64>, total: i64)
+    requires
+        seq_sum(s) == total as int,
+        forall|i: int| 0 <= i < s.len() ==> s[i] >= 0,
+    ensures
+        forall|i: int| 0 <= i < s.len() ==> s[i] <= total,
+{
+    // Each s[i] >= 0. Sum of all others >= 0 (non-negative).
+    // So s[i] = total - sum_of_others <= total.
+    seq_sum_nonneg_all(s);
+    seq_sum_each_le_sum(s);
+}
+
+/// seq_sum of non-negative elements is non-negative.
+pub proof fn seq_sum_nonneg_all(s: Seq<i64>)
+    requires forall|i: int| 0 <= i < s.len() ==> s[i] >= 0,
+    ensures seq_sum(s) >= 0,
+    decreases s.len(),
+{
+    if s.len() > 0 {
+        seq_sum_nonneg_all(s.drop_last());
+    }
+}
+
+/// Each element of a non-negative sequence is <= its sum.
+proof fn seq_sum_each_le_sum(s: Seq<i64>)
+    requires forall|i: int| 0 <= i < s.len() ==> s[i] >= 0,
+    ensures forall|i: int| 0 <= i < s.len() ==> s[i] as int <= seq_sum(s),
+    decreases s.len(),
+{
+    if s.len() > 0 {
+        seq_sum_each_le_sum(s.drop_last());
+        seq_sum_nonneg_all(s.drop_last());
+        assert forall|i: int| 0 <= i < s.len()
+            implies s[i] as int <= seq_sum(s)
+        by {
+            if i < s.len() - 1 {
+                // s[i] == s.drop_last()[i] <= seq_sum(s.drop_last()) (IH)
+                // seq_sum(s) == seq_sum(s.drop_last()) + s.last() >= seq_sum(s.drop_last())
+                assert(s[i] == s.drop_last()[i]);
+            } else {
+                // i == s.len() - 1: s.last() = seq_sum(s) - seq_sum(s.drop_last())
+                // seq_sum(s.drop_last()) >= 0, so s.last() <= seq_sum(s)
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // transaction_sum lemma
 // ---------------------------------------------------------------------------
 
