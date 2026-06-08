@@ -123,6 +123,22 @@ pub proof fn bill_splittable_bridge(bill: Bill)
     // bill@.payers =~= shares_to_specs(bill.payers@), so total_weight is the same.
 }
 
+/// Bridge: ledger@.bills[i] == ledger.bills@[i]@ (connects LedgerState View to direct access).
+pub proof fn ledger_bill_at(ledger: LedgerState, i: int)
+    requires 0 <= i < ledger.bills.len(),
+    ensures ledger@.bills[i] == ledger.bills@[i]@,
+{
+    assert(ledger@.bills[i] == ledger.bills@.map(|_j: int, b: Bill| b@)[i]);
+}
+
+/// Bridge: ledger@.users[i] == ledger.users@[i]@ (connects LedgerState View to direct access).
+pub proof fn ledger_user_at(ledger: LedgerState, i: int)
+    requires 0 <= i < ledger.users.len(),
+    ensures ledger@.users[i] == ledger.users@[i]@,
+{
+    assert(ledger@.users[i] == ledger.users@.map(|_j: int, u: User| u@)[i]);
+}
+
 impl View for User {
     type V = spec::UserSpec;
     open spec fn view(&self) -> spec::UserSpec {

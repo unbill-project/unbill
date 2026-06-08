@@ -314,6 +314,15 @@ pub fn compute_settlement(
         let bill = &ledger.bills[bill_idx];
         let rem_idx = remainder_indices[bill_idx];
 
+        // Bridge: connect ledger_invariant (spec) to exec-level split_shares precondition.
+        proof {
+            // ledger@.bills[i] == ledger.bills@[i]@ — connects View to direct access.
+            unbill_model_verified::ledger::exec::ledger_bill_at(*ledger, bill_idx as int);
+            // Now: bill_splittable(ledger@.bills[bill_idx]) == bill_splittable(ledger.bills@[bill_idx]@)
+            // bill_splittable_bridge needs bill_splittable(bill@):
+            unbill_model_verified::ledger::exec::bill_splittable_bridge(ledger.bills@[bill_idx as int]);
+        }
+
         // Split payers and payees.
         let payer_amounts = split_shares(&bill.payers, bill.amount_cents, rem_idx);
         let payee_amounts = split_shares(&bill.payees, bill.amount_cents, rem_idx);
@@ -333,6 +342,10 @@ pub fn compute_settlement(
                         && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[bill_idx as int].payers@[s].user_id,
             decreases payer_amounts.len() - i,
         {
+            proof {
+                // Trigger the quantifier by mentioning the spec term.
+                let _ = ledger.bills@[bill_idx as int].payers@[i as int];
+            }
             let user_idx = exec::find_user_index(&ledger.users, ledger.bills[bill_idx].payers[i].user_id);
             let old_val = balances[user_idx];
             let amt = payer_amounts[i];
@@ -368,6 +381,9 @@ pub fn compute_settlement(
                         && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[bill_idx as int].payees@[s].user_id,
             decreases payee_amounts.len() - j,
         {
+            proof {
+                let _ = ledger.bills@[bill_idx as int].payees@[j as int];
+            }
             let user_idx = exec::find_user_index(&ledger.users, ledger.bills[bill_idx].payees[j].user_id);
             let old_val = balances[user_idx];
             let amt = payee_amounts[j];
