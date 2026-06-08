@@ -22,30 +22,51 @@ pub const MAX_SHARES_PER_SIDE: usize = 1_000;
 // Error types
 // ---------------------------------------------------------------------------
 
+#[cfg_attr(feature = "thiserror", derive(Debug, thiserror::Error))]
 pub enum AddUserError {
+    #[cfg_attr(feature = "thiserror", error("duplicate user"))]
     DuplicateUser,
+    #[cfg_attr(feature = "thiserror", error("too many users"))]
     TooManyUsers,
 }
 
+#[cfg_attr(feature = "thiserror", derive(Debug, thiserror::Error))]
 pub enum AddDeviceError {
+    #[cfg_attr(feature = "thiserror", error("duplicate device"))]
     DuplicateDevice,
+    #[cfg_attr(feature = "thiserror", error("too many devices"))]
     TooManyDevices,
 }
 
+#[cfg_attr(feature = "thiserror", derive(Debug, thiserror::Error))]
 pub enum AddBillError {
+    #[cfg_attr(feature = "thiserror", error("negative amount"))]
     NegativeAmount,
+    #[cfg_attr(feature = "thiserror", error("amount too large"))]
     AmountTooLarge,
+    #[cfg_attr(feature = "thiserror", error("no payers"))]
     NoPayers,
+    #[cfg_attr(feature = "thiserror", error("no payees"))]
     NoPayees,
+    #[cfg_attr(feature = "thiserror", error("too many payers"))]
     TooManyPayers,
+    #[cfg_attr(feature = "thiserror", error("too many payees"))]
     TooManyPayees,
+    #[cfg_attr(feature = "thiserror", error("payer at index {index} has zero weight"))]
     ZeroPayerWeight { index: usize },
+    #[cfg_attr(feature = "thiserror", error("payee at index {index} has zero weight"))]
     ZeroPayeeWeight { index: usize },
+    #[cfg_attr(feature = "thiserror", error("payer at index {index} not in ledger"))]
     PayerNotInLedger { index: usize },
+    #[cfg_attr(feature = "thiserror", error("payee at index {index} not in ledger"))]
     PayeeNotInLedger { index: usize },
+    #[cfg_attr(feature = "thiserror", error("device not in ledger"))]
     DeviceNotInLedger,
+    #[cfg_attr(feature = "thiserror", error("prev bill at index {index} not found"))]
     PrevBillNotFound { index: usize },
+    #[cfg_attr(feature = "thiserror", error("duplicate bill ID"))]
     DuplicateBillId,
+    #[cfg_attr(feature = "thiserror", error("too many bills"))]
     TooManyBills,
 }
 

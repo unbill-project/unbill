@@ -7,8 +7,12 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 
+[features]
+thiserror = ["dep:thiserror"]
+
 [dependencies]
 vstd = "=0.0.0-2026-05-31-0205"
+thiserror = { workspace = true, optional = true }
 
 [package.metadata.verus]
 verify = true
