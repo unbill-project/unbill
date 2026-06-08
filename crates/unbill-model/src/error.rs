@@ -1,15 +1,51 @@
 use thiserror::Error;
+use unbill_model_verified::ledger::check as vc;
+
+// ---------------------------------------------------------------------------
+// Per-operation error types (verified check + reconcile)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Error)]
+pub enum AddUserOpError {
+    #[error(transparent)]
+    Check(#[from] vc::AddUserError),
+    #[error("reconcile error: {0}")]
+    Reconcile(String),
+}
+
+#[derive(Debug, Error)]
+pub enum AddDeviceOpError {
+    #[error(transparent)]
+    Check(#[from] vc::AddDeviceError),
+    #[error("reconcile error: {0}")]
+    Reconcile(String),
+}
+
+#[derive(Debug, Error)]
+pub enum AddBillOpError {
+    #[error(transparent)]
+    Check(#[from] vc::AddBillError),
+    #[error("reconcile error: {0}")]
+    Reconcile(String),
+}
+
+// ---------------------------------------------------------------------------
+// Top-level error
+// ---------------------------------------------------------------------------
 
 #[derive(Debug, Error)]
 pub enum UnbillError {
+    #[error(transparent)]
+    AddUser(#[from] AddUserOpError),
+
+    #[error(transparent)]
+    AddDevice(#[from] AddDeviceOpError),
+
+    #[error(transparent)]
+    AddBill(#[from] AddBillOpError),
+
     #[error("ledger not found: {0}")]
     LedgerNotFound(String),
-
-    #[error("bill not found: {0}")]
-    BillNotFound(String),
-
-    #[error("user {0} is not in this ledger")]
-    UserNotInLedger(String),
 
     #[error("user not found: {0}")]
     UserNotFound(String),

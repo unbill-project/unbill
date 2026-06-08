@@ -7631,6 +7631,7 @@ dependencies = [
 name = "unbill-model-verified"
 version = "0.0.4"
 dependencies = [
+ "thiserror 2.0.18",
  "vstd",
 ]
 

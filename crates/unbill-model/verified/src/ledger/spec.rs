@@ -137,7 +137,6 @@ pub open spec fn split_shares_requires(
     &&& total_cents <= i32::MAX as i64
     &&& shares.len() <= i32::MAX as int
     &&& total_weight(shares) > 0
-    &&& total_weight(shares) <= u64::MAX as int
     &&& total_weight(shares) <= i64::MAX as int
 }
 
@@ -254,6 +253,28 @@ pub open spec fn add_bill(
         bills: pre.bills.push(bill),
         ..pre
     }
+}
+
+// ---------------------------------------------------------------------------
+// Exec preconditions
+// ---------------------------------------------------------------------------
+
+pub open spec fn exec_add_user_requires(ledger: LedgerStateSpec, user: UserSpec) -> bool {
+    &&& ledger_invariant(ledger)
+    &&& !has_user(ledger.users, user.user_id)
+    &&& ledger.users.len() < i32::MAX as int
+}
+
+pub open spec fn exec_add_device_requires(ledger: LedgerStateSpec, device: DeviceSpec) -> bool {
+    &&& ledger_invariant(ledger)
+    &&& !has_device(ledger.devices, device.node_id)
+    &&& ledger.devices.len() < i32::MAX as int
+}
+
+pub open spec fn exec_add_bill_requires(ledger: LedgerStateSpec, bill: BillSpec) -> bool {
+    &&& ledger_invariant(ledger)
+    &&& add_bill(ledger, LedgerStateSpec { bills: ledger.bills.push(bill), ..ledger }, bill)
+    &&& ledger.bills.len() < i32::MAX as int
 }
 
 }

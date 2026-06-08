@@ -131,6 +131,14 @@ pub proof fn ledger_bill_at(ledger: LedgerState, i: int)
     assert(ledger@.bills[i] == ledger.bills@.map(|_j: int, b: Bill| b@)[i]);
 }
 
+/// Bridge: ledger@.devices[i] == ledger.devices@[i]@ (connects LedgerState View to direct access).
+pub proof fn ledger_device_at(ledger: LedgerState, i: int)
+    requires 0 <= i < ledger.devices.len(),
+    ensures ledger@.devices[i] == ledger.devices@[i]@,
+{
+    assert(ledger@.devices[i] == ledger.devices@.map(|_j: int, d: Device| d@)[i]);
+}
+
 /// Bridge: ledger@.users[i] == ledger.users@[i]@ (connects LedgerState View to direct access).
 pub proof fn ledger_user_at(ledger: LedgerState, i: int)
     requires 0 <= i < ledger.users.len(),
@@ -224,9 +232,7 @@ pub fn exec_init(
 /// Add a user to a ledger.
 pub fn exec_add_user(ledger: &mut LedgerState, user: User)
     requires
-        spec::ledger_invariant(old(ledger)@),
-        !spec::has_user(old(ledger)@.users, user@.user_id),
-        old(ledger).users.len() < i32::MAX as usize,
+        spec::exec_add_user_requires(old(ledger)@, user@),
     ensures
         spec::add_user(old(ledger)@, final(ledger)@, user@),
         spec::ledger_invariant(final(ledger)@),
@@ -243,9 +249,7 @@ pub fn exec_add_user(ledger: &mut LedgerState, user: User)
 /// Add a device to a ledger.
 pub fn exec_add_device(ledger: &mut LedgerState, device: Device)
     requires
-        spec::ledger_invariant(old(ledger)@),
-        !spec::has_device(old(ledger)@.devices, device@.node_id),
-        old(ledger).devices.len() < i32::MAX as usize,
+        spec::exec_add_device_requires(old(ledger)@, device@),
     ensures
         spec::add_device(old(ledger)@, final(ledger)@, device@),
         spec::ledger_invariant(final(ledger)@),
@@ -262,9 +266,7 @@ pub fn exec_add_device(ledger: &mut LedgerState, device: Device)
 /// Add a bill to a ledger.
 pub fn exec_add_bill(ledger: &mut LedgerState, bill: Bill)
     requires
-        spec::ledger_invariant(old(ledger)@),
-        spec::add_bill(old(ledger)@, spec::LedgerStateSpec { bills: old(ledger)@.bills.push(bill@), ..old(ledger)@ }, bill@),
-        old(ledger).bills.len() < i32::MAX as usize,
+        spec::exec_add_bill_requires(old(ledger)@, bill@),
     ensures
         spec::add_bill(old(ledger)@, final(ledger)@, bill@),
         spec::ledger_invariant(final(ledger)@),
@@ -276,6 +278,46 @@ pub fn exec_add_bill(ledger: &mut LedgerState, bill: Bill)
         assert(ledger@ =~= spec::LedgerStateSpec { bills: pre.bills.push(bill@), ..pre });
         super::proof::add_bill_preserves(pre, ledger@, bill@);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Try wrappers: check + exec in one call
+// ---------------------------------------------------------------------------
+
+pub fn try_add_user(ledger: &mut LedgerState, user: User) -> (result: Result<(), super::check::AddUserError>)
+    requires spec::ledger_invariant(old(ledger)@),
+    ensures
+        result.is_ok() ==> spec::add_user(old(ledger)@, final(ledger)@, user@)
+                         && spec::ledger_invariant(final(ledger)@),
+        result.is_err() ==> final(ledger)@ == old(ledger)@,
+{
+    super::check::check_add_user(ledger, &user)?;
+    exec_add_user(ledger, user);
+    Ok(())
+}
+
+pub fn try_add_device(ledger: &mut LedgerState, device: Device) -> (result: Result<(), super::check::AddDeviceError>)
+    requires spec::ledger_invariant(old(ledger)@),
+    ensures
+        result.is_ok() ==> spec::add_device(old(ledger)@, final(ledger)@, device@)
+                         && spec::ledger_invariant(final(ledger)@),
+        result.is_err() ==> final(ledger)@ == old(ledger)@,
+{
+    super::check::check_add_device(ledger, &device)?;
+    exec_add_device(ledger, device);
+    Ok(())
+}
+
+pub fn try_add_bill(ledger: &mut LedgerState, bill: Bill) -> (result: Result<(), super::check::AddBillError>)
+    requires spec::ledger_invariant(old(ledger)@),
+    ensures
+        result.is_ok() ==> spec::add_bill(old(ledger)@, final(ledger)@, bill@)
+                         && spec::ledger_invariant(final(ledger)@),
+        result.is_err() ==> final(ledger)@ == old(ledger)@,
+{
+    super::check::check_add_bill(ledger, &bill)?;
+    exec_add_bill(ledger, bill);
+    Ok(())
 }
 
 }

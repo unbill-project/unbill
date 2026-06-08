@@ -2,8 +2,8 @@
 
 use crate::error::UnbillError;
 use crate::{
-    BillId, Currency, Device, EffectiveBills, Ledger, LedgerId, NewBill, NewDevice, NewUser,
-    NodeId, Timestamp, User,
+    AddBillOpError, AddDeviceOpError, AddUserOpError, BillId, Currency, Device, EffectiveBills,
+    Ledger, LedgerId, NewBill, NewDevice, NewUser, NodeId, Timestamp, User,
 };
 
 use crate::ops;
@@ -88,15 +88,23 @@ impl LedgerDoc {
         input: NewBill,
         created_by_device: NodeId,
         now: Timestamp,
-    ) -> Result<BillId> {
+    ) -> std::result::Result<BillId, AddBillOpError> {
         ops::add_bill(&mut self.doc, input, created_by_device, now)
     }
 
-    pub fn add_user(&mut self, input: NewUser, now: Timestamp) -> Result<()> {
+    pub fn add_user(
+        &mut self,
+        input: NewUser,
+        now: Timestamp,
+    ) -> std::result::Result<(), AddUserOpError> {
         ops::add_user(&mut self.doc, input, now)
     }
 
-    pub fn add_device(&mut self, input: NewDevice, now: Timestamp) -> Result<()> {
+    pub fn add_device(
+        &mut self,
+        input: NewDevice,
+        now: Timestamp,
+    ) -> std::result::Result<(), AddDeviceOpError> {
         ops::add_device(&mut self.doc, input, now)
     }
 

@@ -2,7 +2,7 @@
 
 // sirno:witness:unbill-model:begin
 pub mod error;
-pub use error::{StorageError, UnbillError};
+pub use error::{AddBillOpError, AddDeviceOpError, AddUserOpError, StorageError, UnbillError};
 
 mod amendment;
 mod bill;

@@ -126,7 +126,7 @@ fingerprint = "sha256:7e58997efc61ed92cb13c9a9e69aac8932ca302bfd86d7125feed14d8b
 ]
 
 [entries.formal-verification]
-fingerprint = "sha256:d2d2de9696d32ff031325230005eb2845112706487ebf4da34709d13054c1a6c"
+fingerprint = "sha256:8aebe3d946627f4054e33db77b2c75920c9d57e373565f7245b4d61958c7c3d7"
 "core.belongs" = ["unbill"]
 "core.refines" = ["development-workflow"]
 
@@ -354,7 +354,7 @@ fingerprint = "sha256:cd10aa2b2a293b409654e5a968eb66c88cb6c8a185e2a4dec37f688346
 "core.refines" = ["ui-shared-model"]
 
 [entries.users-and-devices]
-fingerprint = "sha256:45d612ea98f48d15fe15cd6119ce05dcd79c6ea13b54b02584f07edd321a3fc3"
+fingerprint = "sha256:136a007a33b72c96f06aac861d51b6b8bbc7f9c5425af11de773d050d3032497"
 "core.belongs" = ["unbill"]
 "core.refines" = ["data-model"]
 

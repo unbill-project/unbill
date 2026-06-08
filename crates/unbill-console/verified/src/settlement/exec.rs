@@ -672,7 +672,7 @@ pub fn split_shares(
             spec_shares == shares_to_specs(shares@),
             tw as int == total_weight(spec_shares.subrange(0, i as int)),
             tw as int <= total_weight(spec_shares),
-            total_weight(spec_shares) <= u64::MAX as int,
+            total_weight(spec_shares) <= i64::MAX as int,
         decreases shares.len() - i,
     {
         proof {

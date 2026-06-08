@@ -94,18 +94,28 @@ The three layers are designed so that future modules can:
 
 ## Production wiring
 
-All mutations in `ops.rs` flow through verified exec functions:
+All mutations in `ops.rs` flow through verified try_* wrappers:
 
 ```
 CRDT → hydrate → Ledger → ledger_to_model → LedgerState
-                                                 ↓ (verified exec)
+                                                 ↓ (check + exec)
 CRDT ← reconcile ← Ledger ← model_to_ledger ← LedgerState
 ```
 
-`init_ledger`, `add_user`, `add_device`, `add_bill` in `ops.rs`
-each call the corresponding verified exec function.
-Validation (user exists, bill ID valid) stays in `ops.rs` before calling exec.
-The exec functions do the actual push — proved to preserve `ledger_invariant`.
+Each operation has three layers in the verified crate:
+- **check function** (`check.rs`): runtime validation with user-friendly errors,
+  proven to imply the exec requires predicate when it returns Ok.
+- **exec function** (`exec.rs`): the actual mutation, proved to preserve `ledger_invariant`.
+- **try wrapper** (`exec.rs`): composes check + exec, returns `Result`.
+
+`ops.rs` calls `try_add_user`, `try_add_device`, `try_add_bill`.
+No ad-hoc validation in ops.rs — the checker handles all precondition checks.
+The only `requires` on the try wrappers is `ledger_invariant`,
+which is maintained inductively (init establishes it, every mutation preserves it).
+
+Per-operation error types (`AddUserOpError`, `AddDeviceOpError`, `AddBillOpError`)
+in `error.rs` combine the verified check error with a reconcile error variant.
+These convert to `UnbillError` via `#[from]` for callers that use the catch-all.
 
 The bridge (`verified_bridge.rs` in `unbill-model`) provides:
 - `ledger_to_model(ledger: &Ledger) -> LedgerState`
@@ -158,13 +168,18 @@ where the exec function lives in mod.rs alongside `pub mod proof; pub mod spec;`
 ### Example: `unbill-model-verified/src/ledger/`
 
 ```
-mod.rs   -- pub mod exec; pub mod proof; pub mod spec;
-spec.rs  -- ShareSpec, BillSpec, LedgerStateSpec, total_weight,
-             ledger_invariant, transition predicates (init, add_user, ...)
-proof.rs -- seq_map_push, total_weight_push/nonneg/includes_each/partial_le,
-             init_preserves, add_user_preserves, add_device_preserves, add_bill_preserves
-exec.rs  -- Share, Bill, User, Device, LedgerState (Vec-based),
-             View impls, exec_init, exec_add_user, exec_add_device, exec_add_bill
+mod.rs    -- pub mod check; pub mod exec; pub mod proof; pub mod spec;
+spec.rs   -- ShareSpec, BillSpec, LedgerStateSpec, total_weight,
+              ledger_invariant, transition predicates, exec_*_requires predicates
+proof.rs  -- seq_map_push, total_weight_push/nonneg/includes_each/partial_le,
+              init_preserves, add_user_preserves, add_device_preserves, add_bill_preserves
+exec.rs   -- Share, Bill, User, Device, LedgerState (Vec-based), View impls,
+              exec_init/add_user/add_device/add_bill, try_add_user/device/bill,
+              ledger_user_at/device_at/bill_at bridge lemmas
+check.rs  -- error enums (AddUserError, AddDeviceError, AddBillError),
+              user-friendly limits (MAX_USERS, MAX_BILLS, etc.),
+              check_add_user/device/bill (proven: Ok => exec requires holds),
+              containment helpers (user_id_in_ledger, device_in_ledger, bill_id_in_ledger)
 ```
 
 ### Example: `unbill-console-verified/src/settlement/`
@@ -179,13 +194,27 @@ proof.rs -- amount_sum lemmas, floor_sum lemmas, mod_distinct, floor_sum_eq_amou
 ## Why separate verified crates
 
 Verus cannot process crates that use `dyn` trait objects.
-`thiserror` and `autosurgeon` generate `dyn Error`,
+`autosurgeon` generates `dyn Error`,
 so production model crates cannot be compiled by Verus.
 
 Verified crates isolate pure logic from the `dyn`-heavy dependency graph.
 IDs are modeled as `Seq<u8>` (spec) / `Vec<u8>` (exec),
 matching the production ULID string representation.
 Production code maps domain types to/from verified types at the boundary.
+
+### thiserror inside verified crates
+
+`thiserror` is an optional dependency of the verified crate, gated behind a
+`thiserror` feature flag. Error enums are defined inside `verus!{}` with
+`#[cfg_attr(feature = "thiserror", derive(Debug, thiserror::Error))]` and
+`#[cfg_attr(feature = "thiserror", error("..."))]` on each variant.
+
+When the feature is off (during `cargo verus verify`), the attributes are
+stripped and the enums are plain Verus types. When on (enabled by the
+production `unbill-model` crate), the enums get `Debug + Display + Error`.
+
+Workspace-level `cargo verus verify` does not work because dependents
+enable the feature. Run Verus per-crate from each verified crate's directory.
 
 ## Cross-crate type sharing
 
@@ -247,7 +276,8 @@ Verified crates suppress clippy lints at the crate level:
 1. Define spec types and predicates in `spec.rs`.
 2. Write proof lemmas in `proof.rs`.
 3. Implement exec functions in `exec.rs` with contracts and proof blocks.
-4. Run `cargo-verus verus verify -p <crate>` (for cross-crate deps).
+4. Run `cargo verus verify` from each verified crate's directory.
+   Workspace-level verification does not work when dependents enable the `thiserror` feature.
 5. All verified code compiles with `cargo build` (`verus!{}` strips ghost code).
 6. Write tests for the spec↔production type conversion functions.
 
@@ -263,14 +293,14 @@ because the input space is too large for exhaustive testing.
 
 ## What is less suited for verification
 
-Structural validation (IDs unique, references valid)
-that production code already enforces at runtime.
-The proof effort is high and the insight is low —
-the invariants restate checks that `ops.rs` already performs.
-
 The Vec↔Seq bridge (mapping between runtime Vec and spec Seq)
 is mechanical and tedious. Minimizing the gap between
 spec types and exec types reduces this overhead.
+
+Within-crate `Seq::map` closure reduction works (Z3 can beta-reduce),
+but the bridge lemma pattern (`ledger_user_at`, `ledger_device_at`,
+`ledger_bill_at`) is more reliable for connecting exec-level comparisons
+to spec-level predicates like `has_user`.
 
 ## Lessons learned
 
@@ -315,3 +345,25 @@ To connect runtime `Vec<T>` views to spec `Seq<T::View>`:
 Z3 cannot beta-reduce through `Seq::map` + lambda + cross-crate `View::view()`.
 Use `Seq::new` with explicit field construction instead of `.map(|_i, s| s@)`.
 See "Cross-crate View unfolding" above for the full pattern.
+
+### Checker functions use bridge lemmas, not Seq::map
+The containment helpers (`user_id_in_ledger`, etc.) work at the spec level
+through `ledger_user_at`/`ledger_device_at`/`ledger_bill_at` bridge lemmas.
+These connect `ledger@.users[i]` to `ledger.users@[i]@`, giving Z3 direct
+access to exec-level field comparisons. Attempting to use `Seq::map` in
+loop invariants or ensures within the same crate is unreliable — Z3 may
+fail to reduce the closure application even when the View is `open`.
+
+### Tighter checker bounds imply spec bounds
+Checker functions use user-friendly limits (2M entries, ~$20M amounts,
+1000 shares per side) that are strictly tighter than the mathematical
+i32::MAX bounds in the spec. The proof that tighter bounds imply spec
+bounds is straightforward arithmetic. For total_weight, per-share weight > 0
+and bounded share count imply total_weight > 0 and total_weight <= i64::MAX
+without exposing "total weight" to users.
+
+### Types defined outside verus!{} cannot be used inside
+Verus ignores types declared outside `verus!{}` or marked `#[verifier::external]`.
+Error enums used in checker return types must stay inside `verus!{}`.
+Use `#[cfg_attr(feature = "thiserror", ...)]` to conditionally attach
+proc-macro derives that Verus cannot process.
