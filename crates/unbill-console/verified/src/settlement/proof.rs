@@ -477,6 +477,50 @@ pub proof fn partial_sum_le_total(s: Seq<i64>, n: int)
 // positive_sum update lemmas
 // ---------------------------------------------------------------------------
 
+/// If all transactions are positive and their sum is 0, there are no transactions.
+pub proof fn no_transactions_if_sum_zero(ts: Seq<TransactionSpec>)
+    requires
+        all_positive_transactions(ts),
+        transaction_sum(ts) == 0,
+    ensures
+        ts.len() == 0,
+    decreases ts.len(),
+{
+    if ts.len() > 0 {
+        // transaction_sum(ts) = transaction_sum(ts.drop_last()) + ts.last().amount_cents
+        // ts.last().amount_cents > 0 (from all_positive_transactions)
+        // So transaction_sum(ts.drop_last()) < transaction_sum(ts) = 0.
+        // But we need transaction_sum(ts.drop_last()) >= 0 for contradiction.
+        // Prove by induction: all-positive ⟹ transaction_sum >= 0.
+        transaction_sum_nonneg_if_all_positive(ts.drop_last());
+        assert(false);
+    }
+}
+
+/// If all transactions have positive amounts, their sum is non-negative.
+proof fn transaction_sum_nonneg_if_all_positive(ts: Seq<TransactionSpec>)
+    requires all_positive_transactions(ts),
+    ensures transaction_sum(ts) >= 0,
+    decreases ts.len(),
+{
+    if ts.len() > 0 {
+        assert forall|i: int| 0 <= i < ts.drop_last().len()
+            implies (#[trigger] ts.drop_last()[i]).amount_cents > 0
+        by { assert(ts.drop_last()[i] == ts[i]); }
+        transaction_sum_nonneg_if_all_positive(ts.drop_last());
+    }
+}
+
+/// positive_sum is always non-negative.
+pub proof fn positive_sum_nonneg(s: Seq<i64>)
+    ensures positive_sum(s) >= 0,
+    decreases s.len(),
+{
+    if s.len() > 0 {
+        positive_sum_nonneg(s.drop_last());
+    }
+}
+
 /// positive_sum of a sequence where all elements are zero is zero.
 pub proof fn positive_sum_all_zero(s: Seq<i64>)
     requires forall|k: int| 0 <= k < s.len() ==> (#[trigger] s[k]) == 0i64,

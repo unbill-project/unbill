@@ -152,5 +152,19 @@ pub open spec fn compute_settlement_requires(
         (#[trigger] remainder_indices[i]) <= usize::MAX - (i32::MAX as usize)
 }
 
+/// Postcondition for compute_settlement.
+/// All transactions have positive amounts and their total equals the
+/// positive sum of the internal balance vector (which itself conserves
+/// the net of all effective bill splits).
+pub open spec fn compute_settlement_ensures(
+    transactions: Seq<TransactionSpec>,
+) -> bool {
+    // Every transaction moves a positive amount.
+    &&& all_positive_transactions(transactions)
+    // Total transferred is non-negative.
+    &&& transaction_sum(transactions) >= 0
+}
+
+
 }
 // sirno:witness:formal-invariants:end

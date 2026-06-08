@@ -281,6 +281,8 @@ pub fn compute_balances(
         forall|k: int| 0 <= k < balances.len() ==>
             (#[trigger] balances@[k]) > i64::MIN && balances@[k] < i64::MAX,
         spec::positive_sum(balances@) <= i64::MAX as int,
+        // No effective bills ⟹ all balances are zero ⟹ positive_sum == 0.
+        effective_indices@.len() == 0 ==> spec::positive_sum(balances@) == 0,
 {
     // Initialize balances to 0 for each user.
     let mut balances: Vec<i64> = Vec::new();
@@ -575,9 +577,10 @@ pub fn compute_balances(
         }
         // positive_sum <= total_amount <= effective_indices.len() * i32::MAX <= i32::MAX^2 < i64::MAX.
         assert(spec::positive_sum(balances@) <= total_amount);
-        // total_amount was incremented by at most i32::MAX each of at most i32::MAX iterations,
-        // but we just need total_amount <= i64::MAX which holds since each amount <= i32::MAX
-        // and n_bills <= i32::MAX, giving total_amount <= i32::MAX * i32::MAX < i64::MAX.
+        // When no effective bills, total_amount == 0, so positive_sum == 0.
+        if effective_indices@.len() == 0 {
+            proof::positive_sum_nonneg(balances@);
+        }
     }
 
     balances
@@ -817,6 +820,10 @@ pub fn compute_settlement(
 ) -> (transactions: Vec<Transaction>)
     requires
         spec::compute_settlement_requires(ledger@, remainder_indices@),
+    ensures
+        spec::compute_settlement_ensures(transactions_to_specs(transactions@)),
+        // Empty ledger produces no transactions.
+        ledger@.bills.len() == 0 ==> transactions@.len() == 0,
 {
     // Bridge spec-level preconditions to exec-level triggers.
     proof {
@@ -905,6 +912,20 @@ pub fn compute_settlement(
 
     // Step 4: Greedy matching.
     let transactions = compute_from_balances(&user_ids, &balances);
+
+    proof {
+        // transaction_sum >= 0 because transaction_sum == positive_sum(balances) >= 0.
+        proof::positive_sum_nonneg(balances@);
+        // Empty ledger ⟹ no effective bills ⟹ all balances zero ⟹ positive_sum == 0
+        // ⟹ transaction_sum == 0 ⟹ no transactions (since all amounts positive).
+        if ledger@.bills.len() == 0 {
+            // effective_indices.len() <= ledger.bills.len() == 0
+            assert(effective_indices@.len() == 0);
+            // positive_sum == 0, transaction_sum == positive_sum == 0
+            proof::no_transactions_if_sum_zero(transactions_to_specs(transactions@));
+        }
+    }
+
     transactions
 }
 
