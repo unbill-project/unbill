@@ -1,11 +1,9 @@
 // Settlement algorithm: who owes whom after applying all bills.
 // See unbill-docs/settlement.md for the two-step algorithm.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::model::{BillId, Currency, EffectiveBills, Ledger, User, UserId};
-
-pub mod verified_bridge;
 
 // sirno:witness:settlement:begin
 /// A single suggested settlement transaction.
@@ -52,24 +50,29 @@ pub fn compute_bill_split(
 
 /// Compute settlement for a single ledger.
 ///
-/// Derives effective bills from `ledger.bills`, accumulates per-user balances,
-/// and applies the greedy minimum-cash-flow reduction.
+/// Delegates the entire pipeline (filter effective bills → split shares →
+/// accumulate balances → greedy matching) to the formally verified
+/// `compute_settlement` in `unbill-console-verified`.
 pub fn compute_settlement(ledger: &Ledger) -> Settlement {
-    let superseded: HashSet<BillId> = ledger
+    let model = unbill_model::verified_bridge::ledger_to_model(ledger);
+    let remainder_indices: Vec<usize> = ledger
         .bills
         .iter()
-        .flat_map(|b| b.prev.iter().copied())
+        .map(|b| fnv1a(b.id.to_string().as_bytes()) as usize)
         .collect();
-    let mut balances: HashMap<UserId, i64> = HashMap::new();
-    for bill in ledger.bills.iter().filter(|b| !superseded.contains(&b.id)) {
-        for (user_id, amount) in split_shares(&bill.payers, bill.amount_cents, bill.id) {
-            *balances.entry(user_id).or_default() += amount;
-        }
-        for (user_id, amount) in split_shares(&bill.payees, bill.amount_cents, bill.id) {
-            *balances.entry(user_id).or_default() -= amount;
-        }
+    let verified_txns =
+        unbill_console_verified::settlement::exec::compute_settlement(&model, &remainder_indices);
+    Settlement {
+        currency: ledger.currency,
+        transactions: verified_txns
+            .into_iter()
+            .map(|t| Transaction {
+                from_user_id: UserId::from_u128(t.from_user_id),
+                to_user_id: UserId::from_u128(t.to_user_id),
+                amount_cents: t.amount_cents,
+            })
+            .collect(),
     }
-    compute_from_balances(ledger.currency, balances)
 }
 
 /// Accumulate net balances (positive = owed money, negative = owes money) from
