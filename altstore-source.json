@@ -21,6 +21,14 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.0.4",
+          "date": "2026-06-08",
+          "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.4/unbill-ios.ipa",
+          "localizedDescription": "Formally verified settlement pipeline — 0 assumes, 96 verified properties.",
+          "size": 9878938,
+          "minOSVersion": "14.0"
+        },
+        {
           "version": "0.0.3",
           "date": "2026-05-18",
           "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.3/unbill-ios.ipa",
