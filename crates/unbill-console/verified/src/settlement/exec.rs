@@ -50,7 +50,7 @@ pub fn compute_from_balances(
 ) -> (transactions: Vec<Transaction>)
     requires
         user_ids.len() == balances.len(),
-        spec::settle_requires(balances@),
+        spec::balances_wf(balances@),
     ensures
         spec::settle_ensures(balances@, transactions_to_specs(transactions@)),
         // Idempotence: zero balances ⟹ no transactions.
@@ -73,7 +73,7 @@ pub fn compute_from_balances(
             user_ids.len() == balances.len(),
             creditor_ids.len() == creditor_amounts.len(),
             debtor_ids.len() == debtor_amounts.len(),
-            spec::settle_requires(balances@),
+            spec::balances_wf(balances@),
             forall|j: int| 0 <= j < creditor_amounts.len() ==>
                 #[trigger] creditor_amounts@[j] > 0,
             forall|j: int| 0 <= j < debtor_amounts.len() ==>
@@ -253,44 +253,67 @@ pub fn compute_balances(
     remainder_indices: &Vec<usize>,
 ) -> (balances: Vec<i64>)
     requires
-        unbill_model_verified::ledger::spec::ledger_invariant(ledger@),
+        spec::compute_settlement_requires(ledger@, remainder_indices@),
         forall|i: int| 0 <= i < effective_indices.len() ==>
             (#[trigger] effective_indices@[i]) < ledger.bills.len(),
         effective_indices.len() <= ledger.bills.len(),
-        forall|bi: int| 0 <= bi < ledger.bills.len() ==> (
-            unbill_model_verified::ledger::spec::split_shares_requires(
-                unbill_model_verified::ledger::exec::shares_to_specs((#[trigger] ledger.bills@[bi]).payers@),
-                ledger.bills@[bi].amount_cents,
-            )
-            && unbill_model_verified::ledger::spec::split_shares_requires(
-                unbill_model_verified::ledger::exec::shares_to_specs(ledger.bills@[bi].payees@),
-                ledger.bills@[bi].amount_cents,
-            )
-        ),
-        forall|bi: int, s: int| #![trigger ledger.bills@[bi].payers@[s]]
-            0 <= bi < ledger.bills.len() && 0 <= s < ledger.bills@[bi].payers.len() ==>
-            exists|k: int| 0 <= k < ledger.users.len()
-                && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[bi].payers@[s].user_id,
-        forall|bi: int, s: int| #![trigger ledger.bills@[bi].payees@[s]]
-            0 <= bi < ledger.bills.len() && 0 <= s < ledger.bills@[bi].payees.len() ==>
-            exists|k: int| 0 <= k < ledger.users.len()
-                && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[bi].payees@[s].user_id,
-        ledger.bills.len() <= i32::MAX as usize,
-        forall|bi: int| 0 <= bi < ledger.bills.len() ==>
-            (#[trigger] ledger.bills@[bi]).amount_cents >= 0
-            && ledger.bills@[bi].amount_cents <= i32::MAX as i64,
-        remainder_indices.len() == ledger.bills.len(),
-        forall|i: int| 0 <= i < remainder_indices.len() ==>
-            (#[trigger] remainder_indices@[i]) <= usize::MAX - (i32::MAX as usize),
     ensures
-        balances.len() == ledger.users.len(),
-        spec::seq_sum(balances@) == 0,
-        forall|k: int| 0 <= k < balances.len() ==>
-            (#[trigger] balances@[k]) > i64::MIN && balances@[k] < i64::MAX,
-        spec::positive_sum(balances@) <= i64::MAX as int,
-        // No effective bills ⟹ all balances are zero ⟹ positive_sum == 0.
-        effective_indices@.len() == 0 ==> spec::positive_sum(balances@) == 0,
+        spec::compute_balances_ensures(
+            balances@, ledger.users.len() as int, effective_indices@.len() as int,
+        ),
 {
+    // Bridge spec-level ledger_invariant to exec-level triggers needed by
+    // split_shares and find_user_index.
+    proof {
+        assert forall|bi: int| 0 <= bi < ledger.bills.len()
+            implies split_shares_requires(
+                shares_to_specs((#[trigger] ledger.bills@[bi]).payers@),
+                ledger.bills@[bi].amount_cents,
+            ) && split_shares_requires(
+                shares_to_specs(ledger.bills@[bi].payees@),
+                ledger.bills@[bi].amount_cents,
+            )
+        by {
+            ledger_bill_at(*ledger, bi);
+            bill_splittable_bridge(ledger.bills@[bi]);
+        }
+
+        assert forall|bi: int, s: int| #![trigger ledger.bills@[bi].payers@[s]]
+            0 <= bi < ledger.bills.len()
+            && 0 <= s < ledger.bills@[bi].payers.len()
+            implies exists|k: int| 0 <= k < ledger.users.len()
+                && (#[trigger] ledger.users@[k]).user_id
+                    == ledger.bills@[bi].payers@[s].user_id
+        by {
+            ledger_bill_at(*ledger, bi);
+            bill_bridge(ledger.bills@[bi]);
+            let _ = ledger@.bills[bi].payers[s];
+            assert(ledger@.bills[bi].payers[s].user_id == ledger.bills@[bi].payers@[s].user_id);
+            let uid = ledger.bills@[bi].payers@[s].user_id;
+            assert(ledger@.users.len() == ledger.users.len());
+            let k = choose|k: int| 0 <= k < ledger@.users.len()
+                && ledger@.users[k].user_id == uid;
+            ledger_user_at(*ledger, k);
+        }
+
+        assert forall|bi: int, s: int| #![trigger ledger.bills@[bi].payees@[s]]
+            0 <= bi < ledger.bills.len()
+            && 0 <= s < ledger.bills@[bi].payees.len()
+            implies exists|k: int| 0 <= k < ledger.users.len()
+                && (#[trigger] ledger.users@[k]).user_id
+                    == ledger.bills@[bi].payees@[s].user_id
+        by {
+            ledger_bill_at(*ledger, bi);
+            bill_bridge(ledger.bills@[bi]);
+            let _ = ledger@.bills[bi].payees[s];
+            assert(ledger@.bills[bi].payees[s].user_id == ledger.bills@[bi].payees@[s].user_id);
+            let uid = ledger.bills@[bi].payees@[s].user_id;
+            assert(ledger@.users.len() == ledger.users.len());
+            let k = choose|k: int| 0 <= k < ledger@.users.len()
+                && ledger@.users[k].user_id == uid;
+            ledger_user_at(*ledger, k);
+        }
+    }
     // Initialize balances to 0 for each user.
     let mut balances: Vec<i64> = Vec::new();
     let mut u: usize = 0;
@@ -832,7 +855,8 @@ pub fn compute_settlement(
         // Empty ledger produces no transactions.
         ledger@.bills.len() == 0 ==> transactions@.len() == 0,
 {
-    // Bridge spec-level preconditions to exec-level triggers.
+    // Step 1: Filter effective bills.
+    // Bridge: prev-ref existence needed by filter_effective_indices.
     proof {
         assert forall|i: int, k: int| #![trigger ledger.bills@[i].prev@[k]]
             0 <= i < ledger.bills.len()
@@ -847,58 +871,7 @@ pub fn compute_settlement(
                 && ledger@.bills[j].id == target;
             ledger_bill_at(*ledger, j);
         }
-
-        assert forall|bi: int| 0 <= bi < ledger.bills.len()
-            implies split_shares_requires(
-                shares_to_specs((#[trigger] ledger.bills@[bi]).payers@),
-                ledger.bills@[bi].amount_cents,
-            ) && split_shares_requires(
-                shares_to_specs(ledger.bills@[bi].payees@),
-                ledger.bills@[bi].amount_cents,
-            )
-        by {
-            ledger_bill_at(*ledger, bi);
-            bill_splittable_bridge(ledger.bills@[bi]);
-        }
-
-        assert forall|bi: int, s: int| #![trigger ledger.bills@[bi].payers@[s]]
-            0 <= bi < ledger.bills.len()
-            && 0 <= s < ledger.bills@[bi].payers.len()
-            implies exists|k: int| 0 <= k < ledger.users.len()
-                && (#[trigger] ledger.users@[k]).user_id
-                    == ledger.bills@[bi].payers@[s].user_id
-        by {
-            ledger_bill_at(*ledger, bi);
-            bill_bridge(ledger.bills@[bi]);
-            let _ = ledger@.bills[bi].payers[s];
-            assert(ledger@.bills[bi].payers[s].user_id == ledger.bills@[bi].payers@[s].user_id);
-            let uid = ledger.bills@[bi].payers@[s].user_id;
-            assert(ledger@.users.len() == ledger.users.len());
-            let k = choose|k: int| 0 <= k < ledger@.users.len()
-                && ledger@.users[k].user_id == uid;
-            ledger_user_at(*ledger, k);
-        }
-
-        assert forall|bi: int, s: int| #![trigger ledger.bills@[bi].payees@[s]]
-            0 <= bi < ledger.bills.len()
-            && 0 <= s < ledger.bills@[bi].payees.len()
-            implies exists|k: int| 0 <= k < ledger.users.len()
-                && (#[trigger] ledger.users@[k]).user_id
-                    == ledger.bills@[bi].payees@[s].user_id
-        by {
-            ledger_bill_at(*ledger, bi);
-            bill_bridge(ledger.bills@[bi]);
-            let _ = ledger@.bills[bi].payees[s];
-            assert(ledger@.bills[bi].payees[s].user_id == ledger.bills@[bi].payees@[s].user_id);
-            let uid = ledger.bills@[bi].payees@[s].user_id;
-            assert(ledger@.users.len() == ledger.users.len());
-            let k = choose|k: int| 0 <= k < ledger@.users.len()
-                && ledger@.users[k].user_id == uid;
-            ledger_user_at(*ledger, k);
-        }
     }
-
-    // Step 1: Filter effective bills.
     let effective_indices = effective::filter_effective_indices(&ledger.bills);
 
     // Step 2: Accumulate balances from effective bills.

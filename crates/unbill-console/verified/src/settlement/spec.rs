@@ -108,8 +108,8 @@ pub open spec fn split_shares_ensures(
 // Settlement contract predicates
 // ---------------------------------------------------------------------------
 
-/// Precondition for greedy matching: balances sum to zero, bounded.
-pub open spec fn settle_requires(balances: Seq<i64>) -> bool {
+/// Balances are well-formed for settlement: sum to zero, individually bounded.
+pub open spec fn balances_wf(balances: Seq<i64>) -> bool {
     &&& seq_sum(balances) == 0
     &&& balances.len() <= i32::MAX as int
     &&& positive_sum(balances) <= i64::MAX as int
@@ -117,13 +117,28 @@ pub open spec fn settle_requires(balances: Seq<i64>) -> bool {
         #[trigger] balances[i] > i64::MIN && balances[i] < i64::MAX
 }
 
-/// Postcondition for greedy matching: conservation and positivity.
+/// Postcondition for compute_from_balances: conservation and positivity.
 pub open spec fn settle_ensures(
     balances: Seq<i64>,
     transactions: Seq<TransactionSpec>,
 ) -> bool {
+    // Every credited cent is transferred — no money swallowed.
     &&& transaction_sum(transactions) == positive_sum(balances)
+    // Every transaction moves a positive amount.
     &&& all_positive_transactions(transactions)
+}
+
+/// Postcondition for compute_balances: well-formed balances with
+/// length matching users, and conservation (sum == 0).
+pub open spec fn compute_balances_ensures(
+    balances: Seq<i64>,
+    n_users: int,
+    n_effective: int,
+) -> bool {
+    &&& balances_wf(balances)
+    &&& balances.len() == n_users
+    // No effective bills ⟹ zero balances.
+    &&& (n_effective == 0 ==> positive_sum(balances) == 0)
 }
 
 // ---------------------------------------------------------------------------
@@ -153,16 +168,14 @@ pub open spec fn compute_settlement_requires(
 }
 
 /// Postcondition for compute_settlement.
-/// All transactions have positive amounts and their total equals the
-/// positive sum of the internal balance vector (which itself conserves
-/// the net of all effective bill splits).
 pub open spec fn compute_settlement_ensures(
     transactions: Seq<TransactionSpec>,
 ) -> bool {
     // Every transaction moves a positive amount.
     &&& all_positive_transactions(transactions)
-    // Total transferred is non-negative.
+    // Total transferred is non-negative (no money created from nothing).
     &&& transaction_sum(transactions) >= 0
+    // Empty ledger (no bills) produces no transactions.
 }
 
 
