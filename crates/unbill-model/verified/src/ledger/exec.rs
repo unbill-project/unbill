@@ -224,9 +224,7 @@ pub fn exec_init(
 /// Add a user to a ledger.
 pub fn exec_add_user(ledger: &mut LedgerState, user: User)
     requires
-        spec::ledger_invariant(old(ledger)@),
-        !spec::has_user(old(ledger)@.users, user@.user_id),
-        old(ledger).users.len() < i32::MAX as usize,
+        spec::exec_add_user_requires(old(ledger)@, user@),
     ensures
         spec::add_user(old(ledger)@, final(ledger)@, user@),
         spec::ledger_invariant(final(ledger)@),
@@ -243,9 +241,7 @@ pub fn exec_add_user(ledger: &mut LedgerState, user: User)
 /// Add a device to a ledger.
 pub fn exec_add_device(ledger: &mut LedgerState, device: Device)
     requires
-        spec::ledger_invariant(old(ledger)@),
-        !spec::has_device(old(ledger)@.devices, device@.node_id),
-        old(ledger).devices.len() < i32::MAX as usize,
+        spec::exec_add_device_requires(old(ledger)@, device@),
     ensures
         spec::add_device(old(ledger)@, final(ledger)@, device@),
         spec::ledger_invariant(final(ledger)@),
@@ -262,9 +258,7 @@ pub fn exec_add_device(ledger: &mut LedgerState, device: Device)
 /// Add a bill to a ledger.
 pub fn exec_add_bill(ledger: &mut LedgerState, bill: Bill)
     requires
-        spec::ledger_invariant(old(ledger)@),
-        spec::add_bill(old(ledger)@, spec::LedgerStateSpec { bills: old(ledger)@.bills.push(bill@), ..old(ledger)@ }, bill@),
-        old(ledger).bills.len() < i32::MAX as usize,
+        spec::exec_add_bill_requires(old(ledger)@, bill@),
     ensures
         spec::add_bill(old(ledger)@, final(ledger)@, bill@),
         spec::ledger_invariant(final(ledger)@),
