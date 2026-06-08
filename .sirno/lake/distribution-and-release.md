@@ -102,11 +102,22 @@ Then add the packages to `environment.systemPackages` or home-manager's `home.pa
 Development environments can use `devenv.nix` and `devenv.yaml`.
 
 Releases are managed by `cargo release`.
-The release flow bumps workspace and Tauri versions,
+The release flow bumps three version sources,
 commits the change,
 creates a `v{version}` tag,
 and relies on the version-tag CI pipeline.
 Dry run is the default and execution must be explicit.
+
+The three version sources that must stay in sync on every release:
+
+1. `Cargo.toml` workspace `version` — the canonical Rust version.
+2. `crates/unbill-tauri/tauri.conf.json` `version` — becomes `CFBundleShortVersionString` in the iOS IPA.
+   Tauri 2 does not inherit `version.workspace = true` for iOS builds.
+3. `altstore-source.json` — add a new version object at the top of the `versions` array
+   with `version` matching `tauri.conf.json`, a pinned `downloadURL`, `date`, and `size`.
+
+AltStore verifies that the source JSON `version` exactly matches
+`CFBundleShortVersionString` in the IPA and refuses to install on mismatch.
 
 Current repository status:
 the Rust model, storage, console, device, channel crates,

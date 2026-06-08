@@ -111,7 +111,7 @@ fingerprint = "sha256:3f90bf67804a1024b5acde51ac1fcb064fe21ed40b8efa3605c88cf5d0
 "core.refines" = ["design-principles"]
 
 [entries.distribution-and-release]
-fingerprint = "sha256:82d2ead9e7f92bb5324f739cd626611adfaf08896ba020fe06abe619e2873040"
+fingerprint = "sha256:347cfe4bbb3efe4d31c4abe32e9033f68d86c0fc82ea0613dcd8336d6e24d400"
 "core.belongs" = ["unbill"]
 
 [entries.formal-invariants]
