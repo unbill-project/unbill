@@ -126,5 +126,14 @@ pub open spec fn settle_ensures(
     &&& all_positive_transactions(transactions)
 }
 
+// ---------------------------------------------------------------------------
+// Balance bound helper
+// ---------------------------------------------------------------------------
+
+/// Balance bound unit: i32::MAX + 1 = 2^31.
+pub open spec fn bal_M() -> int {
+    i32::MAX as int + 1
+}
+
 }
 // sirno:witness:formal-invariants:end

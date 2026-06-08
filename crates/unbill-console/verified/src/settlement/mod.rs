@@ -245,6 +245,7 @@ pub fn compute_settlement(
             exists|k: int| 0 <= k < ledger.users.len()
                 && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[i].payees@[s].user_id,
         // Overflow bounds.
+        ledger.users.len() <= i32::MAX as usize,
         ledger.bills.len() <= i32::MAX as usize,
         // split_shares preconditions at exec level.
         forall|i: int| #![trigger ledger.bills@[i]]
@@ -275,7 +276,10 @@ pub fn compute_settlement(
     }
 
     // Step 4: Greedy matching.
-    assume(spec::settle_requires(balances@));
+    // settle_requires: sum==0 ✓, len<=i32::MAX ✓, each bounded ✓,
+    // positive_sum <= i64::MAX: TODO prove from total bill amounts.
+    assume(spec::positive_sum(balances@) <= i64::MAX as int);
+    assert(spec::settle_requires(balances@));
     let transactions = exec::compute_from_balances(&user_ids, &balances);
     transactions
 }

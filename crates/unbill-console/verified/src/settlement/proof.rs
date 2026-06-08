@@ -391,5 +391,87 @@ pub proof fn range_sum_nonneg(s: Seq<i64>, from: int, to: int)
     }
 }
 
+// ---------------------------------------------------------------------------
+// overflow bound lemmas
+// ---------------------------------------------------------------------------
+
+/// If all elements of `a` >= corresponding elements of `b`, then seq_sum(a) >= seq_sum(b).
+pub proof fn seq_sum_ge(a: Seq<i64>, b: Seq<i64>)
+    requires
+        a.len() == b.len(),
+        forall|k: int| 0 <= k < a.len() ==> #[trigger] a[k] >= b[k],
+    ensures
+        seq_sum(a) >= seq_sum(b),
+    decreases a.len(),
+{
+    if a.len() > 0 {
+        assert forall|k: int| 0 <= k < a.drop_last().len()
+            implies #[trigger] a.drop_last()[k] >= b.drop_last()[k]
+        by {
+            assert(a.drop_last()[k] == a[k]);
+            assert(b.drop_last()[k] == b[k]);
+        }
+        seq_sum_ge(a.drop_last(), b.drop_last());
+    }
+}
+
+/// If each element of `new` >= `old`, and total increase <= bound,
+/// then each individual element increased by at most `bound`.
+pub proof fn bound_elem_from_nonneg_increase(old: Seq<i64>, new: Seq<i64>, bound: int)
+    requires
+        old.len() == new.len(),
+        forall|k: int| 0 <= k < old.len() ==> #[trigger] new[k] >= old[k],
+        seq_sum(new) - seq_sum(old) <= bound,
+    ensures
+        forall|k: int| 0 <= k < old.len() ==> (#[trigger] new[k]) as int <= old[k] as int + bound,
+    decreases old.len(),
+{
+    if old.len() > 0 {
+        assert forall|k: int| 0 <= k < old.drop_last().len()
+            implies #[trigger] new.drop_last()[k] >= old.drop_last()[k]
+        by {
+            assert(new.drop_last()[k] == new[k]);
+            assert(old.drop_last()[k] == old[k]);
+        }
+        seq_sum_ge(new.drop_last(), old.drop_last());
+        // seq_sum(new.dl) - seq_sum(old.dl) <= seq_sum(new) - seq_sum(old) <= bound
+        // because new.last() >= old.last() implies the last pair consumed non-negative delta.
+        bound_elem_from_nonneg_increase(old.drop_last(), new.drop_last(), bound);
+        assert forall|k: int| 0 <= k < old.len()
+            implies (#[trigger] new[k]) as int <= old[k] as int + bound
+        by {
+            if k < old.len() - 1 {
+                assert(new[k] == new.drop_last()[k]);
+                assert(old[k] == old.drop_last()[k]);
+            } else {
+                // last element: new.last() - old.last()
+                //   = (seq_sum(new) - seq_sum(old)) - (seq_sum(new.dl) - seq_sum(old.dl))
+                //   <= bound - 0 = bound
+                // since seq_sum(new.dl) - seq_sum(old.dl) >= 0.
+                seq_sum_ge(new.drop_last(), old.drop_last());
+            }
+        }
+    }
+}
+
+/// Partial sum of a non-negative sequence is at most the total sum.
+pub proof fn partial_sum_le_total(s: Seq<i64>, n: int)
+    requires
+        0 <= n <= s.len(),
+        forall|k: int| 0 <= k < s.len() ==> (#[trigger] s[k]) >= 0,
+    ensures
+        seq_sum(s.subrange(0, n)) <= seq_sum(s),
+    decreases s.len() - n,
+{
+    if n < s.len() {
+        partial_sum_le_total(s.drop_last(), n);
+        assert(s.drop_last().subrange(0, n) =~= s.subrange(0, n));
+        // seq_sum(s) = seq_sum(s.drop_last()) + s.last() >= seq_sum(s.drop_last())
+        //           >= seq_sum(s.drop_last().subrange(0,n)) = seq_sum(s.subrange(0,n))
+    } else {
+        assert(s.subrange(0, n) =~= s);
+    }
+}
+
 }
 // sirno:witness:formal-invariants:end

@@ -76,7 +76,6 @@ pub fn compute_from_balances(
             cred_sum == spec::positive_sum(balances@.subrange(0, i as int)),
             cred_sum == spec::seq_sum(creditor_amounts@),
             debt_sum == spec::seq_sum(debtor_amounts@),
-            // Key: cred - debt tracks seq_sum of processed portion.
             cred_sum - debt_sum == spec::seq_sum(balances@.subrange(0, i as int)),
         decreases balances.len() - i,
     {
@@ -105,7 +104,6 @@ pub fn compute_from_balances(
         i = i + 1;
     }
 
-    // After first loop: cred_sum == positive_sum(balances@).
     proof {
         assert(balances@.subrange(0, balances@.len() as int) =~= balances@);
     }
@@ -113,11 +111,8 @@ pub fn compute_from_balances(
     let ghost original_credit_total: int = cred_sum;
 
     proof {
-        // Connect seq_sum to range_sum for the loop invariant.
         proof::range_sum_eq_seq_sum(creditor_amounts@);
         proof::range_sum_eq_seq_sum(debtor_amounts@);
-        // After first loop: cred_sum - debt_sum == seq_sum(balances@) == 0.
-        // Therefore cred_sum == debt_sum.
         assert(balances@.subrange(0, balances@.len() as int) =~= balances@);
     }
 
@@ -133,20 +128,16 @@ pub fn compute_from_balances(
             di <= debtor_amounts.len(),
             creditor_ids.len() == creditor_amounts.len(),
             debtor_ids.len() == debtor_amounts.len(),
-            // Remaining amounts are non-negative.
             forall|j: int| ci as int <= j < creditor_amounts.len() ==>
                 #[trigger] creditor_amounts@[j] >= 0,
             forall|j: int| di as int <= j < debtor_amounts.len() ==>
                 #[trigger] debtor_amounts@[j] >= 0,
-            // Conservation: emitted + remaining == original (both sides).
             emitted_sum + spec::range_sum(creditor_amounts@, ci as int, creditor_amounts@.len() as int)
                 == original_credit_total,
             emitted_sum + spec::range_sum(debtor_amounts@, di as int, debtor_amounts@.len() as int)
                 == original_credit_total,
             emitted_sum >= 0,
-            // Ghost sum tracks spec-level transaction sum.
             emitted_sum == spec::transaction_sum(transactions_to_specs(transactions@)),
-            // All emitted transactions are positive.
             spec::all_positive_transactions(transactions_to_specs(transactions@)),
         decreases
             (creditor_amounts.len() - ci) + (debtor_amounts.len() - di),
@@ -182,20 +173,16 @@ pub fn compute_from_balances(
             let new_debt: i64 = debt - amount;
 
             proof {
-                // transactions@ == old_transactions.push(t) where t.amount_cents == amount.
                 assert(transactions@.drop_last() =~= old_transactions);
                 assert(transactions@.last().amount_cents == amount);
 
-                // transactions_to_specs push: drop_last of new == old, last has amount.
                 let new_specs = transactions_to_specs(transactions@);
                 let old_specs = transactions_to_specs(old_transactions);
                 assert(new_specs.len() == old_specs.len() + 1);
                 assert(new_specs.last().amount_cents == amount as int);
                 assert(new_specs.drop_last() =~= old_specs);
-                // Therefore transaction_sum increases by amount.
                 proof::transaction_sum_push(old_specs, new_specs.last());
 
-                // All positive: old was all positive, new element is positive.
                 assert forall|i: int| 0 <= i < new_specs.len()
                     implies (#[trigger] new_specs[i]).amount_cents > 0
                 by {
@@ -227,28 +214,25 @@ pub fn compute_from_balances(
         }
     }
 
-    // After loop: prove remaining credits == 0.
     proof {
-        // Loop exited: !(ci < creds.len() && di < debts.len()).
-        // So ci >= creds.len() OR di >= debts.len().
-        // Case 1: ci >= creds.len() → range_sum(creds, ci, len) == 0 (empty range).
-        // Case 2: di >= debts.len() → range_sum(debts, di, len) == 0 (empty range).
-        //   From debt invariant: emitted_sum + 0 == original_credit_total.
-        //   From credit invariant: emitted_sum + range_sum(creds, ci, len) == original_credit_total.
-        //   So range_sum(creds, ci, len) == 0.
         if ci >= creditor_amounts.len() {
-            // Empty range.
         } else {
-            // di >= debtor_amounts.len(), so debt range is empty.
             assert(spec::range_sum(debtor_amounts@, di as int, debtor_amounts@.len() as int) == 0);
-            // From invariants: emitted_sum == original_credit_total.
-            // And: emitted_sum + range_sum(creds, ci, len) == original_credit_total.
-            // So: range_sum(creds, ci, len) == 0.
             proof::range_sum_nonneg(creditor_amounts@, ci as int, creditor_amounts@.len() as int);
         }
     }
 
     transactions
+}
+
+// ---------------------------------------------------------------------------
+// Balance accumulation
+// ---------------------------------------------------------------------------
+
+/// Balance bound predicate: |balance| < n * bal_M().
+/// Used as an invariant: after processing n bills, each balance satisfies this.
+pub open spec fn bal_bounded(bal: i64, n: int) -> bool {
+    bal as int > -(n * spec::bal_M()) && (bal as int) < n * spec::bal_M()
 }
 
 /// Compute per-user balances from effective bills in a ledger.
@@ -260,37 +244,40 @@ pub fn compute_balances(
     remainder_indices: &Vec<usize>,
 ) -> (balances: Vec<i64>)
     requires
-        // Ledger invariant holds (bills are well-formed, users exist, etc.).
         unbill_model_verified::ledger::spec::ledger_invariant(ledger@),
-        // split_shares preconditions for every bill.
-        forall|b: int| 0 <= b < ledger.bills.len() ==> (
+        forall|i: int| 0 <= i < effective_indices.len() ==>
+            (#[trigger] effective_indices@[i]) < ledger.bills.len(),
+        effective_indices.len() <= ledger.bills.len(),
+        forall|bi: int| 0 <= bi < ledger.bills.len() ==> (
             unbill_model_verified::ledger::spec::split_shares_requires(
-                unbill_model_verified::ledger::exec::shares_to_specs((#[trigger] ledger.bills@[b]).payers@),
-                ledger.bills@[b].amount_cents,
+                unbill_model_verified::ledger::exec::shares_to_specs((#[trigger] ledger.bills@[bi]).payers@),
+                ledger.bills@[bi].amount_cents,
             )
             && unbill_model_verified::ledger::spec::split_shares_requires(
-                unbill_model_verified::ledger::exec::shares_to_specs(ledger.bills@[b].payees@),
-                ledger.bills@[b].amount_cents,
+                unbill_model_verified::ledger::exec::shares_to_specs(ledger.bills@[bi].payees@),
+                ledger.bills@[bi].amount_cents,
             )
         ),
-        // Exec-level user existence: each share's user_id exists in ledger.users.
-        forall|b: int, s: int| #![trigger ledger.bills@[b].payers@[s]]
-            0 <= b < ledger.bills.len() && 0 <= s < ledger.bills@[b].payers.len() ==>
+        forall|bi: int, s: int| #![trigger ledger.bills@[bi].payers@[s]]
+            0 <= bi < ledger.bills.len() && 0 <= s < ledger.bills@[bi].payers.len() ==>
             exists|k: int| 0 <= k < ledger.users.len()
-                && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[b].payers@[s].user_id,
-        forall|b: int, s: int| #![trigger ledger.bills@[b].payees@[s]]
-            0 <= b < ledger.bills.len() && 0 <= s < ledger.bills@[b].payees.len() ==>
+                && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[bi].payers@[s].user_id,
+        forall|bi: int, s: int| #![trigger ledger.bills@[bi].payees@[s]]
+            0 <= bi < ledger.bills.len() && 0 <= s < ledger.bills@[bi].payees.len() ==>
             exists|k: int| 0 <= k < ledger.users.len()
-                && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[b].payees@[s].user_id,
-        // Overflow bound: total amount across all bills fits in i64/4.
-        // (Guarantees no individual balance exceeds i64/2 during accumulation.)
+                && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[bi].payees@[s].user_id,
         ledger.bills.len() <= i32::MAX as usize,
-        forall|b: int| 0 <= b < ledger.bills.len() ==>
-            (#[trigger] ledger.bills@[b]).amount_cents >= 0
-            && ledger.bills@[b].amount_cents <= i32::MAX as i64,
+        forall|bi: int| 0 <= bi < ledger.bills.len() ==>
+            (#[trigger] ledger.bills@[bi]).amount_cents >= 0
+            && ledger.bills@[bi].amount_cents <= i32::MAX as i64,
+        remainder_indices.len() == ledger.bills.len(),
+        forall|i: int| 0 <= i < remainder_indices.len() ==>
+            (#[trigger] remainder_indices@[i]) <= usize::MAX - (i32::MAX as usize),
     ensures
         balances.len() == ledger.users.len(),
         spec::seq_sum(balances@) == 0,
+        forall|k: int| 0 <= k < balances.len() ==>
+            (#[trigger] balances@[k]) > i64::MIN && balances@[k] < i64::MAX,
 {
     // Initialize balances to 0 for each user.
     let mut balances: Vec<i64> = Vec::new();
@@ -300,9 +287,7 @@ pub fn compute_balances(
             u <= ledger.users.len(),
             balances.len() == u,
             spec::seq_sum(balances@) == 0,
-            forall|k: int| 0 <= k < balances.len() ==>
-                (#[trigger] balances@[k]) > -4611686018427387903i64
-                && balances@[k] < 4611686018427387903i64,
+            forall|k: int| 0 <= k < u ==> (#[trigger] balances@[k]) == 0i64,
         decreases ledger.users.len() - u,
     {
         proof { proof::seq_sum_push(balances@, 0i64); }
@@ -310,56 +295,67 @@ pub fn compute_balances(
         u = u + 1;
     }
 
-    // Process each bill.
+    // Process each effective bill.
+    // Growing bound: after b bills, |balance[k]| < (b+1) * bal_M().
     let mut b: usize = 0;
-    while b < ledger.bills.len()
+    while b < effective_indices.len()
         invariant
-            b <= ledger.bills.len(),
+            b <= effective_indices.len(),
             balances.len() == ledger.users.len(),
             spec::seq_sum(balances@) == 0,
             unbill_model_verified::ledger::spec::ledger_invariant(ledger@),
-            forall|k: int| 0 <= k < ledger.bills.len() ==> (
+            forall|i: int| 0 <= i < effective_indices.len() ==>
+                (#[trigger] effective_indices@[i]) < ledger.bills.len(),
+            effective_indices.len() <= ledger.bills.len(),
+            forall|bi: int| 0 <= bi < ledger.bills.len() ==> (
                 unbill_model_verified::ledger::spec::split_shares_requires(
-                    unbill_model_verified::ledger::exec::shares_to_specs((#[trigger] ledger.bills@[k]).payers@),
-                    ledger.bills@[k].amount_cents,
+                    unbill_model_verified::ledger::exec::shares_to_specs((#[trigger] ledger.bills@[bi]).payers@),
+                    ledger.bills@[bi].amount_cents,
                 )
                 && unbill_model_verified::ledger::spec::split_shares_requires(
-                    unbill_model_verified::ledger::exec::shares_to_specs(ledger.bills@[k].payees@),
-                    ledger.bills@[k].amount_cents,
+                    unbill_model_verified::ledger::exec::shares_to_specs(ledger.bills@[bi].payees@),
+                    ledger.bills@[bi].amount_cents,
                 )
             ),
-            forall|k: int, s: int| #![trigger ledger.bills@[k].payers@[s]]
-                0 <= k < ledger.bills.len() && 0 <= s < ledger.bills@[k].payers.len() ==>
-                exists|j: int| 0 <= j < ledger.users.len()
-                    && (#[trigger] ledger.users@[j]).user_id == ledger.bills@[k].payers@[s].user_id,
-            forall|k: int, s: int| #![trigger ledger.bills@[k].payees@[s]]
-                0 <= k < ledger.bills.len() && 0 <= s < ledger.bills@[k].payees.len() ==>
-                exists|j: int| 0 <= j < ledger.users.len()
-                    && (#[trigger] ledger.users@[j]).user_id == ledger.bills@[k].payees@[s].user_id,
+            forall|bi: int, s: int| #![trigger ledger.bills@[bi].payers@[s]]
+                0 <= bi < ledger.bills.len() && 0 <= s < ledger.bills@[bi].payers.len() ==>
+                exists|k: int| 0 <= k < ledger.users.len()
+                    && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[bi].payers@[s].user_id,
+            forall|bi: int, s: int| #![trigger ledger.bills@[bi].payees@[s]]
+                0 <= bi < ledger.bills.len() && 0 <= s < ledger.bills@[bi].payees.len() ==>
+                exists|k: int| 0 <= k < ledger.users.len()
+                    && (#[trigger] ledger.users@[k]).user_id == ledger.bills@[bi].payees@[s].user_id,
             ledger.bills.len() <= i32::MAX as usize,
-            forall|k: int| 0 <= k < ledger.bills.len() ==>
-                (#[trigger] ledger.bills@[k]).amount_cents >= 0
-                && ledger.bills@[k].amount_cents <= i32::MAX as i64,
-            // Balance bound: within i64/2 (generous; maintained since each op changes by at most i32::MAX).
+            forall|bi: int| 0 <= bi < ledger.bills.len() ==>
+                (#[trigger] ledger.bills@[bi]).amount_cents >= 0
+                && ledger.bills@[bi].amount_cents <= i32::MAX as i64,
+            remainder_indices.len() == ledger.bills.len(),
+            forall|i: int| 0 <= i < remainder_indices.len() ==>
+                (#[trigger] remainder_indices@[i]) <= usize::MAX - (i32::MAX as usize),
+            // Growing balance bound.
             forall|k: int| 0 <= k < balances.len() ==>
-                (#[trigger] balances@[k]) > i64::MIN / 2
-                && balances@[k] < i64::MAX / 2,
-        decreases ledger.bills.len() - b,
+                bal_bounded(#[trigger] balances@[k], b as int + 1),
+        decreases effective_indices.len() - b,
     {
-        let bill = &ledger.bills[b];
+        let bill_idx: usize = effective_indices[b];
+        let bill = &ledger.bills[bill_idx];
+        let amount = bill.amount_cents;
+        // Pre-compute the current balance bound for overflow proofs.
+        // bnd = (b+1) * bal_M(). Overflow assertions use bnd instead of spec::bal_M() * (b+1).
+        let ghost bnd: int = spec::bal_M() * (b as int + 1);
 
-        // Call verified split_shares for payers and payees.
-        // remainder_idx = 0; bound trivially satisfied since len <= usize::MAX.
-        assert(0usize <= usize::MAX - bill.payers.len());
-        assert(0usize <= usize::MAX - bill.payees.len());
+        let rem_idx = remainder_indices[bill_idx];
+        assert(rem_idx <= usize::MAX - bill.payers.len());
+        assert(rem_idx <= usize::MAX - bill.payees.len());
         let payer_amounts = crate::settlement::split_shares(
-            &bill.payers, bill.amount_cents, 0,
+            &bill.payers, amount, rem_idx,
         );
         let payee_amounts = crate::settlement::split_shares(
-            &bill.payees, bill.amount_cents, 0,
+            &bill.payees, amount, rem_idx,
         );
 
-        // split_shares ensures: seq_sum(result@) == amount_cents.
+        // Ghost: snapshot balances before payer processing.
+        let ghost snapshot = balances@;
 
         // Add payer credits to balances.
         let mut i: usize = 0;
@@ -368,30 +364,59 @@ pub fn compute_balances(
                 i <= payer_amounts.len(),
                 payer_amounts.len() == bill.payers.len(),
                 balances.len() == ledger.users.len(),
-                spec::seq_sum(balances@) == spec::seq_sum(payer_amounts@.subrange(0, i as int)),
-                b < ledger.bills.len(),
+                spec::seq_sum(balances@) == spec::seq_sum(snapshot)
+                    + spec::seq_sum(payer_amounts@.subrange(0, i as int)),
+                b < effective_indices.len(),
+                b as int + 1 <= i32::MAX as int,
+                bill_idx < ledger.bills.len(),
                 ledger.bills.len() <= i32::MAX as usize,
+                amount == bill.amount_cents,
+                amount >= 0,
+                amount <= i32::MAX as i64,
+                forall|s: int| 0 <= s < payer_amounts.len() ==>
+                    (#[trigger] payer_amounts@[s]) >= 0 && payer_amounts@[s] <= amount,
+                spec::seq_sum(payer_amounts@) == amount as int,
                 forall|s: int| #![trigger bill.payers@[s]]
                     0 <= s < bill.payers.len() ==>
                     exists|k: int| 0 <= k < ledger.users.len()
                         && (#[trigger] ledger.users@[k]).user_id == bill.payers@[s].user_id,
-                // Amounts non-negative (from split_shares ensures).
-                forall|s: int| 0 <= s < payer_amounts.len() ==> (#[trigger] payer_amounts@[s]) >= 0,
-                forall|k: int| 0 <= k < balances.len() ==> (
-                    #[trigger] balances@[k] > -4611686018427387903i64
-                    && balances@[k] < 4611686018427387903i64
-                ),
+                // Snapshot is fixed; only adds since then.
+                snapshot.len() == balances@.len(),
+                forall|k: int| 0 <= k < balances.len() ==>
+                    (#[trigger] balances@[k]) >= snapshot[k],
+                // Snapshot bounds from outer growing bound.
+                forall|k: int| 0 <= k < snapshot.len() ==>
+                    bal_bounded(#[trigger] snapshot[k], b as int + 1),
+                bnd == spec::bal_M() * (b as int + 1),
             decreases payer_amounts.len() - i,
         {
-            // User exists: from precondition (exec-level user existence).
             let user_idx = find_user_index(&ledger.users, bill.payers[i].user_id);
             let old_val = balances[user_idx];
             let amt = payer_amounts[i];
-            // Overflow: old_val within i64/2 and amt <= i32::MAX.
+
+            // Overflow safety via snapshot bound lemma.
+            proof {
+                proof::partial_sum_le_total(payer_amounts@, i as int);
+                proof::bound_elem_from_nonneg_increase(snapshot, balances@, amount as int);
+                // Trigger quantifier for user_idx:
+                let snap_raw = snapshot[user_idx as int];
+                // bal_bounded(snap_raw, b+1) unfolds to:
+                //   snap_raw as int > -((b+1) * bal_M()) && snap_raw as int < (b+1) * bal_M()
+                // bnd == bal_M() * (b+1) == (b+1) * bal_M() by commutativity
+                assert(bnd == (b as int + 1) * spec::bal_M()) by(nonlinear_arith)
+                    requires bnd == spec::bal_M() * (b as int + 1);
+                // Prove bnd is bounded: bnd = (b+1)*bal_M() <= i32::MAX*bal_M()
+                assert(bnd <= i32::MAX as int * spec::bal_M()) by(nonlinear_arith)
+                    requires bnd == (b as int + 1) * spec::bal_M(),
+                             b as int + 1 <= i32::MAX as int;
+            }
             assert(old_val as int + amt as int <= i64::MAX as int) by(nonlinear_arith)
-                requires old_val < 4611686018427387903i64, amt >= 0i64;
+                requires old_val <= bnd + i32::MAX as int,
+                         amt >= 0i64, amt <= i32::MAX as i64,
+                         bnd <= i32::MAX as int * (i32::MAX as int + 1);
             assert(old_val as int + amt as int >= i64::MIN as int) by(nonlinear_arith)
-                requires old_val > -4611686018427387903i64, amt >= 0i64;
+                requires old_val >= -bnd, amt >= 0i64;
+
             let new_val = old_val + amt;
             proof {
                 proof::seq_sum_update(balances@, user_idx as int, new_val);
@@ -406,6 +431,12 @@ pub fn compute_balances(
             assert(payer_amounts@.subrange(0, payer_amounts@.len() as int) =~= payer_amounts@);
         }
 
+        // Establish bounds on snapshot_payee.
+        proof {
+            proof::bound_elem_from_nonneg_increase(snapshot, balances@, amount as int);
+        }
+        let ghost snapshot_payee = balances@;
+
         // Subtract payee debits from balances.
         let mut j: usize = 0;
         while j < payee_amounts.len()
@@ -413,28 +444,76 @@ pub fn compute_balances(
                 j <= payee_amounts.len(),
                 payee_amounts.len() == bill.payees.len(),
                 balances.len() == ledger.users.len(),
-                spec::seq_sum(balances@)
-                    == spec::seq_sum(payer_amounts@) - spec::seq_sum(payee_amounts@.subrange(0, j as int)),
-                b < ledger.bills.len(),
+                spec::seq_sum(balances@) == spec::seq_sum(snapshot)
+                    + spec::seq_sum(payer_amounts@)
+                    - spec::seq_sum(payee_amounts@.subrange(0, j as int)),
+                b < effective_indices.len(),
+                b as int + 1 <= i32::MAX as int,
+                bill_idx < ledger.bills.len(),
                 ledger.bills.len() <= i32::MAX as usize,
+                amount == bill.amount_cents,
+                amount >= 0,
+                amount <= i32::MAX as i64,
+                spec::seq_sum(payer_amounts@) == amount as int,
+                forall|s: int| 0 <= s < payee_amounts.len() ==>
+                    (#[trigger] payee_amounts@[s]) >= 0 && payee_amounts@[s] <= amount,
+                spec::seq_sum(payee_amounts@) == amount as int,
                 forall|s: int| #![trigger bill.payees@[s]]
                     0 <= s < bill.payees.len() ==>
                     exists|k: int| 0 <= k < ledger.users.len()
                         && (#[trigger] ledger.users@[k]).user_id == bill.payees@[s].user_id,
-                forall|s: int| 0 <= s < payee_amounts.len() ==> (#[trigger] payee_amounts@[s]) >= 0,
-                forall|k: int| 0 <= k < balances.len() ==> (
-                    #[trigger] balances@[k] > -4611686018427387903i64
-                    && balances@[k] < 4611686018427387903i64
-                ),
+                // Only subtracts since snapshot_payee.
+                snapshot_payee.len() == balances@.len(),
+                forall|k: int| 0 <= k < balances.len() ==>
+                    (#[trigger] balances@[k]) <= snapshot_payee[k],
+                // Snapshot_payee sum (for bound_elem_from_nonneg_increase precondition).
+                spec::seq_sum(snapshot_payee) == spec::seq_sum(snapshot) + amount as int,
+                // Snapshot_payee bounds.
+                forall|k: int| 0 <= k < snapshot_payee.len() ==>
+                    (#[trigger] snapshot_payee[k]) as int >= snapshot[k] as int
+                    && (snapshot_payee[k]) as int <= snapshot[k] as int + amount as int,
+                // Original snapshot bounds.
+                snapshot.len() == balances@.len(),
+                forall|k: int| 0 <= k < snapshot.len() ==>
+                    bal_bounded(#[trigger] snapshot[k], b as int + 1),
+                bnd == spec::bal_M() * (b as int + 1),
             decreases payee_amounts.len() - j,
         {
             let user_idx = find_user_index(&ledger.users, bill.payees[j].user_id);
             let old_val = balances[user_idx];
             let amt = payee_amounts[j];
+
+            // Overflow safety via reverse snapshot bound.
+            proof {
+                proof::partial_sum_le_total(payee_amounts@, j as int);
+                proof::bound_elem_from_nonneg_increase(balances@, snapshot_payee, amount as int);
+                // Assert commutativity and bound for bnd:
+                assert(bnd == (b as int + 1) * spec::bal_M()) by(nonlinear_arith)
+                    requires bnd == spec::bal_M() * (b as int + 1);
+                assert(bnd <= i32::MAX as int * spec::bal_M()) by(nonlinear_arith)
+                    requires bnd == (b as int + 1) * spec::bal_M(),
+                             b as int + 1 <= i32::MAX as int;
+                // Trigger quantifiers for user_idx:
+                let sp_raw = snapshot_payee[user_idx as int];
+                let snap_raw = snapshot[user_idx as int];
+                let snap_val: int = snap_raw as int;
+                // bal_bounded(snap_raw, b+1) → snap_val > -(b+1)*bal_M() = -bnd and snap_val < bnd
+                // snapshot_payee bounds: sp_raw >= snap_raw and sp_raw <= snap_raw + amount
+                assert(sp_raw as int >= snap_val);
+                assert(sp_raw as int <= snap_val + amount as int);
+                // old_val <= sp_raw (from payee invariant) and old_val >= sp_raw - amount (from reverse bound)
+                assert(old_val as int <= sp_raw as int);
+                assert(old_val as int <= bnd + i32::MAX as int);
+                assert(old_val as int >= sp_raw as int - amount as int);
+                assert(old_val as int >= -bnd - i32::MAX as int);
+            }
             assert(old_val as int - amt as int >= i64::MIN as int) by(nonlinear_arith)
-                requires old_val > -4611686018427387903i64, amt >= 0i64, amt <= i32::MAX as i64;
+                requires old_val >= -bnd - i32::MAX as int,
+                         amt >= 0i64, amt <= i32::MAX as i64,
+                         bnd >= 0, bnd <= i32::MAX as int * (i32::MAX as int + 1);
             assert(old_val as int - amt as int <= i64::MAX as int) by(nonlinear_arith)
-                requires old_val < 4611686018427387903i64, amt >= 0i64;
+                requires old_val <= bnd + i32::MAX as int, amt >= 0i64;
+
             let new_val = old_val - amt;
             proof {
                 proof::seq_sum_update(balances@, user_idx as int, new_val);
@@ -449,7 +528,34 @@ pub fn compute_balances(
             assert(payee_amounts@.subrange(0, payee_amounts@.len() as int) =~= payee_amounts@);
         }
 
+        // Re-establish growing bound: bal_bounded(bal[k], b+2).
+        proof {
+            proof::bound_elem_from_nonneg_increase(balances@, snapshot_payee, amount as int);
+            assert forall|k: int| 0 <= k < balances.len()
+                implies bal_bounded(#[trigger] balances@[k], b as int + 2)
+            by {
+                assert(balances@[k] <= snapshot_payee[k]);
+                assert(snapshot_payee[k] as int <= snapshot[k] as int + amount as int);
+                assert(bal_bounded(snapshot[k], b as int + 1));
+                assert(snapshot_payee[k] as int <= balances@[k] as int + amount as int);
+                assert(snapshot_payee[k] as int >= snapshot[k] as int);
+            }
+        }
+
         b = b + 1;
+    }
+
+    // Final: bal_bounded(bal[k], b+1) where b+1 <= i32::MAX+1.
+    // bal_M() * (i32::MAX+1) = 2^31 * 2^31 = 2^62 < i64::MAX.
+    proof {
+        assert forall|k: int| 0 <= k < balances.len()
+            implies (#[trigger] balances@[k]) > i64::MIN && balances@[k] < i64::MAX
+        by {
+            assert(bal_bounded(balances@[k], b as int + 1));
+            // bal_M() * (b+1) <= bal_M() * (i32::MAX+1) = 2^62 < i64::MAX.
+            assert(spec::bal_M() * (b as int + 1) <= spec::bal_M() * (i32::MAX as int + 1)) by(nonlinear_arith)
+                requires b as int + 1 <= i32::MAX as int + 1;
+        }
     }
 
     balances
