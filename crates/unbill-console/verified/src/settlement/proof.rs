@@ -511,6 +511,24 @@ proof fn transaction_sum_nonneg_if_all_positive(ts: Seq<TransactionSpec>)
     }
 }
 
+/// Settlement idempotence: if balances are all zero, settlement
+/// produces no transactions.  This means settling a second time
+/// after "executing" a balanced settlement yields nothing.
+pub proof fn settlement_idempotent(
+    balances: Seq<i64>,
+    transactions: Seq<TransactionSpec>,
+)
+    requires
+        settle_ensures(balances, transactions),
+        forall|i: int| 0 <= i < balances.len() ==> (#[trigger] balances[i]) == 0i64,
+    ensures
+        transactions.len() == 0,
+{
+    positive_sum_all_zero(balances);
+    // positive_sum == 0 ⟹ transaction_sum == 0 ⟹ no transactions.
+    no_transactions_if_sum_zero(transactions);
+}
+
 /// positive_sum is always non-negative.
 pub proof fn positive_sum_nonneg(s: Seq<i64>)
     ensures positive_sum(s) >= 0,

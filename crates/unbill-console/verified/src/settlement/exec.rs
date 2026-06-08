@@ -53,6 +53,9 @@ pub fn compute_from_balances(
         spec::settle_requires(balances@),
     ensures
         spec::settle_ensures(balances@, transactions_to_specs(transactions@)),
+        // Idempotence: zero balances ⟹ no transactions.
+        (forall|i: int| 0 <= i < balances@.len() ==> balances@[i] == 0i64)
+            ==> transactions@.len() == 0,
 {
     // Separate into creditors and debtors.
     let mut creditor_ids: Vec<u128> = Vec::new();
@@ -221,6 +224,10 @@ pub fn compute_from_balances(
         } else {
             assert(spec::range_sum(debtor_amounts@, di as int, debtor_amounts@.len() as int) == 0);
             proof::range_sum_nonneg(creditor_amounts@, ci as int, creditor_amounts@.len() as int);
+        }
+        // Idempotence: zero balances ⟹ no transactions.
+        if forall|i: int| 0 <= i < balances@.len() ==> balances@[i] == 0i64 {
+            proof::settlement_idempotent(balances@, transactions_to_specs(transactions@));
         }
     }
 
