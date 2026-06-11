@@ -37,7 +37,7 @@ jobs:
           sed -i "s/^_tag=.*/_tag=${TAG}/" .github/aur/${{ matrix.package }}/PKGBUILD
 
       - name: Release ${{ matrix.package }} to AUR
-        uses: jbouter/aur-releaser@v0.0.8
+        uses: KSXGitHub/github-actions-deploy-aur@v4
         with:
           pkgname: ${{ matrix.package }}
           pkgbuild: .github/aur/${{ matrix.package }}/PKGBUILD
@@ -45,4 +45,4 @@ jobs:
           commit_email: github-actions[bot]@users.noreply.github.com
           ssh_private_key: ${{ secrets.AUR_SSH_KEY }}
           commit_message: Update to ${{ inputs.tag }}
-          ssh_keyscan_types: rsa,ecdsa,ed25519
+          allow_empty_commits: true
