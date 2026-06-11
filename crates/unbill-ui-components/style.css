@@ -801,6 +801,23 @@
   font-size: 0.9rem;
 }
 
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  background: var(--bg-accent-soft);
+  border-bottom: 1px solid var(--accent-secondary-border);
+  flex-shrink: 0;
+}
+
+.update-banner-text {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--accent-text);
+}
+
 @media (max-width: 1199px) {
   .screen-frame {
     flex: 1;

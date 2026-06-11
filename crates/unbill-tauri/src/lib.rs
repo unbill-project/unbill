@@ -183,6 +183,60 @@ struct BillSplitPreviewDto {
 }
 // sirno:witness:unbill-tauri:end
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateInfoDto {
+    version: String,
+}
+
+#[tauri::command]
+async fn check_update(app: tauri::AppHandle) -> std::result::Result<Option<UpdateInfoDto>, String> {
+    #[cfg(windows)]
+    {
+        use tauri_plugin_updater::UpdaterExt;
+        match app.updater().map_err(|e| e.to_string())?.check().await {
+            Ok(Some(update)) => Ok(Some(UpdateInfoDto {
+                version: update.version.clone(),
+            })),
+            Ok(None) => Ok(None),
+            Err(e) => {
+                tracing::warn!("update check failed: {e}");
+                Ok(None)
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle) -> std::result::Result<(), String> {
+    #[cfg(windows)]
+    {
+        use tauri_plugin_updater::UpdaterExt;
+        let update = app
+            .updater()
+            .map_err(|e| e.to_string())?
+            .check()
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "no update available".to_owned())?;
+        update
+            .download_and_install(|_, _| {}, || {})
+            .await
+            .map_err(|e| e.to_string())?;
+        app.restart();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        Ok(())
+    }
+}
+
 // sirno:witness:unbill-tauri:begin
 #[tauri::command]
 async fn bootstrap_app(state: State<'_, AppState>) -> std::result::Result<AppBootstrapDto, String> {
@@ -785,6 +839,9 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
+            #[cfg(windows)]
+            app.handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())?;
             #[cfg(mobile)]
             let service = tauri::async_runtime::block_on(async {
                 let root = app
@@ -829,7 +886,9 @@ pub fn run() {
             save_bill,
             resolve_conflict,
             sync_once,
-            preview_bill_split
+            preview_bill_split,
+            check_update,
+            install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running unbill");

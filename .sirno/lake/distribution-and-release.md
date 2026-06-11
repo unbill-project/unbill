@@ -1,6 +1,9 @@
 ---
-core.name: Distribution And Release
 core.desc: The installation channels and release mechanics described by the repository.
+core.name: Distribution And Release
+meta:
+  frozen:
+    - reviewed
 core.category:
   - core.concept
 core.belongs:
@@ -30,6 +33,11 @@ User-friendly installation includes:
 - **AltStore source** for iOS sideloading.
 - **Android APK** attached to each GitHub release.
 - **GHCR Docker image** for the relay server.
+- **Windows auto-updater** via `tauri-plugin-updater`.
+  The Windows desktop app checks for updates on startup
+  against `latest.json` hosted on the latest GitHub release.
+  Users see a banner and can trigger download and install from the UI.
+  The NSIS installer runs in passive mode (progress bar, no interaction).
 
 Release links target the latest stable GitHub release rather than prereleases.
 

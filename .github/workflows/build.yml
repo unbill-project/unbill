@@ -123,6 +123,9 @@ jobs:
 
       - id: tauri
         uses: tauri-apps/tauri-action@v0
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: crates/unbill-tauri
           tauriScript: tauri
@@ -135,10 +138,37 @@ jobs:
             mv "$path" "unbill-${{ matrix.suffix }}.${ext}"
           done
 
+      - name: Generate updater latest.json
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          sig_file=$(ls unbill-${{ matrix.suffix }}.*.sig 2>/dev/null | head -1)
+          if [ -z "$sig_file" ]; then
+            echo "No signature file found, skipping latest.json"
+            exit 0
+          fi
+          signature=$(cat "$sig_file")
+          installer=$(ls unbill-${{ matrix.suffix }}.{exe,msi} 2>/dev/null | head -1)
+          installer_name=$(basename "$installer")
+          version=$(jq -r '.version' crates/unbill-tauri/tauri.conf.json)
+          cat > latest.json <<ENDJSON
+          {
+            "version": "${version}",
+            "platforms": {
+              "windows-x86_64": {
+                "signature": "${signature}",
+                "url": "https://github.com/unbill-project/unbill/releases/download/${{ inputs.tag }}/${installer_name}"
+              }
+            }
+          }
+          ENDJSON
+
       - uses: actions/upload-artifact@v4
         with:
           name: binaries-tauri-${{ matrix.suffix }}
-          path: unbill-${{ matrix.suffix }}.*
+          path: |
+            unbill-${{ matrix.suffix }}.*
+            latest.json
 
   build-android:
     name: Build Android

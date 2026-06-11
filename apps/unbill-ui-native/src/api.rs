@@ -201,6 +201,20 @@ pub async fn sync_once(peer_node_id: &str) -> Result<(), String> {
     .await
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInfo {
+    pub version: String,
+}
+
+pub async fn check_update() -> Result<Option<UpdateInfo>, String> {
+    invoke("check_update", &()).await
+}
+
+pub async fn install_update() -> Result<(), String> {
+    invoke("install_update", &()).await
+}
+
 pub async fn read_clipboard_text() -> Result<String, String> {
     let value = read_clipboard_text_js().await.map_err(js_error_to_string)?;
     js_value_to_string(value)
