@@ -234,6 +234,17 @@ pub proof fn add_bill_preserves(
                 && pre.bills[w].id == b.prev[j];
             assert(post.bills[w].id == b.prev[j]);
         }
+        // No self-prev: bill.prev[j] != bill.id.
+        assert forall|j: int| 0 <= j < b.prev.len()
+            implies #[trigger] b.prev[j] != b.id
+        by {
+            if i == pre.bills.len() as int {
+                // New bill: prev[j] exists in pre.bills, but bill.id is NOT in pre.bills.
+                assert(has_bill(pre.bills, b.prev[j]));
+                assert(!has_bill(pre.bills, bill.id));
+            }
+            // Existing bills (i < pre.bills.len()): preserved from ledger_invariant(pre).
+        }
     }
 }
 
