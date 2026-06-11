@@ -142,21 +142,39 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
+          echo "::group::Available artifacts"
+          ls -la unbill-${{ matrix.suffix }}.* 2>/dev/null || echo "No matching files found"
+          echo "::endgroup::"
+
           sig_file=$(ls unbill-${{ matrix.suffix }}.*.sig 2>/dev/null | head -1 || true)
           if [ -z "$sig_file" ]; then
             echo "No signature file found, skipping latest.json"
             exit 0
           fi
+          echo "Using signature file: $sig_file"
           signature=$(cat "$sig_file")
+
           installer=$(ls unbill-${{ matrix.suffix }}.exe unbill-${{ matrix.suffix }}.msi 2>/dev/null | head -1 || true)
+          if [ -z "$installer" ]; then
+            echo "::error::No installer (.exe or .msi) found"
+            exit 1
+          fi
           installer_name=$(basename "$installer")
+          echo "Using installer: $installer_name"
+
           version=$(jq -r '.version' crates/unbill-tauri/tauri.conf.json)
+          echo "Version: $version"
+
           jq -n \
             --arg ver "$version" \
             --arg sig "$signature" \
             --arg url "https://github.com/unbill-project/unbill/releases/download/${{ inputs.tag }}/${installer_name}" \
             '{"version":$ver,"platforms":{"windows-x86_64":{"signature":$sig,"url":$url}}}' \
             > latest.json
+
+          echo "::group::Generated latest.json"
+          cat latest.json
+          echo "::endgroup::"
 
       - uses: actions/upload-artifact@v4
         with:
