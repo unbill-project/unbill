@@ -58,7 +58,9 @@ jobs:
           prerelease: ${{ inputs.prerelease }}
           make_latest: ${{ !inputs.prerelease }}
           body: ${{ inputs.body }}
-          files: unbill-*
+          files: |
+            unbill-*
+            latest.json
 
   aur:
     name: Publish AUR release

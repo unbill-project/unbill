@@ -1,6 +1,9 @@
 ---
-core.name: CI/CD Pipeline
 core.desc: The GitHub Actions build, release, package, and version-management design.
+core.name: CI/CD Pipeline
+meta:
+  frozen:
+    - reviewed
 core.category:
   - core.concept
 core.belongs:
@@ -86,6 +89,14 @@ installs the Tauri CLI,
 runs the Tauri action for `crates/unbill-tauri`,
 renames bundle outputs to `unbill-{platform}.{ext}`,
 and uploads them as platform artifacts.
+The Tauri action receives `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` from repository secrets
+so it signs installers and generates `.sig` signature files.
+On Windows the build generates `latest.json` from the signature file
+and the release tag,
+containing the version, download URL, and signature
+for the `windows-x86_64` platform.
+`latest.json` is uploaded alongside the platform artifacts.
 
 Mobile build jobs also live in `build.yml`.
 The Android job installs Java,
@@ -110,7 +121,10 @@ The Docker job builds and pushes the server image to GHCR.
 It tags the image with the workflow tag input and `latest`.
 
 `release.yml` publishes a GitHub release from all `binaries-*` artifacts.
+It uploads `unbill-*` binaries and `latest.json` (the Tauri updater manifest) as release assets.
 It marks releases as latest only when they are not prereleases.
+The Windows desktop app checks `/releases/latest/download/latest.json` for updates,
+so the latest non-prerelease always carries the current updater manifest.
 AUR and Homebrew jobs depend on the GitHub release job (`needs: github`)
 so that release assets exist before package managers attempt to download them.
 It delegates package publishing to AUR and Homebrew workflows when their package arrays are non-empty.

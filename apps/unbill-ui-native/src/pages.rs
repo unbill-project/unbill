@@ -3,9 +3,10 @@ use crate::app::SettingsTab;
 use crate::components::{
     ActionButton, ButtonTone, ConflictBillItem, ConflictGroupView, CurrencyCombobox, FieldBlock,
     IconButton, IconButtonKind, ListRow, ModalSheet, QrCode, ScreenFrame, SectionCard,
-    SettingsNavGroup, SettingsNavItem, ThemeMode, ThemePicker, apply_theme, load_theme,
+    SettingsNavGroup, SettingsNavItem, ThemeMode, ThemePicker, apply_theme, load_theme, use_toast,
 };
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 
 // sirno:witness:unbill-ui-native:begin
 const MAX_VISIBLE_NAMES: usize = 3;
@@ -703,5 +704,56 @@ pub fn JoinLedgerSheet(
                 />
             </div>
         </ModalSheet>
+    }
+}
+
+#[component]
+pub fn UpdateBanner() -> impl IntoView {
+    let update_version = RwSignal::new(None::<String>);
+    let installing = RwSignal::new(false);
+    let toast = use_toast();
+
+    spawn_local(async move {
+        if let Ok(Some(info)) = api::check_update().await {
+            update_version.set(Some(info.version));
+        }
+    });
+
+    move || {
+        update_version.get().map(|version| {
+            let button_label = move || {
+                if installing.get() {
+                    "Installing\u{2026}".to_owned()
+                } else {
+                    "Update".to_owned()
+                }
+            };
+            view! {
+                <div class="update-banner">
+                    <span class="update-banner-text">
+                        {format!("Update available: v{version}")}
+                    </span>
+                    <button
+                        type="button"
+                        class="action-button action-button-secondary"
+                        disabled=move || installing.get()
+                        on:click=move |_| {
+                            installing.set(true);
+                            spawn_local(async move {
+                                match api::install_update().await {
+                                    Ok(()) => {}
+                                    Err(e) => {
+                                        installing.set(false);
+                                        toast.error(e);
+                                    }
+                                }
+                            });
+                        }
+                    >
+                        {button_label}
+                    </button>
+                </div>
+            }
+        })
     }
 }

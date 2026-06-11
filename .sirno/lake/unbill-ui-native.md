@@ -1,6 +1,9 @@
 ---
 core.desc: The Leptos frontend hosted by the Tauri desktop shell.
 core.name: Unbill UI Native
+meta:
+  frozen:
+    - reviewed
 core.category:
   - core.concept
 core.belongs:
@@ -94,6 +97,14 @@ The UI renders them above settlement and sends selected bill plus competing set 
 The backend validates the selection,
 copies selected bill fields into a merge amendment,
 and persists it through the service layer.
+
+An `UpdateBanner` component checks for application updates on mount
+by calling the `check_update` Tauri command.
+When an update is available it renders a persistent banner above the app content
+showing the new version and an Update button.
+Clicking the button calls `install_update` which downloads and installs the update.
+On non-Windows platforms the backend returns no update so the banner never appears.
+The banner uses the same accent styling as secondary action buttons.
 
 Timestamp DTOs stay as Unix milliseconds across the Tauri bridge.
 The UI API layer formats them with the browser runtime's local calendar date and time.

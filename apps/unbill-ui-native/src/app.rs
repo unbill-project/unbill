@@ -5,6 +5,7 @@ use crate::api::{
 use crate::components::{EmptyColumn, use_toast};
 use crate::pages::{
     AddLedgerUserSheet, CreateLedgerSheet, JoinLedgerSheet, LedgerPage, LedgersPage, SettingsPopup,
+    UpdateBanner,
 };
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -706,6 +707,7 @@ pub fn App() -> impl IntoView {
     let render_ranger = move || {
         view! {
             <main class="app-shell">
+                <UpdateBanner />
                 <div class="safe-content-area">
                     <section class="ranger-app-grid">
                         {move || {
@@ -791,6 +793,7 @@ pub fn App() -> impl IntoView {
             if surface_mode.get() == SurfaceMode::Compact {
                 view! {
                     <main class="app-shell">
+                        <UpdateBanner />
                         <div class="safe-content-area">
                             {move || render_compact_page()}
                             {move || render_settings_popup()}

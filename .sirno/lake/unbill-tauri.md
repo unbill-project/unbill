@@ -1,6 +1,9 @@
 ---
 core.desc: The desktop shell bridge and Tauri host for the native frontend.
 core.name: Unbill Tauri
+meta:
+  frozen:
+    - reviewed
 core.category:
   - core.concept
 core.belongs:
@@ -23,7 +26,9 @@ save bills,
 preview bill splits,
 create invitations,
 resolve conflicts,
-and trigger sync.
+trigger sync,
+check for application updates,
+and install application updates.
 IDs cross the IPC boundary as strings and are parsed into typed Rust values before core code.
 
 The desktop app owns one visible `main` window.
@@ -64,6 +69,18 @@ Ledger summaries include user display names so the frontend can show them
 without loading full ledger detail.
 Ledger detail includes only peer devices authorized for that ledger,
 so the frontend can render ledger-scoped sync actions without recomputing authorization.
+
+On Windows the crate registers the `tauri-plugin-updater` plugin at startup.
+The updater checks for new versions against a `latest.json` hosted on the latest GitHub release.
+`check_update` returns the available version or nothing.
+`install_update` downloads and installs the update, then restarts the application.
+On non-Windows desktop platforms the updater plugin dependency is compiled
+but the plugin is not registered and the commands return no-ops.
+The updater uses passive install mode on Windows so the NSIS installer
+shows a progress bar without requiring user interaction.
+`tauri.conf.json` declares `createUpdaterArtifacts: true`
+and the `plugins.updater` section with a public key and GitHub release endpoint.
+The capability file grants `updater:default` on all desktop platforms.
 
 Most correctness testing belongs in core crates.
 This crate is best verified by end-to-end UI flows and iOS project regeneration smoke tests.

@@ -32,11 +32,23 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "iOS": {
       "developmentTeam": "BB577FKUK4",
       "frameworks": ["SystemConfiguration"],
       "template": "ios/project.yml"
     },
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.icns", "icons/icon.ico"]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2MzlBOURBQzlEMzhFQzgKUldUSWp0UEoycWs1WmxTSS94L0QxeS8xOFJPdUQ2bDlpd0RyNk9BY0FCNmVsMFdic1BvTFdxMjAK",
+      "endpoints": [
+        "https://github.com/unbill-project/unbill/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }
