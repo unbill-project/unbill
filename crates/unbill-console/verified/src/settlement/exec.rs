@@ -871,6 +871,29 @@ pub fn compute_settlement(
                 && ledger@.bills[j].id == target;
             ledger_bill_at(*ledger, j);
         }
+
+        // Bridge: bill_ids_unique at exec level.
+        assert forall|i: int, j: int|
+            0 <= i < ledger.bills.len() && 0 <= j < ledger.bills.len() && i != j
+            implies (#[trigger] ledger.bills@[i]).id != (#[trigger] ledger.bills@[j]).id
+        by {
+            ledger_bill_at(*ledger, i);
+            ledger_bill_at(*ledger, j);
+            assert(ledger.bills@[i].id == ledger@.bills[i].id);
+            assert(ledger.bills@[j].id == ledger@.bills[j].id);
+        }
+
+        // Bridge: no_self_prev at exec level.
+        assert forall|i: int, k: int| #![trigger ledger.bills@[i].prev@[k]]
+            0 <= i < ledger.bills.len()
+            && 0 <= k < ledger.bills@[i].prev.len()
+            implies ledger.bills@[i].prev@[k] != ledger.bills@[i].id
+        by {
+            ledger_bill_at(*ledger, i);
+            bill_bridge(ledger.bills@[i]);
+            assert(ledger.bills@[i].prev@[k] == ledger@.bills[i].prev[k]);
+            assert(ledger.bills@[i].id == ledger@.bills[i].id);
+        }
     }
     let effective_indices = effective::filter_effective_indices(&ledger.bills);
 

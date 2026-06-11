@@ -121,6 +121,9 @@ pub open spec fn bill_well_formed(
     &&& has_device(devices, bill.created_by_device)
     &&& forall|j: int| 0 <= j < bill.prev.len() ==>
         has_bill(bills, #[trigger] bill.prev[j])
+    // A bill cannot reference itself in prev (guaranteed by add_bill: fresh ID + prev in pre-state).
+    &&& forall|j: int| 0 <= j < bill.prev.len() ==>
+        #[trigger] bill.prev[j] != bill.id
 }
 
 // ---------------------------------------------------------------------------
