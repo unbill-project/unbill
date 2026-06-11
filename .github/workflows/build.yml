@@ -143,10 +143,10 @@ jobs:
         shell: bash
         run: |
           echo "::group::Available artifacts"
-          ls -la unbill-${{ matrix.suffix }}.* 2>/dev/null || echo "No matching files found"
+          find . -maxdepth 1 -name 'unbill-${{ matrix.suffix }}.*' 2>/dev/null || echo "No matching files found"
           echo "::endgroup::"
 
-          sig_file=$(ls unbill-${{ matrix.suffix }}.*.sig 2>/dev/null | head -1 || true)
+          sig_file=$(find . -maxdepth 1 -name 'unbill-${{ matrix.suffix }}.*.sig' -print -quit)
           if [ -z "$sig_file" ]; then
             echo "No signature file found, skipping latest.json"
             exit 0
@@ -154,7 +154,7 @@ jobs:
           echo "Using signature file: $sig_file"
           signature=$(cat "$sig_file")
 
-          installer=$(ls unbill-${{ matrix.suffix }}.exe unbill-${{ matrix.suffix }}.msi 2>/dev/null | head -1 || true)
+          installer=$(find . -maxdepth 1 \( -name 'unbill-${{ matrix.suffix }}.exe' -o -name 'unbill-${{ matrix.suffix }}.msi' \) -print -quit)
           if [ -z "$installer" ]; then
             echo "::error::No installer (.exe or .msi) found"
             exit 1
