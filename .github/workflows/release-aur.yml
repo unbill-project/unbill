@@ -37,7 +37,7 @@ jobs:
           sed -i "s/^_tag=.*/_tag=${TAG}/" .github/aur/${{ matrix.package }}/PKGBUILD
 
       - name: Release ${{ matrix.package }} to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v4
+        uses: KSXGitHub/github-actions-deploy-aur@v4.1.3
         with:
           pkgname: ${{ matrix.package }}
           pkgbuild: .github/aur/${{ matrix.package }}/PKGBUILD
