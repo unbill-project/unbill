@@ -164,10 +164,10 @@ in
     avdmanager delete avd --name "unbill_dev"
   '';
   scripts.avd-create.exec = ''
-    avdmanager create avd \
+    echo "no" | avdmanager create avd \
       --name "unbill_dev" \
       --package "system-images;android-34;google_apis_playstore;x86_64" \
-      --device "pixel_6"
+      --force
   '';
   scripts.avd-start.exec = ''
     LD_LIBRARY_PATH=${libcxxELF}/lib:$LD_LIBRARY_PATH \

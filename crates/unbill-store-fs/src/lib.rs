@@ -20,35 +20,40 @@ pub struct FsStore {
     root: PathBuf,
     /// Holds `<root>/unbill.lock` open with an exclusive advisory lock for
     /// the lifetime of this store, preventing two processes from sharing the
-    /// same data directory simultaneously.
-    _lock: std::fs::File,
+    /// same data directory simultaneously.  Skipped on mobile where `flock`
+    /// is unsupported and only one process accesses the store.
+    _lock: Option<std::fs::File>,
     events: broadcast::Sender<ServiceEvent>,
 }
 
 impl FsStore {
     /// Open the store at `root`, creating the directory if needed.
     ///
-    /// Returns `Err` if another process already holds the directory lock.
+    /// On desktop, returns `Err` if another process already holds the
+    /// directory lock.  On mobile, the lock is skipped because `flock` is
+    /// not reliably supported on Android/iOS filesystems.
     pub fn open(root: PathBuf) -> std::io::Result<Self> {
         std::fs::create_dir_all(&root)?;
-        let lock_file = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(root.join("unbill.lock"))?;
-        lock_file.try_lock().map_err(|_| {
-            std::io::Error::new(
-                std::io::ErrorKind::WouldBlock,
-                format!(
-                    "another process already holds the lock on {}",
-                    root.display()
-                ),
-            )
-        })?;
+        let lock = if cfg!(any(target_os = "android", target_os = "ios")) {
+            None
+        } else {
+            let lock_file = std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(root.join("unbill.lock"))?;
+            lock_file.try_lock().map_err(|e| {
+                std::io::Error::new(
+                    std::io::ErrorKind::WouldBlock,
+                    format!("failed to acquire lock on {}: {e}", root.display()),
+                )
+            })?;
+            Some(lock_file)
+        };
         let (events, _) = broadcast::channel(256);
         Ok(Self {
             root,
-            _lock: lock_file,
+            _lock: lock,
             events,
         })
     }
