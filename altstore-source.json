@@ -21,6 +21,14 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.0.5",
+          "date": "2026-06-12",
+          "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.5/unbill-ios.ipa",
+          "localizedDescription": "Deep link support, Windows auto-updater, single-instance desktop, Android DNS fix.",
+          "size": 9878938,
+          "minOSVersion": "14.0"
+        },
+        {
           "version": "0.0.4",
           "date": "2026-06-08",
           "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.4/unbill-ios.ipa",
