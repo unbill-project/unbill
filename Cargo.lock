@@ -7915,7 +7915,7 @@ checksum = "eaea85b334db583fe3274d12b4cd1880032beab409c0d774be044d4480ab9a94"
 
 [[package]]
 name = "unbill-asymmetric-channel"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "async-trait",
  "automerge",
@@ -7936,7 +7936,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-cli"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "anyhow",
  "clap",
@@ -7953,7 +7953,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-console"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "async-trait",
  "automerge",
@@ -7981,7 +7981,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-console-verified"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "unbill-model-verified",
  "vstd",
@@ -7989,7 +7989,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-daemon"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "anyhow",
  "tokio",
@@ -8002,7 +8002,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-device"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "async-trait",
  "automerge",
@@ -8017,11 +8017,11 @@ dependencies = [
 
 [[package]]
 name = "unbill-event"
-version = "0.0.4"
+version = "0.0.5"
 
 [[package]]
 name = "unbill-model"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "automerge",
  "autosurgeon",
@@ -8037,7 +8037,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-model-verified"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "thiserror 2.0.18",
  "vstd",
@@ -8045,7 +8045,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-server"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "anyhow",
  "automerge",
@@ -8068,7 +8068,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-storage"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "async-trait",
  "automerge",
@@ -8081,7 +8081,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-store-fs"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "async-trait",
  "directories",
@@ -8099,7 +8099,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-store-memory"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "async-trait",
  "iroh",
@@ -8112,7 +8112,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-symmetric-channel"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "automerge",
  "ciborium",
@@ -8128,7 +8128,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-tauri"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "rustls",
  "serde",
@@ -8151,7 +8151,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-tui"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "anyhow",
  "crossterm",
@@ -8166,7 +8166,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-ui-components"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "iso_currency",
  "js-sys",
@@ -8179,7 +8179,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-ui-native"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
@@ -8194,7 +8194,7 @@ dependencies = [
 
 [[package]]
 name = "unbill-ui-remote"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.3.4",
