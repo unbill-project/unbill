@@ -101,13 +101,25 @@ impl UnbillEndpoint {
             );
         }
         let addr_cache = MemoryLookup::new();
-        let inner = iroh::Endpoint::builder(presets::Minimal)
+        #[allow(unused_mut)]
+        let mut builder = iroh::Endpoint::builder(presets::Minimal)
             .secret_key(key.to_iroh_key())
             .alpns(vec![ALPN_SYNC.to_vec(), ALPN_JOIN.to_vec()])
             .relay_mode(RelayMode::custom(relay_urls))
             .address_lookup(iroh::address_lookup::PkarrPublisher::n0_dns())
             .address_lookup(MdnsAddressLookup::builder())
-            .address_lookup(addr_cache.clone())
+            .address_lookup(addr_cache.clone());
+
+        // On Android, reading the system DNS config panics because
+        // ndk-context is not initialised by Tauri.  Use Google Public DNS
+        // directly so hickory-resolver never touches ndk-context.
+        #[cfg(target_os = "android")]
+        {
+            let dns = iroh::dns::DnsResolver::with_nameserver(([8, 8, 8, 8], 53).into());
+            builder = builder.dns_resolver(dns);
+        }
+
+        let inner = builder
             .bind()
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?;
