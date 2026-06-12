@@ -15,7 +15,12 @@ extern "C" {
 
     #[wasm_bindgen(catch, js_name = writeClipboardText)]
     async fn write_clipboard_text_js(text: &str) -> Result<JsValue, JsValue>;
+
+    #[wasm_bindgen(js_name = listenEvent)]
+    fn listen_event_js(event_name: &str, callback: &Closure<dyn FnMut(JsValue)>);
 }
+
+use wasm_bindgen::closure::Closure;
 
 // sirno:witness:unbill-ui-native:begin
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -213,6 +218,20 @@ pub async fn check_update() -> Result<Option<UpdateInfo>, String> {
 
 pub async fn install_update() -> Result<(), String> {
     invoke("install_update", &()).await
+}
+
+pub async fn drain_pending_deep_links() -> Result<Vec<String>, String> {
+    invoke("drain_pending_deep_links", &()).await
+}
+
+pub fn on_deep_link_open(mut callback: impl FnMut(String) + 'static) {
+    let closure = Closure::new(move |value: JsValue| {
+        if let Some(url) = value.as_string() {
+            callback(url);
+        }
+    });
+    listen_event_js("deep-link-open", &closure);
+    closure.forget();
 }
 
 pub async fn read_clipboard_text() -> Result<String, String> {

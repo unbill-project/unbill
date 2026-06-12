@@ -89,6 +89,12 @@ The native join action may prefill from the Tauri clipboard bridge.
 Clipboard failures produce feedback,
 but the editable join sheet remains available.
 
+Deep link URLs (`unbill://join/...`) open the join sheet automatically.
+On mount, the app drains any pending deep link URLs from Tauri state.
+While running, it listens for `deep-link-open` events
+delivered by the single-instance or deep-link plugin.
+Both paths open the join ledger overlay with the URL pre-filled.
+
 Bill editor draft behavior lives in `unbill-ui-components::bill_editor`.
 The native app adapts DTOs into editor seeds and maps save requests to Tauri bridge inputs.
 

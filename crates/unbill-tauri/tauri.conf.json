@@ -49,6 +49,17 @@
       "windows": {
         "installMode": "passive"
       }
+    },
+    "deep-link": {
+      "desktop": {
+        "schemes": ["unbill"]
+      },
+      "mobile": [
+        {
+          "scheme": ["unbill"],
+          "appLink": false
+        }
+      ]
     }
   }
 }

@@ -253,11 +253,12 @@
               [Desktop Entry]
               Name=Unbill
               Comment=Split bills with friends
-              Exec=$out/bin/unbill-tauri
+              Exec=$out/bin/unbill-tauri %u
               Icon=unbill
               Terminal=false
               Type=Application
               Categories=Office;Finance;
+              MimeType=x-scheme-handler/unbill;
               EOF
             '';
           }

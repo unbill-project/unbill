@@ -70,6 +70,18 @@ without loading full ledger detail.
 Ledger detail includes only peer devices authorized for that ledger,
 so the frontend can render ledger-scoped sync actions without recomputing authorization.
 
+The crate registers `tauri-plugin-deep-link` to handle `unbill://` URLs.
+On desktop, `tauri-plugin-single-instance` ensures only one instance runs.
+When a second instance is launched with a deep link URL as a command-line argument,
+the single-instance plugin forwards the arguments to the running instance,
+which emits a `deep-link-open` event to the frontend.
+On mobile, the deep-link plugin delivers URLs through the `on_open_url` callback.
+Launch URLs from a cold start are stored in `PendingDeepLinks` state
+and drained by the frontend via the `drain_pending_deep_links` command after mount.
+`tauri.conf.json` declares the `unbill` custom scheme for desktop and mobile.
+On Linux and Windows in debug builds, `register_all()` registers the scheme at runtime.
+On macOS, scheme registration requires the bundled app installed in `/Applications`.
+
 On Windows the crate registers the `tauri-plugin-updater` plugin at startup.
 The updater checks for new versions against a `latest.json` hosted on the latest GitHub release.
 `check_update` returns the available version or nothing.

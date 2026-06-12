@@ -22,11 +22,14 @@ serde.workspace = true
 tracing.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
+tauri-plugin-deep-link = "2"
+url = "2"
 rustls = { version = "0.23", features = ["ring"] }
 serde_json.workspace = true
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-updater = "2"
+tauri-plugin-single-instance = "2"
 
 [dev-dependencies]
 unbill-store-memory = { path = "../unbill-store-memory" }

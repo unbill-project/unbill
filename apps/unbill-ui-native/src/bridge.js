@@ -36,3 +36,15 @@ export async function writeClipboardText(text) {
 
   await navigator.clipboard.writeText(text);
 }
+
+export function listenEvent(eventName, callback) {
+  const tauri = tauriCore();
+  if (!tauri) {
+    return;
+  }
+
+  const event = window.__TAURI__ && window.__TAURI__.event;
+  if (event && typeof event.listen === "function") {
+    event.listen(eventName, (e) => callback(e.payload));
+  }
+}
