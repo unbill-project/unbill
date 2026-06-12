@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 use unbill_asymmetric_channel::AsymChannel;
 #[cfg(mobile)]
 use unbill_asymmetric_channel::local::LocalAsymChannel;
@@ -20,6 +20,9 @@ use unbill_store_fs::FsStore;
 struct AppState {
     service: Arc<UnbillConsole>,
 }
+
+#[derive(Default)]
+struct PendingDeepLinks(Mutex<Vec<String>>);
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -832,16 +835,83 @@ impl From<unbill_console::model::User> for UserDto {
     }
 }
 
+fn extract_unbill_urls(urls: &[url::Url]) -> Vec<String> {
+    urls.iter()
+        .map(|u| u.to_string())
+        .filter(|s| s.starts_with("unbill://"))
+        .collect()
+}
+
+fn emit_deep_link_url(app: &tauri::AppHandle, url: &str) {
+    let _ = app.emit("deep-link-open", url.to_owned());
+}
+
+#[tauri::command]
+fn drain_pending_deep_links(pending: State<'_, PendingDeepLinks>) -> Vec<String> {
+    std::mem::take(&mut pending.0.lock().unwrap())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // sirno:witness:unbill-tauri:begin
     let _ = rustls::crypto::ring::default_provider().install_default();
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_focus();
+            }
+            for arg in args {
+                if arg.starts_with("unbill://") {
+                    emit_deep_link_url(app, &arg);
+                }
+            }
+        }));
+    }
+
+    builder
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             #[cfg(windows)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
+
+            app.manage(PendingDeepLinks::default());
+
+            // Register deep link schemes at dev time on Linux/Windows.
+            #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let _ = app.deep_link().register_all();
+            }
+
+            // Store launch URLs so the frontend can retrieve them after mount.
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                if let Ok(Some(urls)) = app.deep_link().get_current() {
+                    let unbill_urls = extract_unbill_urls(&urls);
+                    if !unbill_urls.is_empty() {
+                        let pending: State<'_, PendingDeepLinks> = app.state();
+                        pending.0.lock().unwrap().extend(unbill_urls);
+                    }
+                }
+            }
+
+            // Emit events for URLs arriving while the app is running.
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    let urls = event.urls();
+                    for url in extract_unbill_urls(&urls) {
+                        emit_deep_link_url(&handle, &url);
+                    }
+                });
+            }
+
             #[cfg(mobile)]
             let service = tauri::async_runtime::block_on(async {
                 let root = app
@@ -888,7 +958,8 @@ pub fn run() {
             sync_once,
             preview_bill_split,
             check_update,
-            install_update
+            install_update,
+            drain_pending_deep_links
         ])
         .run(tauri::generate_context!())
         .expect("error while running unbill");

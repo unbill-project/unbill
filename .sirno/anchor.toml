@@ -322,7 +322,7 @@ fingerprint = "sha256:c8009831c88bca2454e123249193d7a521d443ee94cf3a365cce158ca6
 "core.refines" = ["shared-and-local-state"]
 
 [entries.unbill-tauri]
-fingerprint = "sha256:8251fef6c36e4839b79347f7735cb86210af5a5600322641056f426ecd8c7114"
+fingerprint = "sha256:6ee7dcd66cc4705c1191c3e9f38f3d14e5227195540f624b5afbdda7848d70e7"
 "core.belongs" = [
     "applications",
     "frontend-ui",
@@ -338,7 +338,7 @@ fingerprint = "sha256:4536011280d3ff2106c66f0af6ea0eaeb904ca1b696276a5f1805a6ed5
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-ui-native]
-fingerprint = "sha256:9f50a1871abb3227f3faf94d45ed9ae3b36dcc8fe35f869e1304f9cd4cb4f995"
+fingerprint = "sha256:0bde41419bffd9aed8209a6edcf05453be7c6685247f2d103d53ca9199bdd06c"
 "core.belongs" = [
     "frontend-ui",
     "applications",

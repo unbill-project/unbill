@@ -292,6 +292,21 @@ pub fn App() -> impl IntoView {
 
     reload_bootstrap();
 
+    // Handle deep link URLs: drain pending (cold start) and listen for runtime arrivals.
+    let open_deep_link = move |url: String| {
+        overlay.set(Some(OverlayKind::JoinLedger { url }));
+    };
+    spawn_local(async move {
+        if let Ok(urls) = api::drain_pending_deep_links().await
+            && let Some(url) = urls.into_iter().next()
+        {
+            open_deep_link(url);
+        }
+    });
+    api::on_deep_link_open(move |url| {
+        open_deep_link(url);
+    });
+
     let open_ledger = move |ledger_id: String| {
         settings_popup.set(None);
         settings_ledger_detail.set(None);
