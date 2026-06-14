@@ -50,8 +50,6 @@
           cargoExtraArgs = "-p unbill-cli -p unbill-tui -p unbill-daemon";
           buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.libiconv
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
           ];
         };
 
@@ -206,11 +204,6 @@
             ]
             ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
               pkgs.libiconv
-              pkgs.darwin.apple_sdk.frameworks.AppKit
-              pkgs.darwin.apple_sdk.frameworks.Carbon
-              pkgs.darwin.apple_sdk.frameworks.WebKit
-              pkgs.darwin.apple_sdk.frameworks.Security
-              pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
             ];
 
           nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
