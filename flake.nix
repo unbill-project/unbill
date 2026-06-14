@@ -239,6 +239,12 @@
           tauriCommonArgs
           // {
             cargoArtifacts = tauriArtifacts;
+            # Crane's two-phase build leaves stale absolute sandbox paths in
+            # tauri's cached build-script metadata.  Remove them so cargo
+            # re-runs tauri's build.rs with correct paths in this derivation.
+            preBuild = ''
+              rm -rf target/release/build/tauri-*/
+            '' + tauriCommonArgs.preBuild;
             postInstall = ''
               mkdir -p $out/share/applications $out/share/icons/hicolor/256x256/apps
               cp ${./crates/unbill-tauri/icons/icon.png} $out/share/icons/hicolor/256x256/apps/unbill.png
