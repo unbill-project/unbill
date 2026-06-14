@@ -289,8 +289,11 @@ jobs:
           path: unbill-ios.ipa
 
   build-nix:
-    name: Build Nix packages & push to Cachix
-    runs-on: ubuntu-latest
+    name: Build Nix packages & push to Cachix (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
         with:
