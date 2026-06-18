@@ -20,7 +20,7 @@ It does not add business logic.
 
 Commands bootstrap app state,
 load ledger detail,
-create or join ledgers,
+create, rename, or join ledgers,
 add users,
 save bills,
 preview bill splits,

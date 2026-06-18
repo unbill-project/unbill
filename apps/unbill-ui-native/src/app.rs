@@ -179,6 +179,7 @@ pub fn App() -> impl IntoView {
     let ledger_detail = RwSignal::new(None::<LedgerDetail>);
     let settings_popup = RwSignal::new(None::<SettingsPopupState>);
     let settings_ledger_detail = RwSignal::new(None::<LedgerDetail>);
+    let rename_ledger_name = RwSignal::new(String::new());
     let invitation_url = RwSignal::new(None::<String>);
     let overlay = RwSignal::new(None::<OverlayKind>);
     let bill_editor = RwSignal::new(None::<BillEditorSeed>);
@@ -205,6 +206,7 @@ pub fn App() -> impl IntoView {
         spawn_local(async move {
             match api::load_ledger_detail(&ledger_id).await {
                 Ok(detail) => {
+                    rename_ledger_name.set(detail.summary.name.clone());
                     settings_ledger_detail.set(Some(detail));
                 }
                 Err(error) => {
@@ -465,19 +467,20 @@ pub fn App() -> impl IntoView {
     let open_ledger_settings = move || {
         let popup = SettingsPopupState::open_ledger(selected_ledger_id.get(), &ledgers.get());
         if let Some(ledger_id) = popup.selected_ledger_id.clone() {
-            if ledger_detail
+            if let Some(detail) = ledger_detail
                 .get()
-                .as_ref()
-                .map(|detail| detail.summary.ledger_id == ledger_id)
-                .unwrap_or(false)
+                .filter(|detail| detail.summary.ledger_id == ledger_id)
             {
-                settings_ledger_detail.set(ledger_detail.get());
+                rename_ledger_name.set(detail.summary.name.clone());
+                settings_ledger_detail.set(Some(detail));
             } else {
                 settings_ledger_detail.set(None);
+                rename_ledger_name.set(String::new());
                 load_settings_ledger(ledger_id);
             }
         } else {
             settings_ledger_detail.set(None);
+            rename_ledger_name.set(String::new());
         }
         settings_popup.set(Some(popup));
         invitation_url.set(None);
@@ -507,7 +510,52 @@ pub fn App() -> impl IntoView {
         });
         invitation_url.set(None);
         settings_ledger_detail.set(None);
+        rename_ledger_name.set(String::new());
         load_settings_ledger(ledger_id);
+    };
+
+    let rename_settings_ledger = move |new_name: String| {
+        let Some(ledger_id) = settings_popup
+            .get()
+            .and_then(|popup| popup.selected_ledger_id)
+        else {
+            return;
+        };
+        loading_count.update(|n| *n += 1);
+        spawn_local(async move {
+            match api::rename_ledger(api::RenameLedgerInput {
+                ledger_id: ledger_id.clone(),
+                name: new_name.clone(),
+            })
+            .await
+            {
+                Ok(summary) => {
+                    ledgers.update(|list| {
+                        for ledger in list.iter_mut() {
+                            if ledger.ledger_id == ledger_id {
+                                *ledger = summary.clone();
+                            }
+                        }
+                    });
+                    settings_ledger_detail.update(|detail| {
+                        if let Some(detail) = detail {
+                            detail.summary = summary.clone();
+                        }
+                    });
+                    ledger_detail.update(|detail| {
+                        if let Some(detail) = detail
+                            && detail.summary.ledger_id == ledger_id
+                        {
+                            detail.summary = summary.clone();
+                        }
+                    });
+                    rename_ledger_name.set(new_name);
+                    toast.show("Ledger renamed.".to_owned());
+                }
+                Err(error) => toast.error(error),
+            }
+            loading_count.update(|n| *n = n.saturating_sub(1));
+        });
     };
 
     let sync_device = move |(peer_node_id, done): (String, Callback<()>)| {
@@ -711,6 +759,8 @@ pub fn App() -> impl IntoView {
                     on_select_ledger=Callback::new(select_settings_ledger)
                     on_join_ledger=Callback::new(move |_| open_join_from_clipboard())
                     on_add_ledger_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddUser)))
+                    on_rename_ledger=Callback::new(rename_settings_ledger)
+                    rename_name=rename_ledger_name
                     on_sync_device=Callback::new(sync_device)
                     on_create_invitation=Callback::new(move |_| create_invitation())
                     on_copy_invitation=Callback::new(move |_| copy_invitation_url())

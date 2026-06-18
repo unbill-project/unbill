@@ -105,6 +105,16 @@ pub proof fn init_preserves(
     ensures ledger_invariant(post),
 {}
 
+pub proof fn rename_ledger_preserves(
+    pre: LedgerStateSpec, post: LedgerStateSpec, new_name: Seq<u8>,
+)
+    requires
+        ledger_invariant(pre),
+        rename_ledger(pre, post, new_name),
+    ensures
+        ledger_invariant(post),
+{}
+
 pub proof fn add_user_preserves(
     pre: LedgerStateSpec, post: LedgerStateSpec, user: UserSpec,
 )

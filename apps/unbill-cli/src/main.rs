@@ -72,6 +72,11 @@ pub enum LedgerCmd {
         name: String,
         currency: String,
     },
+    /// Rename an existing ledger.
+    Rename {
+        ledger_id: String,
+        name: String,
+    },
     List,
     Show {
         ledger_id: String,
@@ -211,6 +216,9 @@ async fn run() -> anyhow::Result<()> {
         Command::Ledger { sub } => match sub {
             LedgerCmd::Create { name, currency } => {
                 commands::ledger_create(&svc, name, currency, json).await
+            }
+            LedgerCmd::Rename { ledger_id, name } => {
+                commands::ledger_rename(&svc, &ledger_id, name, json).await
             }
             LedgerCmd::List => commands::ledger_list(&svc, json).await,
             LedgerCmd::Show { ledger_id } => commands::ledger_show(&svc, &ledger_id, json).await,

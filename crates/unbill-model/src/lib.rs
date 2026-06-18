@@ -28,6 +28,7 @@ pub use node_id::NodeId;
 pub use secret_key::SecretKey;
 pub use timestamp::Timestamp;
 pub use user::{
-    Device, Invitation, Ledger, LedgerMeta, NewDevice, NewLedger, NewUser, NewUserName, User,
+    Device, Invitation, Ledger, LedgerMeta, NewDevice, NewLedger, NewLedgerName, NewUser,
+    NewUserName, User,
 };
 // sirno:witness:unbill-model:end

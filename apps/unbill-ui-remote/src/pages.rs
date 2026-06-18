@@ -288,12 +288,14 @@ pub fn SettingsPopup(
     selected_ledger_id: Option<String>,
     ledger_detail: Option<LedgerDetail>,
     invitation_url: Option<String>,
+    rename_name: RwSignal<String>,
     on_close: Callback<()>,
     on_select_tab: Callback<SettingsTab>,
     on_mobile_back: Callback<()>,
     on_select_ledger: Callback<String>,
     on_join_ledger: Callback<()>,
     on_add_ledger_user: Callback<()>,
+    on_rename_ledger: Callback<String>,
     on_sync_device: Callback<(String, Callback<()>)>,
     on_create_invitation: Callback<()>,
     on_copy_invitation: Callback<()>,
@@ -438,8 +440,38 @@ pub fn SettingsPopup(
                         }
                         .into_any()
                     } else {
+                        let current_name = ledger_detail
+                            .as_ref()
+                            .map(|detail| detail.summary.name.clone())
+                            .unwrap_or_default();
                         view! {
                             <div class="settings-grid">
+                                {if ledger_detail.is_some() {
+                                    view! {
+                                        <SectionCard title="Name".to_owned()>
+                                            <div class="stack-gap">
+                                                <input
+                                                    class="ui-input"
+                                                    prop:value=move || rename_name.get()
+                                                    on:input=move |event| rename_name.set(event_target_value(&event))
+                                                />
+                                                <ActionButton
+                                                    label="Save".to_owned()
+                                                    tone=ButtonTone::Secondary
+                                                    on_press=Callback::new(move |_| {
+                                                        let next = rename_name.get().trim().to_owned();
+                                                        if !next.is_empty() && next != current_name {
+                                                            on_rename_ledger.run(next);
+                                                        }
+                                                    })
+                                                />
+                                            </div>
+                                        </SectionCard>
+                                    }
+                                        .into_any()
+                                } else {
+                                    view! { <div /> }.into_any()
+                                }}
                                 {if let Some(detail) = ledger_detail.clone() {
                                     view! {
                                         <SectionCard title="Users".to_owned()>

@@ -14,12 +14,12 @@ core.refines:
 The crate defines typed identifiers, timestamps, currencies, device identities,
 secret keys, invite tokens, bills, shares, effective bill wrappers,
 ledger records, users, devices, invitations,
-input structs (`NewBill`, `NewUser`, `NewUserName`, `NewDevice`, `NewLedger`),
+input structs (`NewBill`, `NewUser`, `NewUserName`, `NewDevice`, `NewLedger`, `NewLedgerName`),
 `LedgerMeta` for lightweight ledger summaries without Automerge bytes,
 and error enums.
 
 `LedgerDoc` wraps an Automerge document and provides typed read and write operations
-such as `add_bill`, `add_user`, `add_device`, `merge`, and sync helpers.
+such as `add_bill`, `add_user`, `add_device`, `rename`, `merge`, and sync helpers.
 
 Types that appear in Automerge documents implement `autosurgeon::Reconcile` and `Hydrate`.
 `InviteToken` is memory-only and is never synced across devices.

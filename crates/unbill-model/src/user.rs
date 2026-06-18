@@ -54,6 +54,13 @@ pub struct NewLedger {
     pub currency: crate::Currency,
 }
 
+/// Input type for renaming an existing ledger.
+#[derive(Clone, Debug, garde::Validate)]
+pub struct NewLedgerName {
+    #[garde(length(min = 1, max = 100))]
+    pub name: String,
+}
+
 /// Input type for directly adding a user to a ledger.
 #[derive(Clone, Debug, garde::Validate)]
 pub struct NewUser {

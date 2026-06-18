@@ -4,7 +4,8 @@
 
 use anyhow::anyhow;
 use unbill_console::model::{
-    BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
+    BillId, Currency, LedgerId, NewBill, NewLedger, NewLedgerName, NewUser, NewUserName, NodeId,
+    Share, UserId,
 };
 use unbill_console::service::UnbillConsole;
 
@@ -77,6 +78,23 @@ pub async fn ledger_create(
         print_json(&serde_json::json!({ "ledger_id": id }))?;
     } else {
         println!("{id}");
+    }
+    Ok(())
+}
+
+pub async fn ledger_rename(
+    svc: &UnbillConsole,
+    ledger_id: &str,
+    name: String,
+    json: bool,
+) -> anyhow::Result<()> {
+    let lid = parse_ledger_id(ledger_id)?;
+    svc.rename_ledger(lid, NewLedgerName { name: name.clone() })
+        .await?;
+    if json {
+        print_json(&serde_json::json!({ "ledger_id": lid.to_string(), "name": name }))?;
+    } else {
+        println!("renamed {lid} -> {name}");
     }
     Ok(())
 }

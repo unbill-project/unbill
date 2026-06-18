@@ -235,6 +235,14 @@ pub open spec fn add_device(
     }
 }
 
+/// Rename the ledger. Name has no verified invariant; the rest of the state
+/// is unchanged.
+pub open spec fn rename_ledger(
+    pre: LedgerStateSpec, post: LedgerStateSpec, new_name: Seq<u8>,
+) -> bool {
+    post == LedgerStateSpec { name: new_name, ..pre }
+}
+
 /// Add a bill. Well-formed bill with fresh ID required; ledger must have room.
 pub open spec fn add_bill(
     pre: LedgerStateSpec, post: LedgerStateSpec, bill: BillSpec,
@@ -278,6 +286,10 @@ pub open spec fn exec_add_bill_requires(ledger: LedgerStateSpec, bill: BillSpec)
     &&& ledger_invariant(ledger)
     &&& add_bill(ledger, LedgerStateSpec { bills: ledger.bills.push(bill), ..ledger }, bill)
     &&& ledger.bills.len() < i32::MAX as int
+}
+
+pub open spec fn exec_rename_ledger_requires(ledger: LedgerStateSpec) -> bool {
+    ledger_invariant(ledger)
 }
 
 }
