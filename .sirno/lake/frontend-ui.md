@@ -11,7 +11,8 @@ Frontend UI entries describe the shared screen model,
 shared Leptos components,
 native desktop behavior,
 remote browser behavior,
-and terminal UI behavior.
+terminal UI behavior,
+and native Apple behavior.
 
 The shared model defines ledgers, bills, detail, settings,
 conflict resolution, settlement display, and cross-screen rules.

@@ -14,7 +14,7 @@ manifest = "core/Sirno.toml"
 
 [repo]
 # Repository files, directories, or globs scanned for witness blocks.
-members = ["Sirno.toml", "README.md", "INSTALL.md", "Cargo.toml", "Dockerfile", "release.toml", "LICENSE", "LICENSE-MIT", "LICENSE-APACHE", "flake.nix", "devenv.nix", "devenv.yaml", "prek.toml", "rustfmt.toml", ".github/workflows/*.yml", ".github/aur/*/PKGBUILD", ".github/homebrew/*/install.rb", "apps/**/*.rs", "apps/**/*.toml", "apps/**/*.html", "apps/**/*.css", "apps/**/*.js", "crates/**/*.rs", "crates/**/*.toml", "crates/**/*.json", "crates/**/*.yml", "docker/*", "example-deployment/*.yml"]
+members = ["Sirno.toml", "README.md", "INSTALL.md", "Cargo.toml", "Dockerfile", "release.toml", "LICENSE", "LICENSE-MIT", "LICENSE-APACHE", "flake.nix", "devenv.nix", "devenv.yaml", "prek.toml", "rustfmt.toml", ".github/workflows/*.yml", ".github/aur/*/PKGBUILD", ".github/homebrew/*/install.rb", "apps/**/*.rs", "apps/**/*.toml", "apps/**/*.html", "apps/**/*.css", "apps/**/*.js", "apps/**/*.swift", "apps/**/*.yml", "crates/**/*.rs", "crates/**/*.toml", "crates/**/*.json", "crates/**/*.yml", "docker/*", "example-deployment/*.yml"]
 
 [witness]
 # Witness delimiter regex pairs; each first capture group is the entry address.

@@ -1,0 +1,61 @@
+name: unbill
+options:
+  bundleIdPrefix: computer.unbill
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    MARKETING_VERSION: "0.0.5"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    # Mac Catalyst: ship the same iOS target as a Mac app.
+    SUPPORTS_MACCATALYST: YES
+    DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER: NO
+    # "Optimize interface for Mac" idiom (native-ish scaling/controls on Catalyst).
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+
+targets:
+  unbill:
+    type: application
+    platform: iOS
+    # sirno:witness:unbill-apple:begin
+    supportedDestinations: [iOS, macCatalyst]
+    # sirno:witness:unbill-apple:end
+    sources:
+      - path: Sources
+    dependencies:
+      # Rust core, built by build-rust.sh (static xcframework — not embedded).
+      - framework: Generated/UnbillCore.xcframework
+        embed: false
+      # System libs the Rust static lib (Iroh crypto/networking) references.
+      - sdk: Security.framework
+      - sdk: SystemConfiguration.framework
+      - sdk: CoreFoundation.framework
+      - sdk: Network.framework
+      - sdk: libiconv.tbd
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: unbill
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        # P2P sync: mDNS peer discovery on the local network.
+        NSLocalNetworkUsageDescription: unbill syncs your ledgers directly between your devices over the local network.
+        NSBonjourServices:
+          - _iroh._udp
+        # Scanning invitation QR codes.
+        NSCameraUsageDescription: unbill uses the camera to scan invitation QR codes.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: computer.unbill.apple
+        PRODUCT_NAME: unbill
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        # Automatic signing for on-device installs. Change DEVELOPMENT_TEAM to
+        # your Apple Developer team (this one is carried over from tauri.conf.json).
+        # Simulator builds ignore signing; device builds provision automatically.
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: BB577FKUK4

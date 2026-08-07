@@ -21,6 +21,7 @@ members = [
     "crates/unbill-store-memory",
     "crates/unbill-tauri",
     "crates/unbill-ui-components",
+    "crates/unbill-ffi",
 ]
 # sirno:witness:workspace-layout:end
 
