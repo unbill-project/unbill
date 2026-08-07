@@ -40,7 +40,7 @@ or product for hostile or anonymous groups.
 
 - **Your data stays on your devices.** Ledgers sync directly between group members — no cloud account required.
 - **Works offline.** Record expenses without a network. Changes merge automatically when devices reconnect.
-- **Runs everywhere.** Desktop app, CLI, TUI, iOS, Android, and a self-hosted relay server.
+- **Runs everywhere.** Desktop app, a native Apple app for iPhone/iPad/Mac, CLI, TUI, Android, and a self-hosted relay server.
 - **Open source.** Dual-licensed MIT / Apache-2.0. Inspect, build, and modify freely.
 
 ## Install
@@ -101,7 +101,7 @@ flowchart LR
     Sym <--> Peer
 ```
 
-Consoles (CLI, TUI, desktop app, web UI) send requests through an asymmetric channel to the local device.
+Consoles (CLI, TUI, desktop app, the native Apple app, web UI) send requests through an asymmetric channel to the local device.
 The device persists ledger state in Automerge documents and converges with peers through the symmetric channel.
 
 ## Development
@@ -130,6 +130,17 @@ Build the desktop shell after installing
 cargo tauri build --manifest-path crates/unbill-tauri/Cargo.toml
 ```
 
+Build the native Apple app (requires Xcode):
+
+```sh
+cd apps/unbill-apple
+devenv shell -- ./build-rust.sh       # build the Rust core into UnbillCore.xcframework
+nix run nixpkgs#xcodegen -- generate  # generate the Xcode project
+```
+
+Then open `apps/unbill-apple/unbill.xcodeproj` in Xcode and Run
+(iOS Simulator, a real device, or My Mac via Mac Catalyst).
+
 Build the server container locally:
 
 ```sh
@@ -153,7 +164,9 @@ Unbill is a Rust workspace built from focused crates and thin applications.
 | `crates/unbill-symmetric-channel` | Device-to-device Iroh sync and join |
 | `crates/unbill-asymmetric-channel` | Device-to-console transports |
 | `crates/unbill-tauri`, `crates/unbill-ui-components` | Desktop and web UI |
+| `crates/unbill-ffi` | Swift/UniFFI bridge for the Apple app |
 | `apps/` | CLI, TUI, daemon, server, native UI, remote UI |
+| `apps/unbill-apple` | Native SwiftUI app (iPhone, iPad, Mac Catalyst) |
 
 <!-- sirno:witness:workspace-layout:end -->
 

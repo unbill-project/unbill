@@ -1,0 +1,25 @@
+[package]
+name = "unbill-ffi"
+description = "UniFFI bridge exposing UnbillConsole to Swift (spike surface)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish = false
+
+[lib]
+crate-type = ["staticlib", "lib"]
+name = "unbill_ffi"
+
+[dependencies]
+unbill-console = { path = "../unbill-console" }
+unbill-asymmetric-channel = { path = "../unbill-asymmetric-channel", features = ["local"] }
+unbill-store-fs = { path = "../unbill-store-fs" }
+uniffi = { version = "0.28", features = ["cli"] }
+tokio = { version = "1", features = ["rt-multi-thread"] }
+thiserror.workspace = true
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"

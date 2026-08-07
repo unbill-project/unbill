@@ -28,7 +28,11 @@ Role crates:
 UI crates:
 `unbill-tauri` exposes the desktop bridge and host.
 `unbill-ui-components` provides shared Leptos components for frontend apps.
+`unbill-ffi` bridges `unbill-console` to Swift through UniFFI.
 
 Applications:
 `unbill-cli`, `unbill-tui`, `unbill-daemon`, `unbill-server`,
 `unbill-ui-native`, and `unbill-ui-remote` adapt the same design to different runtimes.
+
+`apps/unbill-apple` holds the native SwiftUI Apple frontend; it consumes `unbill-ffi`
+and lives outside the Cargo workspace.

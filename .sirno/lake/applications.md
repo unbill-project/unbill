@@ -15,3 +15,4 @@ The daemon owns long-running local device state.
 The server exposes a remote HTTP device API.
 The native and remote web frontends render the shared UI model through Leptos.
 The Tauri crate hosts the desktop shell and exposes frontend commands.
+A native SwiftUI frontend renders the shared UI model on Apple platforms alongside the Tauri shell.

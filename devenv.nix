@@ -102,7 +102,9 @@ in
       "intel-android-sysimage-license"
       "mips-android-sysimage-license"
     ];
-    android-studio = {
+    # android-studio in nixpkgs is x86_64-linux only; on macOS install it
+    # separately (Homebrew / JetBrains Toolbox).
+    android-studio = lib.mkIf pkgs.stdenv.isLinux {
       enable = true;
       package = pkgs.android-studio;
     };
@@ -125,6 +127,12 @@ in
       "armv7-linux-androideabi"
       "x86_64-linux-android"
       "i686-linux-android"
+    ] ++ lib.optionals pkgs.stdenv.isDarwin [
+      # Apple targets for the native SwiftUI frontend (apps/unbill-apple):
+      # device, simulator, and Mac Catalyst (macabi).
+      "aarch64-apple-ios"
+      "aarch64-apple-ios-sim"
+      "aarch64-apple-ios-macabi"
     ];
   };
 
@@ -135,9 +143,13 @@ in
     pkgs.trunk
     pkgs.llvmPackages.bintools
     pkgs.prek
-    verus
-    inputs.sirno.packages.${pkgs.system}.default
+    # sirno's read-only-lake unit tests use fs::set_permissions inside a
+    # dir they just made read-only, which returns EPERM on macOS (works on
+    # Linux). The binary itself is fine, so skip the check phase.
+    (inputs.sirno.packages.${pkgs.system}.default.overrideAttrs (_: { doCheck = false; }))
   ] ++ lib.optionals pkgs.stdenv.isLinux [
+    # Verus ships a prebuilt x86-linux binary only; skip it on macOS.
+    verus
     # GTK/WebKit dependencies only needed on Linux
     # macOS uses native WebKit framework
     pkgs.glib
@@ -149,9 +161,12 @@ in
   ];
 
   # Tauri on Linux looks for `studio.sh` to open Android Studio.
-  scripts."studio.sh".exec = ''
-    exec ${pkgs.android-studio}/bin/android-studio "$@"
-  '';
+  # android-studio isn't packaged for macOS, so only provide this on Linux.
+  scripts."studio.sh" = lib.mkIf pkgs.stdenv.isLinux {
+    exec = ''
+      exec ${pkgs.android-studio}/bin/android-studio "$@"
+    '';
+  };
 
   # Shim rustup so the android devenv module doesn't fail — Android Rust
   # targets are already installed via languages.rust.targets above.
