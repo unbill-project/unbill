@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use unbill_console::model::{
-    BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, UserId,
+    BillId, Currency, LedgerId, NewBill, NewLedger, NewLedgerName, NewUser, NewUserName, UserId,
 };
 use unbill_console::service::UnbillConsole;
 use unbill_ui_components::bill_editor::BillShareInput;
@@ -125,6 +125,13 @@ pub struct CreateLedgerInput {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RenameLedgerInput {
+    pub ledger_id: String,
+    pub name: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateUserInput {
     pub ledger_id: String,
     pub display_name: String,
@@ -221,6 +228,15 @@ pub async fn create_ledger(input: CreateLedgerInput) -> Result<LedgerSummary, St
     load_ledger_detail(&ledger_id.to_string())
         .await
         .map(|detail| detail.summary)
+}
+
+pub async fn rename_ledger(input: RenameLedgerInput) -> Result<LedgerSummary, String> {
+    let svc = get_service()?;
+    let lid = parse_ledger_id(&input.ledger_id)?;
+    svc.rename_ledger(lid, NewLedgerName { name: input.name })
+        .await
+        .map_err(|e| e.to_string())?;
+    load_ledger_summary(&lid.to_string()).await
 }
 
 pub async fn load_ledger_detail(ledger_id: &str) -> Result<LedgerDetail, String> {

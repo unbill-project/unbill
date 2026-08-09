@@ -229,6 +229,23 @@ pub fn exec_init(
     result
 }
 
+/// Rename a ledger. The name field has no verified invariant.
+pub fn exec_rename_ledger(ledger: &mut LedgerState, name: Vec<u8>)
+    requires
+        spec::exec_rename_ledger_requires(old(ledger)@),
+    ensures
+        spec::rename_ledger(old(ledger)@, final(ledger)@, name@),
+        spec::ledger_invariant(final(ledger)@),
+{
+    let ghost pre = ledger@;
+    let ghost new_name = name@;
+    ledger.name = name;
+    proof {
+        assert(ledger@ =~= spec::LedgerStateSpec { name: new_name, ..pre });
+        super::proof::rename_ledger_preserves(pre, ledger@, new_name);
+    }
+}
+
 /// Add a user to a ledger.
 pub fn exec_add_user(ledger: &mut LedgerState, user: User)
     requires

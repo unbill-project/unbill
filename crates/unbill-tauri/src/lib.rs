@@ -10,7 +10,8 @@ use unbill_asymmetric_channel::local::LocalAsymChannel;
 use unbill_asymmetric_channel::rpc::RpcAsymChannel;
 use unbill_console::error::{Result, UnbillError};
 use unbill_console::model::{
-    BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
+    BillId, Currency, LedgerId, NewBill, NewLedger, NewLedgerName, NewUser, NewUserName, NodeId,
+    Share, UserId,
 };
 use unbill_console::service::UnbillConsole;
 #[cfg(mobile)]
@@ -113,6 +114,13 @@ struct SyncDeviceDto {
 struct CreateLedgerInput {
     name: String,
     currency: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RenameLedgerInput {
+    ledger_id: String,
+    name: String,
 }
 
 #[derive(Deserialize)]
@@ -278,6 +286,23 @@ async fn load_ledger_detail(
     let lid = parse_ledger_id(&ledger_id).map_err(stringify_error)?;
     load_ledger_detail_inner(&state.service, lid)
         .await
+        .map_err(stringify_error)
+}
+
+#[tauri::command]
+async fn rename_ledger(
+    input: RenameLedgerInput,
+    state: State<'_, AppState>,
+) -> std::result::Result<LedgerSummaryDto, String> {
+    let lid = parse_ledger_id(&input.ledger_id).map_err(stringify_error)?;
+    state
+        .service
+        .rename_ledger(lid, NewLedgerName { name: input.name })
+        .await
+        .map_err(stringify_error)?;
+    load_ledger_detail_inner(&state.service, lid)
+        .await
+        .map(|detail| detail.summary)
         .map_err(stringify_error)
 }
 
@@ -948,6 +973,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             bootstrap_app,
             create_ledger,
+            rename_ledger,
             load_ledger_detail,
             create_user,
             add_user,

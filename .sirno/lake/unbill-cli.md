@@ -16,7 +16,7 @@ It is a thin client.
 It connects to a running `unbill-daemon` over the local socket and forwards commands over RPC.
 
 The surface covers device initialization and display,
-ledger create, list, show, invite (with terminal QR code), join, and devices,
+ledger create, rename, list, show, invite (with terminal QR code), join, and devices,
 bill add, list, amend, and conflicts,
 user create, add, and list,
 one-shot peer sync (sync status is stubbed for a future milestone),

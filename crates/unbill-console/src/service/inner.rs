@@ -13,7 +13,7 @@ use garde::validate::Validate as _;
 
 use crate::model::{
     BillId, Currency, Device, EffectiveBills, LedgerId, LedgerMeta, NewBill, NewDevice, NewLedger,
-    NewUser, NewUserName, NodeId, StorageError, Timestamp, User, UserId,
+    NewLedgerName, NewUser, NewUserName, NodeId, StorageError, Timestamp, User, UserId,
 };
 
 use crate::settlement;
@@ -129,6 +129,37 @@ impl UnbillConsole {
 
     pub async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
         self.channel.list_ledgers().await
+    }
+
+    /// Rename an existing ledger. Updates both the CRDT document and the local
+    /// ledger metadata, then broadcasts `LedgerUpdated`.
+    pub async fn rename_ledger(&self, ledger_id: LedgerId, input: NewLedgerName) -> Result<()> {
+        input
+            .validate()
+            .map_err(|e| UnbillError::Validation(e.to_string()))?;
+        let mut doc = self.take_doc(ledger_id).await?;
+        doc.rename(input.name.clone())?;
+        sync_doc(&*self.channel, ledger_id, &mut doc).await?;
+        self.put_doc(ledger_id, doc).await;
+
+        // Update the locally cached LedgerMeta name + updated_at.
+        let mut metas = self.channel.list_ledgers().await?;
+        if let Some(meta) = metas.iter_mut().find(|m| m.ledger_id == ledger_id) {
+            meta.name = input.name;
+            meta.updated_at = Timestamp::now();
+            self.channel.save_ledger_meta(meta).await?;
+        }
+
+        if self
+            .events
+            .send(ServiceEvent::LedgerUpdated {
+                ledger_id: ledger_id.to_string(),
+            })
+            .is_err()
+        {
+            tracing::warn!("LedgerUpdated event dropped: no subscribers");
+        }
+        Ok(())
     }
     // sirno:witness:console-service:end
 
@@ -650,6 +681,45 @@ mod tests {
         assert_eq!(ledgers[0].ledger_id, id);
         assert_eq!(ledgers[0].name, "Household");
         assert_eq!(ledgers[0].currency.code(), "USD");
+    }
+
+    #[tokio::test]
+    async fn test_rename_ledger_updates_doc_and_meta() {
+        let svc = open().await;
+        let id = svc
+            .create_ledger(NewLedger {
+                name: "Household".into(),
+                currency: usd(),
+            })
+            .await
+            .unwrap();
+        svc.rename_ledger(
+            id,
+            NewLedgerName {
+                name: "Apartment".into(),
+            },
+        )
+        .await
+        .unwrap();
+        let ledgers = svc.list_ledgers().await.unwrap();
+        assert_eq!(ledgers.len(), 1);
+        assert_eq!(ledgers[0].name, "Apartment");
+    }
+
+    #[tokio::test]
+    async fn test_rename_ledger_rejects_empty_name() {
+        let svc = open().await;
+        let id = svc
+            .create_ledger(NewLedger {
+                name: "Household".into(),
+                currency: usd(),
+            })
+            .await
+            .unwrap();
+        let result = svc
+            .rename_ledger(id, NewLedgerName { name: "".into() })
+            .await;
+        assert!(matches!(result, Err(UnbillError::Validation(_))));
     }
 
     #[tokio::test]

@@ -116,6 +116,13 @@ pub struct CreateLedgerInput {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RenameLedgerInput {
+    pub ledger_id: String,
+    pub name: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateUserInput {
     pub ledger_id: String,
     pub display_name: String,
@@ -160,6 +167,10 @@ pub async fn bootstrap_app() -> Result<AppBootstrap, String> {
 
 pub async fn create_ledger(input: CreateLedgerInput) -> Result<LedgerSummary, String> {
     invoke("create_ledger", &serde_json::json!({ "input": input })).await
+}
+
+pub async fn rename_ledger(input: RenameLedgerInput) -> Result<LedgerSummary, String> {
+    invoke("rename_ledger", &serde_json::json!({ "input": input })).await
 }
 
 pub async fn load_ledger_detail(ledger_id: &str) -> Result<LedgerDetail, String> {

@@ -47,6 +47,15 @@ pub(super) fn get_ledger(doc: &AutoCommit) -> Result<Ledger> {
     hydrate(doc).map_err(|e| UnbillError::Reconcile(e.to_string()))
 }
 
+/// Rename the ledger via the verified `exec_rename_ledger` transition.
+pub(super) fn rename_ledger(doc: &mut AutoCommit, name: String) -> Result<()> {
+    let ledger = get_ledger(doc)?;
+    let mut model = ledger_to_model(&ledger);
+    v::exec_rename_ledger(&mut model, name.into_bytes());
+    let ledger = model_to_ledger(&model).map_err(|e| UnbillError::Reconcile(e.0))?;
+    reconcile(doc, &ledger).map_err(|e| UnbillError::Reconcile(e.to_string()))
+}
+
 // ---------------------------------------------------------------------------
 // Bills
 // ---------------------------------------------------------------------------
@@ -253,6 +262,15 @@ mod tests {
         assert_eq!(ledger.schema_version, CURRENT_SCHEMA_VERSION);
         assert!(ledger.bills.is_empty());
         assert!(ledger.users.is_empty());
+    }
+
+    #[test]
+    fn test_rename_ledger_persists_new_name() {
+        let mut doc = fresh_doc();
+        rename_ledger(&mut doc, "Household Renamed".into()).unwrap();
+        let ledger = get_ledger(&doc).unwrap();
+        assert_eq!(ledger.name, "Household Renamed");
+        assert_eq!(ledger.currency.code(), "USD");
     }
 
     #[test]

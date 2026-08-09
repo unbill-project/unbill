@@ -100,6 +100,12 @@ impl LedgerDoc {
         ops::add_user(&mut self.doc, input, now)
     }
 
+    /// Rename the ledger. The name has no verified invariant, so this never fails
+    /// after garde validation at the service layer.
+    pub fn rename(&mut self, name: String) -> Result<()> {
+        ops::rename_ledger(&mut self.doc, name)
+    }
+
     pub fn add_device(
         &mut self,
         input: NewDevice,
