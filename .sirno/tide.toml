@@ -1,0 +1,18 @@
+# This file is generated and managed by Sirno.
+# It records active Tide review state for Git.
+
+schema = 1
+
+[[resolved]]
+ripple = "compiled-markdown-artifacts"
+field = "core.belongs"
+direction = "to"
+neighbor = "development-workflow"
+fingerprint = "sha256:ebd89393238e80bf89f18ee69f97936ea3af685e8161e66362cb77aef252157a"
+
+[[resolved]]
+ripple = "compiled-markdown-artifacts"
+field = "core.belongs"
+direction = "clique"
+neighbor = "development-workflow"
+fingerprint = "sha256:ebd89393238e80bf89f18ee69f97936ea3af685e8161e66362cb77aef252157a"
