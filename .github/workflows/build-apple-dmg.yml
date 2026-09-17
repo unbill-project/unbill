@@ -2,25 +2,6 @@ name: Build Apple DMG
 
 on:
   workflow_call:
-  workflow_dispatch:
-  pull_request:
-    branches: [main]
-    paths:
-      - .github/workflows/build-apple-dmg.yml
-      - .github/workflows/build.yml
-      - apps/unbill-apple/**
-      - crates/**
-      - Cargo.toml
-      - Cargo.lock
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/build-apple-dmg.yml
-      - .github/workflows/build.yml
-      - apps/unbill-apple/**
-      - crates/**
-      - Cargo.toml
-      - Cargo.lock
 
 permissions:
   contents: read

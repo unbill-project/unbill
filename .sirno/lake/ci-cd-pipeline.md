@@ -77,6 +77,8 @@ Unix builds also produce `.tar.gz` archives per binary
 
 The same build workflow builds Tauri desktop bundles for Linux and Windows.
 For macOS it calls `build-apple-dmg.yml`, which builds the Swift Catalyst app for Apple Silicon.
+The call is gated by `build_apple_dmg`, defaulting to false and enabled by nightly and version releases.
+The DMG workflow has only a reusable-workflow trigger; ordinary CI and direct manual build runs skip it.
 That workflow preserves the `unbill-macos-aarch64.dmg` release asset and `Unbill.app` cask names,
 and uploads a `binaries-apple-macos-aarch64` artifact consumed by the release workflow.
 The macOS bundle is ad-hoc signed, without Developer ID signing or notarization.

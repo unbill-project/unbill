@@ -20,6 +20,7 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       tag: ${{ needs.prepare.outputs.tag }}
+      build_apple_dmg: true
     permissions:
       contents: read
       packages: write

@@ -3,6 +3,11 @@ name: Build
 on:
   workflow_call:
     inputs:
+      build_apple_dmg:
+        description: 'Build the macOS DMG for nightly and version releases'
+        required: false
+        type: boolean
+        default: false
       tag:
         description: 'Docker image tag (e.g. nightly-20260422-000000, v1.2.3)'
         required: false
@@ -80,6 +85,7 @@ jobs:
 
   build-apple-dmg:
     name: Build macOS app
+    if: inputs.build_apple_dmg
     uses: ./.github/workflows/build-apple-dmg.yml
 
   build-tauri:

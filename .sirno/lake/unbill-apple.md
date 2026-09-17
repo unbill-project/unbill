@@ -39,8 +39,9 @@ It declares a shared `unbill` scheme so fresh CI checkouts can build without ope
 The generated project, Swift bindings, xcframework, `Info.plist`, and docs projection stay out of version control.
 
 `build-apple-dmg.yml` builds an Apple Silicon Catalyst DMG on macOS CI.
-It runs manually and for relevant pull requests and pushes to main, with read-only repository permissions.
-The reusable release build also calls it for nightly and version-tag releases.
+It is reusable-only, with read-only repository permissions and no standalone event triggers.
+Only nightly and version-tag releases enable its opt-in job in the shared build workflow.
+Direct manual runs of the shared build workflow do not build the DMG.
 The Rust build's `--catalyst-only` option builds only the Mac slice for this workflow;
 the default build still includes iOS device and simulator slices.
 The workflow uploads `unbill-macos-aarch64.dmg` in a `binaries-*` artifact for the existing release collector.
