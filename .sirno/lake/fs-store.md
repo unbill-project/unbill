@@ -23,6 +23,10 @@ device labels,
 pending invitations,
 and an advisory lock file held for the lifetime of the store.
 
+Desktop platforms, including Mac Catalyst, require the exclusive directory lock.
+A second backend using that directory fails to open until the first store is dropped.
+Only Android and non-Catalyst iOS builds skip locking.
+
 ```mermaid
 flowchart TB
     Root["store root"]
