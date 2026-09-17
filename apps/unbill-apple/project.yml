@@ -16,6 +16,12 @@ settings:
     # "Optimize interface for Mac" idiom (native-ish scaling/controls on Catalyst).
     MACOSX_DEPLOYMENT_TARGET: "14.0"
 
+schemes:
+  unbill:
+    build:
+      targets:
+        unbill: all
+
 targets:
   unbill:
     type: application

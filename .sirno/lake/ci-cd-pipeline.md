@@ -1,9 +1,6 @@
 ---
 core.desc: The GitHub Actions build, release, package, and version-management design.
 core.name: CI/CD Pipeline
-meta:
-  frozen:
-    - reviewed
 core.category:
   - core.concept
 core.belongs:
@@ -78,9 +75,11 @@ with `.exe` kept on Windows.
 Unix builds also produce `.tar.gz` archives per binary
 (used by Homebrew formula generation).
 
-The same build workflow builds Tauri desktop bundles for Linux,
-macOS,
-and Windows.
+The same build workflow builds Tauri desktop bundles for Linux and Windows.
+For macOS it calls `build-apple-dmg.yml`, which builds the Swift Catalyst app for Apple Silicon.
+That workflow preserves the `unbill-macos-aarch64.dmg` release asset and `Unbill.app` cask names,
+and uploads a `binaries-apple-macos-aarch64` artifact consumed by the release workflow.
+The macOS bundle is ad-hoc signed, without Developer ID signing or notarization.
 It checks out Git LFS,
 installs Rust with the WASM target,
 installs Linux GTK and WebKit dependencies on Linux,

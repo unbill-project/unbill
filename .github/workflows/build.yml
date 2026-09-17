@@ -78,6 +78,10 @@ jobs:
             unbill-daemon-${{ matrix.suffix }}*
           include-hidden-files: false
 
+  build-apple-dmg:
+    name: Build macOS app
+    uses: ./.github/workflows/build-apple-dmg.yml
+
   build-tauri:
     name: Build Tauri (${{ matrix.suffix }})
     runs-on: ${{ matrix.os }}
@@ -86,8 +90,6 @@ jobs:
         include:
           - os: ubuntu-latest
             suffix: linux-x86_64
-          - os: macos-latest
-            suffix: macos-aarch64
           - os: windows-latest
             suffix: windows-x86_64
 

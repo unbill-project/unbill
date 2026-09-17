@@ -33,7 +33,7 @@ fingerprint = "sha256:fd3302642d25a1dbc341cd4954cce29d25ad7b8674cb91320ff080ed94
 "core.belongs" = ["unbill"]
 
 [entries.ci-cd-pipeline]
-fingerprint = "sha256:8365dfac5ab538a4e316d53c786decd6bdcd2926bc4df18d7fefdfbb87d3020a"
+fingerprint = "sha256:af7c30246bbdd6f21199d958f2d8628faa9958c3f1a43e44f44f99efa52d28a0"
 "core.belongs" = ["distribution-and-release"]
 
 [entries.compiled-markdown-artifacts]
@@ -276,7 +276,7 @@ fingerprint = "sha256:4d1a27731cdac12f43d2d2d3941384ff58987fe963a696056f209b8c4c
 fingerprint = "sha256:4e55d4de86988da589d6b17d66d2e4c85e16b56d58a84ef34b76588b24a37c34"
 
 [entries.unbill-apple]
-fingerprint = "sha256:0fa72a52911679d12b8a925994f70cb842f809e9b452f0a7b65f50eb3090fef2"
+fingerprint = "sha256:a6ee42a47b9b6a13414a866f50913811c13e121b1f0155da0230b323b37a37c6"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -330,7 +330,7 @@ fingerprint = "sha256:c8009831c88bca2454e123249193d7a521d443ee94cf3a365cce158ca6
 "core.refines" = ["shared-and-local-state"]
 
 [entries.unbill-tauri]
-fingerprint = "sha256:6ee7dcd66cc4705c1191c3e9f38f3d14e5227195540f624b5afbdda7848d70e7"
+fingerprint = "sha256:e47af22d75fb3ae1b34f195394f58e8d7639f037faead03e8dceba47e18e9af2"
 "core.belongs" = [
     "applications",
     "frontend-ui",

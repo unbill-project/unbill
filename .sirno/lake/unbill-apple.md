@@ -1,5 +1,5 @@
 ---
-core.desc: The native SwiftUI frontend for Apple platforms, built alongside the Tauri desktop shell.
+core.desc: The native SwiftUI frontend for Apple platforms and the macOS release app.
 core.name: Unbill Apple
 core.category:
   - core.concept
@@ -11,7 +11,8 @@ core.refines:
 ---
 
 `unbill-apple` is the native SwiftUI frontend for Apple platforms.
-It is built alongside the Tauri desktop shell and its Leptos frontend, not as a replacement.
+It supplies the macOS release app, replacing the Tauri macOS bundle in the release pipeline.
+Tauri continues to supply the Linux and Windows desktop bundles.
 It targets iPhone and iPad as one universal build and macOS through Mac Catalyst.
 
 The app is backed by the real Rust core.
@@ -33,8 +34,18 @@ The DTO assembly is ported from `unbill-tauri`; a shared `unbill-shell` crate wo
 
 The project lives at `apps/unbill-apple`, outside the Cargo workspace.
 An `xcodegen` `project.yml` defines one application target for iOS device, simulator, and Mac Catalyst.
+It declares a shared `unbill` scheme so fresh CI checkouts can build without opening Xcode.
 `build-rust.sh` compiles `unbill-ffi` into `UnbillCore.xcframework` and generates the Swift bindings.
 The generated project, Swift bindings, xcframework, `Info.plist`, and docs projection stay out of version control.
+
+`build-apple-dmg.yml` builds an Apple Silicon Catalyst DMG on macOS CI.
+It runs manually and for relevant pull requests and pushes to main, with read-only repository permissions.
+The reusable release build also calls it for nightly and version-tag releases.
+The Rust build's `--catalyst-only` option builds only the Mac slice for this workflow;
+the default build still includes iOS device and simulator slices.
+The workflow uploads `unbill-macos-aarch64.dmg` in a `binaries-*` artifact for the existing release collector.
+It packages `Unbill.app` to preserve the Homebrew cask contract and takes its version from the Rust workspace.
+The app is ad-hoc signed; Developer ID signing and notarization are not configured.
 
 The screens follow the shared UI model adapted to Apple idioms.
 A `NavigationSplitView` shell shows a ledger list and, on selection, ledger detail with people, conflicts, bills, and settlement.
