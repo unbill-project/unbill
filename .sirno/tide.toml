@@ -1,0 +1,193 @@
+# This file is generated and managed by Sirno.
+# It records active Tide review state for Git.
+
+schema = 1
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "to"
+neighbor = "applications"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "to"
+neighbor = "frontend-ui"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "clique"
+neighbor = "applications"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "clique"
+neighbor = "deployment-topologies"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "clique"
+neighbor = "frontend-ui"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "clique"
+neighbor = "ui-components"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "clique"
+neighbor = "ui-shared-model"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "clique"
+neighbor = "unbill-cli"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "clique"
+neighbor = "unbill-daemon"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "clique"
+neighbor = "unbill-server"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "clique"
+neighbor = "unbill-tauri"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "clique"
+neighbor = "unbill-tui"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "clique"
+neighbor = "unbill-ui-native"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.belongs"
+direction = "clique"
+neighbor = "unbill-ui-remote"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-apple"
+field = "core.refines"
+direction = "to"
+neighbor = "ui-shared-model"
+fingerprint = "sha256:f3f5212667f82731d45895d8045a5010c81dadbf887abd3cd8c955ea6fcd2537"
+
+[[resolved]]
+ripple = "unbill-model"
+field = "core.belongs"
+direction = "to"
+neighbor = "workspace-layout"
+fingerprint = "sha256:a277dc7d8c665fb12c61554255d86a9a9341f2ec46883aeca0917f4ee9e15fc7"
+
+[[resolved]]
+ripple = "unbill-model"
+field = "core.belongs"
+direction = "clique"
+neighbor = "asymmetric-channel"
+fingerprint = "sha256:a277dc7d8c665fb12c61554255d86a9a9341f2ec46883aeca0917f4ee9e15fc7"
+
+[[resolved]]
+ripple = "unbill-model"
+field = "core.belongs"
+direction = "clique"
+neighbor = "fs-store"
+fingerprint = "sha256:a277dc7d8c665fb12c61554255d86a9a9341f2ec46883aeca0917f4ee9e15fc7"
+
+[[resolved]]
+ripple = "unbill-model"
+field = "core.belongs"
+direction = "clique"
+neighbor = "memory-store"
+fingerprint = "sha256:a277dc7d8c665fb12c61554255d86a9a9341f2ec46883aeca0917f4ee9e15fc7"
+
+[[resolved]]
+ripple = "unbill-model"
+field = "core.belongs"
+direction = "clique"
+neighbor = "symmetric-channel"
+fingerprint = "sha256:a277dc7d8c665fb12c61554255d86a9a9341f2ec46883aeca0917f4ee9e15fc7"
+
+[[resolved]]
+ripple = "unbill-model"
+field = "core.belongs"
+direction = "clique"
+neighbor = "ui-components"
+fingerprint = "sha256:a277dc7d8c665fb12c61554255d86a9a9341f2ec46883aeca0917f4ee9e15fc7"
+
+[[resolved]]
+ripple = "unbill-model"
+field = "core.belongs"
+direction = "clique"
+neighbor = "unbill-console"
+fingerprint = "sha256:a277dc7d8c665fb12c61554255d86a9a9341f2ec46883aeca0917f4ee9e15fc7"
+
+[[resolved]]
+ripple = "unbill-model"
+field = "core.belongs"
+direction = "clique"
+neighbor = "unbill-device"
+fingerprint = "sha256:a277dc7d8c665fb12c61554255d86a9a9341f2ec46883aeca0917f4ee9e15fc7"
+
+[[resolved]]
+ripple = "unbill-model"
+field = "core.belongs"
+direction = "clique"
+neighbor = "unbill-event"
+fingerprint = "sha256:a277dc7d8c665fb12c61554255d86a9a9341f2ec46883aeca0917f4ee9e15fc7"
+
+[[resolved]]
+ripple = "unbill-model"
+field = "core.belongs"
+direction = "clique"
+neighbor = "unbill-storage"
+fingerprint = "sha256:a277dc7d8c665fb12c61554255d86a9a9341f2ec46883aeca0917f4ee9e15fc7"
+
+[[resolved]]
+ripple = "unbill-model"
+field = "core.belongs"
+direction = "clique"
+neighbor = "workspace-layout"
+fingerprint = "sha256:a277dc7d8c665fb12c61554255d86a9a9341f2ec46883aeca0917f4ee9e15fc7"
+
+[[resolved]]
+ripple = "unbill-model"
+field = "core.refines"
+direction = "to"
+neighbor = "data-model"
+fingerprint = "sha256:a277dc7d8c665fb12c61554255d86a9a9341f2ec46883aeca0917f4ee9e15fc7"

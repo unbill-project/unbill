@@ -21,6 +21,10 @@ actor RustConsoleClient: ConsoleClient {
         console = try FfiConsole.open(dir: dir.path)
     }
 
+    func supportedCurrencies() async -> [String] {
+        supportedCurrencyCodes()
+    }
+
     func ledgers() async throws -> [LedgerSummary] {
         var boot = try console.bootstrap()
         if boot.ledgers.isEmpty {

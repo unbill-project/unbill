@@ -1,10 +1,10 @@
 import Foundation
 
-// The bridge boundary. Today a mock backs it; later a Rust-backed implementation
-// (UnbillConsole via UniFFI/swift-bridge) slots in behind this same protocol
-// without any UI changes. Async to match the console's async orchestration API.
+// The Swift boundary to the Rust-backed console through UniFFI.
+// Async to match the console's async orchestration API.
 // sirno:witness:unbill-apple:begin
 protocol ConsoleClient {
+    func supportedCurrencies() async -> [String]
     func ledgers() async throws -> [LedgerSummary]
     func ledgerDetail(id: String) async throws -> LedgerDetail
     @discardableResult

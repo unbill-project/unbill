@@ -25,6 +25,16 @@ use unbill_store_fs::FsStore;
 
 uniffi::setup_scaffolding!();
 
+/// Complete currency catalog for frontend pickers, sorted by ISO code.
+#[uniffi::export]
+pub fn supported_currency_codes() -> Vec<String> {
+    let mut codes: Vec<_> = Currency::all()
+        .map(|currency| currency.code().to_owned())
+        .collect();
+    codes.sort_unstable();
+    codes
+}
+
 // ---------- Errors ----------
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]

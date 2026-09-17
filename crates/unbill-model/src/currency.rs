@@ -1,6 +1,7 @@
 use std::fmt;
 
 use autosurgeon::{HydrateError, Prop, ReadDoc, Reconciler};
+use iso_currency::IntoEnumIterator;
 
 /// An ISO 4217 currency code (e.g. `USD`, `EUR`, `JPY`).
 ///
@@ -11,6 +12,11 @@ use autosurgeon::{HydrateError, Prop, ReadDoc, Reconciler};
 pub struct Currency(iso_currency::Currency);
 
 impl Currency {
+    /// Every currency supported by the core's ISO currency definitions.
+    pub fn all() -> impl Iterator<Item = Self> {
+        iso_currency::Currency::iter().map(Self)
+    }
+
     /// Look up a currency by its ISO 4217 alphabetic code (case-sensitive, uppercase).
     /// Returns `None` for unrecognised codes.
     pub fn from_code(code: &str) -> Option<Self> {
@@ -63,6 +69,25 @@ impl autosurgeon::Hydrate for Currency {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn currency_catalog_matches_all_accepted_codes() {
+        let currencies: Vec<_> = Currency::all().collect();
+        let codes: std::collections::HashSet<_> = currencies.iter().map(|c| c.code()).collect();
+        assert_eq!(codes.len(), currencies.len(), "duplicate currency codes");
+        for a in b'A'..=b'Z' {
+            for b in b'A'..=b'Z' {
+                for c in b'A'..=b'Z' {
+                    let code = String::from_utf8(vec![a, b, c]).unwrap();
+                    assert_eq!(
+                        codes.contains(code.as_str()),
+                        Currency::from_code(&code).is_some(),
+                        "{code}"
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn test_currency_from_valid_code() {

@@ -68,7 +68,7 @@ unset SDKROOT
 
 echo "==> Generating Swift bindings"
 rm -rf "$OUT"; mkdir -p "$OUT/headers" "$SWIFT_OUT"
-cargo run -q -p unbill-ffi --bin uniffi-bindgen -- generate \
+"$ROOT/target/$PROFILE/uniffi-bindgen" generate \
   --library "$ROOT/target/${TARGETS[0]}/$PROFILE/$LIB" \
   --language swift --out-dir "$OUT"
 

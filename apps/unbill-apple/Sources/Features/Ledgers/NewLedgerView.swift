@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Sheet for creating a ledger. Calls the console (real Rust or mock) and hands
+// Sheet for creating a ledger. Calls the Rust-backed console and hands
 // the created summary back to the caller to refresh its list.
 struct NewLedgerView: View {
     let console: ConsoleClient
@@ -12,10 +12,7 @@ struct NewLedgerView: View {
     @State private var isSaving = false
     @State private var error: String?
 
-    // Common ISO codes; validated by the core's Currency::from_code.
-    private let currencies = [
-        "USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF", "CNY", "INR", "SEK", "NOK", "NZD",
-    ]
+    @State private var currencies: [String] = []
 
     private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -27,8 +24,12 @@ struct NewLedgerView: View {
                 Section {
                     TextField("Name", text: $name)
                         .textInputAutocapitalization(.words)
-                    Picker("Currency", selection: $currency) {
-                        ForEach(currencies, id: \.self) { Text($0).tag($0) }
+                    if currencies.isEmpty {
+                        ProgressView("Loading currencies…")
+                    } else {
+                        Picker("Currency", selection: $currency) {
+                            ForEach(currencies, id: \.self) { Text($0).tag($0) }
+                        }
                     }
                 }
                 if let error {
@@ -44,8 +45,11 @@ struct NewLedgerView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") { Task { await create() } }
-                        .disabled(trimmedName.isEmpty || isSaving)
+                        .disabled(trimmedName.isEmpty || !currencies.contains(currency) || isSaving)
                 }
+            }
+            .task {
+                currencies = await console.supportedCurrencies()
             }
         }
     }
