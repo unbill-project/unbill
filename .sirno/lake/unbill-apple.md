@@ -39,6 +39,9 @@ It declares a shared `unbill` scheme so fresh CI checkouts can build without ope
 The generated project, Swift bindings, xcframework, `Info.plist`, and docs projection stay out of version control.
 
 `build-apple-dmg.yml` builds an Apple Silicon Catalyst DMG on macOS CI.
+It pins Xcode 26.6 on the macOS latest runner for both Rust and Swift builds.
+Building against the 26-series SDKs enables the system's Liquid Glass design on macOS Tahoe;
+the deployment target remains compatible with older macOS releases.
 It is reusable-only, with read-only repository permissions and no standalone event triggers.
 Only nightly and version-tag releases enable its opt-in job in the shared build workflow.
 Direct manual runs of the shared build workflow do not build the DMG.

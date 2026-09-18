@@ -17,8 +17,11 @@ env:
 jobs:
   dmg:
     name: Swift Mac Catalyst (Apple Silicon)
-    runs-on: macos-15
+    runs-on: macos-latest
     timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      DEVELOPER_DIR_OVERRIDE: /Applications/Xcode_26.6.app/Contents/Developer
     defaults:
       run:
         shell: bash
@@ -33,12 +36,12 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: apple-dmg-macos-15-arm64
+          key: apple-dmg-macos-26-xcode-26.6-arm64
 
       - name: Prepare Xcode tools
         run: |
-          echo "DEVELOPER_DIR_OVERRIDE=$(xcode-select -p)" >> "$GITHUB_ENV"
           xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
           brew install xcodegen
 
       - name: Build Rust core and Swift bindings
