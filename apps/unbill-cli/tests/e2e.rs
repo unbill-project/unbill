@@ -175,6 +175,10 @@ fn test_init_prints_device_id() {
     let v = env.json(&["init"]);
     let id = v["device_id"].as_str().unwrap();
     assert_eq!(id.len(), 64, "device ID should be 64 hex chars");
+    let database = std::fs::read(env.dir.path().join("unbill.sqlite3")).unwrap();
+    assert_eq!(&database[..16], b"SQLite format 3\0");
+    assert!(!env.dir.path().join("unbill.lock").exists());
+    assert!(!env.dir.path().join("device_key.bin").exists());
 }
 
 #[test]

@@ -4,7 +4,8 @@ use std::time::Duration;
 use anyhow::Result;
 use unbill_asymmetric_channel::local::LocalAsymChannel;
 use unbill_asymmetric_channel::rpc;
-use unbill_store_fs::{FsStore, UNBILL_PATH};
+use unbill_store_fs::UNBILL_PATH;
+use unbill_store_sqlite::SqliteStore;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,8 +22,8 @@ async fn main() -> Result<()> {
 
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
     let socket = UNBILL_PATH.socket_path()?;
-    let store = Arc::new(FsStore::open(data_dir)?);
     // sirno:witness:unbill-daemon:begin
+    let store = Arc::new(SqliteStore::open(data_dir).await?);
     let channel = LocalAsymChannel::open(store).await?;
 
     tracing::info!("unbill-daemon listening on {}", socket.display());
