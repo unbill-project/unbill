@@ -30,14 +30,24 @@ async fn metadata_contract(store: &dyn LedgerStore) {
     assert_eq!(labels.len(), 1);
     assert_eq!(labels["peer-b"], "Phone");
     assert!(store.list_pending_invitations().await.unwrap().is_empty());
-    let first = invitation();
-    let second = invitation();
+    let template = invitation();
     let (x, y) = tokio::join!(
-        store.save_invitation(&first),
-        store.save_invitation(&second)
+        store.create_invitation(
+            template.ledger_id,
+            &template.created_by_device,
+            template.created_at,
+            template.expires_at
+        ),
+        store.create_invitation(
+            template.ledger_id,
+            &template.created_by_device,
+            template.created_at,
+            template.expires_at
+        )
     );
-    x.unwrap();
-    y.unwrap();
+    let first = x.unwrap();
+    let second = y.unwrap();
+    assert_ne!(first.token, second.token);
     assert_eq!(store.list_pending_invitations().await.unwrap().len(), 2);
     let (x, y) = tokio::join!(
         store.consume_invitation(first.token.as_str()),

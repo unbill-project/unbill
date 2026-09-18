@@ -199,19 +199,36 @@ impl LedgerStore for FsStore {
                 labels.remove(&node_id.to_string());
             }
         }
-        write_json(self.root.join("device_labels.json"), &labels).await
+        write_json(self.root.join("device_labels.json"), &labels).await?;
+        let _ = self.events.send(ServiceEvent::DeviceLabelsUpdated);
+        Ok(())
     }
     async fn list_pending_invitations(&self) -> Result<Vec<Invitation>> {
         let map: HashMap<String, Invitation> =
             read_json(self.root.join("pending_invitations.json")).await?;
         Ok(map.into_values().collect())
     }
-    async fn save_invitation(&self, invitation: &Invitation) -> Result<()> {
+    async fn create_invitation(
+        &self,
+        ledger_id: LedgerId,
+        created_by_device: &NodeId,
+        created_at: Timestamp,
+        expires_at: Timestamp,
+    ) -> Result<Invitation> {
+        let invitation = Invitation {
+            token: unbill_model::InviteToken::generate(),
+            ledger_id,
+            created_by_device: created_by_device.clone(),
+            created_at,
+            expires_at,
+        };
         let _guard = self.metadata_lock.lock().await;
         let path = self.root.join("pending_invitations.json");
         let mut map: HashMap<String, Invitation> = read_json(path.clone()).await?;
         map.insert(invitation.token.to_string(), invitation.clone());
-        write_json(path, &map).await
+        write_json(path, &map).await?;
+        let _ = self.events.send(ServiceEvent::PendingInvitationsUpdated);
+        Ok(invitation)
     }
     async fn consume_invitation(&self, token: &str) -> Result<Option<Invitation>> {
         let _guard = self.metadata_lock.lock().await;
@@ -220,6 +237,7 @@ impl LedgerStore for FsStore {
         let invitation = map.remove(token);
         if invitation.is_some() {
             write_json(path, &map).await?;
+            let _ = self.events.send(ServiceEvent::PendingInvitationsUpdated);
         }
         Ok(invitation)
     }
@@ -233,7 +251,9 @@ impl LedgerStore for FsStore {
         rand::rngs::SysRng
             .try_fill_bytes(&mut arr)
             .expect("system RNG should generate device keys");
-        atomic_write(self.root.join("device_key.bin"), &arr).await
+        atomic_write(self.root.join("device_key.bin"), &arr).await?;
+        let _ = self.events.send(ServiceEvent::DeviceIdentityInitialized);
+        Ok(())
     }
 
     async fn is_device_initialized(&self) -> Result<bool> {

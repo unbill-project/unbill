@@ -31,3 +31,6 @@ matching the contract of production stores.
 unlike remote stores that cannot expose raw key material.
 
 The crate is exercised by higher-level tests that use it as a dependency.
+
+Invitation creation generates a fresh token inside the backend; callers cannot resubmit consumed tokens.
+Typed metadata mutations emit process-local invalidation events after persistence.

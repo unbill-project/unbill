@@ -5,7 +5,7 @@
 // StoreServer does NOT implement LedgerStore — no component other than the
 // internal MPSC consumer ever holds a raw store reference.
 // Compound operations (load-modify-save) execute as single commands,
-// guaranteeing atomicity against concurrent access.
+// preventing interleaving within this actor. Backends enforce cross-process safety.
 
 use std::sync::Arc;
 
@@ -14,8 +14,7 @@ use tracing::warn;
 use unbill_event::ServiceEvent;
 use unbill_model::error::{Result as DeviceResult, UnbillError};
 use unbill_model::{
-    Invitation, InviteToken, LedgerId, LedgerMeta, NewDevice, NodeId, SecretKey, StorageError,
-    Timestamp,
+    Invitation, LedgerId, LedgerMeta, NewDevice, NodeId, SecretKey, StorageError, Timestamp,
 };
 
 use unbill_model::LedgerDoc;
@@ -25,6 +24,9 @@ use std::collections::HashMap;
 
 // sirno:witness:unbill-storage:begin
 enum StoreCommand {
+    RefreshEvents {
+        events: broadcast::Sender<ServiceEvent>,
+    },
     // --- Individual operations ---
     SaveLedgerMeta {
         meta: LedgerMeta,
@@ -112,10 +114,28 @@ impl StoreServer {
 
         let mut inner_rx = store.subscribe();
         let fwd_tx = events.clone();
+        let refresh_tx = tx.downgrade();
         tokio::spawn(async move {
-            while let Ok(evt) = inner_rx.recv().await {
-                if fwd_tx.send(evt).is_err() {
-                    break; // No subscribers, stop forwarding
+            loop {
+                match inner_rx.recv().await {
+                    Ok(event) => {
+                        let _ = fwd_tx.send(event);
+                    }
+                    Err(broadcast::error::RecvError::Closed) => break,
+                    Err(broadcast::error::RecvError::Lagged(_)) => {
+                        let Some(tx) = refresh_tx.upgrade() else {
+                            break;
+                        };
+                        if tx
+                            .send(StoreCommand::RefreshEvents {
+                                events: fwd_tx.clone(),
+                            })
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
                 }
             }
         });
@@ -128,6 +148,21 @@ impl StoreServer {
     async fn run(store: Arc<dyn LedgerStore>, mut rx: mpsc::Receiver<StoreCommand>) {
         while let Some(cmd) = rx.recv().await {
             match cmd {
+                StoreCommand::RefreshEvents { events } => {
+                    match store.list_ledgers().await {
+                        Ok(ledgers) => {
+                            for meta in ledgers {
+                                let _ = events.send(ServiceEvent::LedgerUpdated {
+                                    ledger_id: meta.ledger_id.to_string(),
+                                });
+                            }
+                        }
+                        Err(error) => warn!(%error, "could not refresh ledger notifications"),
+                    }
+                    let _ = events.send(ServiceEvent::DeviceIdentityInitialized);
+                    let _ = events.send(ServiceEvent::DeviceLabelsUpdated);
+                    let _ = events.send(ServiceEvent::PendingInvitationsUpdated);
+                }
                 StoreCommand::SaveLedgerMeta { meta, reply } => {
                     if reply.send(store.save_ledger_meta(&meta).await).is_err() {
                         warn!("SaveLedgerMeta reply dropped (caller cancelled)");
@@ -320,16 +355,16 @@ impl StoreServer {
             .load_ledger(&id_str)
             .await?
             .ok_or(UnbillError::LedgerNotFound(id_str))?;
-        let token = InviteToken::generate();
         let now = Timestamp::now();
-        let invitation = Invitation {
-            token: token.clone(),
-            ledger_id,
-            created_by_device: device_id.clone(),
-            created_at: now,
-            expires_at: Timestamp::from_millis(now.as_millis() + 24 * 3600 * 1000),
-        };
-        store.save_invitation(&invitation).await?;
+        let invitation = store
+            .create_invitation(
+                ledger_id,
+                &device_id,
+                now,
+                Timestamp::from_millis(now.as_millis() + 24 * 3600 * 1000),
+            )
+            .await?;
+        let token = invitation.token;
         Ok(format!(
             "unbill://join/{}/{}/{}",
             ledger_id, device_id, token
@@ -462,7 +497,8 @@ impl StoreServer {
     }
 
     pub async fn save_ledger(&self, ledger_id: &str, doc: &mut LedgerDoc) -> StorageResult<()> {
-        let owned = std::mem::replace(doc, LedgerDoc::empty());
+        let owned = LedgerDoc::from_bytes(&doc.save())
+            .map_err(|e| StorageError::Serialization(e.to_string()))?;
         let (tx, rx) = oneshot::channel();
         self.tx
             .send(StoreCommand::SaveLedger {

@@ -166,8 +166,7 @@ mod tests {
     use std::sync::Arc;
 
     use unbill_model::{
-        Currency, Invitation, InviteToken, LedgerDoc, LedgerId, LedgerMeta, NewDevice, NodeId,
-        Timestamp,
+        Currency, InviteToken, LedgerDoc, LedgerId, LedgerMeta, NewDevice, NodeId, Timestamp,
     };
     use unbill_storage::{LedgerStore, StoreServer};
     use unbill_store_memory::InMemoryStore;
@@ -181,17 +180,6 @@ mod tests {
 
     fn usd() -> Currency {
         Currency::from_code("USD").unwrap()
-    }
-
-    fn make_invitation(ledger_id: LedgerId, host_node: NodeId, token: &InviteToken) -> Invitation {
-        let now = Timestamp::now();
-        Invitation {
-            token: token.clone(),
-            ledger_id,
-            created_by_device: host_node,
-            created_at: now,
-            expires_at: Timestamp::from_millis(now.as_millis() + 86_400_000),
-        }
     }
 
     #[tokio::test]
@@ -227,10 +215,17 @@ mod tests {
             .await
             .unwrap();
 
-        // Save the invitation to the store.
-        let token = InviteToken::generate();
-        let invitation = make_invitation(meta.ledger_id, host_node.clone(), &token);
-        raw_host_store.save_invitation(&invitation).await.unwrap();
+        let now = Timestamp::now();
+        let invitation = raw_host_store
+            .create_invitation(
+                meta.ledger_id,
+                &host_node,
+                now,
+                Timestamp::from_millis(now.as_millis() + 86_400_000),
+            )
+            .await
+            .unwrap();
+        let token = invitation.token;
 
         let host_store = Arc::new(StoreServer::spawn(Arc::clone(&raw_host_store)));
 

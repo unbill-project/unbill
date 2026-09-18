@@ -38,7 +38,7 @@ Device-local storage covers labels,
 pending invitations,
 and the secret key.
 Every backend exposes the same typed operations: list labels, set or remove one label,
-save an invitation, list invitations, and atomically consume one invitation.
+create an invitation with a backend-generated token, list invitations, and atomically consume one invitation.
 There is no arbitrary key/value metadata API or fallback storage.
 
 `save_ledger` takes a mutable document.
@@ -77,7 +77,7 @@ Individual operations (list, load, save) and compound operations
 merge_and_save_ledger, persist_joined_ledger, collect_peers)
 are all public methods on `StoreServer`.
 Compound operations execute as single MPSC commands,
-guaranteeing atomicity for read-modify-write sequences.
+preventing interleaving within that actor. SQLite additionally merges and persists each document atomically across processes.
 
 `merge_and_save_ledger` handles the sync session save phase:
 it atomically loads the current stored version,
@@ -88,8 +88,8 @@ This prevents concurrent operations from overwriting each other.
 ### Concurrency guarantees
 
 All store mutations are serialized through the single MPSC consumer.
-Compound operations are atomic — no other command can interleave
-between the load and save of a read-modify-write sequence.
+Compound operations are serialized within one actor. Cross-process guarantees belong to backend transactions;
+multiple trait calls are not a database transaction. Invitation consumption remains committed if later join handling fails.
 
 Read-only sequences that span multiple MPSC commands
 (e.g. `collect_peers` listing then loading each ledger,
@@ -112,4 +112,5 @@ for StoreServer actor communication failures
 (MPSC send or oneshot receive failing because the consumer task stopped).
 Dropped reply sends (caller cancelled before receiving the result)
 are logged at `warn` level.
-Broadcast event sends with no subscribers log at `warn` and stop forwarding.
+Event forwarding survives absent subscribers and requests a complete refresh through the actor after broadcast lag.
+Save errors preserve the caller document even if actor communication fails.

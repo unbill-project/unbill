@@ -8457,6 +8457,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "tracing",
  "unbill-event",
  "unbill-model",
  "unbill-storage",

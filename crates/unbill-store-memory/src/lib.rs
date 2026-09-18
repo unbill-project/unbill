@@ -115,6 +115,7 @@ impl LedgerStore for InMemoryStore {
                 inner.labels.remove(&node_id.to_string());
             }
         }
+        let _ = self.events.send(ServiceEvent::DeviceLabelsUpdated);
         Ok(())
     }
     async fn list_pending_invitations(&self) -> Result<Vec<Invitation>> {
@@ -127,16 +128,34 @@ impl LedgerStore for InMemoryStore {
             .cloned()
             .collect())
     }
-    async fn save_invitation(&self, invitation: &Invitation) -> Result<()> {
+    async fn create_invitation(
+        &self,
+        ledger_id: LedgerId,
+        created_by_device: &NodeId,
+        created_at: Timestamp,
+        expires_at: Timestamp,
+    ) -> Result<Invitation> {
+        let invitation = Invitation {
+            token: unbill_model::InviteToken::generate(),
+            ledger_id,
+            created_by_device: created_by_device.clone(),
+            created_at,
+            expires_at,
+        };
         self.inner
             .lock()
             .unwrap()
             .invitations
             .insert(invitation.token.to_string(), invitation.clone());
-        Ok(())
+        let _ = self.events.send(ServiceEvent::PendingInvitationsUpdated);
+        Ok(invitation)
     }
     async fn consume_invitation(&self, token: &str) -> Result<Option<Invitation>> {
-        Ok(self.inner.lock().unwrap().invitations.remove(token))
+        let invitation = self.inner.lock().unwrap().invitations.remove(token);
+        if invitation.is_some() {
+            let _ = self.events.send(ServiceEvent::PendingInvitationsUpdated);
+        }
+        Ok(invitation)
     }
     async fn create_secret_key(&self) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
@@ -146,6 +165,7 @@ impl LedgerStore for InMemoryStore {
                 .try_fill_bytes(&mut bytes)
                 .map_err(|e| StorageError::Io(std::io::Error::other(e.to_string())))?;
             inner.secret = Some(bytes);
+            let _ = self.events.send(ServiceEvent::DeviceIdentityInitialized);
         }
         Ok(())
     }

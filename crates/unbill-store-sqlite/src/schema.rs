@@ -3,6 +3,7 @@ diesel::table! {
         id -> Text,
         metadata -> Nullable<Binary>,
         document -> Nullable<Binary>,
+        revision -> BigInt,
     }
 }
 
@@ -26,5 +27,15 @@ diesel::table! {
         created_by_device -> Text,
         created_at_ms -> BigInt,
         expires_at_ms -> BigInt,
+    }
+}
+
+diesel::table! {
+    storage_revisions (id) {
+        id -> Integer,
+        clock -> BigInt,
+        identity_revision -> BigInt,
+        labels_revision -> BigInt,
+        invitations_revision -> BigInt,
     }
 }
