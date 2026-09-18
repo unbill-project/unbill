@@ -19,8 +19,11 @@ iroh.workspace = true
 rand.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tokio = { workspace = true, features = ["rt"] }
+tracing.workspace = true
+tokio = { workspace = true, features = ["rt", "time"] }
 
 [dev-dependencies]
+unbill-store-fs = { path = "../unbill-store-fs" }
+unbill-store-memory = { path = "../unbill-store-memory" }
 tempfile = "3"
 tokio = { workspace = true, features = ["rt", "macros"] }

@@ -90,18 +90,17 @@ impl AsymChannel for LocalAsymChannel {
             .map_err(UnbillError::Storage)
     }
 
-    async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>> {
+    async fn list_device_labels(&self) -> Result<std::collections::HashMap<String, String>> {
         self.service
             .store()
-            .load_device_meta(key)
+            .list_device_labels()
             .await
             .map_err(UnbillError::Storage)
     }
-
-    async fn save_device_meta(&self, key: &str, bytes: Vec<u8>) -> Result<()> {
+    async fn set_device_label(&self, node_id: &NodeId, label: Option<String>) -> Result<()> {
         self.service
             .store()
-            .save_device_meta(key, &bytes)
+            .set_device_label(node_id, label.as_deref())
             .await
             .map_err(UnbillError::Storage)
     }

@@ -236,35 +236,31 @@ impl AsymChannel for HttpAsymChannel {
         Ok(())
     }
 
-    async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>> {
-        let resp = self
-            .auth(self.client.get(self.url(&format!("/device/{key}"))))
+    async fn list_device_labels(&self) -> Result<std::collections::HashMap<String, String>> {
+        let response = self
+            .auth(self.client.get(self.url("/device/labels")))
             .send()
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?;
-        if resp.status() == StatusCode::NOT_FOUND {
-            return Ok(None);
-        }
-        let resp = Self::check(resp).await?;
-        let bytes = resp
-            .bytes()
+        Self::check(response)
+            .await?
+            .json()
             .await
-            .map_err(|e| UnbillError::Network(e.to_string()))?;
-        Ok(Some(bytes.to_vec()))
+            .map_err(|e| UnbillError::Network(e.to_string()))
     }
-
-    async fn save_device_meta(&self, key: &str, bytes: Vec<u8>) -> Result<()> {
-        let resp = self
-            .auth(
-                self.client
-                    .put(self.url(&format!("/device/{key}")))
-                    .header("content-type", "application/octet-stream")
-                    .body(bytes),
-            )
+    async fn set_device_label(&self, node_id: &NodeId, label: Option<String>) -> Result<()> {
+        let mut url = reqwest::Url::parse(&self.url("/device/labels/"))
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
+        url.path_segments_mut()
+            .map_err(|_| UnbillError::Network("invalid server URL".into()))?
+            .pop_if_empty()
+            .push(&node_id.to_string());
+        let response = self
+            .auth(self.client.put(url).json(&label))
             .send()
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?;
-        Self::check(resp).await?;
+        Self::check(response).await?;
         Ok(())
     }
 

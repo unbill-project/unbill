@@ -5,7 +5,7 @@
 // StoreServer does NOT implement LedgerStore — no component other than the
 // internal MPSC consumer ever holds a raw store reference.
 // Compound operations (load-modify-save) execute as single commands,
-// guaranteeing atomicity against concurrent access.
+// preventing interleaving within this actor. Backends enforce cross-process safety.
 
 use std::sync::Arc;
 
@@ -14,19 +14,19 @@ use tracing::warn;
 use unbill_event::ServiceEvent;
 use unbill_model::error::{Result as DeviceResult, UnbillError};
 use unbill_model::{
-    Invitation, InviteToken, LedgerId, LedgerMeta, NewDevice, NodeId, SecretKey, StorageError,
-    Timestamp,
+    Invitation, LedgerId, LedgerMeta, NewDevice, NodeId, SecretKey, StorageError, Timestamp,
 };
 
 use unbill_model::LedgerDoc;
 
-use crate::{
-    LedgerStore, StorageResult, load_device_labels, load_pending_invitations, save_device_labels,
-    save_pending_invitations,
-};
+use crate::{LedgerStore, StorageResult};
+use std::collections::HashMap;
 
 // sirno:witness:unbill-storage:begin
 enum StoreCommand {
+    RefreshEvents {
+        events: broadcast::Sender<ServiceEvent>,
+    },
     // --- Individual operations ---
     SaveLedgerMeta {
         meta: LedgerMeta,
@@ -44,13 +44,12 @@ enum StoreCommand {
         doc: Box<LedgerDoc>,
         reply: oneshot::Sender<StorageResult<LedgerDoc>>,
     },
-    LoadDeviceMeta {
-        key: String,
-        reply: oneshot::Sender<StorageResult<Option<Vec<u8>>>>,
+    ListDeviceLabels {
+        reply: oneshot::Sender<StorageResult<HashMap<String, String>>>,
     },
-    SaveDeviceMeta {
-        key: String,
-        value: Vec<u8>,
+    SetDeviceLabel {
+        node_id: NodeId,
+        label: Option<String>,
         reply: oneshot::Sender<StorageResult<()>>,
     },
     CreateSecretKey {
@@ -115,10 +114,28 @@ impl StoreServer {
 
         let mut inner_rx = store.subscribe();
         let fwd_tx = events.clone();
+        let refresh_tx = tx.downgrade();
         tokio::spawn(async move {
-            while let Ok(evt) = inner_rx.recv().await {
-                if fwd_tx.send(evt).is_err() {
-                    break; // No subscribers, stop forwarding
+            loop {
+                match inner_rx.recv().await {
+                    Ok(event) => {
+                        let _ = fwd_tx.send(event);
+                    }
+                    Err(broadcast::error::RecvError::Closed) => break,
+                    Err(broadcast::error::RecvError::Lagged(_)) => {
+                        let Some(tx) = refresh_tx.upgrade() else {
+                            break;
+                        };
+                        if tx
+                            .send(StoreCommand::RefreshEvents {
+                                events: fwd_tx.clone(),
+                            })
+                            .await
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
                 }
             }
         });
@@ -131,6 +148,21 @@ impl StoreServer {
     async fn run(store: Arc<dyn LedgerStore>, mut rx: mpsc::Receiver<StoreCommand>) {
         while let Some(cmd) = rx.recv().await {
             match cmd {
+                StoreCommand::RefreshEvents { events } => {
+                    match store.list_ledgers().await {
+                        Ok(ledgers) => {
+                            for meta in ledgers {
+                                let _ = events.send(ServiceEvent::LedgerUpdated {
+                                    ledger_id: meta.ledger_id.to_string(),
+                                });
+                            }
+                        }
+                        Err(error) => warn!(%error, "could not refresh ledger notifications"),
+                    }
+                    let _ = events.send(ServiceEvent::DeviceIdentityInitialized);
+                    let _ = events.send(ServiceEvent::DeviceLabelsUpdated);
+                    let _ = events.send(ServiceEvent::PendingInvitationsUpdated);
+                }
                 StoreCommand::SaveLedgerMeta { meta, reply } => {
                     if reply.send(store.save_ledger_meta(&meta).await).is_err() {
                         warn!("SaveLedgerMeta reply dropped (caller cancelled)");
@@ -156,17 +188,21 @@ impl StoreServer {
                         warn!(ledger_id, "SaveLedger reply dropped (caller cancelled)");
                     }
                 }
-                StoreCommand::LoadDeviceMeta { key, reply } => {
-                    if reply.send(store.load_device_meta(&key).await).is_err() {
-                        warn!(key, "LoadDeviceMeta reply dropped (caller cancelled)");
+                StoreCommand::ListDeviceLabels { reply } => {
+                    if reply.send(store.list_device_labels().await).is_err() {
+                        warn!("ListDeviceLabels reply dropped (caller cancelled)");
                     }
                 }
-                StoreCommand::SaveDeviceMeta { key, value, reply } => {
+                StoreCommand::SetDeviceLabel {
+                    node_id,
+                    label,
+                    reply,
+                } => {
                     if reply
-                        .send(store.save_device_meta(&key, &value).await)
+                        .send(store.set_device_label(&node_id, label.as_deref()).await)
                         .is_err()
                     {
-                        warn!(key, "SaveDeviceMeta reply dropped (caller cancelled)");
+                        warn!("SetDeviceLabel reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::CreateSecretKey { reply } => {
@@ -319,18 +355,16 @@ impl StoreServer {
             .load_ledger(&id_str)
             .await?
             .ok_or(UnbillError::LedgerNotFound(id_str))?;
-        let token = InviteToken::generate();
         let now = Timestamp::now();
-        let invitation = Invitation {
-            token: token.clone(),
-            ledger_id,
-            created_by_device: device_id.clone(),
-            created_at: now,
-            expires_at: Timestamp::from_millis(now.as_millis() + 24 * 3600 * 1000),
-        };
-        let mut map = load_pending_invitations(store).await?;
-        map.insert(token.to_string(), invitation);
-        save_pending_invitations(store, &map).await?;
+        let invitation = store
+            .create_invitation(
+                ledger_id,
+                &device_id,
+                now,
+                Timestamp::from_millis(now.as_millis() + 24 * 3600 * 1000),
+            )
+            .await?;
+        let token = invitation.token;
         Ok(format!(
             "unbill://join/{}/{}/{}",
             ledger_id, device_id, token
@@ -362,10 +396,7 @@ impl StoreServer {
         store: &dyn LedgerStore,
         token: &str,
     ) -> DeviceResult<Option<Invitation>> {
-        let mut map = load_pending_invitations(store).await?;
-        let inv = map.remove(token);
-        save_pending_invitations(store, &map).await?;
-        Ok(inv)
+        Ok(store.consume_invitation(token).await?)
     }
 
     async fn do_add_device_to_ledger(
@@ -423,9 +454,7 @@ impl StoreServer {
             .save_ledger(&meta.ledger_id.to_string(), &mut doc)
             .await?;
         if let Some(label) = label {
-            let mut labels = load_device_labels(store).await?;
-            labels.insert(host_node_id.to_string(), label);
-            save_device_labels(store, &labels).await?;
+            store.set_device_label(&host_node_id, Some(&label)).await?;
         }
         Ok(())
     }
@@ -468,7 +497,8 @@ impl StoreServer {
     }
 
     pub async fn save_ledger(&self, ledger_id: &str, doc: &mut LedgerDoc) -> StorageResult<()> {
-        let owned = std::mem::replace(doc, LedgerDoc::empty());
+        let owned = LedgerDoc::from_bytes(&doc.save())
+            .map_err(|e| StorageError::Serialization(e.to_string()))?;
         let (tx, rx) = oneshot::channel();
         self.tx
             .send(StoreCommand::SaveLedger {
@@ -488,24 +518,24 @@ impl StoreServer {
         }
     }
 
-    pub async fn load_device_meta(&self, key: &str) -> StorageResult<Option<Vec<u8>>> {
+    pub async fn list_device_labels(&self) -> StorageResult<HashMap<String, String>> {
         let (tx, rx) = oneshot::channel();
         self.tx
-            .send(StoreCommand::LoadDeviceMeta {
-                key: key.to_owned(),
-                reply: tx,
-            })
+            .send(StoreCommand::ListDeviceLabels { reply: tx })
             .await
             .map_err(|_| StorageError::ChannelClosed)?;
         rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
-
-    pub async fn save_device_meta(&self, key: &str, value: &[u8]) -> StorageResult<()> {
+    pub async fn set_device_label(
+        &self,
+        node_id: &NodeId,
+        label: Option<&str>,
+    ) -> StorageResult<()> {
         let (tx, rx) = oneshot::channel();
         self.tx
-            .send(StoreCommand::SaveDeviceMeta {
-                key: key.to_owned(),
-                value: value.to_vec(),
+            .send(StoreCommand::SetDeviceLabel {
+                node_id: node_id.clone(),
+                label: label.map(str::to_owned),
                 reply: tx,
             })
             .await

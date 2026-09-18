@@ -24,7 +24,8 @@ pending invitations,
 and an advisory lock file held for the lifetime of the store.
 
 Desktop platforms, including Mac Catalyst, require the exclusive directory lock.
-A second backend using that directory fails to open until the first store is dropped.
+A second filesystem backend using that directory fails to open until the first store is dropped.
+SQLite uses its own database locks and does not participate in this directory lock.
 Only Android and non-Catalyst iOS builds skip locking.
 
 ```mermaid
@@ -49,6 +50,10 @@ flowchart TB
     Root --> Lock
 ```
 
+Typed label and invitation operations retain the existing JSON files for compatibility.
+A per-store async mutex serializes their read-modify-write operations and identity initialization.
+There is no public arbitrary-file metadata API.
+
 Writes are atomic.
 Data is written to a sibling temporary file and renamed into place.
 
@@ -64,3 +69,6 @@ and macOS Application Support defaults.
 
 Tests use temporary directories.
 Coverage includes save, list, load, and device metadata round trips.
+
+Invitation creation generates a fresh token inside the backend; callers cannot resubmit consumed tokens.
+Typed metadata mutations emit process-local invalidation events after persistence.

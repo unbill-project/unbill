@@ -1,0 +1,13 @@
+DROP TRIGGER ledger_revision_insert;
+DROP TRIGGER ledger_revision_update;
+DROP TRIGGER device_identity_insert_revision;
+DROP TRIGGER device_identity_update_revision;
+DROP TRIGGER device_identity_delete_revision;
+DROP TRIGGER device_labels_insert_revision;
+DROP TRIGGER device_labels_update_revision;
+DROP TRIGGER device_labels_delete_revision;
+DROP TRIGGER pending_invitations_insert_revision;
+DROP TRIGGER pending_invitations_update_revision;
+DROP TRIGGER pending_invitations_delete_revision;
+DROP TABLE storage_revisions;
+ALTER TABLE ledgers DROP COLUMN revision;

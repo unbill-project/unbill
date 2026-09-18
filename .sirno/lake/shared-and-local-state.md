@@ -27,6 +27,7 @@ They do not converge on personal labels, saved user conveniences, clipboard cont
 or transient UI state.
 
 Device labels and pending invitations are local metadata.
+All stores expose typed operations for these records and identity; there is no generic metadata fallback.
 Invitation URLs and copied invitation text are local client concerns.
 The current service lists all known users by aggregating ledger users across local ledgers,
 not by maintaining a separate saved-user table.

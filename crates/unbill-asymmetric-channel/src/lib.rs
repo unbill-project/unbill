@@ -68,8 +68,8 @@ pub trait AsymChannel: MaybeSend + MaybeSync {
 
     async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>>;
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()>;
-    async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>>;
-    async fn save_device_meta(&self, key: &str, bytes: Vec<u8>) -> Result<()>;
+    async fn list_device_labels(&self) -> Result<std::collections::HashMap<String, String>>;
+    async fn set_device_label(&self, node_id: &NodeId, label: Option<String>) -> Result<()>;
 
     // --- Event subscription ---
 

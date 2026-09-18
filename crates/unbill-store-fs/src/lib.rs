@@ -3,7 +3,8 @@
 pub mod path;
 pub use path::{UNBILL_PATH, UnbillPath};
 
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
+use unbill_model::Invitation;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -18,6 +19,7 @@ use unbill_storage::{LedgerStore, StorageResult as Result};
 // sirno:witness:fs-store:begin
 pub struct FsStore {
     root: PathBuf,
+    metadata_lock: tokio::sync::Mutex<()>,
     /// Holds `<root>/unbill.lock` open with an exclusive advisory lock for
     /// the lifetime of this store, preventing two processes from sharing the
     /// same data directory simultaneously, including on Mac Catalyst.
@@ -56,6 +58,7 @@ impl FsStore {
         let (events, _) = broadcast::channel(256);
         Ok(Self {
             root,
+            metadata_lock: tokio::sync::Mutex::new(()),
             _lock: lock,
             events,
         })
@@ -182,55 +185,101 @@ impl LedgerStore for FsStore {
         self.events.subscribe()
     }
 
-    async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>> {
-        match tokio::fs::read(self.root.join(key)).await {
-            Ok(b) => Ok(Some(b)),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(e.into()),
-        }
+    async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
+        read_json(self.root.join("device_labels.json")).await
     }
-
-    async fn save_device_meta(&self, key: &str, value: &[u8]) -> Result<()> {
-        tokio::fs::create_dir_all(&self.root).await?;
-        atomic_write(self.root.join(key), value).await
+    async fn set_device_label(&self, node_id: &NodeId, label: Option<&str>) -> Result<()> {
+        let _guard = self.metadata_lock.lock().await;
+        let mut labels = self.list_device_labels().await?;
+        match label {
+            Some(label) => {
+                labels.insert(node_id.to_string(), label.to_owned());
+            }
+            None => {
+                labels.remove(&node_id.to_string());
+            }
+        }
+        write_json(self.root.join("device_labels.json"), &labels).await?;
+        let _ = self.events.send(ServiceEvent::DeviceLabelsUpdated);
+        Ok(())
+    }
+    async fn list_pending_invitations(&self) -> Result<Vec<Invitation>> {
+        let map: HashMap<String, Invitation> =
+            read_json(self.root.join("pending_invitations.json")).await?;
+        Ok(map.into_values().collect())
+    }
+    async fn create_invitation(
+        &self,
+        ledger_id: LedgerId,
+        created_by_device: &NodeId,
+        created_at: Timestamp,
+        expires_at: Timestamp,
+    ) -> Result<Invitation> {
+        let invitation = Invitation {
+            token: unbill_model::InviteToken::generate(),
+            ledger_id,
+            created_by_device: created_by_device.clone(),
+            created_at,
+            expires_at,
+        };
+        let _guard = self.metadata_lock.lock().await;
+        let path = self.root.join("pending_invitations.json");
+        let mut map: HashMap<String, Invitation> = read_json(path.clone()).await?;
+        map.insert(invitation.token.to_string(), invitation.clone());
+        write_json(path, &map).await?;
+        let _ = self.events.send(ServiceEvent::PendingInvitationsUpdated);
+        Ok(invitation)
+    }
+    async fn consume_invitation(&self, token: &str) -> Result<Option<Invitation>> {
+        let _guard = self.metadata_lock.lock().await;
+        let path = self.root.join("pending_invitations.json");
+        let mut map: HashMap<String, Invitation> = read_json(path.clone()).await?;
+        let invitation = map.remove(token);
+        if invitation.is_some() {
+            write_json(path, &map).await?;
+            let _ = self.events.send(ServiceEvent::PendingInvitationsUpdated);
+        }
+        Ok(invitation)
     }
 
     async fn create_secret_key(&self) -> Result<()> {
-        if self.load_device_meta("device_key.bin").await?.is_some() {
+        let _guard = self.metadata_lock.lock().await;
+        if self.is_device_initialized().await? {
             return Ok(());
         }
         let mut arr = [0u8; 32];
         rand::rngs::SysRng
             .try_fill_bytes(&mut arr)
             .expect("system RNG should generate device keys");
-        self.save_device_meta("device_key.bin", &arr).await
+        atomic_write(self.root.join("device_key.bin"), &arr).await?;
+        let _ = self.events.send(ServiceEvent::DeviceIdentityInitialized);
+        Ok(())
     }
 
     async fn is_device_initialized(&self) -> Result<bool> {
-        Ok(self.load_device_meta("device_key.bin").await?.is_some())
+        Ok(tokio::fs::try_exists(self.root.join("device_key.bin")).await?)
     }
 
     async fn get_device_id(&self) -> Result<NodeId> {
-        let bytes = self
-            .load_device_meta("device_key.bin")
-            .await?
-            .ok_or_else(|| StorageError::Serialization("device not initialized".into()))?;
-        let arr: [u8; 32] = bytes
-            .try_into()
-            .map_err(|_| StorageError::Serialization("device_key.bin: wrong length".into()))?;
-        let secret = iroh::SecretKey::from(arr);
-        Ok(NodeId::new(secret.public().to_string()))
+        let key = self.get_secret_key().await?;
+        Ok(NodeId::new(
+            iroh::SecretKey::from(*key.as_bytes()).public().to_string(),
+        ))
     }
-
     async fn get_secret_key(&self) -> Result<SecretKey> {
-        let bytes = self
-            .load_device_meta("device_key.bin")
-            .await?
-            .ok_or_else(|| StorageError::Serialization("device not initialized".into()))?;
-        let arr: [u8; 32] = bytes
+        let bytes = tokio::fs::read(self.root.join("device_key.bin"))
+            .await
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    StorageError::Serialization("device not initialized".into())
+                } else {
+                    e.into()
+                }
+            })?;
+        let bytes: [u8; 32] = bytes
             .try_into()
             .map_err(|_| StorageError::Serialization("device_key.bin: wrong length".into()))?;
-        Ok(SecretKey::from_bytes(arr))
+        Ok(SecretKey::from_bytes(bytes))
     }
 }
 // sirno:witness:fs-store:end
@@ -243,6 +292,21 @@ async fn atomic_write(path: PathBuf, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 // sirno:witness:unbill-storage:end
+
+async fn read_json<T: serde::de::DeserializeOwned + Default>(path: PathBuf) -> Result<T> {
+    match tokio::fs::read(path).await {
+        Ok(bytes) => {
+            serde_json::from_slice(&bytes).map_err(|e| StorageError::Serialization(e.to_string()))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(T::default()),
+        Err(e) => Err(e.into()),
+    }
+}
+async fn write_json<T: Serialize>(path: PathBuf, value: &T) -> Result<()> {
+    let bytes =
+        serde_json::to_vec(value).map_err(|e| StorageError::Serialization(e.to_string()))?;
+    atomic_write(path, &bytes).await
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -311,24 +375,5 @@ mod tests {
         store.save_ledger(&id, &mut doc).await.unwrap();
         let loaded = store.load_ledger(&id).await.unwrap().unwrap();
         assert_eq!(loaded.get_ledger().unwrap().name, "Test");
-    }
-
-    #[tokio::test]
-    async fn test_device_meta_round_trip() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = FsStore::open(dir.path().to_path_buf()).unwrap();
-        assert!(
-            store
-                .load_device_meta("device_key.bin")
-                .await
-                .unwrap()
-                .is_none()
-        );
-        store
-            .save_device_meta("device_key.bin", b"secret")
-            .await
-            .unwrap();
-        let loaded = store.load_device_meta("device_key.bin").await.unwrap();
-        assert_eq!(loaded.as_deref(), Some(b"secret".as_ref()));
     }
 }

@@ -161,6 +161,9 @@ impl From<ServiceEvent> for FfiServiceEvent {
     fn from(e: ServiceEvent) -> Self {
         match e {
             ServiceEvent::LedgerUpdated { ledger_id } => Self::LedgerUpdated { ledger_id },
+            ServiceEvent::DeviceIdentityInitialized
+            | ServiceEvent::DeviceLabelsUpdated
+            | ServiceEvent::PendingInvitationsUpdated => Self::ResyncNeeded,
             ServiceEvent::PeerConnected { ledger_id, peer } => {
                 Self::PeerConnected { ledger_id, peer }
             }

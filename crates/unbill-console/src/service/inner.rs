@@ -13,7 +13,7 @@ use garde::validate::Validate as _;
 
 use crate::model::{
     BillId, Currency, Device, EffectiveBills, LedgerId, LedgerMeta, NewBill, NewDevice, NewLedger,
-    NewUser, NewUserName, NodeId, StorageError, Timestamp, User, UserId,
+    NewUser, NewUserName, NodeId, Timestamp, User, UserId,
 };
 
 use crate::settlement;
@@ -273,32 +273,20 @@ impl UnbillConsole {
     }
 
     pub async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
-        match self.channel.load_device_meta("device_labels.json").await? {
-            None => Ok(HashMap::new()),
-            Some(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
-                UnbillError::Storage(StorageError::Serialization(format!(
-                    "device_labels.json: {e}"
-                )))
-            }),
-        }
+        self.channel.list_device_labels().await
     }
 
     pub async fn set_device_label(&self, node_id: NodeId, label: String) -> Result<()> {
-        let mut labels = self.list_device_labels().await?;
-        let key = node_id.to_string();
         let trimmed = label.trim();
-        if trimmed.is_empty() {
-            labels.remove(&key);
-        } else {
-            labels.insert(key, trimmed.to_owned());
-        }
-        let bytes = serde_json::to_vec(&labels).map_err(|e| {
-            UnbillError::Storage(StorageError::Serialization(format!(
-                "serialize device_labels: {e}"
-            )))
-        })?;
         self.channel
-            .save_device_meta("device_labels.json", bytes)
+            .set_device_label(
+                &node_id,
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_owned())
+                },
+            )
             .await
     }
     // sirno:witness:users-and-devices:end
@@ -379,14 +367,6 @@ impl UnbillConsole {
     // sirno:witness:asymmetric-channel:begin
     pub async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
         self.channel.save_ledger_meta(meta).await
-    }
-
-    pub async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>> {
-        self.channel.load_device_meta(key).await
-    }
-
-    pub async fn save_device_meta(&self, key: &str, bytes: Vec<u8>) -> Result<()> {
-        self.channel.save_device_meta(key, bytes).await
     }
 
     /// One round of Automerge sync — device side. Used by the HTTP server.
@@ -568,12 +548,16 @@ mod tests {
         async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
             Ok(self.store.save_ledger_meta(meta).await?)
         }
-        async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>> {
-            Ok(self.store.load_device_meta(key).await?)
+        async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
+            Ok(self.store.list_device_labels().await?)
         }
-        async fn save_device_meta(&self, key: &str, bytes: Vec<u8>) -> Result<()> {
-            Ok(self.store.save_device_meta(key, &bytes).await?)
+        async fn set_device_label(&self, node_id: &NodeId, label: Option<String>) -> Result<()> {
+            Ok(self
+                .store
+                .set_device_label(node_id, label.as_deref())
+                .await?)
         }
+
         fn subscribe_to_server(&self) -> broadcast::Receiver<AsymChannelEvent> {
             self.events.subscribe()
         }
