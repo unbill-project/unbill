@@ -17,7 +17,7 @@ thiserror.workspace = true
 automerge.workspace = true
 autosurgeon.workspace = true
 ulid.workspace = true
-iso_currency.workspace = true
+iso_currency = { workspace = true, features = ["iterator"] }
 rand.workspace = true
 serde.workspace = true
 web-time = "1"

@@ -25,10 +25,22 @@ use unbill_store_fs::FsStore;
 
 uniffi::setup_scaffolding!();
 
+/// Complete currency catalog for frontend pickers, sorted by ISO code.
+#[uniffi::export]
+pub fn supported_currency_codes() -> Vec<String> {
+    let mut codes: Vec<_> = Currency::all()
+        .map(|currency| currency.code().to_owned())
+        .collect();
+    codes.sort_unstable();
+    codes
+}
+
 // ---------- Errors ----------
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum FfiError {
+    #[error("data directory is already in use: {path}")]
+    DataDirectoryInUse { path: String },
     #[error("{0}")]
     Message(String),
 }
@@ -212,7 +224,13 @@ impl FfiConsole {
             .build()
             .map_err(err)?;
         let inner = rt.block_on(async {
-            let store = Arc::new(FsStore::open(PathBuf::from(dir)).map_err(err)?);
+            let store = Arc::new(FsStore::open(PathBuf::from(&dir)).map_err(|error| {
+                if error.kind() == std::io::ErrorKind::WouldBlock {
+                    FfiError::DataDirectoryInUse { path: dir.clone() }
+                } else {
+                    err(error)
+                }
+            })?);
             let channel = LocalAsymChannel::open(store).await.map_err(err)?;
             // Start the P2P accept loop so peers can connect (join + sync).
             let accept = Arc::clone(&channel);

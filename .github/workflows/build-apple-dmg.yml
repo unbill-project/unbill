@@ -1,0 +1,88 @@
+name: Build Apple DMG
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-dmg-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+# sirno:witness:unbill-apple:begin
+jobs:
+  dmg:
+    name: Swift Mac Catalyst (Apple Silicon)
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios-macabi
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: apple-dmg-macos-15-arm64
+
+      - name: Prepare Xcode tools
+        run: |
+          echo "DEVELOPER_DIR_OVERRIDE=$(xcode-select -p)" >> "$GITHUB_ENV"
+          xcodebuild -version
+          brew install xcodegen
+
+      - name: Build Rust core and Swift bindings
+        run: ./apps/unbill-apple/build-rust.sh --catalyst-only
+
+      - name: Build Release app
+        working-directory: apps/unbill-apple
+        run: |
+          ./xcbuild.sh xcodegen generate
+          APP_VERSION="$(python3 -c 'import tomllib; print(tomllib.load(open("../../Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
+          ./xcbuild.sh xcodebuild \
+            -project unbill.xcodeproj \
+            -scheme unbill \
+            -configuration Release \
+            -destination 'platform=macOS,variant=Mac Catalyst,arch=arm64' \
+            -derivedDataPath build/dmg \
+            CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64 \
+            MARKETING_VERSION="$APP_VERSION" \
+            build
+
+      - name: Package DMG
+        working-directory: apps/unbill-apple
+        run: |
+          DMG_STAGE="$(mktemp -d)"
+          ditto build/dmg/Build/Products/Release-maccatalyst/unbill.app "$DMG_STAGE/Unbill.app"
+          # Local testing only; public distribution needs Developer ID signing and notarization.
+          codesign --force --deep --sign - "$DMG_STAGE/Unbill.app"
+          codesign --verify --deep --strict "$DMG_STAGE/Unbill.app"
+          ln -s /Applications "$DMG_STAGE/Applications"
+          hdiutil create \
+            -volname Unbill \
+            -srcfolder "$DMG_STAGE" \
+            -format UDZO \
+            -ov \
+            build/unbill-macos-aarch64.dmg
+          hdiutil verify build/unbill-macos-aarch64.dmg
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-apple-macos-aarch64
+          path: apps/unbill-apple/build/unbill-macos-aarch64.dmg
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+# sirno:witness:unbill-apple:end

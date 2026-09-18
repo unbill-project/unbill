@@ -20,8 +20,8 @@ pub struct FsStore {
     root: PathBuf,
     /// Holds `<root>/unbill.lock` open with an exclusive advisory lock for
     /// the lifetime of this store, preventing two processes from sharing the
-    /// same data directory simultaneously.  Skipped on mobile where `flock`
-    /// is unsupported and only one process accesses the store.
+    /// same data directory simultaneously, including on Mac Catalyst.
+    /// Skipped on Android and non-Catalyst iOS.
     _lock: Option<std::fs::File>,
     events: broadcast::Sender<ServiceEvent>,
 }
@@ -29,12 +29,14 @@ pub struct FsStore {
 impl FsStore {
     /// Open the store at `root`, creating the directory if needed.
     ///
-    /// On desktop, returns `Err` if another process already holds the
-    /// directory lock.  On mobile, the lock is skipped because `flock` is
-    /// not reliably supported on Android/iOS filesystems.
+    /// On desktop (including Mac Catalyst), returns `Err` if another process
+    /// already holds the directory lock. Android and non-Catalyst iOS skip it.
     pub fn open(root: PathBuf) -> std::io::Result<Self> {
         std::fs::create_dir_all(&root)?;
-        let lock = if cfg!(any(target_os = "android", target_os = "ios")) {
+        let lock = if cfg!(any(
+            target_os = "android",
+            all(target_os = "ios", not(target_abi = "macabi"))
+        )) {
             None
         } else {
             let lock_file = std::fs::OpenOptions::new()
@@ -42,11 +44,12 @@ impl FsStore {
                 .create(true)
                 .truncate(false)
                 .open(root.join("unbill.lock"))?;
-            lock_file.try_lock().map_err(|e| {
-                std::io::Error::new(
+            lock_file.try_lock().map_err(|e| match e {
+                std::fs::TryLockError::WouldBlock => std::io::Error::new(
                     std::io::ErrorKind::WouldBlock,
-                    format!("failed to acquire lock on {}: {e}", root.display()),
-                )
+                    format!("data directory is already in use: {}", root.display()),
+                ),
+                std::fs::TryLockError::Error(error) => error,
             })?;
             Some(lock_file)
         };
@@ -275,9 +278,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let _first = FsStore::open(dir.path().to_path_buf()).unwrap();
         let second = FsStore::open(dir.path().to_path_buf());
+        assert_eq!(
+            second.err().expect("second open must fail").kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+        drop(_first);
         assert!(
-            second.is_err(),
-            "expected second open to fail while first holds the lock"
+            FsStore::open(dir.path().to_path_buf()).is_ok(),
+            "dropping the owner must release the lock"
         );
     }
 

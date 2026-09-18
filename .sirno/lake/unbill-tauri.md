@@ -1,9 +1,6 @@
 ---
 core.desc: The desktop shell bridge and Tauri host for the native frontend.
 core.name: Unbill Tauri
-meta:
-  frozen:
-    - reviewed
 core.category:
   - core.concept
 core.belongs:
@@ -14,7 +11,8 @@ core.refines:
 ---
 
 `unbill-tauri` wires the desktop shell to `UnbillConsole`
-and hosts the default desktop frontend.
+and hosts the Leptos desktop frontend.
+Release bundles use this shell on Linux and Windows; macOS releases use the Swift Catalyst app.
 It exposes async commands and frontend-ready DTOs.
 It does not add business logic.
 

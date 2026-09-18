@@ -4,6 +4,7 @@
 # targets added in devenv.nix). Spike scope: iOS Simulator + Mac Catalyst.
 #
 #   devenv shell -- ./apps/unbill-apple/build-rust.sh
+#   ./apps/unbill-apple/build-rust.sh --catalyst-only
 #
 # Outputs (all git-ignored — regenerate with this script):
 #   Generated/UnbillCore.xcframework   static libs + headers, per slice
@@ -19,6 +20,12 @@ PROFILE="release"
 
 # Real device (iphoneos), Apple-Silicon simulator, and Mac Catalyst.
 TARGETS=(aarch64-apple-ios aarch64-apple-ios-sim aarch64-apple-ios-macabi)
+if [[ $# -eq 1 && "$1" == "--catalyst-only" ]]; then
+  TARGETS=(aarch64-apple-ios-macabi)
+elif [[ $# -ne 0 ]]; then
+  echo "Usage: $0 [--catalyst-only]" >&2
+  exit 2
+fi
 
 # The core pulls C crypto (Iroh) via unbill-device, forcing two toolchains that
 # don't mix in one cargo process: Nix cc for HOST proc-macros/build-scripts (they
@@ -68,7 +75,7 @@ unset SDKROOT
 
 echo "==> Generating Swift bindings"
 rm -rf "$OUT"; mkdir -p "$OUT/headers" "$SWIFT_OUT"
-cargo run -q -p unbill-ffi --bin uniffi-bindgen -- generate \
+"$ROOT/target/$PROFILE/uniffi-bindgen" generate \
   --library "$ROOT/target/${TARGETS[0]}/$PROFILE/$LIB" \
   --language swift --out-dir "$OUT"
 

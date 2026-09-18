@@ -1,3 +1,4 @@
+#if !targetEnvironment(macCatalyst)
 import SwiftUI
 import VisionKit
 
@@ -49,3 +50,4 @@ struct QRScannerView: UIViewControllerRepresentable {
         }
     }
 }
+#endif

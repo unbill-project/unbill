@@ -7,7 +7,9 @@ struct JoinLedgerView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var url = ""
+    #if !targetEnvironment(macCatalyst)
     @State private var isScanning = false
+    #endif
     @State private var isJoining = false
     @State private var error: String?
 
@@ -18,6 +20,7 @@ struct JoinLedgerView: View {
     var body: some View {
         NavigationStack {
             Form {
+                #if !targetEnvironment(macCatalyst)
                 Section {
                     if QRScannerView.isAvailable {
                         Button {
@@ -27,14 +30,25 @@ struct JoinLedgerView: View {
                         }
                     }
                 } footer: {
-                    Text("Scan the QR code from the other device, or paste the invitation link below.")
+                    if QRScannerView.isAvailable {
+                        Text("Scan the QR code from the other device, or paste the invitation link below.")
+                    } else {
+                        Text("Paste the invitation link from the other device below.")
+                    }
                 }
+                #endif
 
-                Section("Invitation Link") {
+                Section {
                     TextField("unbill://join/…", text: $url, axis: .vertical)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .lineLimit(1...4)
+                } header: {
+                    Text("Invitation Link")
+                } footer: {
+                    #if targetEnvironment(macCatalyst)
+                    Text("Paste the invitation link from the other device to join its ledger.")
+                    #endif
                 }
 
                 if isJoining {
@@ -54,6 +68,7 @@ struct JoinLedgerView: View {
                         .disabled(trimmedURL.isEmpty || isJoining)
                 }
             }
+            #if !targetEnvironment(macCatalyst)
             .sheet(isPresented: $isScanning) {
                 NavigationStack {
                     QRScannerView { scanned in
@@ -70,6 +85,7 @@ struct JoinLedgerView: View {
                     }
                 }
             }
+            #endif
         }
     }
 

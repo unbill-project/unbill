@@ -18,6 +18,9 @@ input structs (`NewBill`, `NewUser`, `NewUserName`, `NewDevice`, `NewLedger`),
 `LedgerMeta` for lightweight ledger summaries without Automerge bytes,
 and error enums.
 
+`Currency::all` enumerates the complete currency catalog accepted by `Currency::from_code`,
+using the same underlying ISO currency definitions.
+
 `LedgerDoc` wraps an Automerge document and provides typed read and write operations
 such as `add_bill`, `add_user`, `add_device`, `merge`, and sync helpers.
 
