@@ -236,6 +236,14 @@ fingerprint = "sha256:cc2b981abfd6ce0479bb5585ee707ded4cfdd9420298ffb68366112794
 "core.belongs" = ["unbill"]
 "core.refines" = ["data-model"]
 
+[entries.sqlite-store]
+fingerprint = "sha256:fd3b9f8105038fd8f6f75e17cf62f8aa0bc4ca225752a1dbf8ec4df12b2f6254"
+"core.belongs" = [
+    "storage",
+    "workspace-layout",
+]
+"core.refines" = ["unbill-storage"]
+
 [entries.storage]
 fingerprint = "sha256:1dfd7369669ff52399d18573e38fe7339abbd1db2363d0558c34794ee1169b89"
 "core.belongs" = ["unbill"]
@@ -367,5 +375,5 @@ fingerprint = "sha256:136a007a33b72c96f06aac861d51b6b8bbc7f9c5425af11de773d050d3
 "core.refines" = ["data-model"]
 
 [entries.workspace-layout]
-fingerprint = "sha256:bfa19bff7b092be68080415fc29fbfd6f3aabd0effdddb5d67e4305d32302ab2"
+fingerprint = "sha256:656756d512b3a61370dc52eb077de6c74f46d57a7380a987834b12138088499d"
 "core.belongs" = ["unbill"]

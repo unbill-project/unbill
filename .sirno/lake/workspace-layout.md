@@ -14,7 +14,7 @@ and applications stay thin around those crates.
 Core crates:
 `unbill-model` holds domain data types,
 `unbill-storage` owns Automerge document and store traits,
-`unbill-store-fs` and `unbill-store-memory` provide store backends,
+`unbill-store-fs`, `unbill-store-sqlite`, and `unbill-store-memory` provide store backends,
 and `unbill-event` carries runtime notifications.
 
 Channel crates:
