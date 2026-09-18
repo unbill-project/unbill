@@ -115,6 +115,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            binaryen \
             libwebkit2gtk-4.1-dev \
             libssl-dev \
             libgtk-3-dev \
@@ -207,6 +208,8 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install NDK and SDK components
         run: sdkmanager "ndk;26.1.10909125" "build-tools;35.0.0" "platforms;android-36"
@@ -251,50 +254,6 @@ jobs:
         with:
           name: binaries-tauri-android
           path: unbill-android*
-
-  build-ios:
-    name: Build iOS (unsigned)
-    runs-on: macos-latest
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown,aarch64-apple-ios
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ios
-
-      - name: Install binaryen (wasm-opt)
-        run: brew install binaryen
-
-      - name: Install Trunk
-        uses: jetli/trunk-action@v0.5.0
-        with:
-          version: latest
-
-      - name: Install tauri-cli
-        run: cargo install tauri-cli --locked
-
-      - name: Initialize iOS project
-        run: cargo tauri ios init
-        working-directory: crates/unbill-tauri
-
-      - name: Build IPA (unsigned)
-        run: cargo tauri ios build --target aarch64 --no-sign
-        working-directory: crates/unbill-tauri
-
-      - name: Stage IPA
-        run: find crates/unbill-tauri/gen/apple -name "*.ipa" | head -1 | xargs -I{} cp {} unbill-ios.ipa
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: binaries-tauri-ios
-          path: unbill-ios.ipa
 
   build-nix:
     name: Build Nix packages & push to Cachix (${{ matrix.os }})

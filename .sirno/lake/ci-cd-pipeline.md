@@ -99,7 +99,7 @@ containing the version, download URL, and signature
 for the `windows-x86_64` platform.
 `latest.json` is uploaded alongside the platform artifacts.
 
-Mobile build jobs also live in `build.yml`.
+The Android build job also lives in `build.yml`.
 The Android job installs Java,
 the Android SDK,
 the NDK,
@@ -107,11 +107,9 @@ Rust Android targets,
 Trunk,
 and Tauri CLI,
 then initializes the Android project and uploads APK and AAB artifacts.
-The iOS job installs the Rust iOS target,
-Binaryen,
-Trunk,
-and Tauri CLI,
-then initializes the iOS project and uploads an unsigned IPA.
+SDK setup requests only `platform-tools`; the obsolete `tools` package is excluded.
+A separate step installs the pinned NDK, build tools, and Android platform.
+CI does not build the Tauri iOS app or publish an IPA.
 
 The Nix job builds all flake packages (`unbill-cli`, `unbill-tui`, `unbill-daemon`, `unbill-tauri`)
 and pushes them to the `unbill` Cachix binary cache.
