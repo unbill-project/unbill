@@ -11,7 +11,8 @@ core.refines:
 ---
 
 `unbill-store-fs` provides `FsStore`,
-the default `LedgerStore` for desktop and server deployments.
+the flat-file `LedgerStore` used by Apple, mobile Tauri, and HTTP server hosts.
+The local daemon uses SQLite.
 It is a newtype around a root path and maps store operations to `tokio::fs`.
 
 The root contains a `ledgers` directory,

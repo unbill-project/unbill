@@ -8319,6 +8319,7 @@ dependencies = [
  "unbill-asymmetric-channel",
  "unbill-device",
  "unbill-store-fs",
+ "unbill-store-sqlite",
 ]
 
 [[package]]

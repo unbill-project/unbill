@@ -12,8 +12,9 @@ core.refines:
 `unbill-daemon` is the background process that owns local device state.
 It exposes that state to other processes on the same machine.
 
-The daemon holds the exclusive `FsStore` file lock for the data directory,
-preventing concurrent writes from corrupting data.
+The daemon opens `SqliteStore` at `unbill.sqlite3` in the configured data directory,
+using SQLite transactions and database locks without acquiring `unbill.lock`.
+Existing flat-file data is left untouched and is not automatically imported.
 It runs the Iroh endpoint accept loop for peer sync and join requests.
 It serves the local RPC socket so CLI, TUI, and other local clients can issue commands
 without touching storage directly.
@@ -26,7 +27,7 @@ All other daemon output goes to stderr.
 The daemon runs until killed or until a fatal network or storage error occurs.
 
 Implementation is contained in `main.rs`.
-It opens `FsStore`,
+It opens `SqliteStore`,
 opens `LocalAsymChannel` over the store,
 and runs channel accept loop, RPC serving,
 and periodic peer sync concurrently in a `select!`.

@@ -135,7 +135,7 @@ fingerprint = "sha256:bf3596ec9f2e88ebad9c885dddd4d6669ee15ba6b7dc613965898bc35f
 "core.belongs" = ["unbill"]
 
 [entries.fs-store]
-fingerprint = "sha256:35168e3c1f4e72344ad1ccc0a6356a9095f5d2b9272c6d748b828107c90f3aca"
+fingerprint = "sha256:ee80484ad4f8105314f96bb2f23d5eb31c0c7353104dff559eebe6aebe8bf9b8"
 "core.belongs" = [
     "storage",
     "workspace-layout",
@@ -237,7 +237,7 @@ fingerprint = "sha256:54d53cf83ddacaa1c4198ee9ca1ab4dc98332517016cc4196aad998dc9
 "core.refines" = ["data-model"]
 
 [entries.sqlite-store]
-fingerprint = "sha256:15b4bdde611de4c890af945718ec30648d085e1ae5d68ea93dabfcc6cf3bee0f"
+fingerprint = "sha256:684044a0e5952a966838979d05a30a3ce241f5358f640f799e201bd9e3e475a2"
 "core.belongs" = [
     "storage",
     "workspace-layout",
@@ -284,7 +284,7 @@ fingerprint = "sha256:4d1a27731cdac12f43d2d2d3941384ff58987fe963a696056f209b8c4c
 fingerprint = "sha256:4e55d4de86988da589d6b17d66d2e4c85e16b56d58a84ef34b76588b24a37c34"
 
 [entries.unbill-apple]
-fingerprint = "sha256:65e5e0d9df00807d69758205e42d45cce5ce74be4e5048129c920caac603f773"
+fingerprint = "sha256:09d38da44e8449e62a4dfe5378b55ee58d1e8b6121502dcfa4c82b35ee025ece"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -302,7 +302,7 @@ fingerprint = "sha256:e575392bf1f985083c46aa265dd4ba4e22df07337579d3cc30921ab83d
 "core.refines" = ["device-console-split"]
 
 [entries.unbill-daemon]
-fingerprint = "sha256:fa62b889cd8f285566a323bcb9047ed019aae3215b736cc6e6557d6b9bee238f"
+fingerprint = "sha256:e40ef58e3255943b76b9c7f0d3777401a6eebf80dda827baa3833ef934f30231"
 "core.belongs" = ["applications"]
 "core.refines" = ["deployment-topologies"]
 
