@@ -25,7 +25,7 @@ invitation creation,
 ledger join,
 peer sync triggers,
 device ID,
-device metadata blobs,
+device labels,
 and server-sent events.
 
 The ledger sync endpoint accepts binary Automerge sync message bytes.
@@ -38,12 +38,7 @@ The server subscribes to device events and forwards ledger updates as JSON data 
 The stream has no terminal event.
 Clients reconnect when it drops.
 
-Device metadata key names may contain only ASCII letters,
-digits,
-hyphens,
-underscores,
-and dots.
-Invalid keys are rejected before touching the store.
+Device labels use dedicated typed endpoints; generic device metadata access is not exposed.
 
 Configuration comes from environment variables.
 `API_KEY` is required.
@@ -67,7 +62,7 @@ and starts Axum.
 `router.rs` owns routes,
 handlers,
 auth middleware,
-device key validation,
+device label operations,
 and SSE streaming.
 `lib.rs` exports router construction so tests can call it without TCP.
 

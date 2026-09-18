@@ -77,8 +77,12 @@ pub trait AsymChannelService {
     ) -> std::result::Result<Option<Vec<u8>>, String>;
     async fn list_ledgers() -> std::result::Result<Vec<WireLedgerMeta>, String>;
     async fn save_ledger_meta(meta: WireLedgerMeta) -> std::result::Result<(), String>;
-    async fn load_device_meta(key: String) -> std::result::Result<Option<Vec<u8>>, String>;
-    async fn save_device_meta(key: String, bytes: Vec<u8>) -> std::result::Result<(), String>;
+    async fn list_device_labels()
+    -> std::result::Result<std::collections::HashMap<String, String>, String>;
+    async fn set_device_label(
+        node_id: NodeId,
+        label: Option<String>,
+    ) -> std::result::Result<(), String>;
     /// Poll and drain pending device events for this connection.
     async fn poll_events() -> Vec<WireEvent>;
 }
@@ -204,25 +208,23 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
             .map_err(|e| e.to_string())
     }
 
-    async fn load_device_meta(
+    async fn list_device_labels(
         self,
         _ctx: tarpc::context::Context,
-        key: String,
-    ) -> std::result::Result<Option<Vec<u8>>, String> {
+    ) -> std::result::Result<std::collections::HashMap<String, String>, String> {
         self.channel
-            .load_device_meta(&key)
+            .list_device_labels()
             .await
             .map_err(|e| e.to_string())
     }
-
-    async fn save_device_meta(
+    async fn set_device_label(
         self,
         _ctx: tarpc::context::Context,
-        key: String,
-        bytes: Vec<u8>,
+        node_id: NodeId,
+        label: Option<String>,
     ) -> std::result::Result<(), String> {
         self.channel
-            .save_device_meta(&key, bytes)
+            .set_device_label(&node_id, label)
             .await
             .map_err(|e| e.to_string())
     }
@@ -417,17 +419,16 @@ impl AsymChannel for RpcAsymChannel {
             .map_err(UnbillError::Network)
     }
 
-    async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>> {
+    async fn list_device_labels(&self) -> Result<std::collections::HashMap<String, String>> {
         self.client
-            .load_device_meta(tarpc::context::current(), key.to_owned())
+            .list_device_labels(tarpc::context::current())
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?
             .map_err(UnbillError::Network)
     }
-
-    async fn save_device_meta(&self, key: &str, bytes: Vec<u8>) -> Result<()> {
+    async fn set_device_label(&self, node_id: &NodeId, label: Option<String>) -> Result<()> {
         self.client
-            .save_device_meta(tarpc::context::current(), key.to_owned(), bytes)
+            .set_device_label(tarpc::context::current(), node_id.clone(), label)
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?
             .map_err(UnbillError::Network)

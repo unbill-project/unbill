@@ -7,7 +7,8 @@ use diesel::prelude::*;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use meta::MetaJson;
 use rand::TryRng as _;
-use schema::{device_metadata, ledgers};
+use schema::{device_identity, device_labels, ledgers, pending_invitations};
+use std::collections::HashMap;
 use std::{
     fs::File,
     path::PathBuf,
@@ -15,11 +16,11 @@ use std::{
 };
 use tokio::sync::broadcast;
 use unbill_event::ServiceEvent;
+use unbill_model::{Invitation, LedgerId, Timestamp};
 use unbill_model::{LedgerDoc, LedgerMeta, NodeId, SecretKey, StorageError};
 use unbill_storage::{LedgerStore, StorageResult as Result};
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
-const SECRET_KEY: &str = "device_key.bin";
 
 fn io_error(error: impl std::fmt::Display) -> StorageError {
     std::io::Error::other(error.to_string()).into()
@@ -173,50 +174,95 @@ impl LedgerStore for SqliteStore {
         self.events.subscribe()
     }
 
-    async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>> {
-        let key = key.to_owned();
-        self.run(move |conn| {
-            device_metadata::table
-                .find(key)
-                .select(device_metadata::value)
-                .first(conn)
-                .optional()
+    async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
+        self.run(|conn| {
+            device_labels::table
+                .load::<(String, String)>(conn)
+                .map(|rows| rows.into_iter().collect())
                 .map_err(io_error)
         })
         .await
     }
-
-    async fn save_device_meta(&self, key: &str, value: &[u8]) -> Result<()> {
-        let key = key.to_owned();
-        let value = value.to_owned();
+    async fn set_device_label(&self, node_id: &NodeId, label: Option<&str>) -> Result<()> {
+        let node = node_id.to_string();
+        let label = label.map(str::to_owned);
         self.run(move |conn| {
-            diesel::insert_into(device_metadata::table)
-                .values((
-                    device_metadata::key.eq(key),
-                    device_metadata::value.eq(&value),
-                ))
-                .on_conflict(device_metadata::key)
+            if let Some(label) = label {
+                diesel::insert_into(device_labels::table)
+                    .values((
+                        device_labels::node_id.eq(node),
+                        device_labels::label.eq(&label),
+                    ))
+                    .on_conflict(device_labels::node_id)
+                    .do_update()
+                    .set(device_labels::label.eq(&label))
+                    .execute(conn)
+                    .map_err(io_error)?;
+            } else {
+                diesel::delete(device_labels::table.find(node))
+                    .execute(conn)
+                    .map_err(io_error)?;
+            }
+            Ok(())
+        })
+        .await
+    }
+    async fn list_pending_invitations(&self) -> Result<Vec<Invitation>> {
+        self.run(|conn| {
+            pending_invitations::table
+                .load::<InvitationRow>(conn)
+                .map_err(io_error)?
+                .into_iter()
+                .map(InvitationRow::into_invitation)
+                .collect()
+        })
+        .await
+    }
+    async fn save_invitation(&self, invitation: &Invitation) -> Result<()> {
+        let row = InvitationRow::from(invitation);
+        self.run(move |conn| {
+            diesel::insert_into(pending_invitations::table)
+                .values(&row)
+                .on_conflict(pending_invitations::token)
                 .do_update()
-                .set(device_metadata::value.eq(&value))
+                .set(&row)
                 .execute(conn)
                 .map_err(io_error)?;
             Ok(())
         })
         .await
     }
-
+    async fn consume_invitation(&self, token: &str) -> Result<Option<Invitation>> {
+        let token = token.to_owned();
+        self.run(move |conn| {
+            conn.immediate_transaction::<_, diesel::result::Error, _>(|conn| {
+                let row = pending_invitations::table
+                    .find(&token)
+                    .first::<InvitationRow>(conn)
+                    .optional()?;
+                let invitation = row
+                    .map(InvitationRow::into_invitation)
+                    .transpose()
+                    .map_err(|e| diesel::result::Error::DeserializationError(Box::new(e)))?;
+                diesel::delete(pending_invitations::table.find(&token)).execute(conn)?;
+                Ok(invitation)
+            })
+            .map_err(io_error)
+        })
+        .await
+    }
     async fn create_secret_key(&self) -> Result<()> {
         self.run(|conn| {
             let mut bytes = [0u8; 32];
             rand::rngs::SysRng
                 .try_fill_bytes(&mut bytes)
                 .map_err(io_error)?;
-            diesel::insert_into(device_metadata::table)
+            diesel::insert_into(device_identity::table)
                 .values((
-                    device_metadata::key.eq(SECRET_KEY),
-                    device_metadata::value.eq(bytes.as_slice()),
+                    device_identity::id.eq(1),
+                    device_identity::secret_key.eq(bytes.as_slice()),
                 ))
-                .on_conflict(device_metadata::key)
+                .on_conflict(device_identity::id)
                 .do_nothing()
                 .execute(conn)
                 .map_err(io_error)?;
@@ -224,9 +270,13 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
-
     async fn is_device_initialized(&self) -> Result<bool> {
-        Ok(self.load_device_meta(SECRET_KEY).await?.is_some())
+        self.run(|conn| {
+            diesel::select(diesel::dsl::exists(device_identity::table.find(1)))
+                .get_result(conn)
+                .map_err(io_error)
+        })
+        .await
     }
 
     async fn get_device_id(&self) -> Result<NodeId> {
@@ -240,7 +290,14 @@ impl LedgerStore for SqliteStore {
 
     async fn get_secret_key(&self) -> Result<SecretKey> {
         let bytes = self
-            .load_device_meta(SECRET_KEY)
+            .run(|conn| {
+                device_identity::table
+                    .find(1)
+                    .select(device_identity::secret_key)
+                    .first::<Vec<u8>>(conn)
+                    .optional()
+                    .map_err(io_error)
+            })
             .await?
             .ok_or_else(|| serialization("device not initialized"))?;
         let bytes: [u8; 32] = bytes
@@ -250,3 +307,35 @@ impl LedgerStore for SqliteStore {
     }
 }
 // sirno:witness:sqlite-store:end
+
+#[derive(Queryable, Insertable, AsChangeset)]
+#[diesel(table_name = pending_invitations)]
+struct InvitationRow {
+    token: String,
+    ledger_id: String,
+    created_by_device: String,
+    created_at_ms: i64,
+    expires_at_ms: i64,
+}
+impl From<&Invitation> for InvitationRow {
+    fn from(inv: &Invitation) -> Self {
+        Self {
+            token: inv.token.to_string(),
+            ledger_id: inv.ledger_id.to_string(),
+            created_by_device: inv.created_by_device.to_string(),
+            created_at_ms: inv.created_at.as_millis(),
+            expires_at_ms: inv.expires_at.as_millis(),
+        }
+    }
+}
+impl InvitationRow {
+    fn into_invitation(self) -> Result<Invitation> {
+        Ok(Invitation {
+            token: self.token.parse().map_err(serialization)?,
+            ledger_id: LedgerId::from_string(&self.ledger_id).map_err(serialization)?,
+            created_by_device: NodeId::new(self.created_by_device),
+            created_at: Timestamp::from_millis(self.created_at_ms),
+            expires_at: Timestamp::from_millis(self.expires_at_ms),
+        })
+    }
+}

@@ -8,8 +8,8 @@ use rand::TryRng as _;
 use tokio::sync::broadcast;
 use unbill_event::ServiceEvent;
 
-use unbill_model::LedgerDoc;
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
+use unbill_model::{Invitation, LedgerDoc};
 use unbill_storage::{LedgerStore, StorageResult as Result};
 
 // sirno:witness:memory-store:begin
@@ -31,7 +31,9 @@ impl Default for InMemoryStore {
 #[derive(Default)]
 struct Inner {
     ledgers: HashMap<String, StoredLedger>,
-    device_meta: HashMap<String, Vec<u8>>,
+    labels: HashMap<String, String>,
+    invitations: HashMap<String, Invitation>,
+    secret: Option<[u8; 32]>,
 }
 
 struct StoredLedger {
@@ -100,53 +102,69 @@ impl LedgerStore for InMemoryStore {
         self.events.subscribe()
     }
 
-    async fn load_device_meta(&self, key: &str) -> Result<Option<Vec<u8>>> {
-        let inner = self.inner.lock().unwrap();
-        Ok(inner.device_meta.get(key).cloned())
+    async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
+        Ok(self.inner.lock().unwrap().labels.clone())
     }
-
-    async fn save_device_meta(&self, key: &str, value: &[u8]) -> Result<()> {
+    async fn set_device_label(&self, node_id: &NodeId, label: Option<&str>) -> Result<()> {
         let mut inner = self.inner.lock().unwrap();
-        inner.device_meta.insert(key.to_owned(), value.to_vec());
+        match label {
+            Some(label) => {
+                inner.labels.insert(node_id.to_string(), label.to_owned());
+            }
+            None => {
+                inner.labels.remove(&node_id.to_string());
+            }
+        }
         Ok(())
     }
-
+    async fn list_pending_invitations(&self) -> Result<Vec<Invitation>> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap()
+            .invitations
+            .values()
+            .cloned()
+            .collect())
+    }
+    async fn save_invitation(&self, invitation: &Invitation) -> Result<()> {
+        self.inner
+            .lock()
+            .unwrap()
+            .invitations
+            .insert(invitation.token.to_string(), invitation.clone());
+        Ok(())
+    }
+    async fn consume_invitation(&self, token: &str) -> Result<Option<Invitation>> {
+        Ok(self.inner.lock().unwrap().invitations.remove(token))
+    }
     async fn create_secret_key(&self) -> Result<()> {
-        if self.load_device_meta("device_key.bin").await?.is_some() {
-            return Ok(());
+        let mut inner = self.inner.lock().unwrap();
+        if inner.secret.is_none() {
+            let mut bytes = [0; 32];
+            rand::rngs::SysRng
+                .try_fill_bytes(&mut bytes)
+                .map_err(|e| StorageError::Io(std::io::Error::other(e.to_string())))?;
+            inner.secret = Some(bytes);
         }
-        let mut arr = [0u8; 32];
-        rand::rngs::SysRng
-            .try_fill_bytes(&mut arr)
-            .expect("system RNG should generate device keys");
-        self.save_device_meta("device_key.bin", &arr).await
+        Ok(())
     }
-
     async fn is_device_initialized(&self) -> Result<bool> {
-        Ok(self.load_device_meta("device_key.bin").await?.is_some())
+        Ok(self.inner.lock().unwrap().secret.is_some())
     }
-
     async fn get_device_id(&self) -> Result<NodeId> {
-        let bytes = self
-            .load_device_meta("device_key.bin")
-            .await?
-            .ok_or_else(|| StorageError::Serialization("device not initialized".into()))?;
-        let arr: [u8; 32] = bytes
-            .try_into()
-            .map_err(|_| StorageError::Serialization("device_key.bin: wrong length".into()))?;
-        let secret = iroh::SecretKey::from(arr);
-        Ok(NodeId::new(secret.public().to_string()))
+        let key = self.get_secret_key().await?;
+        Ok(NodeId::new(
+            iroh::SecretKey::from(*key.as_bytes()).public().to_string(),
+        ))
     }
-
     async fn get_secret_key(&self) -> Result<SecretKey> {
-        let bytes = self
-            .load_device_meta("device_key.bin")
-            .await?
-            .ok_or_else(|| StorageError::Serialization("device not initialized".into()))?;
-        let arr: [u8; 32] = bytes
-            .try_into()
-            .map_err(|_| StorageError::Serialization("device_key.bin: wrong length".into()))?;
-        Ok(SecretKey::from_bytes(arr))
+        self.inner
+            .lock()
+            .unwrap()
+            .secret
+            .map(SecretKey::from_bytes)
+            .ok_or_else(|| StorageError::Serialization("device not initialized".into()))
     }
 }
 // sirno:witness:memory-store:end

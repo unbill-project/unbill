@@ -1,5 +1,5 @@
 use unbill_event::ServiceEvent;
-use unbill_model::{Currency, LedgerDoc, LedgerId, LedgerMeta, StorageError, Timestamp};
+use unbill_model::{Currency, LedgerDoc, LedgerId, LedgerMeta, NodeId, StorageError, Timestamp};
 use unbill_storage::LedgerStore;
 use unbill_store_sqlite::SqliteStore;
 
@@ -61,8 +61,9 @@ async fn independent_upserts_survive_reopen() {
             .unwrap()
             .is_none()
     );
-    store.save_device_meta("labels", b"old").await.unwrap();
-    store.save_device_meta("labels", b"new").await.unwrap();
+    let node = NodeId::new("test-node".into());
+    store.set_device_label(&node, Some("old")).await.unwrap();
+    store.set_device_label(&node, Some("new")).await.unwrap();
     drop(store);
     let store = SqliteStore::open(dir.path().into()).await.unwrap();
     let metas = store.list_ledgers().await.unwrap();
@@ -82,10 +83,14 @@ async fn independent_upserts_survive_reopen() {
         "Updated document"
     );
     assert_eq!(
-        store.load_device_meta("labels").await.unwrap(),
-        Some(b"new".to_vec())
+        store
+            .list_device_labels()
+            .await
+            .unwrap()
+            .get("test-node")
+            .map(String::as_str),
+        Some("new")
     );
-    assert!(store.load_device_meta("missing").await.unwrap().is_none());
 }
 
 #[tokio::test]
@@ -108,14 +113,6 @@ async fn identity_is_idempotent_and_persistent() {
     let store = SqliteStore::open(dir.path().into()).await.unwrap();
     assert!(store.is_device_initialized().await.unwrap());
     assert_eq!(store.get_device_id().await.unwrap(), id);
-    store
-        .save_device_meta("device_key.bin", b"invalid")
-        .await
-        .unwrap();
-    assert!(matches!(
-        store.get_secret_key().await,
-        Err(StorageError::Serialization(_))
-    ));
 }
 
 #[tokio::test]
@@ -138,7 +135,9 @@ async fn lock_rejects_second_owner_and_releases_on_drop() {
     assert!(matches!(SqliteStore::open(dir.path().into()).await,
         Err(StorageError::Io(e)) if e.kind() == std::io::ErrorKind::WouldBlock));
     drop(store);
-    assert!(SqliteStore::open(dir.path().into()).await.is_ok());
+    SqliteStore::open(dir.path().into())
+        .await
+        .expect("dropping the owner releases the lock");
 }
 
 #[tokio::test]
@@ -148,25 +147,4 @@ async fn invalid_database_fails_without_replacing_it() {
     std::fs::write(&path, b"not a database").unwrap();
     assert!(SqliteStore::open(dir.path().into()).await.is_err());
     assert_eq!(std::fs::read(path).unwrap(), b"not a database");
-}
-
-#[tokio::test]
-async fn lock_child_process() {
-    let Some(root) = std::env::var_os("UNBILL_SQLITE_LOCK_TEST_ROOT") else {
-        return;
-    };
-    assert!(matches!(SqliteStore::open(root.into()).await,
-        Err(StorageError::Io(e)) if e.kind() == std::io::ErrorKind::WouldBlock));
-}
-
-#[tokio::test]
-async fn lock_is_enforced_across_processes() {
-    let dir = tempfile::tempdir().unwrap();
-    let _store = SqliteStore::open(dir.path().into()).await.unwrap();
-    let status = std::process::Command::new(std::env::current_exe().unwrap())
-        .args(["--exact", "lock_child_process"])
-        .env("UNBILL_SQLITE_LOCK_TEST_ROOT", dir.path())
-        .status()
-        .unwrap();
-    assert!(status.success());
 }

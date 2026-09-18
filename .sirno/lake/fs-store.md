@@ -49,6 +49,10 @@ flowchart TB
     Root --> Lock
 ```
 
+Typed label and invitation operations retain the existing JSON files for compatibility.
+A per-store async mutex serializes their read-modify-write operations and identity initialization.
+There is no public arbitrary-file metadata API.
+
 Writes are atomic.
 Data is written to a sibling temporary file and renamed into place.
 

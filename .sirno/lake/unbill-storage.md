@@ -26,7 +26,6 @@ flowchart TB
         Key["Secret key"]
         Labels["Device labels"]
         Pending["Pending invitations"]
-        Blobs["Device metadata blobs"]
     end
 
     Store --> LedgerData
@@ -37,8 +36,10 @@ flowchart TB
 Ledger metadata supports fast listing without hydrating Automerge bytes.
 Device-local storage covers labels,
 pending invitations,
-the secret key,
-and arbitrary key-addressed metadata blobs exposed by the store trait.
+and the secret key.
+Every backend exposes the same typed operations: list labels, set or remove one label,
+save an invitation, list invitations, and atomically consume one invitation.
+There is no arbitrary key/value metadata API or fallback storage.
 
 `save_ledger` takes a mutable document.
 A store may merge remote changes back into that document before returning,
@@ -52,7 +53,6 @@ regardless of whether the write came from a local operation, remote sync, or joi
 
 Modules:
 `store` defines the trait and result alias.
-`device_meta` provides typed JSON helpers over well-known device metadata keys.
 `store_server` provides the MPSC actor (native targets only).
 
 `LedgerDoc` and `ops` live in `unbill-model`,

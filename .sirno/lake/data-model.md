@@ -37,6 +37,6 @@ ledger metadata, users, bills and supersession links, and authorized device IDs.
 Device-local storage holds the device key,
 ledger metadata caches,
 device labels,
-pending invitation tokens,
-and arbitrary device metadata blobs exposed through the store boundary.
+and pending invitation tokens.
+Each kind of record has typed storage operations.
 Runtime UI state and projection caches are not replicated ledger facts.

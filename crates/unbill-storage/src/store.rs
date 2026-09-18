@@ -1,6 +1,8 @@
 use async_trait::async_trait;
+use std::collections::HashMap;
 use tokio::sync::broadcast;
 use unbill_event::ServiceEvent;
+use unbill_model::Invitation;
 
 use unbill_model::{LedgerMeta, NodeId, SecretKey, StorageError};
 
@@ -24,8 +26,13 @@ pub trait LedgerStore: Send + Sync {
     /// authoritative merged state after the call.
     async fn save_ledger(&self, ledger_id: &str, doc: &mut LedgerDoc) -> StorageResult<()>;
 
-    async fn load_device_meta(&self, key: &str) -> StorageResult<Option<Vec<u8>>>;
-    async fn save_device_meta(&self, key: &str, value: &[u8]) -> StorageResult<()>;
+    async fn list_device_labels(&self) -> StorageResult<HashMap<String, String>>;
+    /// Set one label, or remove it when `label` is None.
+    async fn set_device_label(&self, node_id: &NodeId, label: Option<&str>) -> StorageResult<()>;
+    async fn list_pending_invitations(&self) -> StorageResult<Vec<Invitation>>;
+    async fn save_invitation(&self, invitation: &Invitation) -> StorageResult<()>;
+    /// Atomically remove and return an invitation, preventing reuse.
+    async fn consume_invitation(&self, token: &str) -> StorageResult<Option<Invitation>>;
 
     /// Generate a new random secret key and persist it.
     /// Idempotent: no-op if a key already exists.

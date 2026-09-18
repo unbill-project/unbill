@@ -20,10 +20,8 @@ use unbill_model::{
 
 use unbill_model::LedgerDoc;
 
-use crate::{
-    LedgerStore, StorageResult, load_device_labels, load_pending_invitations, save_device_labels,
-    save_pending_invitations,
-};
+use crate::{LedgerStore, StorageResult};
+use std::collections::HashMap;
 
 // sirno:witness:unbill-storage:begin
 enum StoreCommand {
@@ -44,13 +42,12 @@ enum StoreCommand {
         doc: Box<LedgerDoc>,
         reply: oneshot::Sender<StorageResult<LedgerDoc>>,
     },
-    LoadDeviceMeta {
-        key: String,
-        reply: oneshot::Sender<StorageResult<Option<Vec<u8>>>>,
+    ListDeviceLabels {
+        reply: oneshot::Sender<StorageResult<HashMap<String, String>>>,
     },
-    SaveDeviceMeta {
-        key: String,
-        value: Vec<u8>,
+    SetDeviceLabel {
+        node_id: NodeId,
+        label: Option<String>,
         reply: oneshot::Sender<StorageResult<()>>,
     },
     CreateSecretKey {
@@ -156,17 +153,21 @@ impl StoreServer {
                         warn!(ledger_id, "SaveLedger reply dropped (caller cancelled)");
                     }
                 }
-                StoreCommand::LoadDeviceMeta { key, reply } => {
-                    if reply.send(store.load_device_meta(&key).await).is_err() {
-                        warn!(key, "LoadDeviceMeta reply dropped (caller cancelled)");
+                StoreCommand::ListDeviceLabels { reply } => {
+                    if reply.send(store.list_device_labels().await).is_err() {
+                        warn!("ListDeviceLabels reply dropped (caller cancelled)");
                     }
                 }
-                StoreCommand::SaveDeviceMeta { key, value, reply } => {
+                StoreCommand::SetDeviceLabel {
+                    node_id,
+                    label,
+                    reply,
+                } => {
                     if reply
-                        .send(store.save_device_meta(&key, &value).await)
+                        .send(store.set_device_label(&node_id, label.as_deref()).await)
                         .is_err()
                     {
-                        warn!(key, "SaveDeviceMeta reply dropped (caller cancelled)");
+                        warn!("SetDeviceLabel reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::CreateSecretKey { reply } => {
@@ -328,9 +329,7 @@ impl StoreServer {
             created_at: now,
             expires_at: Timestamp::from_millis(now.as_millis() + 24 * 3600 * 1000),
         };
-        let mut map = load_pending_invitations(store).await?;
-        map.insert(token.to_string(), invitation);
-        save_pending_invitations(store, &map).await?;
+        store.save_invitation(&invitation).await?;
         Ok(format!(
             "unbill://join/{}/{}/{}",
             ledger_id, device_id, token
@@ -362,10 +361,7 @@ impl StoreServer {
         store: &dyn LedgerStore,
         token: &str,
     ) -> DeviceResult<Option<Invitation>> {
-        let mut map = load_pending_invitations(store).await?;
-        let inv = map.remove(token);
-        save_pending_invitations(store, &map).await?;
-        Ok(inv)
+        Ok(store.consume_invitation(token).await?)
     }
 
     async fn do_add_device_to_ledger(
@@ -423,9 +419,7 @@ impl StoreServer {
             .save_ledger(&meta.ledger_id.to_string(), &mut doc)
             .await?;
         if let Some(label) = label {
-            let mut labels = load_device_labels(store).await?;
-            labels.insert(host_node_id.to_string(), label);
-            save_device_labels(store, &labels).await?;
+            store.set_device_label(&host_node_id, Some(&label)).await?;
         }
         Ok(())
     }
@@ -488,24 +482,24 @@ impl StoreServer {
         }
     }
 
-    pub async fn load_device_meta(&self, key: &str) -> StorageResult<Option<Vec<u8>>> {
+    pub async fn list_device_labels(&self) -> StorageResult<HashMap<String, String>> {
         let (tx, rx) = oneshot::channel();
         self.tx
-            .send(StoreCommand::LoadDeviceMeta {
-                key: key.to_owned(),
-                reply: tx,
-            })
+            .send(StoreCommand::ListDeviceLabels { reply: tx })
             .await
             .map_err(|_| StorageError::ChannelClosed)?;
         rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
-
-    pub async fn save_device_meta(&self, key: &str, value: &[u8]) -> StorageResult<()> {
+    pub async fn set_device_label(
+        &self,
+        node_id: &NodeId,
+        label: Option<&str>,
+    ) -> StorageResult<()> {
         let (tx, rx) = oneshot::channel();
         self.tx
-            .send(StoreCommand::SaveDeviceMeta {
-                key: key.to_owned(),
-                value: value.to_vec(),
+            .send(StoreCommand::SetDeviceLabel {
+                node_id: node_id.clone(),
+                label: label.map(str::to_owned),
                 reply: tx,
             })
             .await

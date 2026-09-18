@@ -15,8 +15,14 @@ It stores data in `root/unbill.sqlite3` and holds `root/unbill.lock` exclusively
 The lock is shared with FsStore on desktop, so the two backends cannot accidentally operate in the same directory concurrently.
 Existing applications continue using FsStore; selecting SQLite and importing flat-file data are separate work.
 
-Embedded Diesel migrations create two tables: `ledgers(id TEXT PRIMARY KEY NOT NULL, metadata BLOB, document BLOB)` and `device_metadata(key TEXT PRIMARY KEY NOT NULL, value BLOB NOT NULL)`.
-Metadata uses the filesystem backend JSON representation; documents remain whole Automerge snapshots.
+Embedded Diesel migrations create `ledgers`, `device_identity`, `device_labels`, and `pending_invitations`.
+Identity has a single row with a 32-byte secret; labels have one row per node ID;
+invitations have token, ledger ID, issuing node ID, creation time, and expiry columns.
+A migration imports the three previously supported metadata keys and drops the generic table.
+Unknown keys or malformed rows fail the migration transaction rather than discarding data.
+No generic metadata table remains after migration.
+Invitation consumption selects and deletes its row in one transaction.
+Ledger metadata uses the filesystem backend JSON representation; documents remain whole Automerge snapshots.
 Nullable ledger columns allow independent metadata and document saves; each upsert preserves the other column.
 Device identity creation inserts only if absent.
 

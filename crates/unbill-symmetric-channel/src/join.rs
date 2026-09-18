@@ -12,7 +12,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use unbill_model::{LedgerMeta, NewDevice, NodeId, Timestamp, UnbillError};
 
 type Result<T> = std::result::Result<T, UnbillError>;
-use unbill_model::{Invitation, LedgerDoc, StorageError};
+use unbill_model::LedgerDoc;
 use unbill_storage::StoreServer;
 
 use crate::protocol::{JoinError, JoinReply, JoinRequest, JoinResponse, read_msg, write_msg};
@@ -40,27 +40,7 @@ where
     let req: JoinRequest = read_msg(&mut reader).await?;
 
     // Load and consume (remove) the token whether valid or not, to prevent replays.
-    let invitation = {
-        let mut map: std::collections::HashMap<String, Invitation> =
-            match store.load_device_meta("pending_invitations.json").await? {
-                None => std::collections::HashMap::new(),
-                Some(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
-                    UnbillError::Storage(StorageError::Serialization(format!(
-                        "pending_invitations.json: {e}"
-                    )))
-                })?,
-            };
-        let inv = map.remove(&req.token);
-        let bytes = serde_json::to_vec(&map).map_err(|e| {
-            UnbillError::Storage(StorageError::Serialization(format!(
-                "serialize pending_invitations: {e}"
-            )))
-        })?;
-        store
-            .save_device_meta("pending_invitations.json", &bytes)
-            .await?;
-        inv
-    };
+    let invitation = store.consume_invitation(&req.token).await?;
 
     let invitation = match invitation {
         None => {
@@ -165,22 +145,7 @@ where
             store.save_ledger_meta(&meta).await?;
             store.save_ledger(&ledger_id, &mut doc).await?;
             if let Some(label) = local_label {
-                let mut device_labels: std::collections::HashMap<String, String> =
-                    match store.load_device_meta("device_labels.json").await? {
-                        None => std::collections::HashMap::new(),
-                        Some(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
-                            UnbillError::Storage(StorageError::Serialization(format!(
-                                "device_labels.json: {e}"
-                            )))
-                        })?,
-                    };
-                device_labels.insert(host_node_id.to_string(), label);
-                let bytes = serde_json::to_vec(&device_labels).map_err(|e| {
-                    UnbillError::Storage(StorageError::Serialization(format!(
-                        "serialize device_labels: {e}"
-                    )))
-                })?;
-                store.save_device_meta("device_labels.json", &bytes).await?;
+                store.set_device_label(&host_node_id, Some(&label)).await?;
             }
             Ok(())
         }
@@ -198,7 +163,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::sync::Arc;
 
     use unbill_model::{
@@ -207,8 +171,6 @@ mod tests {
     };
     use unbill_storage::{LedgerStore, StoreServer};
     use unbill_store_memory::InMemoryStore;
-
-    use unbill_storage::{load_device_labels, load_pending_invitations, save_pending_invitations};
 
     use super::{run_join_host, run_join_requester};
     use crate::protocol::JoinRequest;
@@ -268,12 +230,7 @@ mod tests {
         // Save the invitation to the store.
         let token = InviteToken::generate();
         let invitation = make_invitation(meta.ledger_id, host_node.clone(), &token);
-        save_pending_invitations(
-            &*raw_host_store,
-            &HashMap::from([(token.to_string(), invitation)]),
-        )
-        .await
-        .unwrap();
+        raw_host_store.save_invitation(&invitation).await.unwrap();
 
         let host_store = Arc::new(StoreServer::spawn(Arc::clone(&raw_host_store)));
 
@@ -335,7 +292,7 @@ mod tests {
             "host device entry should still be present without relying on a synced label"
         );
 
-        let device_labels = load_device_labels(&*raw_joiner_store).await.unwrap();
+        let device_labels = raw_joiner_store.list_device_labels().await.unwrap();
         assert_eq!(
             device_labels
                 .get(&host_node.to_string())
@@ -344,7 +301,7 @@ mod tests {
         );
 
         // Token was consumed.
-        let remaining = load_pending_invitations(&*raw_host_store).await.unwrap();
+        let remaining = raw_host_store.list_pending_invitations().await.unwrap();
         assert!(remaining.is_empty(), "token should have been consumed");
     }
 

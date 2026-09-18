@@ -71,7 +71,8 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/peers/{node_id}/sync", post(sync_with_peer))
         .route("/events", get(stream_events))
         .route("/device/id", get(get_device_id))
-        .route("/device/{key}", get(load_device_meta).put(save_device_meta))
+        .route("/device/labels", get(list_device_labels))
+        .route("/device/labels/{node_id}", put(set_device_label))
         .layer(middleware::from_fn_with_state(state.clone(), auth))
         .with_state(state);
 
@@ -106,19 +107,6 @@ async fn auth(
     }
 }
 // sirno:witness:security-model:end
-
-// ---------------------------------------------------------------------------
-// Device key validation — no path components allowed
-// ---------------------------------------------------------------------------
-
-// sirno:witness:unbill-server:begin
-fn valid_device_key(key: &str) -> bool {
-    !key.is_empty()
-        && key
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.')
-}
-// sirno:witness:unbill-server:end
 
 // ---------------------------------------------------------------------------
 // Handlers
@@ -205,31 +193,23 @@ async fn get_device_id(State(state): State<Arc<AppState>>) -> Response {
         .into_response()
 }
 
-async fn load_device_meta(State(state): State<Arc<AppState>>, Path(key): Path<String>) -> Response {
-    if !valid_device_key(&key) {
-        return StatusCode::BAD_REQUEST.into_response();
-    }
-    match state.service.store().load_device_meta(&key).await {
-        Ok(Some(bytes)) => (
-            StatusCode::OK,
-            [("content-type", "application/octet-stream")],
-            bytes,
-        )
-            .into_response(),
-        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+async fn list_device_labels(State(state): State<Arc<AppState>>) -> Response {
+    match state.service.store().list_device_labels().await {
+        Ok(labels) => Json(labels).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
-
-async fn save_device_meta(
+async fn set_device_label(
     State(state): State<Arc<AppState>>,
-    Path(key): Path<String>,
-    body: Bytes,
+    Path(node_id): Path<String>,
+    Json(label): Json<Option<String>>,
 ) -> Response {
-    if !valid_device_key(&key) {
-        return StatusCode::BAD_REQUEST.into_response();
-    }
-    match state.service.store().save_device_meta(&key, &body).await {
+    match state
+        .service
+        .store()
+        .set_device_label(&NodeId::new(node_id), label.as_deref())
+        .await
+    {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -513,41 +493,62 @@ mod tests {
         assert_eq!(client_doc.get_ledger().unwrap().name, "Groceries");
     }
 
-    // --- device meta --------------------------------------------------------
+    // --- typed device labels ------------------------------------------------
 
     #[tokio::test]
-    async fn test_device_meta_save_and_load_round_trip() {
+    async fn test_device_labels_round_trip_and_remove() {
         let dir = tempfile::tempdir().unwrap();
         let app = make_app(dir.path()).await;
-
+        for (node, label) in [("peer-a", "Laptop"), ("peer-b", "Phone")] {
+            let resp = app
+                .clone()
+                .oneshot(auth_put(
+                    &format!("/api/v1/device/labels/{node}"),
+                    "application/json",
+                    serde_json::to_vec(label).unwrap(),
+                ))
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        }
         let resp = app
             .clone()
             .oneshot(auth_put(
-                "/api/v1/device/device_key.bin",
-                "application/octet-stream",
-                b"secret".to_vec(),
+                "/api/v1/device/labels/peer-a",
+                "application/json",
+                b"null".to_vec(),
             ))
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::NO_CONTENT);
-
         let resp = app
-            .oneshot(auth_get("/api/v1/device/device_key.bin"))
+            .oneshot(auth_get("/api/v1/device/labels"))
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        assert_eq!(body_bytes(resp).await, b"secret");
+        let labels: serde_json::Value = serde_json::from_slice(&body_bytes(resp).await).unwrap();
+        assert_eq!(labels, serde_json::json!({"peer-b": "Phone"}));
     }
 
     #[tokio::test]
-    async fn test_device_meta_returns_404_when_missing() {
+    async fn generic_metadata_routes_are_not_exposed() {
         let dir = tempfile::tempdir().unwrap();
         let app = make_app(dir.path()).await;
-        let resp = app
-            .oneshot(auth_get("/api/v1/device/nonexistent.bin"))
-            .await
-            .unwrap();
-        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        for key in ["device_key.bin", "pending_invitations.json", "arbitrary"] {
+            let url = format!("/api/v1/device/{key}");
+            assert_eq!(
+                app.clone().oneshot(auth_get(&url)).await.unwrap().status(),
+                StatusCode::NOT_FOUND
+            );
+            assert_eq!(
+                app.clone()
+                    .oneshot(auth_put(&url, "application/octet-stream", vec![]))
+                    .await
+                    .unwrap()
+                    .status(),
+                StatusCode::NOT_FOUND
+            );
+        }
     }
 
     // --- device id ----------------------------------------------------------

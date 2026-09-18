@@ -13,7 +13,9 @@ core.refines:
 `unbill-store-memory` provides `InMemoryStore` for tests.
 It is not intended for production use.
 
-The store holds ledger data and device metadata in hash maps behind a mutex.
+The store holds ledger data, typed label and invitation maps, and an optional secret key behind a mutex.
+All metadata operations use the same typed interface as the filesystem and SQLite backends.
+Invitation consumption removes and returns one entry atomically.
 All operations are synchronous under that lock and do no I/O.
 
 Saved ledgers pair `LedgerMeta` with serialized document bytes.

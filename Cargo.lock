@@ -8460,6 +8460,8 @@ dependencies = [
  "unbill-event",
  "unbill-model",
  "unbill-storage",
+ "unbill-store-fs",
+ "unbill-store-memory",
 ]
 
 [[package]]
