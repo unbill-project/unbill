@@ -15,6 +15,7 @@ path = "src/main.rs"
 unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["local", "rpc"] }
 unbill-device = { path = "../../crates/unbill-device" }
 unbill-store-fs = { path = "../../crates/unbill-store-fs" }
+unbill-store-sqlite = { path = "../../crates/unbill-store-sqlite" }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 anyhow.workspace = true
 tracing.workspace = true
