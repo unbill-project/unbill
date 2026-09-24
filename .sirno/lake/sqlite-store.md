@@ -12,7 +12,9 @@ core.refines:
 
 The `unbill-store-sqlite` crate provides `SqliteStore::open(root)` for concurrent processes on one machine.
 Data lives in `root/unbill.sqlite3`. SQLite never creates or acquires `root/unbill.lock`;
-concurrent access is coordinated entirely by SQLite database locks and transactions. The daemon uses SQLite for CLI and TUI clients; other application hosts retain their existing backends.
+concurrent access is coordinated entirely by SQLite database locks and transactions. All local application hosts use SQLite: the daemon, HTTP server, Apple bridge, and mobile Tauri.
+CLI, TUI, desktop Tauri, and browser clients access their host through existing RPC or HTTP channels.
+Each host keeps its existing data-directory choice. Flat-file data is not automatically imported.
 Use matching application versions and stop writers before schema upgrades; network identity ownership and UI wiring are separate work.
 
 Connections use WAL, synchronous FULL, and a five-second busy timeout. Migration discovery and execution

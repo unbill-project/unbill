@@ -21,7 +21,7 @@ use unbill_console::model::{
     NewUserName, NodeId, Share, User, UserId,
 };
 use unbill_console::service::{ConflictGroup, UnbillConsole};
-use unbill_store_fs::FsStore;
+use unbill_store_sqlite::SqliteStore;
 
 uniffi::setup_scaffolding!();
 
@@ -227,13 +227,7 @@ impl FfiConsole {
             .build()
             .map_err(err)?;
         let inner = rt.block_on(async {
-            let store = Arc::new(FsStore::open(PathBuf::from(&dir)).map_err(|error| {
-                if error.kind() == std::io::ErrorKind::WouldBlock {
-                    FfiError::DataDirectoryInUse { path: dir.clone() }
-                } else {
-                    err(error)
-                }
-            })?);
+            let store = Arc::new(SqliteStore::open(PathBuf::from(&dir)).await.map_err(err)?);
             let channel = LocalAsymChannel::open(store).await.map_err(err)?;
             // Start the P2P accept loop so peers can connect (join + sync).
             let accept = Arc::clone(&channel);
@@ -688,4 +682,29 @@ fn parse_user_id(v: &str) -> Result<UserId, FfiError> {
 
 fn parse_bill_id(v: &str) -> Result<BillId, FfiError> {
     BillId::from_string(v).map_err(err)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sqlite_identity_and_ledger_survive_reopening_the_apple_bridge() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_str().unwrap().to_owned();
+        let console = FfiConsole::open(path.clone()).unwrap();
+        let device_id = console.device_id();
+        let ledger = console
+            .create_ledger("Shared dinner".into(), "USD".into())
+            .unwrap();
+        drop(console);
+
+        let console = FfiConsole::open(path).unwrap();
+        assert_eq!(console.device_id(), device_id);
+        let detail = console.ledger_detail(ledger.ledger_id).unwrap();
+        assert_eq!(detail.summary.name, "Shared dinner");
+        assert!(dir.path().join("unbill.sqlite3").is_file());
+        assert!(!dir.path().join("unbill.lock").exists());
+        assert!(!dir.path().join("device_key.bin").exists());
+    }
 }

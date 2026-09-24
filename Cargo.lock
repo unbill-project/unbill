@@ -8345,11 +8345,12 @@ version = "0.0.5"
 name = "unbill-ffi"
 version = "0.0.5"
 dependencies = [
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "unbill-asymmetric-channel",
  "unbill-console",
- "unbill-store-fs",
+ "unbill-store-sqlite",
  "uniffi",
 ]
 
@@ -8398,6 +8399,7 @@ dependencies = [
  "unbill-model",
  "unbill-storage",
  "unbill-store-fs",
+ "unbill-store-sqlite",
 ]
 
 [[package]]
@@ -8502,6 +8504,7 @@ dependencies = [
  "unbill-console",
  "unbill-store-fs",
  "unbill-store-memory",
+ "unbill-store-sqlite",
  "url",
 ]
 

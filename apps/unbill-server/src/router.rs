@@ -29,7 +29,7 @@ pub struct AppState {
 }
 
 // ---------------------------------------------------------------------------
-// LedgerMeta JSON shape shared with FsStore and HttpAsymChannel.
+// LedgerMeta JSON shape shared with storage backends and HttpAsymChannel.
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -296,8 +296,8 @@ mod tests {
 
     async fn make_app(dir: &std::path::Path) -> Router {
         use unbill_device::UnbillDevice;
-        use unbill_store_fs::FsStore;
-        let store = Arc::new(FsStore::open(dir.to_path_buf()).unwrap());
+        use unbill_store_sqlite::SqliteStore;
+        let store = Arc::new(SqliteStore::open(dir.to_path_buf()).await.unwrap());
         let device = UnbillDevice::open(store).await.unwrap();
         let state = Arc::new(AppState {
             service: device,
@@ -439,10 +439,10 @@ mod tests {
     async fn test_sync_converges_with_server() {
         use unbill_device::UnbillDevice;
         use unbill_model::{Currency, LedgerId, Timestamp};
-        use unbill_store_fs::FsStore;
+        use unbill_store_sqlite::SqliteStore;
 
         let dir = tempfile::tempdir().unwrap();
-        let store = Arc::new(FsStore::open(dir.path().to_path_buf()).unwrap());
+        let store = Arc::new(SqliteStore::open(dir.path().to_path_buf()).await.unwrap());
         let device = UnbillDevice::open(Arc::clone(&store) as Arc<dyn unbill_storage::LedgerStore>)
             .await
             .unwrap();
