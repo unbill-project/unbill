@@ -135,7 +135,7 @@ fingerprint = "sha256:bf3596ec9f2e88ebad9c885dddd4d6669ee15ba6b7dc613965898bc35f
 "core.belongs" = ["unbill"]
 
 [entries.fs-store]
-fingerprint = "sha256:ee80484ad4f8105314f96bb2f23d5eb31c0c7353104dff559eebe6aebe8bf9b8"
+fingerprint = "sha256:1150665ac1c32f9b1a322ab1c108db60cfc2b1c404ff68055ba974c438c7c79f"
 "core.belongs" = [
     "storage",
     "workspace-layout",
@@ -237,7 +237,7 @@ fingerprint = "sha256:54d53cf83ddacaa1c4198ee9ca1ab4dc98332517016cc4196aad998dc9
 "core.refines" = ["data-model"]
 
 [entries.sqlite-store]
-fingerprint = "sha256:684044a0e5952a966838979d05a30a3ce241f5358f640f799e201bd9e3e475a2"
+fingerprint = "sha256:d0a1b4cff049a6e885cf69c97b9cad18a205776678d32743ea908078552ae919"
 "core.belongs" = [
     "storage",
     "workspace-layout",
@@ -284,7 +284,7 @@ fingerprint = "sha256:4d1a27731cdac12f43d2d2d3941384ff58987fe963a696056f209b8c4c
 fingerprint = "sha256:4e55d4de86988da589d6b17d66d2e4c85e16b56d58a84ef34b76588b24a37c34"
 
 [entries.unbill-apple]
-fingerprint = "sha256:09d38da44e8449e62a4dfe5378b55ee58d1e8b6121502dcfa4c82b35ee025ece"
+fingerprint = "sha256:e8f886c4709a07d713d6817d0ec0cbd941429457b2332709780c539d9ddeb1d9"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -325,7 +325,7 @@ fingerprint = "sha256:fd710e5202069177f4df52c263dc0e653ad3d86818887b42e6533aae9f
 "core.refines" = ["data-model"]
 
 [entries.unbill-server]
-fingerprint = "sha256:b7d57c0da934f2553c3be15f472f19d1a1666efa47cf6735f539345dbc24f288"
+fingerprint = "sha256:7ab1c1f388241cc888c6f25aba938927c7a66c271def68bd424157dbce5617e9"
 "core.belongs" = ["applications"]
 "core.refines" = ["deployment-topologies"]
 
@@ -338,7 +338,7 @@ fingerprint = "sha256:d74fdce316c6b3d3d67f60a67d04a499de3585e1272a34995bd5a852f6
 "core.refines" = ["shared-and-local-state"]
 
 [entries.unbill-tauri]
-fingerprint = "sha256:e47af22d75fb3ae1b34f195394f58e8d7639f037faead03e8dceba47e18e9af2"
+fingerprint = "sha256:fba2394925739c211e1ccdcb9001d69f6b511fd416a0d4f20e0cedba426dbcdf"
 "core.belongs" = [
     "applications",
     "frontend-ui",
