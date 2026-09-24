@@ -38,7 +38,9 @@ Frontend build and development commands are deterministic under Tauri's child-pr
 
 On desktop builds the crate connects to a running `unbill-daemon`
 through `RpcAsymChannel` and opens `UnbillConsole` over it.
-On mobile builds it opens `LocalAsymChannel` with an in-process `FsStore` directly.
+On mobile builds it opens `LocalAsymChannel` with an in-process `SqliteStore` directly, in the app data directory.
+Desktop clients use the daemon’s SQLite database over RPC.
+Existing mobile flat-file data is left untouched and is not automatically imported.
 
 One shared `UnbillConsole` instance lives in Tauri state.
 Command handlers stay async and return user-facing error strings.

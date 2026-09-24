@@ -14,7 +14,7 @@ use unbill_console::model::{
 };
 use unbill_console::service::UnbillConsole;
 #[cfg(mobile)]
-use unbill_store_fs::FsStore;
+use unbill_store_sqlite::SqliteStore;
 
 // sirno:witness:unbill-tauri:begin
 struct AppState {
@@ -918,7 +918,7 @@ pub fn run() {
                     .path()
                     .app_data_dir()
                     .map_err(|e| std::io::Error::other(e.to_string()))?;
-                let store = Arc::new(FsStore::open(root)?);
+                let store = Arc::new(SqliteStore::open(root).await?);
                 let channel = LocalAsymChannel::open(store)
                     .await
                     .map_err(|e| std::io::Error::other(e.to_string()))?;

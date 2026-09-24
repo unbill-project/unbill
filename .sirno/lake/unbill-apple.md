@@ -19,11 +19,9 @@ The app is backed by the real Rust core.
 `ConsoleClient` is the single Swift boundary, an async protocol over the `UnbillConsole` orchestration surface.
 `RustConsoleClient` is its only implementation: an actor that calls `unbill-ffi` and runs the synchronous bridge off the main thread.
 There is no mock backend.
-Mac Catalyst acquires the exclusive filesystem storage lock.
-The daemon uses a separate SQLite database without that directory lock.
-If another filesystem backend owns the directory, startup displays a data-directory-in-use message
-with the path and instructions to close the other backend and reopen the app.
-Other startup failures display their error instead of crashing.
+The Rust bridge opens SQLite in the app's existing data directory on iOS, Simulator, and Mac Catalyst.
+It uses SQLite transactions without acquiring `unbill.lock`; startup failures display their error.
+Existing flat-file data remains untouched and is not automatically imported.
 The new-ledger currency picker obtains the complete Rust currency catalog through `ConsoleClient`
 and UniFFI, sorted by currency code, rather than maintaining a Swift shortlist.
 

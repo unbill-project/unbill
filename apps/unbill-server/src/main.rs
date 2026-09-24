@@ -6,7 +6,7 @@ use tracing::info;
 
 use unbill_device::UnbillDevice;
 use unbill_server::{AppState, build_router};
-use unbill_store_fs::FsStore;
+use unbill_store_sqlite::SqliteStore;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,8 +21,12 @@ async fn main() -> Result<()> {
     let data_dir = unbill_store_fs::UNBILL_PATH
         .ensure_data_dir()
         .context("failed to resolve data directory")?;
-    let store = Arc::new(FsStore::open(data_dir).context("failed to open data directory")?);
     // sirno:witness:unbill-server:begin
+    let store = Arc::new(
+        SqliteStore::open(data_dir)
+            .await
+            .context("failed to open SQLite database")?,
+    );
     let device = UnbillDevice::open(store)
         .await
         .context("failed to open device")?;

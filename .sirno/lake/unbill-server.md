@@ -56,9 +56,10 @@ TLS belongs at a reverse proxy.
 
 Implementation:
 `main.rs` reads configuration,
-opens `FsStore` and `UnbillDevice`,
+opens `SqliteStore` at `unbill.sqlite3` in the data directory and then `UnbillDevice`,
 spawns the Iroh accept loop,
 and starts Axum.
+Existing flat-file data remains untouched and is not automatically imported.
 `router.rs` owns routes,
 handlers,
 auth middleware,

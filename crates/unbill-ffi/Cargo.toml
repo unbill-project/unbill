@@ -15,7 +15,7 @@ name = "unbill_ffi"
 [dependencies]
 unbill-console = { path = "../unbill-console" }
 unbill-asymmetric-channel = { path = "../unbill-asymmetric-channel", features = ["local"] }
-unbill-store-fs = { path = "../unbill-store-fs" }
+unbill-store-sqlite = { path = "../unbill-store-sqlite" }
 uniffi = { version = "0.28", features = ["cli"] }
 tokio = { version = "1", features = ["rt-multi-thread"] }
 thiserror.workspace = true
@@ -23,3 +23,6 @@ thiserror.workspace = true
 [[bin]]
 name = "uniffi-bindgen"
 path = "src/bin/uniffi-bindgen.rs"
+
+[dev-dependencies]
+tempfile = "3"
