@@ -117,11 +117,22 @@ fn user_id_in_ledger(ledger: &LedgerState, user_id: u128) -> (result: bool)
         decreases ledger.users.len() - i,
     {
         proof { ledger_user_at(*ledger, i as int); }
+        // sirno:witness:formal-verification:begin
+        assert(i < ledger.users.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if ledger.users[i].user_id == user_id {
             proof { assert(ledger@.users[i as int].user_id == user_id); }
             return true;
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
     false
 }
