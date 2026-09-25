@@ -149,11 +149,22 @@ fn device_in_ledger(ledger: &LedgerState, node_id: &Vec<u8>) -> (result: bool)
         decreases ledger.devices.len() - i,
     {
         proof { ledger_device_at(*ledger, i as int); }
+        // sirno:witness:formal-verification:begin
+        assert(i < ledger.devices.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if vec_u8_eq(&ledger.devices[i].node_id, node_id) {
             proof { assert(ledger@.devices[i as int].node_id == node_id@); }
             return true;
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
     false
 }
@@ -170,11 +181,22 @@ fn bill_id_in_ledger(ledger: &LedgerState, bill_id: u128) -> (result: bool)
         decreases ledger.bills.len() - i,
     {
         proof { ledger_bill_at(*ledger, i as int); }
+        // sirno:witness:formal-verification:begin
+        assert(i < ledger.bills.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if ledger.bills[i].id == bill_id {
             proof { assert(ledger@.bills[i as int].id == bill_id); }
             return true;
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
     false
 }
@@ -193,10 +215,22 @@ fn vec_u8_eq(a: &Vec<u8>, b: &Vec<u8>) -> (result: bool)
             forall|j: int| 0 <= j < i as int ==> a@[j] == b@[j],
         decreases a.len() - i,
     {
+        // sirno:witness:formal-verification:begin
+        assert(i < a.len());
+        assert(i < b.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertions")]
         if a[i] != b[i] {
             return false;
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
     proof { assert(a@ =~= b@); }
     true
