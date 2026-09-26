@@ -49,7 +49,7 @@ fingerprint = "sha256:a8a8c895967789accc268fd1e137baae881137c2f6a9501c8c7abcfa43
 "core.refines" = ["bill-amendment"]
 
 [entries.console-service]
-fingerprint = "sha256:8470f1953f81403a11186db8944dc132e7b0cb386463c9ec139326ec3ab8e733"
+fingerprint = "sha256:e5008ed62c64175c5a10f77628e5f42803a3bc24cee8db00aa882ec0ad8523d5"
 "core.belongs" = ["unbill-console"]
 "core.refines" = ["unbill-console"]
 
@@ -224,7 +224,7 @@ fingerprint = "sha256:ab96f16403d2253e9d25c9d13a16987c4c9b2c6972497499e1034d478f
 "core.refines" = ["unbill-server"]
 
 [entries.settlement]
-fingerprint = "sha256:a5ea68d535f3079a1576ebdd26f2d3bd4cadf41f06dd52c2a8b775ee0f9ee667"
+fingerprint = "sha256:01f56ac5fdfe1f98274bdf82bc2874522d9fa81b7111e66ff90cf5acaa6a50b1"
 "core.belongs" = [
     "unbill",
     "unbill-console",
@@ -338,7 +338,7 @@ fingerprint = "sha256:154028e7b2aba4587d207acb25eace076544979a154711950c2b897684
 "core.refines" = ["shared-and-local-state"]
 
 [entries.unbill-tauri]
-fingerprint = "sha256:fba2394925739c211e1ccdcb9001d69f6b511fd416a0d4f20e0cedba426dbcdf"
+fingerprint = "sha256:f4e8540941f587acc5952891e9f896c46c0517ff257d769df501cbfe1fe55826"
 "core.belongs" = [
     "applications",
     "frontend-ui",
@@ -346,7 +346,7 @@ fingerprint = "sha256:fba2394925739c211e1ccdcb9001d69f6b511fd416a0d4f20e0cedba42
 "core.refines" = ["unbill-ui-native"]
 
 [entries.unbill-tui]
-fingerprint = "sha256:4536011280d3ff2106c66f0af6ea0eaeb904ca1b696276a5f1805a6ed505ad46"
+fingerprint = "sha256:58333fef3604cad1ab153fe28ff8d2d15cd66694c24b681423a3d1f560e66c81"
 "core.belongs" = [
     "frontend-ui",
     "applications",

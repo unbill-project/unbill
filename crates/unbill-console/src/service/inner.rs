@@ -298,6 +298,61 @@ impl UnbillConsole {
     // Settlement
     // -----------------------------------------------------------------------
 
+    // sirno:witness:console-service:begin
+    /// Calculate both sides of a bill without accessing or changing a ledger.
+    ///
+    /// The same calculation serves saved bills and unsaved drafts.
+    ///
+    /// Accepts totals from zero through `i32::MAX` cents and nonempty lists of
+    /// positive share weights, with at most `i32::MAX` entries per side. Returns
+    /// a validation error if either side is invalid. Ledger membership,
+    /// descriptions, and the other requirements for saving a bill are not checked.
+    ///
+    /// `bill_id` seeds deterministic rounding. Keep it stable for repeated draft
+    /// previews; matching a saved bill requires that bill's actual ID, which
+    /// [`Self::add_bill`] currently generates during insertion.
+    pub fn calculate_bill_split(
+        &self,
+        payers: &[crate::model::Share],
+        payees: &[crate::model::Share],
+        amount_cents: i64,
+        bill_id: BillId,
+    ) -> Result<settlement::BillSplit> {
+        if !(0..=i64::from(i32::MAX)).contains(&amount_cents) {
+            return Err(UnbillError::Validation(format!(
+                "split amount must be between 0 and {} cents",
+                i32::MAX
+            )));
+        }
+
+        for (side, shares) in [("payer", payers), ("payee", payees)] {
+            if shares.is_empty() {
+                return Err(UnbillError::Validation(format!(
+                    "at least one {side} is required"
+                )));
+            }
+            if i32::try_from(shares.len()).is_err() {
+                return Err(UnbillError::Validation(format!("too many {side} shares")));
+            }
+            if let Some(index) = shares.iter().position(|share| share.shares == 0) {
+                return Err(UnbillError::Validation(format!(
+                    "{side} at index {index} must have a positive share weight"
+                )));
+            }
+        }
+
+        // These checks establish split_shares_requires for each side:
+        // nonempty positive weights, and at most i32::MAX u32 weights sum within i64.
+        // The bounded total also keeps each total * weight product within i64.
+        Ok(settlement::calculate_bill_split(
+            payers,
+            payees,
+            amount_cents,
+            bill_id,
+        ))
+    }
+    // sirno:witness:console-service:end
+
     // sirno:witness:settlement:begin
     /// Compute net settlement for a user across all ledgers they participate in,
     /// grouped by currency.  Each ledger is settled independently via the
@@ -715,6 +770,166 @@ mod tests {
     }
 
     // --- settlement ---
+
+    #[tokio::test]
+    async fn calculate_bill_split_calculates_both_sides_without_a_ledger() -> Result<()> {
+        let svc = open().await;
+        let mut events = svc.subscribe();
+        let alice = UserId::from_u128(1);
+        let bob = UserId::from_u128(2);
+        let payers = vec![
+            Share {
+                user_id: alice,
+                shares: 2,
+            },
+            Share {
+                user_id: bob,
+                shares: 1,
+            },
+        ];
+        let payees = vec![
+            Share {
+                user_id: bob,
+                shares: 3,
+            },
+            Share {
+                user_id: alice,
+                shares: 1,
+            },
+        ];
+
+        let split: crate::service::BillSplit =
+            svc.calculate_bill_split(&payers, &payees, 1200, BillId::from_u128(7))?;
+
+        assert_eq!(split.payer_amounts, vec![(alice, 800), (bob, 400)]);
+        assert_eq!(split.payee_amounts, vec![(bob, 900), (alice, 300)]);
+        assert!(svc.list_ledgers().await?.is_empty());
+        assert!(matches!(
+            events.try_recv(),
+            Err(broadcast::error::TryRecvError::Empty)
+        ));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn calculate_bill_split_rejects_invalid_amounts_and_either_invalid_side() {
+        let svc = open().await;
+        let bill_id = BillId::from_u128(7);
+        let positive_weight = Share {
+            user_id: UserId::from_u128(1),
+            shares: 1,
+        };
+        let valid = vec![positive_weight.clone()];
+
+        for amount in [i64::MIN, -1, 2_147_483_648, i64::MAX] {
+            assert!(matches!(
+                svc.calculate_bill_split(&valid, &valid, amount, bill_id),
+                Err(UnbillError::Validation(_))
+            ));
+        }
+
+        let zero_weight = Share {
+            user_id: UserId::from_u128(2),
+            shares: 0,
+        };
+        for invalid in [
+            vec![],
+            vec![zero_weight.clone()],
+            vec![positive_weight, zero_weight],
+        ] {
+            assert!(matches!(
+                svc.calculate_bill_split(&invalid, &valid, 100, bill_id),
+                Err(UnbillError::Validation(_))
+            ));
+            assert!(matches!(
+                svc.calculate_bill_split(&valid, &invalid, 100, bill_id),
+                Err(UnbillError::Validation(_))
+            ));
+        }
+    }
+
+    #[tokio::test]
+    async fn calculate_bill_split_supports_zero_and_maximum_amounts_and_weights() -> Result<()> {
+        let svc = open().await;
+        let bill_id = BillId::from_u128(u128::MAX);
+        let payers = vec![Share {
+            user_id: UserId::from_u128(1),
+            shares: u32::MAX,
+        }];
+        let payees = vec![
+            Share {
+                user_id: UserId::from_u128(1),
+                shares: u32::MAX,
+            },
+            Share {
+                user_id: UserId::from_u128(2),
+                shares: u32::MAX,
+            },
+        ];
+
+        for total in [0, i64::from(i32::MAX)] {
+            let split = svc.calculate_bill_split(&payers, &payees, total, bill_id)?;
+            assert_eq!(split.payer_amounts, vec![(UserId::from_u128(1), total)]);
+            assert_eq!(
+                split
+                    .payee_amounts
+                    .iter()
+                    .map(|(_, cents)| cents)
+                    .sum::<i64>(),
+                total
+            );
+            assert!(
+                split
+                    .payee_amounts
+                    .iter()
+                    .all(|(_, cents)| (0..=total).contains(cents))
+            );
+            assert_eq!(
+                split,
+                svc.calculate_bill_split(&payers, &payees, total, bill_id)?
+            );
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn calculate_bill_split_matches_saved_bill_settlement() -> Result<()> {
+        let svc = open().await;
+        let ledger_id = svc
+            .create_ledger(NewLedger {
+                name: "Rounding".into(),
+                currency: usd(),
+            })
+            .await?;
+        seed_users(&svc, ledger_id).await;
+        let input = two_way_bill(101);
+        let bill_id = svc.add_bill(ledger_id, input.clone()).await?;
+
+        let split =
+            svc.calculate_bill_split(&input.payers, &input.payees, input.amount_cents, bill_id)?;
+        let settlement = svc.settle_ledger(ledger_id).await?;
+
+        assert_eq!(split.payer_amounts, vec![(UserId::from_u128(1), 101)]);
+        assert_eq!(
+            split
+                .payee_amounts
+                .iter()
+                .map(|(_, cents)| cents)
+                .sum::<i64>(),
+            101
+        );
+        let bob_amount = split
+            .payee_amounts
+            .iter()
+            .find(|(id, _)| *id == UserId::from_u128(2))
+            .map(|(_, cents)| *cents);
+        assert_eq!(settlement.transactions.len(), 1);
+        let transfer = settlement.transactions.first();
+        assert_eq!(transfer.map(|t| t.from_user_id), Some(UserId::from_u128(2)));
+        assert_eq!(transfer.map(|t| t.to_user_id), Some(UserId::from_u128(1)));
+        assert_eq!(transfer.map(|t| t.amount_cents), bob_amount);
+        Ok(())
+    }
 
     #[tokio::test]
     async fn test_compute_settlement_no_bills_is_empty() {

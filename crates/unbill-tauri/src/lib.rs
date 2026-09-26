@@ -404,8 +404,16 @@ async fn resolve_conflict(
 #[tauri::command]
 fn preview_bill_split(
     input: PreviewBillSplitInput,
+    state: State<'_, AppState>,
 ) -> std::result::Result<BillSplitPreviewDto, String> {
-    let bill_id = parse_bill_id(&input.bill_id).map_err(stringify_error)?;
+    preview_bill_split_inner(&state.service, input).map_err(stringify_error)
+}
+
+fn preview_bill_split_inner(
+    service: &UnbillConsole,
+    input: PreviewBillSplitInput,
+) -> Result<BillSplitPreviewDto> {
+    let bill_id = parse_bill_id(&input.bill_id)?;
     let payers = input
         .payers
         .into_iter()
@@ -415,8 +423,7 @@ fn preview_bill_split(
                 shares: item.shares,
             })
         })
-        .collect::<Result<Vec<_>>>()
-        .map_err(stringify_error)?;
+        .collect::<Result<Vec<_>>>()?;
     let payees = input
         .payees
         .into_iter()
@@ -426,15 +433,9 @@ fn preview_bill_split(
                 shares: item.shares,
             })
         })
-        .collect::<Result<Vec<_>>>()
-        .map_err(stringify_error)?;
+        .collect::<Result<Vec<_>>>()?;
 
-    let split = unbill_console::settlement::compute_bill_split(
-        &payers,
-        &payees,
-        input.amount_cents,
-        bill_id,
-    );
+    let split = service.calculate_bill_split(&payers, &payees, input.amount_cents, bill_id)?;
     Ok(BillSplitPreviewDto {
         payer_amounts: split
             .payer_amounts
@@ -982,6 +983,77 @@ mod tests {
             .await
             .unwrap();
         UnbillConsole::open(channel as Arc<dyn AsymChannel>).await
+    }
+
+    fn split_input(amount_cents: i64) -> super::PreviewBillSplitInput {
+        super::PreviewBillSplitInput {
+            bill_id: super::BillId::from_u128(1).to_string(),
+            amount_cents,
+            payers: vec![super::BillShareInput {
+                user_id: UserId::from_u128(1).to_string(),
+                shares: 1,
+            }],
+            payees: vec![
+                super::BillShareInput {
+                    user_id: UserId::from_u128(1).to_string(),
+                    shares: 1,
+                },
+                super::BillShareInput {
+                    user_id: UserId::from_u128(2).to_string(),
+                    shares: 1,
+                },
+            ],
+        }
+    }
+
+    #[tokio::test]
+    async fn bill_split_returns_console_allocations_for_both_sides() -> super::Result<()> {
+        let service = open_console().await;
+        let split = super::preview_bill_split_inner(&service, split_input(3000))?;
+
+        assert_eq!(
+            split
+                .payer_amounts
+                .into_iter()
+                .map(|amount| (amount.user_id, amount.amount_cents))
+                .collect::<Vec<_>>(),
+            vec![(UserId::from_u128(1).to_string(), 3000)]
+        );
+        assert_eq!(
+            split
+                .payee_amounts
+                .into_iter()
+                .map(|amount| (amount.user_id, amount.amount_cents))
+                .collect::<Vec<_>>(),
+            vec![
+                (UserId::from_u128(1).to_string(), 1500),
+                (UserId::from_u128(2).to_string(), 1500)
+            ]
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn bill_split_rejects_invalid_inputs_at_the_console_boundary() {
+        let service = open_console().await;
+        let mut no_payers = split_input(100);
+        no_payers.payers.clear();
+        let mut zero_payee_weight = split_input(100);
+        for share in &mut zero_payee_weight.payees {
+            share.shares = 0;
+        }
+
+        for input in [
+            split_input(-1),
+            split_input(i64::MAX),
+            no_payers,
+            zero_payee_weight,
+        ] {
+            assert!(matches!(
+                super::preview_bill_split_inner(&service, input),
+                Err(super::UnbillError::Validation(_))
+            ));
+        }
     }
 
     fn tauri_config() -> Value {

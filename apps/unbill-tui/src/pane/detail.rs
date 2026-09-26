@@ -4,8 +4,9 @@ use ratatui::{
     style::{Color, Modifier, Style},
     widgets::{Block, Paragraph},
 };
+use unbill_console::error::Result;
 use unbill_console::model::{BillId, LedgerId, Share, User, UserId};
-use unbill_console::settlement::compute_bill_split;
+use unbill_console::service::UnbillConsole;
 
 use crate::app::AppState;
 use crate::pane::Pane;
@@ -48,7 +49,7 @@ pub struct BillEditor {
 // Render
 // ---------------------------------------------------------------------------
 
-pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
+pub fn render(frame: &mut Frame, area: Rect, state: &AppState, svc: &UnbillConsole) {
     let focused = state.focused_pane == Pane::Detail;
     let border_style = if focused {
         Style::default().fg(Color::Yellow)
@@ -59,13 +60,13 @@ pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
     let block = Block::bordered().title("Detail").border_style(border_style);
 
     if let Some(editor) = &state.bill_editor {
-        render_editor(frame, area, block, editor);
+        render_editor(frame, area, block, editor, svc);
     } else {
-        render_view(frame, area, block, state);
+        render_view(frame, area, block, state, svc);
     }
 }
 
-fn render_view(frame: &mut Frame, area: Rect, block: Block, state: &AppState) {
+fn render_view(frame: &mut Frame, area: Rect, block: Block, state: &AppState, svc: &UnbillConsole) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -85,6 +86,31 @@ fn render_view(frame: &mut Frame, area: Rect, block: Block, state: &AppState) {
             rows[0],
         );
 
+        frame.render_widget(
+            Paragraph::new("[e] amend  [a] new").style(Style::default().fg(Color::DarkGray)),
+            rows[4],
+        );
+
+        // sirno:witness:unbill-tui:begin
+        let split = match svc.calculate_bill_split(
+            &bill.payers,
+            &bill.payees,
+            bill.amount_cents,
+            bill.id,
+        ) {
+            Ok(split) => split,
+            Err(error) => {
+                if let Some(area) = rows.get(3).copied() {
+                    frame.render_widget(
+                        Paragraph::new(error.to_string()).style(Style::default().fg(Color::Red)),
+                        area,
+                    );
+                }
+                return;
+            }
+        };
+        // sirno:witness:unbill-tui:end
+
         let dollars = bill.amount_cents / 100;
         let cents = bill.amount_cents.abs() % 100;
         frame.render_widget(
@@ -102,8 +128,6 @@ fn render_view(frame: &mut Frame, area: Rect, block: Block, state: &AppState) {
         // Render payers + payees into available space.
         let available = rows[3].height as usize;
         let mut line_idx = 0usize;
-
-        let split = compute_bill_split(&bill.payers, &bill.payees, bill.amount_cents, bill.id);
 
         for (user_id, cents) in &split.payer_amounts {
             if line_idx >= available {
@@ -151,11 +175,6 @@ fn render_view(frame: &mut Frame, area: Rect, block: Block, state: &AppState) {
             );
             line_idx += 1;
         }
-
-        frame.render_widget(
-            Paragraph::new("[e] amend  [a] new").style(Style::default().fg(Color::DarkGray)),
-            rows[4],
-        );
     } else {
         // No bill selected.
         frame.render_widget(
@@ -166,7 +185,13 @@ fn render_view(frame: &mut Frame, area: Rect, block: Block, state: &AppState) {
     }
 }
 
-fn render_editor(frame: &mut Frame, area: Rect, block: Block, editor: &BillEditor) {
+fn render_editor(
+    frame: &mut Frame,
+    area: Rect,
+    block: Block,
+    editor: &BillEditor,
+    svc: &UnbillConsole,
+) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
@@ -305,9 +330,12 @@ fn render_editor(frame: &mut Frame, area: Rect, block: Block, editor: &BillEdito
         );
     } else {
         // Compute preview: parse amount and show per-payee split.
-        let preview = build_preview(editor);
+        let (preview, color) = match build_preview(editor, svc) {
+            Ok(preview) => (preview, Color::DarkGray),
+            Err(error) => (error.to_string(), Color::Red),
+        };
         frame.render_widget(
-            Paragraph::new(preview).style(Style::default().fg(Color::DarkGray)),
+            Paragraph::new(preview).style(Style::default().fg(color)),
             rows[6],
         );
     }
@@ -322,10 +350,11 @@ fn render_editor(frame: &mut Frame, area: Rect, block: Block, editor: &BillEdito
     );
 }
 
-fn build_preview(editor: &BillEditor) -> String {
+// sirno:witness:unbill-tui:begin
+fn build_preview(editor: &BillEditor, svc: &UnbillConsole) -> Result<String> {
     let amount_cents = match parse_amount_cents(&editor.amount_str) {
         Some(v) if v >= 0 => v,
-        _ => return String::new(),
+        _ => return Ok(String::new()),
     };
     let payer_shares: Vec<Share> = editor
         .payers
@@ -346,9 +375,10 @@ fn build_preview(editor: &BillEditor) -> String {
         })
         .collect();
     if payee_shares.is_empty() {
-        return String::new();
+        return Ok(String::new());
     }
-    let split = compute_bill_split(&payer_shares, &payee_shares, amount_cents, editor.bill_id);
+    let split =
+        svc.calculate_bill_split(&payer_shares, &payee_shares, amount_cents, editor.bill_id)?;
     let parts: Vec<String> = split
         .payee_amounts
         .iter()
@@ -362,8 +392,9 @@ fn build_preview(editor: &BillEditor) -> String {
             format!("{}: ${}.{:02}", name, cents / 100, cents.abs() % 100)
         })
         .collect();
-    parts.join("  ")
+    Ok(parts.join("  "))
 }
+// sirno:witness:unbill-tui:end
 
 fn resolve_user_name(user_id: &UserId, users: &[User]) -> String {
     users

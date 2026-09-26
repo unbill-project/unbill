@@ -19,6 +19,21 @@ computes settlement,
 detects conflicts,
 and surfaces service events.
 
+`calculate_bill_split` synchronously calculates payer and payee amounts together
+without reading or changing a ledger.
+The same calculation serves saved bills and unsaved drafts.
+Callers supply the total in cents, both lists of positive share weights,
+and a bill ID used as the rounding seed.
+The method validates the numerical inputs required by the verified splitter,
+delegates to `settlement::calculate_bill_split`,
+and returns either both allocations or a validation error.
+It accepts zero totals; bill submission retains its own validation.
+It does not validate ledger membership or bill descriptions.
+Repeated calls with the same inputs return the same allocations.
+An unsaved draft's rounding seed must remain stable while editing;
+its allocation matches a saved bill only when that bill uses the same seed.
+The current save operation generates a fresh bill ID.
+
 ```mermaid
 flowchart LR
     Shell["Shell or UI"]
