@@ -330,7 +330,7 @@ fingerprint = "sha256:7ab1c1f388241cc888c6f25aba938927c7a66c271def68bd424157dbce
 "core.refines" = ["deployment-topologies"]
 
 [entries.unbill-storage]
-fingerprint = "sha256:a65b651f9478ed1e92abd4e06cdcda3b4b72f69bce9b9582ab4cf63f2952fe74"
+fingerprint = "sha256:154028e7b2aba4587d207acb25eace076544979a154711950c2b89768480f31c"
 "core.belongs" = [
     "storage",
     "workspace-layout",

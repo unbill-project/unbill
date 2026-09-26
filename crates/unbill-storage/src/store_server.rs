@@ -356,13 +356,13 @@ impl StoreServer {
             .await?
             .ok_or(UnbillError::LedgerNotFound(id_str))?;
         let now = Timestamp::now()?;
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Adding one day to a realistic system clock is far below the i64 millisecond limit"
+        )]
+        let expires_at = Timestamp::from_millis(now.as_millis() + 24 * 3600 * 1000);
         let invitation = store
-            .create_invitation(
-                ledger_id,
-                &device_id,
-                now,
-                Timestamp::from_millis(now.as_millis() + 24 * 3600 * 1000),
-            )
+            .create_invitation(ledger_id, &device_id, now, expires_at)
             .await?;
         let token = invitation.token;
         Ok(format!(
