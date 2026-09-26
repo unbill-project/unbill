@@ -26,13 +26,13 @@ pub(crate) fn configure(conn: &mut SqliteConnection) -> Result<()> {
         .map_err(io_error)?;
     // Changing journal mode can return BUSY immediately during concurrent first
     // opens, even with a busy handler. Retry only that transient startup error.
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let retry_started = std::time::Instant::now();
     loop {
         match conn.batch_execute("PRAGMA journal_mode = WAL;") {
             Ok(()) => break,
             Err(diesel::result::Error::DatabaseError(_, ref info))
                 if info.message() == "database is locked"
-                    && std::time::Instant::now() < deadline =>
+                    && retry_started.elapsed() < std::time::Duration::from_secs(5) =>
             {
                 std::thread::sleep(std::time::Duration::from_millis(25));
             }

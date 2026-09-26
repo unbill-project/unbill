@@ -135,7 +135,7 @@ fingerprint = "sha256:bf3596ec9f2e88ebad9c885dddd4d6669ee15ba6b7dc613965898bc35f
 "core.belongs" = ["unbill"]
 
 [entries.fs-store]
-fingerprint = "sha256:1150665ac1c32f9b1a322ab1c108db60cfc2b1c404ff68055ba974c438c7c79f"
+fingerprint = "sha256:e047cef5dc45345255a53c3ec801874b96adca34f8a427bd99166037887555c4"
 "core.belongs" = [
     "storage",
     "workspace-layout",

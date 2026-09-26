@@ -232,23 +232,23 @@ where
     Ok(())
 }
 
+// sirno:witness:unbill-device:begin
 fn parse_join_url(url: &str) -> Result<(String, NodeId, String)> {
     let path = url
         .strip_prefix("unbill://join/")
         .ok_or_else(|| UnbillError::InvalidUrl(format!("invalid join URL: {url:?}")))?;
     let parts: Vec<&str> = path.splitn(3, '/').collect();
-    if parts.len() != 3 {
+    let [ledger_id, host, token] = parts.as_slice() else {
         return Err(UnbillError::InvalidUrl(format!(
             "invalid join URL (expected ledger_id/host_node_id/token): {url:?}"
         )));
-    }
-    let ledger_id = parts[0].to_string();
-    let host = parts[1]
+    };
+    let host = host
         .parse::<NodeId>()
         .map_err(|e| UnbillError::InvalidUrl(format!("invalid host node ID in URL: {e}")))?;
-    let token = parts[2].to_string();
-    Ok((ledger_id, host, token))
+    Ok((ledger_id.to_string(), host, token.to_string()))
 }
+// sirno:witness:unbill-device:end
 
 #[cfg(test)]
 mod tests {
