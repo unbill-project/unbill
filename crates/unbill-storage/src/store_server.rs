@@ -355,7 +355,7 @@ impl StoreServer {
             .load_ledger(&id_str)
             .await?
             .ok_or(UnbillError::LedgerNotFound(id_str))?;
-        let now = Timestamp::now();
+        let now = Timestamp::now()?;
         let invitation = store
             .create_invitation(
                 ledger_id,
@@ -411,7 +411,7 @@ impl StoreServer {
             NewDevice {
                 node_id: peer_node_id,
             },
-            Timestamp::now(),
+            Timestamp::now()?,
         )?;
         store.save_ledger(ledger_id, &mut doc).await?;
         Ok(Some(doc.save()))
@@ -447,7 +447,7 @@ impl StoreServer {
             name: ledger.name.clone(),
             currency: ledger.currency,
             created_at: ledger.created_at,
-            updated_at: Timestamp::now(),
+            updated_at: Timestamp::now()?,
         };
         store.save_ledger_meta(&meta).await?;
         store

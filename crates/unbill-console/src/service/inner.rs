@@ -105,8 +105,8 @@ impl UnbillConsole {
         input
             .validate()
             .map_err(|e| UnbillError::Validation(e.to_string()))?;
+        let now = Timestamp::now()?;
         let ledger_id = LedgerId::new();
-        let now = Timestamp::now();
         let mut doc = LedgerDoc::new(ledger_id, input.name.clone(), input.currency, now)?;
         doc.add_device(
             NewDevice {
@@ -141,11 +141,12 @@ impl UnbillConsole {
         input
             .validate()
             .map_err(|e| UnbillError::Validation(e.to_string()))?;
+        let now = Timestamp::now()?;
         let mut doc = self.take_doc(ledger_id).await?;
-        let bill_id = doc.add_bill(input, self.channel.device_id(), Timestamp::now())?;
+        let bill_id = doc.add_bill(input, self.channel.device_id(), now)?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
         self.put_doc(ledger_id, doc).await;
-        self.touch_meta(ledger_id).await?;
+        self.touch_meta(ledger_id, now).await?;
         if self
             .events
             .send(ServiceEvent::LedgerUpdated {
@@ -175,11 +176,12 @@ impl UnbillConsole {
         input
             .validate()
             .map_err(|e| UnbillError::Validation(e.to_string()))?;
+        let now = Timestamp::now()?;
         let mut doc = self.take_doc(ledger_id).await?;
-        doc.add_user(input, Timestamp::now())?;
+        doc.add_user(input, now)?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
         self.put_doc(ledger_id, doc).await;
-        self.touch_meta(ledger_id).await?;
+        self.touch_meta(ledger_id, now).await?;
         if self
             .events
             .send(ServiceEvent::LedgerUpdated {
@@ -204,8 +206,8 @@ impl UnbillConsole {
         input
             .validate()
             .map_err(|e| UnbillError::Validation(e.to_string()))?;
+        let now = Timestamp::now()?;
         let user_id = UserId::new();
-        let now = Timestamp::now();
         let mut doc = self.take_doc(ledger_id).await?;
         doc.add_user(
             NewUser {
@@ -216,7 +218,7 @@ impl UnbillConsole {
         )?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
         self.put_doc(ledger_id, doc).await;
-        self.touch_meta(ledger_id).await?;
+        self.touch_meta(ledger_id, now).await?;
         if self
             .events
             .send(ServiceEvent::LedgerUpdated {
@@ -257,11 +259,12 @@ impl UnbillConsole {
 
     // sirno:witness:users-and-devices:begin
     pub async fn add_device(&self, ledger_id: LedgerId, input: NewDevice) -> Result<()> {
+        let now = Timestamp::now()?;
         let mut doc = self.take_doc(ledger_id).await?;
-        doc.add_device(input, Timestamp::now())?;
+        doc.add_device(input, now)?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
         self.put_doc(ledger_id, doc).await;
-        self.touch_meta(ledger_id).await?;
+        self.touch_meta(ledger_id, now).await?;
         Ok(())
     }
 
@@ -430,10 +433,10 @@ impl UnbillConsole {
     }
 
     /// Update `updated_at` in the stored metadata for a ledger.
-    async fn touch_meta(&self, ledger_id: LedgerId) -> Result<()> {
+    async fn touch_meta(&self, ledger_id: LedgerId, updated_at: Timestamp) -> Result<()> {
         let mut metas = self.channel.list_ledgers().await?;
         if let Some(meta) = metas.iter_mut().find(|m| m.ledger_id == ledger_id) {
-            meta.updated_at = Timestamp::now();
+            meta.updated_at = updated_at;
             self.channel.save_ledger_meta(meta).await?;
         }
         Ok(())

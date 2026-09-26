@@ -56,7 +56,7 @@ where
         Some(inv) => inv,
     };
 
-    if Timestamp::now() > invitation.expires_at {
+    if Timestamp::now()? > invitation.expires_at {
         write_msg(
             &mut writer,
             &JoinReply::Err(JoinError {
@@ -94,7 +94,7 @@ where
         NewDevice {
             node_id: peer_node_id,
         },
-        Timestamp::now(),
+        Timestamp::now()?,
     )?;
     store.save_ledger(&req.ledger_id, &mut doc).await?;
 
@@ -140,7 +140,7 @@ where
                 name: ledger.name.clone(),
                 currency: ledger.currency,
                 created_at: ledger.created_at,
-                updated_at: Timestamp::now(),
+                updated_at: Timestamp::now()?,
             };
             store.save_ledger_meta(&meta).await?;
             store.save_ledger(&ledger_id, &mut doc).await?;
@@ -183,17 +183,22 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_join_adds_device_to_ledger() {
+    async fn test_join_adds_device_to_ledger() -> Result<(), Box<dyn std::error::Error>> {
         let host_node = NodeId::from_seed(1);
         let joiner_node = NodeId::from_seed(2);
 
-        let mut doc =
-            LedgerDoc::new(LedgerId::new(), "Trip".to_string(), usd(), Timestamp::now()).unwrap();
+        let mut doc = LedgerDoc::new(
+            LedgerId::new(),
+            "Trip".to_string(),
+            usd(),
+            Timestamp::now()?,
+        )
+        .unwrap();
         doc.add_device(
             NewDevice {
                 node_id: host_node.clone(),
             },
-            Timestamp::now(),
+            Timestamp::now()?,
         )
         .unwrap();
         let ledger_id = doc.get_ledger().unwrap().ledger_id;
@@ -206,8 +211,8 @@ mod tests {
             ledger_id,
             name: "Trip".to_string(),
             currency: usd(),
-            created_at: Timestamp::now(),
-            updated_at: Timestamp::now(),
+            created_at: Timestamp::now()?,
+            updated_at: Timestamp::now()?,
         };
         raw_host_store.save_ledger_meta(&meta).await.unwrap();
         raw_host_store
@@ -215,7 +220,7 @@ mod tests {
             .await
             .unwrap();
 
-        let now = Timestamp::now();
+        let now = Timestamp::now()?;
         let invitation = raw_host_store
             .create_invitation(
                 meta.ledger_id,
@@ -298,6 +303,7 @@ mod tests {
         // Token was consumed.
         let remaining = raw_host_store.list_pending_invitations().await.unwrap();
         assert!(remaining.is_empty(), "token should have been consumed");
+        Ok(())
     }
 
     #[tokio::test]
@@ -305,8 +311,13 @@ mod tests {
     {
         let joiner_node = NodeId::from_seed(2);
 
-        let mut doc =
-            LedgerDoc::new(LedgerId::new(), "Trip".to_string(), usd(), Timestamp::now()).unwrap();
+        let mut doc = LedgerDoc::new(
+            LedgerId::new(),
+            "Trip".to_string(),
+            usd(),
+            Timestamp::now()?,
+        )
+        .unwrap();
         let ledger_id_str = doc.get_ledger().unwrap().ledger_id.to_string();
 
         // No invitations saved to store.

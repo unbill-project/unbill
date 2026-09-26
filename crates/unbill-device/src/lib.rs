@@ -188,7 +188,7 @@ where
         Some(inv) => inv,
     };
 
-    if Timestamp::now() > invitation.expires_at {
+    if Timestamp::now()? > invitation.expires_at {
         write_msg(
             &mut writer,
             &JoinReply::Err(JoinError {
@@ -265,7 +265,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_collect_peers_returns_unique_peers_excluding_self() {
+    async fn test_collect_peers_returns_unique_peers_excluding_self()
+    -> Result<(), Box<dyn std::error::Error>> {
         let store: Arc<dyn LedgerStore> = Arc::new(InMemoryStore::default());
         let server = StoreServer::spawn(Arc::clone(&store));
         let self_id = NodeId::from_seed(1);
@@ -274,27 +275,27 @@ mod tests {
 
         // Ledger 1: self + peer_a
         let mut doc1 =
-            LedgerDoc::new(LedgerId::new(), "L1".to_string(), usd(), Timestamp::now()).unwrap();
+            LedgerDoc::new(LedgerId::new(), "L1".to_string(), usd(), Timestamp::now()?).unwrap();
         doc1.add_device(
             NewDevice {
                 node_id: self_id.clone(),
             },
-            Timestamp::now(),
+            Timestamp::now()?,
         )
         .unwrap();
         doc1.add_device(
             NewDevice {
                 node_id: peer_a.clone(),
             },
-            Timestamp::now(),
+            Timestamp::now()?,
         )
         .unwrap();
         let meta1 = unbill_model::LedgerMeta {
             ledger_id: doc1.get_ledger().unwrap().ledger_id,
             name: "L1".to_string(),
             currency: usd(),
-            created_at: Timestamp::now(),
-            updated_at: Timestamp::now(),
+            created_at: Timestamp::now()?,
+            updated_at: Timestamp::now()?,
         };
         server.save_ledger_meta(&meta1).await.unwrap();
         server
@@ -304,34 +305,34 @@ mod tests {
 
         // Ledger 2: self + peer_a + peer_b
         let mut doc2 =
-            LedgerDoc::new(LedgerId::new(), "L2".to_string(), usd(), Timestamp::now()).unwrap();
+            LedgerDoc::new(LedgerId::new(), "L2".to_string(), usd(), Timestamp::now()?).unwrap();
         doc2.add_device(
             NewDevice {
                 node_id: self_id.clone(),
             },
-            Timestamp::now(),
+            Timestamp::now()?,
         )
         .unwrap();
         doc2.add_device(
             NewDevice {
                 node_id: peer_a.clone(),
             },
-            Timestamp::now(),
+            Timestamp::now()?,
         )
         .unwrap();
         doc2.add_device(
             NewDevice {
                 node_id: peer_b.clone(),
             },
-            Timestamp::now(),
+            Timestamp::now()?,
         )
         .unwrap();
         let meta2 = unbill_model::LedgerMeta {
             ledger_id: doc2.get_ledger().unwrap().ledger_id,
             name: "L2".to_string(),
             currency: usd(),
-            created_at: Timestamp::now(),
-            updated_at: Timestamp::now(),
+            created_at: Timestamp::now()?,
+            updated_at: Timestamp::now()?,
         };
         server.save_ledger_meta(&meta2).await.unwrap();
         server
@@ -345,6 +346,7 @@ mod tests {
         assert!(peers.contains(&peer_a));
         assert!(peers.contains(&peer_b));
         assert!(!peers.contains(&self_id));
+        Ok(())
     }
 
     #[tokio::test]

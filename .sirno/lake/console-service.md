@@ -51,5 +51,9 @@ sync the document back to the device when mutated,
 and return the document to the cache.
 Read-only operations also take and put the document so cache ownership stays explicit.
 
+Mutations obtain their timestamp before taking a document from the cache,
+then reuse that timestamp when updating ledger metadata.
+A system clock error is returned before the mutation starts.
+
 Shells receive user-facing results and events.
 They do not receive direct persistence or raw Automerge handles.

@@ -21,6 +21,9 @@ and error enums.
 `Currency::all` enumerates the complete currency catalog accepted by `Currency::from_code`,
 using the same underlying ISO currency definitions.
 
+`Timestamp::now` returns a system clock error when the clock precedes the Unix epoch.
+Callers propagate that error through the domain or storage error boundary.
+
 `LedgerDoc` wraps an Automerge document and provides typed read and write operations
 such as `add_bill`, `add_user`, `add_device`, `merge`, and sync helpers.
 
@@ -34,5 +37,5 @@ Callers decide how to handle that failure.
 
 `UnbillError` covers domain-level failures (missing ledgers, users, bills, devices),
 validation, authorization, Automerge and reconciliation errors,
-network and URL errors, ID parsing, and configuration errors.
+network and URL errors, ID parsing, system clock errors, and configuration errors.
 `StorageError` covers store and transport failures so storage concerns do not bleed into domain code.
