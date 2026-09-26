@@ -103,6 +103,11 @@ Preview parsing is tolerant and supports simple addition and subtraction express
 The save-request builder performs strict amount,
 participant,
 and share-weight validation.
+The editor requests both sides of a split through an asynchronous calculation callback;
+it does not allocate cents locally.
+Only results matching the current draft are displayed, and calculation errors stay inline.
+Amendments use the previous bill ID as the preview seed;
+new drafts use a fixed placeholder ID, since saving assigns a fresh bill ID.
 
 `conflict.rs` owns the reusable conflict group panel.
 Apps map backend DTOs to display items.

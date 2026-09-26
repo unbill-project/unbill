@@ -613,6 +613,7 @@ pub fn App() -> impl IntoView {
                     show_back=true
                     on_back=Callback::new(move |_| bill_editor.set(None))
                     on_save=Callback::new(save_bill)
+                    calculate_bill_split=api::calculate_bill_split
                 />
             }
             .into_any();
@@ -738,6 +739,7 @@ pub fn App() -> impl IntoView {
                                         seed=seed
                                         on_back=Callback::new(move |_| bill_editor.set(None))
                                         on_save=Callback::new(save_bill)
+                                        calculate_bill_split=api::calculate_bill_split
                                     />
                                 }
                                 .into_any()

@@ -265,7 +265,7 @@ fingerprint = "sha256:5b5b3a07dd04e7d70b4375791dcc830271c5ccd94df75df4a64f6c48da
 "core.refines" = ["design-principles"]
 
 [entries.ui-components]
-fingerprint = "sha256:932c7ccaaf49b1c2cab41ba61ae0168e88058da4898359b334a3bcdaf7a9b37b"
+fingerprint = "sha256:4a525df77f9d37ae00a72a357b83603e1bc5f203631f982bfb887cd72cfd27c8"
 "core.belongs" = [
     "frontend-ui",
     "workspace-layout",
@@ -354,7 +354,7 @@ fingerprint = "sha256:58333fef3604cad1ab153fe28ff8d2d15cd66694c24b681423a3d1f560
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-ui-native]
-fingerprint = "sha256:0bde41419bffd9aed8209a6edcf05453be7c6685247f2d103d53ca9199bdd06c"
+fingerprint = "sha256:e85463d42f1f5e50bacf66e2675c9961ade87fc2fda567799f78804ffd7a5369"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -362,7 +362,7 @@ fingerprint = "sha256:0bde41419bffd9aed8209a6edcf05453be7c6685247f2d103d53ca9199
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-ui-remote]
-fingerprint = "sha256:cd10aa2b2a293b409654e5a968eb66c88cb6c8a185e2a4dec37f6883465f7662"
+fingerprint = "sha256:5088a483e92cbf420a766b7f365595335d8b12912dce63014162519d182fb687"
 "core.belongs" = [
     "frontend-ui",
     "applications",
