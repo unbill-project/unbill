@@ -31,6 +31,7 @@ pub trait LedgerStore: Send + Sync {
     async fn set_device_label(&self, node_id: &NodeId, label: Option<&str>) -> StorageResult<()>;
     async fn list_pending_invitations(&self) -> StorageResult<Vec<Invitation>>;
     /// Persist a new invitation with a freshly generated token; existing tokens cannot be resubmitted.
+    /// RNG failures return `StorageError::Io` before persisting or emitting an event.
     async fn create_invitation(
         &self,
         ledger_id: LedgerId,

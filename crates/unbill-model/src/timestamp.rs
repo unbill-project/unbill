@@ -13,15 +13,19 @@ use autosurgeon::{HydrateError, Prop, ReadDoc, Reconciler};
 pub struct Timestamp(i64);
 
 impl Timestamp {
+    // sirno:witness:unbill-model:begin
     /// Current wall-clock time as a `Timestamp`.
-    pub fn now() -> Self {
-        use web_time::{SystemTime, UNIX_EPOCH};
-        let millis = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock before Unix epoch")
-            .as_millis() as i64;
-        Self(millis)
+    ///
+    /// Returns an error if the system clock is before the Unix epoch.
+    pub fn now() -> Result<Self, web_time::SystemTimeError> {
+        Self::from_system_time(web_time::SystemTime::now())
     }
+
+    fn from_system_time(time: web_time::SystemTime) -> Result<Self, web_time::SystemTimeError> {
+        let millis = time.duration_since(web_time::UNIX_EPOCH)?.as_millis() as i64;
+        Ok(Self(millis))
+    }
+    // sirno:witness:unbill-model:end
 
     pub fn from_millis(millis: i64) -> Self {
         Self(millis)
@@ -81,8 +85,42 @@ mod tests {
     }
 
     #[test]
-    fn test_timestamp_now_is_positive() {
-        assert!(Timestamp::now().as_millis() > 0);
+    fn test_timestamp_now_is_positive() -> Result<(), web_time::SystemTimeError> {
+        assert!(Timestamp::now()?.as_millis() > 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_unix_epoch_is_zero() -> Result<(), web_time::SystemTimeError> {
+        assert_eq!(
+            Timestamp::from_system_time(web_time::UNIX_EPOCH)?,
+            Timestamp::from_millis(0)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_system_time_preserves_milliseconds() -> Result<(), Box<dyn std::error::Error>> {
+        let time = web_time::UNIX_EPOCH
+            .checked_add(std::time::Duration::from_millis(1234))
+            .ok_or("test timestamp must be representable")?;
+        assert_eq!(
+            Timestamp::from_system_time(time)?,
+            Timestamp::from_millis(1234)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_time_before_unix_epoch_returns_error() -> Result<(), Box<dyn std::error::Error>> {
+        let time = web_time::UNIX_EPOCH
+            .checked_sub(std::time::Duration::from_millis(1))
+            .ok_or("test timestamp must be representable")?;
+        let error = Timestamp::from_system_time(time)
+            .err()
+            .ok_or("a pre-epoch timestamp must be rejected")?;
+        assert_eq!(error.duration(), std::time::Duration::from_millis(1));
+        Ok(())
     }
 
     #[test]

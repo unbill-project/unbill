@@ -85,6 +85,10 @@ then to the focused pane.
 
 The bill editor has description, amount, payers, and payees sections.
 It validates and calls service bill-save behavior only when confirming the final section.
+Both the saved-bill detail view and the editor's live split use
+`UnbillConsole::calculate_bill_split` through the console passed to the renderer.
+Calculation failures appear in the detail or editor area instead of entering
+the unchecked settlement function.
 
 The TUI has no unit tests of its own.
 Domain correctness is covered by shared crates,

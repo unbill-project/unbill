@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use unbill_ui_components::bill_editor::BillShareInput;
+use unbill_ui_components::bill_editor::{BillShareInput, BillSplit, BillSplitRequest};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(module = "/src/bridge.js")]
@@ -192,6 +192,10 @@ pub async fn join_ledger(input: JoinLedgerInput) -> Result<(), String> {
 
 pub async fn save_bill(input: SaveBillInput) -> Result<String, String> {
     invoke("save_bill", &serde_json::json!({ "input": input })).await
+}
+
+pub async fn calculate_bill_split(input: BillSplitRequest) -> Result<BillSplit, String> {
+    invoke("preview_bill_split", &serde_json::json!({ "input": input })).await
 }
 
 pub async fn resolve_conflict(input: ResolveConflictInput) -> Result<String, String> {

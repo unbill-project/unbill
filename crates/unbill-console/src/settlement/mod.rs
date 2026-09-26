@@ -29,12 +29,14 @@ pub struct BillSplit {
 }
 // sirno:witness:settlement:end
 
-/// Compute the exact cent amounts for each payer and payee of a bill.
+/// Calculate the exact cent amounts for each payer and payee of a bill.
 ///
 /// Uses the bill's own ID as the rounding seed, so the result is identical
 /// to what `compute_settlement` would derive for the same bill.
+/// Callers must satisfy the verified splitter's numerical preconditions.
+/// [`crate::service::UnbillConsole::calculate_bill_split`] validates those inputs.
 // sirno:witness:settlement:begin
-pub fn compute_bill_split(
+pub fn calculate_bill_split(
     payers: &[crate::model::Share],
     payees: &[crate::model::Share],
     total_cents: i64,
@@ -86,11 +88,14 @@ pub fn split_shares(
     total_cents: i64,
     bill_id: BillId,
 ) -> Vec<(UserId, i64)> {
-    if shares.is_empty() {
+    // Normalize before the verified loop adds offsets to this index.
+    // For a validated share count, index + count fits usize on 32- and 64-bit targets.
+    let Some(remainder_idx) =
+        (fnv1a(bill_id.to_string().as_bytes()) as usize).checked_rem(shares.len())
+    else {
         return vec![];
-    }
-    let total_weight: u32 = shares.iter().map(|s| s.shares).sum();
-    if total_weight == 0 {
+    };
+    if shares.iter().all(|share| share.shares == 0) {
         return shares.iter().map(|s| (s.user_id, 0)).collect();
     }
 
@@ -102,8 +107,6 @@ pub fn split_shares(
             weight: s.shares,
         })
         .collect();
-    let remainder_idx = fnv1a(bill_id.to_string().as_bytes()) as usize;
-
     let verified_amounts = unbill_console_verified::settlement::exec::split_shares(
         &model_shares,
         total_cents,
@@ -113,8 +116,8 @@ pub fn split_shares(
     // Pair amounts with user_ids by position.
     verified_amounts
         .into_iter()
-        .enumerate()
-        .map(|(i, amount)| (shares[i].user_id, amount))
+        .zip(shares)
+        .map(|(amount, share)| (share.user_id, amount))
         .collect()
 }
 // sirno:witness:settlement:end
@@ -338,6 +341,38 @@ mod tests {
     fn test_split_zero_shares_list() {
         let amounts = split_shares(&[], 1000, bid(1));
         assert!(amounts.is_empty());
+    }
+
+    #[test]
+    fn split_accepts_weights_whose_sum_exceeds_u32() {
+        let shares = vec![
+            Share {
+                user_id: alice(),
+                shares: u32::MAX,
+            },
+            Share {
+                user_id: bob(),
+                shares: u32::MAX,
+            },
+        ];
+        let amounts = split_shares(&shares, i64::from(i32::MAX), bid(u128::MAX));
+
+        assert_eq!(
+            amounts.iter().map(|(_, cents)| cents).sum::<i64>(),
+            i64::from(i32::MAX)
+        );
+        assert!(
+            amounts
+                .iter()
+                .all(|(_, cents)| *cents == 1_073_741_823 || *cents == 1_073_741_824)
+        );
+        assert_eq!(
+            amounts
+                .iter()
+                .map(|(user_id, _)| *user_id)
+                .collect::<Vec<_>>(),
+            vec![alice(), bob()]
+        );
     }
 
     // --- compute_settlement ---

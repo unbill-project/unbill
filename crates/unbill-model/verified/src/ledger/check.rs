@@ -117,11 +117,22 @@ fn user_id_in_ledger(ledger: &LedgerState, user_id: u128) -> (result: bool)
         decreases ledger.users.len() - i,
     {
         proof { ledger_user_at(*ledger, i as int); }
+        // sirno:witness:formal-verification:begin
+        assert(i < ledger.users.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if ledger.users[i].user_id == user_id {
             proof { assert(ledger@.users[i as int].user_id == user_id); }
             return true;
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
     false
 }
@@ -138,11 +149,22 @@ fn device_in_ledger(ledger: &LedgerState, node_id: &Vec<u8>) -> (result: bool)
         decreases ledger.devices.len() - i,
     {
         proof { ledger_device_at(*ledger, i as int); }
+        // sirno:witness:formal-verification:begin
+        assert(i < ledger.devices.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if vec_u8_eq(&ledger.devices[i].node_id, node_id) {
             proof { assert(ledger@.devices[i as int].node_id == node_id@); }
             return true;
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
     false
 }
@@ -159,11 +181,22 @@ fn bill_id_in_ledger(ledger: &LedgerState, bill_id: u128) -> (result: bool)
         decreases ledger.bills.len() - i,
     {
         proof { ledger_bill_at(*ledger, i as int); }
+        // sirno:witness:formal-verification:begin
+        assert(i < ledger.bills.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if ledger.bills[i].id == bill_id {
             proof { assert(ledger@.bills[i as int].id == bill_id); }
             return true;
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
     false
 }
@@ -182,10 +215,22 @@ fn vec_u8_eq(a: &Vec<u8>, b: &Vec<u8>) -> (result: bool)
             forall|j: int| 0 <= j < i as int ==> a@[j] == b@[j],
         decreases a.len() - i,
     {
+        // sirno:witness:formal-verification:begin
+        assert(i < a.len());
+        assert(i < b.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertions")]
         if a[i] != b[i] {
             return false;
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
     proof { assert(a@ =~= b@); }
     true
@@ -263,10 +308,21 @@ pub fn check_add_bill(ledger: &LedgerState, bill: &Bill) -> (result: Result<(), 
                 (#[trigger] bill.payers@[j]).weight > 0u32,
         decreases bill.payers.len() - i,
     {
+        // sirno:witness:formal-verification:begin
+        assert(i < bill.payers.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if bill.payers[i].weight == 0 {
             return Err(AddBillError::ZeroPayerWeight { index: i });
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     // --- Payee weights ---
@@ -278,10 +334,21 @@ pub fn check_add_bill(ledger: &LedgerState, bill: &Bill) -> (result: Result<(), 
                 (#[trigger] bill.payees@[j]).weight > 0u32,
         decreases bill.payees.len() - i,
     {
+        // sirno:witness:formal-verification:begin
+        assert(i < bill.payees.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if bill.payees[i].weight == 0 {
             return Err(AddBillError::ZeroPayeeWeight { index: i });
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     // --- Payers reference known users ---
@@ -293,10 +360,21 @@ pub fn check_add_bill(ledger: &LedgerState, bill: &Bill) -> (result: Result<(), 
                 spec::has_user(ledger@.users, (#[trigger] bill.payers@[j]).user_id),
         decreases bill.payers.len() - i,
     {
+        // sirno:witness:formal-verification:begin
+        assert(i < bill.payers.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if !user_id_in_ledger(ledger, bill.payers[i].user_id) {
             return Err(AddBillError::PayerNotInLedger { index: i });
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     // --- Payees reference known users ---
@@ -308,10 +386,21 @@ pub fn check_add_bill(ledger: &LedgerState, bill: &Bill) -> (result: Result<(), 
                 spec::has_user(ledger@.users, (#[trigger] bill.payees@[j]).user_id),
         decreases bill.payees.len() - i,
     {
+        // sirno:witness:formal-verification:begin
+        assert(i < bill.payees.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if !user_id_in_ledger(ledger, bill.payees[i].user_id) {
             return Err(AddBillError::PayeeNotInLedger { index: i });
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     // --- Device exists ---
@@ -328,10 +417,21 @@ pub fn check_add_bill(ledger: &LedgerState, bill: &Bill) -> (result: Result<(), 
                 spec::has_bill(ledger@.bills, #[trigger] bill.prev@[j]),
         decreases bill.prev.len() - i,
     {
+        // sirno:witness:formal-verification:begin
+        assert(i < bill.prev.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if !bill_id_in_ledger(ledger, bill.prev[i]) {
             return Err(AddBillError::PrevBillNotFound { index: i });
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     // --- Bill ID unique ---

@@ -84,7 +84,11 @@ pub fn compute_from_balances(
             cred_sum - debt_sum == spec::seq_sum(balances@.subrange(0, i as int)),
         decreases balances.len() - i,
     {
+        // sirno:witness:formal-verification:begin
+        assert(i < balances.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         let b = balances[i];
+        // sirno:witness:formal-verification:end
         proof {
             assert(balances@.subrange(0, (i + 1) as int).drop_last()
                 =~= balances@.subrange(0, i as int));
@@ -95,18 +99,46 @@ pub fn compute_from_balances(
                 proof::seq_sum_push(creditor_amounts@, b);
                 cred_sum = cred_sum + b as int;
             }
-            creditor_ids.push(user_ids[i]);
+            // sirno:witness:formal-verification:begin
+            assert(i < user_ids.len());
+            #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
+            {
+                creditor_ids.push(user_ids[i]);
+            }
+            // sirno:witness:formal-verification:end
             creditor_amounts.push(b);
         } else if b < 0 {
+            // sirno:witness:formal-verification:begin
+            assert(b > i64::MIN);
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "Arithmetic safety proved by the preceding Verus assertion"
+            )]
             let neg_b: i64 = -b;
+            // sirno:witness:formal-verification:end
             proof {
                 proof::seq_sum_push(debtor_amounts@, neg_b);
                 debt_sum = debt_sum + neg_b as int;
             }
-            debtor_ids.push(user_ids[i]);
+            // sirno:witness:formal-verification:begin
+            assert(i < user_ids.len());
+            #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
+            {
+                debtor_ids.push(user_ids[i]);
+            }
+            // sirno:witness:formal-verification:end
             debtor_amounts.push(neg_b);
         }
-        i = i + 1;
+        // sirno:witness:formal-verification:begin
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
+        {
+            i = i + 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     proof {
@@ -147,19 +179,43 @@ pub fn compute_from_balances(
         decreases
             (creditor_amounts.len() - ci) + (debtor_amounts.len() - di),
     {
+        // sirno:witness:formal-verification:begin
+        assert(ci < creditor_amounts.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         let credit = creditor_amounts[ci];
+        assert(di < debtor_amounts.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         let debt = debtor_amounts[di];
+        // sirno:witness:formal-verification:end
 
         if credit == 0 {
             proof {
                 proof::range_sum_step(creditor_amounts@, ci as int, creditor_amounts@.len() as int);
             }
-            ci = ci + 1;
+            // sirno:witness:formal-verification:begin
+            assert(ci < usize::MAX);
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "Arithmetic safety proved by the preceding Verus assertion"
+            )]
+            {
+                ci = ci + 1;
+            }
+            // sirno:witness:formal-verification:end
         } else if debt == 0 {
             proof {
                 proof::range_sum_step(debtor_amounts@, di as int, debtor_amounts@.len() as int);
             }
-            di = di + 1;
+            // sirno:witness:formal-verification:begin
+            assert(di < usize::MAX);
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "Arithmetic safety proved by the preceding Verus assertion"
+            )]
+            {
+                di = di + 1;
+            }
+            // sirno:witness:formal-verification:end
         } else {
             let amount: i64 = if credit <= debt { credit } else { debt };
             assert(amount > 0);
@@ -168,14 +224,33 @@ pub fn compute_from_balances(
 
             let ghost old_transactions = transactions@;
 
-            transactions.push(Transaction {
-                from_user_id: debtor_ids[di],
-                to_user_id: creditor_ids[ci],
-                amount_cents: amount,
-            });
+            // sirno:witness:formal-verification:begin
+            assert(di < debtor_ids.len());
+            assert(ci < creditor_ids.len());
+            #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertions")]
+            {
+                transactions.push(Transaction {
+                    from_user_id: debtor_ids[di],
+                    to_user_id: creditor_ids[ci],
+                    amount_cents: amount,
+                });
+            }
+            // sirno:witness:formal-verification:end
 
+            // sirno:witness:formal-verification:begin
+            assert(i64::MIN as int <= credit as int - amount as int <= i64::MAX as int);
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "Arithmetic safety proved by the preceding Verus assertion"
+            )]
             let new_credit: i64 = credit - amount;
+            assert(i64::MIN as int <= debt as int - amount as int <= i64::MAX as int);
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "Arithmetic safety proved by the preceding Verus assertion"
+            )]
             let new_debt: i64 = debt - amount;
+            // sirno:witness:formal-verification:end
 
             proof {
                 assert(transactions@.drop_last() =~= old_transactions);
@@ -211,10 +286,28 @@ pub fn compute_from_balances(
             debtor_amounts.set(di, new_debt);
 
             if new_credit == 0 {
-                ci = ci + 1;
+                // sirno:witness:formal-verification:begin
+                assert(ci < usize::MAX);
+                #[allow(
+                    clippy::arithmetic_side_effects,
+                    reason = "Arithmetic safety proved by the preceding Verus assertion"
+                )]
+                {
+                    ci = ci + 1;
+                }
+                // sirno:witness:formal-verification:end
             }
             if new_debt == 0 {
-                di = di + 1;
+                // sirno:witness:formal-verification:begin
+                assert(di < usize::MAX);
+                #[allow(
+                    clippy::arithmetic_side_effects,
+                    reason = "Arithmetic safety proved by the preceding Verus assertion"
+                )]
+                {
+                    di = di + 1;
+                }
+                // sirno:witness:formal-verification:end
             }
         }
     }
@@ -327,7 +420,16 @@ pub fn compute_balances(
     {
         proof { proof::seq_sum_push(balances@, 0i64); }
         balances.push(0i64);
-        u = u + 1;
+        // sirno:witness:formal-verification:begin
+        assert(u < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
+        {
+            u = u + 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     // Process each effective bill.
@@ -379,14 +481,24 @@ pub fn compute_balances(
             total_amount <= b as int * i32::MAX as int,
         decreases effective_indices.len() - b,
     {
+        // sirno:witness:formal-verification:begin
+        assert(b < effective_indices.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         let bill_idx: usize = effective_indices[b];
+        assert(bill_idx < ledger.bills.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         let bill = &ledger.bills[bill_idx];
+        // sirno:witness:formal-verification:end
         let amount = bill.amount_cents;
         // Pre-compute the current balance bound for overflow proofs.
         // bnd = (b+1) * bal_M(). Overflow assertions use bnd instead of spec::bal_M() * (b+1).
         let ghost bnd: int = spec::bal_M() * (b as int + 1);
 
+        // sirno:witness:formal-verification:begin
+        assert(bill_idx < remainder_indices.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         let rem_idx = remainder_indices[bill_idx];
+        // sirno:witness:formal-verification:end
         assert(rem_idx <= usize::MAX - bill.payers.len());
         assert(rem_idx <= usize::MAX - bill.payees.len());
         let payer_amounts = split_shares(
@@ -435,9 +547,17 @@ pub fn compute_balances(
                     + spec::seq_sum(payer_amounts@.subrange(0, i as int)),
             decreases payer_amounts.len() - i,
         {
+            // sirno:witness:formal-verification:begin
+            assert(i < bill.payers.len());
+            #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
             let user_idx = find_user_index(&ledger.users, bill.payers[i].user_id);
+            assert(user_idx < balances.len());
+            #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
             let old_val = balances[user_idx];
+            assert(i < payer_amounts.len());
+            #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
             let amt = payer_amounts[i];
+            // sirno:witness:formal-verification:end
 
             // Overflow safety via snapshot bound lemma.
             proof {
@@ -462,7 +582,14 @@ pub fn compute_balances(
             assert(old_val as int + amt as int >= i64::MIN as int) by(nonlinear_arith)
                 requires old_val >= -bnd, amt >= 0i64;
 
+            // sirno:witness:formal-verification:begin
+            assert(i64::MIN as int <= old_val as int + amt as int <= i64::MAX as int);
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "Arithmetic safety proved by the preceding Verus assertion"
+            )]
             let new_val = old_val + amt;
+            // sirno:witness:formal-verification:end
             proof {
                 proof::positive_sum_update_add(balances@, user_idx as int, new_val);
                 proof::seq_sum_update(balances@, user_idx as int, new_val);
@@ -471,7 +598,16 @@ pub fn compute_balances(
                     =~= payer_amounts@.subrange(0, (i + 1) as int));
             }
             balances.set(user_idx, new_val);
-            i = i + 1;
+            // sirno:witness:formal-verification:begin
+            assert(i < usize::MAX);
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "Arithmetic safety proved by the preceding Verus assertion"
+            )]
+            {
+                i = i + 1;
+            }
+            // sirno:witness:formal-verification:end
         }
         proof {
             assert(payer_amounts@.subrange(0, payer_amounts@.len() as int) =~= payer_amounts@);
@@ -527,9 +663,17 @@ pub fn compute_balances(
                 spec::positive_sum(balances@) <= total_amount + amount as int,
             decreases payee_amounts.len() - j,
         {
+            // sirno:witness:formal-verification:begin
+            assert(j < bill.payees.len());
+            #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
             let user_idx = find_user_index(&ledger.users, bill.payees[j].user_id);
+            assert(user_idx < balances.len());
+            #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
             let old_val = balances[user_idx];
+            assert(j < payee_amounts.len());
+            #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
             let amt = payee_amounts[j];
+            // sirno:witness:formal-verification:end
 
             // Overflow safety via reverse snapshot bound.
             proof {
@@ -562,7 +706,14 @@ pub fn compute_balances(
             assert(old_val as int - amt as int <= i64::MAX as int) by(nonlinear_arith)
                 requires old_val <= bnd + i32::MAX as int, amt >= 0i64;
 
+            // sirno:witness:formal-verification:begin
+            assert(i64::MIN as int <= old_val as int - amt as int <= i64::MAX as int);
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "Arithmetic safety proved by the preceding Verus assertion"
+            )]
             let new_val = old_val - amt;
+            // sirno:witness:formal-verification:end
             proof {
                 proof::positive_sum_update_sub(balances@, user_idx as int, new_val);
                 proof::seq_sum_update(balances@, user_idx as int, new_val);
@@ -571,7 +722,16 @@ pub fn compute_balances(
                     =~= payee_amounts@.subrange(0, (j + 1) as int));
             }
             balances.set(user_idx, new_val);
-            j = j + 1;
+            // sirno:witness:formal-verification:begin
+            assert(j < usize::MAX);
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "Arithmetic safety proved by the preceding Verus assertion"
+            )]
+            {
+                j = j + 1;
+            }
+            // sirno:witness:formal-verification:end
         }
         proof {
             assert(payee_amounts@.subrange(0, payee_amounts@.len() as int) =~= payee_amounts@);
@@ -592,7 +752,16 @@ pub fn compute_balances(
         }
 
         proof { total_amount = total_amount + amount as int; }
-        b = b + 1;
+        // sirno:witness:formal-verification:begin
+        assert(b < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
+        {
+            b = b + 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     // Final: bal_bounded(bal[k], b+1) where b+1 <= i32::MAX+1.
@@ -632,10 +801,21 @@ pub fn find_user_index(users: &Vec<User>, user_id: u128) -> (idx: usize)
             exists|i: int| k <= i < users.len() && (#[trigger] users@[i]).user_id == user_id,
         decreases users.len() - k,
     {
+        // sirno:witness:formal-verification:begin
+        assert(k < users.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if users[k].user_id == user_id {
             return k;
         }
-        k = k + 1;
+        assert(k < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
+        {
+            k = k + 1;
+        }
+        // sirno:witness:formal-verification:end
     }
     proof { assert(false); }
     0
@@ -681,8 +861,26 @@ pub fn split_shares(
                 =~= spec_shares.subrange(0, (i + 1) as int));
             total_weight_partial_le(spec_shares, (i + 1) as int);
         }
-        tw = tw + shares[i].weight as u64;
-        i = i + 1;
+        // sirno:witness:formal-verification:begin
+        assert(i < shares.len());
+        assert(tw as int + shares@[i as int].weight as int <= u64::MAX as int);
+        #[allow(
+            clippy::indexing_slicing,
+            clippy::arithmetic_side_effects,
+            reason = "Bounds and arithmetic safety proved by the preceding Verus assertions"
+        )]
+        {
+            tw = tw + shares[i].weight as u64;
+        }
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
+        {
+            i = i + 1;
+        }
+        // sirno:witness:formal-verification:end
     }
     proof {
         assert(spec_shares.subrange(0, spec_shares.len() as int) =~= spec_shares);
@@ -715,14 +913,31 @@ pub fn split_shares(
             ),
         decreases shares.len() - k,
     {
+        // sirno:witness:formal-verification:begin
+        assert(k < shares.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         let w: i64 = shares[k].weight as i64;
+        // sirno:witness:formal-verification:end
         assert(w >= 0);
         assert(total_cents as int * w as int <= i32::MAX as int * u32::MAX as int) by(nonlinear_arith)
             requires total_cents as int >= 0, total_cents as int <= i32::MAX as int,
                      w as int >= 0, w as int <= u32::MAX as int;
+        // sirno:witness:formal-verification:begin
+        assert(0 <= total_cents as int * w as int <= i64::MAX as int) by(nonlinear_arith)
+            requires 0 <= total_cents <= i32::MAX as i64,
+                     0 <= w <= u32::MAX as i64;
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
         let product: i64 = total_cents * w;
         assert(tw as i64 > 0);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
         let amount: i64 = product / tw as i64;
+        // sirno:witness:formal-verification:end
         assert(amount >= 0);
         proof { total_weight_includes_each(spec_shares, k as int); }
         assert(w as int <= tw as int);
@@ -740,8 +955,24 @@ pub fn split_shares(
                      shares.len() as int >= 0, shares.len() as int <= i32::MAX as int;
         proof { proof::seq_sum_push(amounts@, amount); }
         amounts.push(amount);
-        assigned = assigned + amount;
-        k = k + 1;
+        // sirno:witness:formal-verification:begin
+        assert(0 <= assigned as int + amount as int <= i64::MAX as int);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
+        {
+            assigned = assigned + amount;
+        }
+        assert(k < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
+        {
+            k = k + 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     proof {
@@ -750,7 +981,14 @@ pub fn split_shares(
         proof::floor_sum_eq_seq_sum(spec_shares, amounts@, total_cents as int, tw as int);
     }
     assert(assigned <= total_cents);
+    // sirno:witness:formal-verification:begin
+    assert(0 <= total_cents as int - assigned as int <= i64::MAX as int);
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "Arithmetic safety proved by the preceding Verus assertion"
+    )]
     let remainder: i64 = total_cents - assigned;
+    // sirno:witness:formal-verification:end
     assert(remainder >= 0);
     assert((remainder as usize) < shares.len());
     let remainder_u: usize = remainder as usize;
@@ -787,8 +1025,18 @@ pub fn split_shares(
         decreases remainder_u - r,
     {
         assert(remainder_recipient_idx + r < remainder_recipient_idx + shares.len());
+        // sirno:witness:formal-verification:begin
+        assert(remainder_recipient_idx as int + r as int <= usize::MAX as int);
+        assert(shares.len() > 0);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertions"
+        )]
         let idx: usize = (remainder_recipient_idx + r) % shares.len();
+        assert(idx < amounts.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         let old_val = amounts[idx];
+        // sirno:witness:formal-verification:end
 
         proof {
             assert forall|r2: int| 0 <= r2 < r as int
@@ -806,10 +1054,26 @@ pub fn split_shares(
             assert(floor_amounts[idx as int] <= total_cents);
         }
 
+        // sirno:witness:formal-verification:begin
+        assert(old_val < i64::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
         let new_val = old_val + 1;
+        // sirno:witness:formal-verification:end
         proof { proof::seq_sum_update(amounts@, idx as int, new_val); }
         amounts.set(idx, new_val);
-        r = r + 1;
+        // sirno:witness:formal-verification:begin
+        assert(r < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
+        {
+            r = r + 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     assert(spec::seq_sum(amounts@) == total_cents as int);
@@ -909,8 +1173,21 @@ pub fn compute_settlement(
             user_ids.len() == u,
         decreases ledger.users.len() - u,
     {
-        user_ids.push(ledger.users[u].user_id);
-        u = u + 1;
+        // sirno:witness:formal-verification:begin
+        assert(u < ledger.users.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
+        {
+            user_ids.push(ledger.users[u].user_id);
+        }
+        assert(u < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
+        {
+            u = u + 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     // Step 4: Greedy matching.

@@ -9,15 +9,17 @@ use std::str::FromStr;
 pub struct InviteToken(String);
 
 impl InviteToken {
+    // sirno:witness:unbill-model:begin
     /// Generate a new token from 32 OS-random bytes.
-    pub fn generate() -> Self {
+    ///
+    /// Returns the system RNG error if secure randomness is unavailable.
+    pub fn generate() -> Result<Self, rand::rngs::SysError> {
         use rand::TryRng as _;
         let mut bytes = [0u8; 32];
-        rand::rngs::SysRng
-            .try_fill_bytes(&mut bytes)
-            .expect("system RNG should generate invitation tokens");
-        Self(bytes.iter().map(|b| format!("{b:02x}")).collect())
+        rand::rngs::SysRng.try_fill_bytes(&mut bytes)?;
+        Ok(Self(bytes.iter().map(|b| format!("{b:02x}")).collect()))
     }
+    // sirno:witness:unbill-model:end
 
     pub fn as_str(&self) -> &str {
         &self.0
@@ -60,23 +62,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_generate_is_64_hex_chars() {
-        let tok = InviteToken::generate();
+    fn test_generate_is_64_hex_chars() -> Result<(), rand::rngs::SysError> {
+        let tok = InviteToken::generate()?;
         let s = tok.to_string();
         assert_eq!(s.len(), 64);
         assert!(s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')));
+        Ok(())
     }
 
     #[test]
-    fn test_generate_is_unique() {
-        assert_ne!(InviteToken::generate(), InviteToken::generate());
+    fn test_generate_is_unique() -> Result<(), rand::rngs::SysError> {
+        assert_ne!(InviteToken::generate()?, InviteToken::generate()?);
+        Ok(())
     }
 
     #[test]
-    fn test_round_trip_from_str() {
-        let tok = InviteToken::generate();
-        let parsed: InviteToken = tok.to_string().parse().unwrap();
-        assert_eq!(tok, parsed);
+    fn test_round_trip_from_str() -> Result<(), rand::rngs::SysError> {
+        let tok = InviteToken::generate()?;
+        assert_eq!(tok.to_string().parse(), Ok(tok));
+        Ok(())
     }
 
     #[test]

@@ -61,6 +61,8 @@ then rely on the service event stream for projection refresh.
 The bill editor is isolated from background detail refresh.
 Its seed captures currency and users at open time,
 and the page reads only the editor signal.
+The editor's calculation callback calls `UnbillConsole::calculate_bill_split`
+through the API adapter for live payer and payee amounts.
 
 Device Settings shows the server-assigned device ID,
 known peer devices,

@@ -100,7 +100,7 @@ pub async fn run(
             break;
         }
 
-        terminal.draw(|f| crate::ui::render(f, &state))?;
+        terminal.draw(|f| crate::ui::render(f, &state, &svc))?;
 
         tokio::select! {
             _ = tick.tick() => {
