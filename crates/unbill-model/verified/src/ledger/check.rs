@@ -308,10 +308,21 @@ pub fn check_add_bill(ledger: &LedgerState, bill: &Bill) -> (result: Result<(), 
                 (#[trigger] bill.payers@[j]).weight > 0u32,
         decreases bill.payers.len() - i,
     {
+        // sirno:witness:formal-verification:begin
+        assert(i < bill.payers.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if bill.payers[i].weight == 0 {
             return Err(AddBillError::ZeroPayerWeight { index: i });
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     // --- Payee weights ---
@@ -323,10 +334,21 @@ pub fn check_add_bill(ledger: &LedgerState, bill: &Bill) -> (result: Result<(), 
                 (#[trigger] bill.payees@[j]).weight > 0u32,
         decreases bill.payees.len() - i,
     {
+        // sirno:witness:formal-verification:begin
+        assert(i < bill.payees.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if bill.payees[i].weight == 0 {
             return Err(AddBillError::ZeroPayeeWeight { index: i });
         }
-        i += 1;
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Increment cannot overflow, as proved by the preceding Verus assertion"
+        )]
+        {
+            i += 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     // --- Payers reference known users ---
