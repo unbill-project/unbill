@@ -320,7 +320,7 @@ fingerprint = "sha256:f3a1f9f74eef06a94aab4ddd6bc647321da99c9fdedaf8d49c9e9e4833
 "core.refines" = ["sync-behavior"]
 
 [entries.unbill-model]
-fingerprint = "sha256:fd710e5202069177f4df52c263dc0e653ad3d86818887b42e6533aae9f35f0aa"
+fingerprint = "sha256:e23ca4e7e7c8b9b9778b0caa05810232ff5740cfaefa5c76983449c1b90002e4"
 "core.belongs" = ["workspace-layout"]
 "core.refines" = ["data-model"]
 
@@ -330,7 +330,7 @@ fingerprint = "sha256:7ab1c1f388241cc888c6f25aba938927c7a66c271def68bd424157dbce
 "core.refines" = ["deployment-topologies"]
 
 [entries.unbill-storage]
-fingerprint = "sha256:d74fdce316c6b3d3d67f60a67d04a499de3585e1272a34995bd5a852f6e27da0"
+fingerprint = "sha256:a65b651f9478ed1e92abd4e06cdcda3b4b72f69bce9b9582ab4cf63f2952fe74"
 "core.belongs" = [
     "storage",
     "workspace-layout",

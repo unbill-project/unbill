@@ -4,16 +4,16 @@ use unbill_store_fs::FsStore;
 use unbill_store_memory::InMemoryStore;
 use unbill_store_sqlite::SqliteStore;
 
-fn invitation() -> Invitation {
-    Invitation {
-        token: InviteToken::generate(),
+fn invitation() -> Result<Invitation, rand::rngs::SysError> {
+    Ok(Invitation {
+        token: InviteToken::generate()?,
         ledger_id: LedgerId::from_u128(1),
         created_by_device: NodeId::new("host".into()),
         created_at: Timestamp::from_millis(1000),
         expires_at: Timestamp::from_millis(2000),
-    }
+    })
 }
-async fn metadata_contract(store: &dyn LedgerStore) {
+async fn metadata_contract(store: &dyn LedgerStore) -> Result<(), rand::rngs::SysError> {
     assert!(store.list_device_labels().await.unwrap().is_empty());
     let a = NodeId::new("peer-a".into());
     let b = NodeId::new("peer-b".into());
@@ -30,7 +30,7 @@ async fn metadata_contract(store: &dyn LedgerStore) {
     assert_eq!(labels.len(), 1);
     assert_eq!(labels["peer-b"], "Phone");
     assert!(store.list_pending_invitations().await.unwrap().is_empty());
-    let template = invitation();
+    let template = invitation()?;
     let (x, y) = tokio::join!(
         store.create_invitation(
             template.ledger_id,
@@ -76,43 +76,47 @@ async fn metadata_contract(store: &dyn LedgerStore) {
         store.get_secret_key().await.unwrap().as_bytes(),
         key.as_bytes()
     );
+    Ok(())
 }
 
 #[tokio::test]
-async fn memory_metadata_contract() {
-    metadata_contract(&InMemoryStore::default()).await;
+async fn memory_metadata_contract() -> Result<(), rand::rngs::SysError> {
+    metadata_contract(&InMemoryStore::default()).await
 }
 
 #[tokio::test]
-async fn filesystem_metadata_contract() {
+async fn filesystem_metadata_contract() -> Result<(), rand::rngs::SysError> {
     let dir = tempfile::tempdir().unwrap();
     let store = FsStore::open(dir.path().into()).unwrap();
-    metadata_contract(&store).await;
+    metadata_contract(&store).await?;
     let id = store.get_device_id().await.unwrap();
     drop(store);
     let store = FsStore::open(dir.path().into()).unwrap();
     assert_eq!(store.get_device_id().await.unwrap(), id);
     assert_eq!(store.list_device_labels().await.unwrap()["peer-b"], "Phone");
     assert_eq!(store.list_pending_invitations().await.unwrap().len(), 1);
+    Ok(())
 }
 
 #[tokio::test]
-async fn sqlite_metadata_contract() {
+async fn sqlite_metadata_contract() -> Result<(), rand::rngs::SysError> {
     let dir = tempfile::tempdir().unwrap();
     let store = SqliteStore::open(dir.path().into()).await.unwrap();
-    metadata_contract(&store).await;
+    metadata_contract(&store).await?;
     let id = store.get_device_id().await.unwrap();
     drop(store);
     let store = SqliteStore::open(dir.path().into()).await.unwrap();
     assert_eq!(store.get_device_id().await.unwrap(), id);
     assert_eq!(store.list_device_labels().await.unwrap()["peer-b"], "Phone");
     assert_eq!(store.list_pending_invitations().await.unwrap().len(), 1);
+    Ok(())
 }
 
 #[tokio::test]
-async fn existing_filesystem_metadata_is_read_without_conversion() {
+async fn existing_filesystem_metadata_is_read_without_conversion()
+-> Result<(), rand::rngs::SysError> {
     let dir = tempfile::tempdir().unwrap();
-    let inv = invitation();
+    let inv = invitation()?;
     std::fs::write(
         dir.path().join("device_labels.json"),
         br#"{"old-node":"Old laptop"}"#,
@@ -143,6 +147,7 @@ async fn existing_filesystem_metadata_is_read_without_conversion() {
         inv.token
     );
     assert_eq!(store.get_secret_key().await.unwrap().as_bytes(), &[7u8; 32]);
+    Ok(())
 }
 
 use diesel::{
@@ -167,9 +172,10 @@ fn legacy_insert(conn: &mut SqliteConnection, key: &str, value: &[u8]) {
 }
 
 #[tokio::test]
-async fn migration_preserves_existing_metadata_and_removes_generic_table() {
+async fn migration_preserves_existing_metadata_and_removes_generic_table()
+-> Result<(), rand::rngs::SysError> {
     let dir = tempfile::tempdir().unwrap();
-    let inv = invitation();
+    let inv = invitation()?;
     let mut conn = legacy_database(dir.path());
     legacy_insert(&mut conn, "device_key.bin", &[9; 32]);
     legacy_insert(
@@ -210,6 +216,7 @@ async fn migration_preserves_existing_metadata_and_removes_generic_table() {
             .execute(&mut conn)
             .is_err()
     );
+    Ok(())
 }
 
 #[tokio::test]

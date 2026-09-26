@@ -294,7 +294,7 @@ impl LedgerStore for SqliteStore {
         expires_at: Timestamp,
     ) -> Result<Invitation> {
         let invitation = Invitation {
-            token: unbill_model::InviteToken::generate(),
+            token: unbill_model::InviteToken::generate().map_err(std::io::Error::from)?,
             ledger_id,
             created_by_device: created_by_device.clone(),
             created_at,

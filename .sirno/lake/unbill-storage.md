@@ -107,6 +107,9 @@ and automerge merge is commutative and idempotent.
 
 ### Error handling
 
+Invitation creation returns `StorageError::Io` if token generation fails.
+No invitation is persisted or invalidation event emitted for that failed operation.
+
 `StorageError::ChannelClosed` is the discriminable variant
 for StoreServer actor communication failures
 (MPSC send or oneshot receive failing because the consumer task stopped).

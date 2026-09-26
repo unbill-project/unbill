@@ -301,7 +301,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_join_rejects_invalid_token() {
+    async fn test_join_rejects_invalid_token() -> std::result::Result<(), Box<dyn std::error::Error>>
+    {
         let joiner_node = NodeId::from_seed(2);
 
         let mut doc =
@@ -327,7 +328,7 @@ mod tests {
         let host_store2 = Arc::clone(&host_store);
         let joiner_store2 = Arc::clone(&joiner_store);
 
-        let fake_token = InviteToken::generate();
+        let fake_token = InviteToken::generate()?;
         let request = JoinRequest {
             token: fake_token.to_string(),
             ledger_id: ledger_id_str.clone(),
@@ -357,5 +358,6 @@ mod tests {
         // Joiner got nothing.
         let joiner_doc = joiner_store.load_ledger(&ledger_id_str).await.unwrap();
         assert!(joiner_doc.is_none(), "joiner should have no ledgers");
+        Ok(())
     }
 }
