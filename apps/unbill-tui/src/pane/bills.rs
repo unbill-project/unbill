@@ -38,14 +38,14 @@ pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
     // Split: bill list on top, settlement section at bottom.
     // Settlement section: 1 separator + number of transactions (min 1 for "settled up").
     let settlement_lines = if state.current_ledger_id().is_some() {
-        1 + state.settlement.len().max(1) // separator + transactions or "settled up"
+        state.settlement.len().max(1).saturating_add(1) // separator + transactions or "settled up"
     } else {
         0
     };
-    let settlement_height = (settlement_lines as u16).min(inner.height / 3);
+    let settlement_height = settlement_lines.min(usize::from(inner.height / 3)) as u16;
 
-    let split =
-        Layout::vertical([Constraint::Min(0), Constraint::Length(settlement_height)]).split(inner);
+    let split = Layout::vertical([Constraint::Min(0), Constraint::Length(settlement_height)])
+        .areas::<2>(inner);
 
     let list_area = split[0];
     let settlement_area = split[1];
@@ -61,24 +61,18 @@ pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
         let visible_height = list_area.height as usize;
 
         // Simple scroll: keep cursor visible.
-        let scroll_offset = if state.bill_cursor >= visible_height {
-            state.bill_cursor - visible_height + 1
-        } else {
-            0
-        };
+        let scroll_offset = state
+            .bill_cursor
+            .saturating_add(1)
+            .saturating_sub(visible_height);
 
-        for (i, bill) in state.bills.iter().enumerate().skip(scroll_offset) {
-            let row_idx = i - scroll_offset;
-            if row_idx >= visible_height {
-                break;
-            }
-            let row = Rect {
-                x: list_area.x,
-                y: list_area.y + row_idx as u16,
-                width: list_area.width,
-                height: 1,
-            };
-
+        for ((i, bill), row) in state
+            .bills
+            .iter()
+            .enumerate()
+            .skip(scroll_offset)
+            .zip(list_area.rows())
+        {
             let is_cursor = i == state.bill_cursor;
             let style = if is_cursor {
                 Style::default().add_modifier(Modifier::REVERSED)
@@ -87,18 +81,15 @@ pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
             };
 
             // Description truncated to 30 chars, amount right-aligned.
-            let desc = if bill.description.len() > 30 {
-                format!("{}…", &bill.description[..29])
-            } else {
-                bill.description.clone()
-            };
+            let desc = truncate_description(&bill.description);
             let amount_str = format!("${}", format_cents(bill.amount_cents));
-
-            let cols = Layout::horizontal([
-                Constraint::Min(0),
-                Constraint::Length(amount_str.len() as u16 + 1),
-            ])
-            .split(row);
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "Formatting an i64 amount with a currency symbol is far shorter than u16::MAX"
+            )]
+            let amount_width = amount_str.len() as u16 + 1;
+            let cols = Layout::horizontal([Constraint::Min(0), Constraint::Length(amount_width)])
+                .areas::<2>(row);
 
             frame.render_widget(Paragraph::new(desc).style(style), cols[0]);
             frame.render_widget(
@@ -126,35 +117,21 @@ pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
         }
 
         if state.settlement.is_empty() {
-            if settlement_area.height > 1 {
+            if let Some(row) = settlement_area.rows().nth(1) {
                 frame.render_widget(
                     Paragraph::new("  settled up").style(Style::default().fg(Color::DarkGray)),
-                    Rect {
-                        x: settlement_area.x,
-                        y: settlement_area.y + 1,
-                        width: settlement_area.width,
-                        height: 1,
-                    },
+                    row,
                 );
             }
         } else {
-            for (i, txn) in state.settlement.iter().enumerate() {
-                let line_y = settlement_area.y + 1 + i as u16;
-                if line_y >= settlement_area.y + settlement_area.height {
-                    break;
-                }
+            for (txn, row) in state.settlement.iter().zip(settlement_area.rows().skip(1)) {
                 let from_name = resolve_user_name(&txn.from_user_id, &state.users);
                 let to_name = resolve_user_name(&txn.to_user_id, &state.users);
                 let amount_str = format!("${}", format_cents(txn.amount_cents));
                 frame.render_widget(
                     Paragraph::new(format!("  {} → {}  {}", from_name, to_name, amount_str))
                         .style(Style::default().fg(Color::DarkGray)),
-                    Rect {
-                        x: settlement_area.x,
-                        y: line_y,
-                        width: settlement_area.width,
-                        height: 1,
-                    },
+                    row,
                 );
             }
         }
@@ -169,8 +146,30 @@ fn resolve_user_name(
         .iter()
         .find(|u| u.user_id == *user_id)
         .map(|u| u.display_name.clone())
-        .unwrap_or_else(|| {
-            let s = user_id.to_string();
-            s[..8.min(s.len())].to_string()
-        })
+        .unwrap_or_else(|| user_id.to_string().chars().take(8).collect())
+}
+
+// sirno:witness:unbill-tui:begin
+fn truncate_description(description: &str) -> String {
+    if description.chars().nth(30).is_some() {
+        format!("{}…", description.chars().take(29).collect::<String>())
+    } else {
+        description.to_owned()
+    }
+}
+// sirno:witness:unbill-tui:end
+
+#[cfg(test)]
+mod tests {
+    use super::truncate_description;
+
+    #[test]
+    fn description_truncation_preserves_unicode() {
+        let short = "午餐🍜";
+        assert_eq!(truncate_description(short), short);
+        let exact = "🍜".repeat(30);
+        assert_eq!(truncate_description(&exact), exact);
+        let long = "🍜".repeat(31);
+        assert_eq!(truncate_description(&long), format!("{}…", "🍜".repeat(29)));
+    }
 }

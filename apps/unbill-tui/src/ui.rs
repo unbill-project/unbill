@@ -16,7 +16,8 @@ pub fn render(frame: &mut Frame, state: &AppState, svc: &UnbillConsole) {
     let full_area = frame.area();
 
     // Split vertically: main area + 1-line status bar.
-    let vertical = Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).split(full_area);
+    let vertical =
+        Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas::<2>(full_area);
 
     let main_area = vertical[0];
     let status_area = vertical[1];
@@ -27,7 +28,7 @@ pub fn render(frame: &mut Frame, state: &AppState, svc: &UnbillConsole) {
         Constraint::Percentage(40),
         Constraint::Percentage(40),
     ])
-    .split(main_area);
+    .areas::<3>(main_area);
 
     // Render panes.
     pane::ledger::render(frame, cols[0], state);
@@ -66,7 +67,7 @@ fn render_status_bar(frame: &mut Frame, area: ratatui::layout::Rect, state: &App
         Constraint::Min(0),
         Constraint::Length(sync_text.len().max(1) as u16),
     ])
-    .split(area);
+    .areas::<2>(area);
 
     frame.render_widget(
         Paragraph::new(hints).style(Style::default().fg(Color::DarkGray)),

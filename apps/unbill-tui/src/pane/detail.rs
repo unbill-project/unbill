@@ -8,7 +8,7 @@ use unbill_console::error::Result;
 use unbill_console::model::{BillId, LedgerId, Share, User, UserId};
 use unbill_console::service::UnbillConsole;
 
-use crate::app::AppState;
+use crate::app::{AppState, parse_amount_cents};
 use crate::pane::Pane;
 
 // ---------------------------------------------------------------------------
@@ -79,7 +79,7 @@ fn render_view(frame: &mut Frame, area: Rect, block: Block, state: &AppState, sv
             Constraint::Min(0),    // payers list
             Constraint::Length(1), // hint
         ])
-        .split(inner);
+        .areas::<5>(inner);
 
         frame.render_widget(
             Paragraph::new(format!("Description: {}", bill.description)),
@@ -126,20 +126,10 @@ fn render_view(frame: &mut Frame, area: Rect, block: Block, state: &AppState, sv
         );
 
         // Render payers + payees into available space.
-        let available = rows[3].height as usize;
-        let mut line_idx = 0usize;
+        let mut available_rows = rows[3].rows();
 
-        for (user_id, cents) in &split.payer_amounts {
-            if line_idx >= available {
-                break;
-            }
+        for ((user_id, cents), row) in split.payer_amounts.iter().zip(&mut available_rows) {
             let name = resolve_user_name(user_id, &state.users);
-            let row = Rect {
-                x: rows[3].x,
-                y: rows[3].y + line_idx as u16,
-                width: rows[3].width,
-                height: 1,
-            };
             frame.render_widget(
                 Paragraph::new(format!(
                     "  pays: {}  ${}.{:02}",
@@ -150,19 +140,9 @@ fn render_view(frame: &mut Frame, area: Rect, block: Block, state: &AppState, sv
                 .style(Style::default().fg(Color::DarkGray)),
                 row,
             );
-            line_idx += 1;
         }
-        for (user_id, cents) in &split.payee_amounts {
-            if line_idx >= available {
-                break;
-            }
+        for ((user_id, cents), row) in split.payee_amounts.iter().zip(available_rows) {
             let name = resolve_user_name(user_id, &state.users);
-            let row = Rect {
-                x: rows[3].x,
-                y: rows[3].y + line_idx as u16,
-                width: rows[3].width,
-                height: 1,
-            };
             frame.render_widget(
                 Paragraph::new(format!(
                     "  owes: {}  ${}.{:02}",
@@ -173,7 +153,6 @@ fn render_view(frame: &mut Frame, area: Rect, block: Block, state: &AppState, sv
                 .style(Style::default().fg(Color::DarkGray)),
                 row,
             );
-            line_idx += 1;
         }
     } else {
         // No bill selected.
@@ -206,7 +185,7 @@ fn render_editor(
         Constraint::Length(1),                 // live preview / error
         Constraint::Length(1),                 // hint
     ])
-    .split(inner);
+    .areas::<8>(inner);
 
     // Description row.
     let desc_label_style = if editor.section == EditorSection::Description {
@@ -219,7 +198,8 @@ fn render_editor(
     } else {
         Style::default()
     };
-    let desc_cols = Layout::horizontal([Constraint::Length(14), Constraint::Min(0)]).split(rows[0]);
+    let desc_cols =
+        Layout::horizontal([Constraint::Length(14), Constraint::Min(0)]).areas::<2>(rows[0]);
     frame.render_widget(
         Paragraph::new("Description: ").style(desc_label_style),
         desc_cols[0],
@@ -240,7 +220,8 @@ fn render_editor(
     } else {
         Style::default()
     };
-    let amt_cols = Layout::horizontal([Constraint::Length(14), Constraint::Min(0)]).split(rows[1]);
+    let amt_cols =
+        Layout::horizontal([Constraint::Length(14), Constraint::Min(0)]).areas::<2>(rows[1]);
     frame.render_widget(
         Paragraph::new("Amount:       ").style(amt_label_style),
         amt_cols[0],
@@ -259,16 +240,7 @@ fn render_editor(
     frame.render_widget(Paragraph::new("Payers:").style(payers_label_style), rows[2]);
 
     // Payers list.
-    for (i, row_data) in editor.payers.iter().enumerate() {
-        if rows[3].height == 0 || i >= rows[3].height as usize {
-            break;
-        }
-        let row = Rect {
-            x: rows[3].x,
-            y: rows[3].y + i as u16,
-            width: rows[3].width,
-            height: 1,
-        };
+    for ((i, row_data), row) in editor.payers.iter().enumerate().zip(rows[3].rows()) {
         let is_cursor = editor.section == EditorSection::Payers && i == editor.payer_cursor;
         let style = if is_cursor {
             Style::default().add_modifier(Modifier::REVERSED)
@@ -295,16 +267,7 @@ fn render_editor(
     frame.render_widget(Paragraph::new("Payees:").style(payees_label_style), rows[4]);
 
     // Payees list.
-    for (i, row_data) in editor.payees.iter().enumerate() {
-        if rows[5].height == 0 || i >= rows[5].height as usize {
-            break;
-        }
-        let row = Rect {
-            x: rows[5].x,
-            y: rows[5].y + i as u16,
-            width: rows[5].width,
-            height: 1,
-        };
+    for ((i, row_data), row) in editor.payees.iter().enumerate().zip(rows[5].rows()) {
         let is_cursor = editor.section == EditorSection::Payees && i == editor.payee_cursor;
         let style = if is_cursor {
             Style::default().add_modifier(Modifier::REVERSED)
@@ -401,27 +364,5 @@ fn resolve_user_name(user_id: &UserId, users: &[User]) -> String {
         .iter()
         .find(|u| u.user_id == *user_id)
         .map(|u| u.display_name.clone())
-        .unwrap_or_else(|| {
-            let s = user_id.to_string();
-            s[..8.min(s.len())].to_string()
-        })
-}
-
-fn parse_amount_cents(s: &str) -> Option<i64> {
-    let s = s.trim();
-    if s.is_empty() {
-        return None;
-    }
-    if let Some((whole, frac)) = s.split_once('.') {
-        let whole: i64 = whole.parse().ok()?;
-        let frac = match frac.len() {
-            0 => 0i64,
-            1 => frac.parse::<i64>().ok()? * 10,
-            _ => frac[..2].parse::<i64>().ok()?,
-        };
-        Some(whole * 100 + frac)
-    } else {
-        let whole: i64 = s.parse().ok()?;
-        Some(whole * 100)
-    }
+        .unwrap_or_else(|| user_id.to_string().chars().take(8).collect())
 }

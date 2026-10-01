@@ -163,6 +163,10 @@ pub struct ResolveConflictInput {
 // ---------------------------------------------------------------------------
 
 pub fn subscribe() -> tokio::sync::broadcast::Receiver<unbill_console::service::ServiceEvent> {
+    #[allow(
+        clippy::expect_used,
+        reason = "Root initializes the service before mounting App, which subscribes to events"
+    )]
     get_service().expect("service not initialized").subscribe()
 }
 
@@ -686,16 +690,23 @@ pub fn format_money(amount_cents: i64, currency: &str) -> String {
     format!("{sign}{currency} {units}.{cents:02}")
 }
 
+// sirno:witness:unbill-ui-remote:begin
 pub fn format_timestamp(timestamp_ms: i64) -> String {
     let date = js_sys::Date::new(&JsValue::from_f64(timestamp_ms as f64));
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "JavaScript month indices are at most 11, so adding one cannot overflow u32"
+    )]
+    let month = date.get_month() + 1;
     format_timestamp_parts(
         date.get_full_year(),
-        date.get_month() + 1,
+        month,
         date.get_date(),
         date.get_hours(),
         date.get_minutes(),
     )
 }
+// sirno:witness:unbill-ui-remote:end
 
 fn format_timestamp_parts(year: u32, month: u32, day: u32, hour: u32, minute: u32) -> String {
     format!("{year:04}/{month:02}/{day:02} {hour:02}:{minute:02}")

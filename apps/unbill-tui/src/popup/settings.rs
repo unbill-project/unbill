@@ -140,11 +140,11 @@ impl PopupView for SettingsPopup {
             Constraint::Min(0),    // content
             Constraint::Length(1), // hint
         ])
-        .split(inner);
+        .areas::<4>(inner);
 
         // Top tab bar
         let tab_cols = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(rows[0]);
+            .areas::<2>(rows[0]);
 
         let device_style = if self.top_tab == TopTab::Device {
             Style::default().add_modifier(Modifier::REVERSED)
@@ -193,7 +193,7 @@ impl SettingsPopup {
             Constraint::Length(3), // peer sync box
             Constraint::Min(0),
         ])
-        .split(content);
+        .areas::<3>(content);
 
         // Device ID info (no box — read-only)
         frame.render_widget(
@@ -268,14 +268,18 @@ impl SettingsPopup {
 
 impl SettingsPopup {
     fn render_ledger_tab(&self, frame: &mut Frame, content: Rect, hint_row: Rect) {
-        let selector_inner_rows = (self.ledgers.len().max(1) as u16).min(4);
+        let selector_inner_rows = self.ledgers.len().clamp(1, 4) as u16;
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "At most four rows plus two border rows fit u16"
+        )]
         let selector_box_h = selector_inner_rows + 2;
 
         let sections = Layout::vertical([
             Constraint::Length(selector_box_h),
             Constraint::Min(0), // content box
         ])
-        .split(content);
+        .areas::<2>(content);
 
         let selector_focused = self.ledger_focus == LedgerFocus::Selector;
         let content_focused = self.ledger_focus == LedgerFocus::Content;
@@ -300,16 +304,7 @@ impl SettingsPopup {
             return;
         }
 
-        for (i, ledger) in self.ledgers.iter().enumerate() {
-            if i >= selector_inner.height as usize {
-                break;
-            }
-            let row = Rect {
-                x: selector_inner.x,
-                y: selector_inner.y + i as u16,
-                width: selector_inner.width,
-                height: 1,
-            };
+        for ((i, ledger), row) in self.ledgers.iter().enumerate().zip(selector_inner.rows()) {
             let is_selected = i == self.ledger_cursor;
             let style = if selector_focused && is_selected {
                 Style::default().add_modifier(Modifier::REVERSED)
@@ -341,11 +336,11 @@ impl SettingsPopup {
             Constraint::Length(1), // sub-tab switcher
             Constraint::Min(0),    // list / action area
         ])
-        .split(content_inner);
+        .areas::<2>(content_inner);
 
         let sub_tab_cols =
             Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .split(inner_rows[0]);
+                .areas::<2>(inner_rows[0]);
 
         let users_style = if content_focused && self.ledger_sub_tab == LedgerSubTab::Users {
             Style::default().add_modifier(Modifier::REVERSED)
@@ -384,7 +379,7 @@ impl SettingsPopup {
                 let half = list_area.height / 2;
                 let user_rows =
                     Layout::vertical([Constraint::Length(half.max(1)), Constraint::Min(0)])
-                        .split(list_area);
+                        .areas::<2>(list_area);
 
                 // Top half: current ledger users (read-only)
                 if ledger_users.is_empty() {
@@ -393,17 +388,8 @@ impl SettingsPopup {
                         user_rows[0],
                     );
                 } else {
-                    for (i, user) in ledger_users.iter().enumerate() {
-                        if i >= user_rows[0].height as usize {
-                            break;
-                        }
-                        let row = Rect {
-                            x: user_rows[0].x,
-                            y: user_rows[0].y + i as u16,
-                            width: user_rows[0].width,
-                            height: 1,
-                        };
-                        let short_id = &user.user_id.to_string()[..8];
+                    for (user, row) in ledger_users.iter().zip(user_rows[0].rows()) {
+                        let short_id: String = user.user_id.to_string().chars().take(8).collect();
                         frame.render_widget(
                             Paragraph::new(format!("  {} ({})", user.display_name, short_id)),
                             row,
@@ -421,34 +407,25 @@ impl SettingsPopup {
                         content_focused,
                     );
                 } else {
-                    // addable.len() items + 1 "[ + New ]" item
-                    let total = addable.len() + 1;
-                    for i in 0..total {
-                        if i >= user_rows[1].height as usize {
-                            break;
-                        }
-                        let row = Rect {
-                            x: user_rows[1].x,
-                            y: user_rows[1].y + i as u16,
-                            width: user_rows[1].width,
-                            height: 1,
-                        };
+                    // Addable users followed by the "[ + New ]" item.
+                    let items = addable.iter().map(Some).chain(std::iter::once(None));
+                    for (i, (user, row)) in items.zip(user_rows[1].rows()).enumerate() {
                         let is_cursor = content_focused && i == self.add_cursor;
                         let style = if is_cursor {
                             Style::default().add_modifier(Modifier::REVERSED)
                         } else {
                             Style::default()
                         };
-                        if i == addable.len() {
-                            // "Create new" row
-                            frame.render_widget(Paragraph::new("[ + New ]").style(style), row);
-                        } else {
+                        if let Some(user) = user {
                             let marker = if is_cursor { "+" } else { " " };
                             frame.render_widget(
-                                Paragraph::new(format!("{} {}", marker, addable[i].display_name))
+                                Paragraph::new(format!("{} {}", marker, user.display_name))
                                     .style(style),
                                 row,
                             );
+                        } else {
+                            // "Create new" row
+                            frame.render_widget(Paragraph::new("[ + New ]").style(style), row);
                         }
                     }
                 }
@@ -550,16 +527,20 @@ impl SettingsPopup {
                 match self.ledger_focus {
                     LedgerFocus::Selector => {
                         if !self.ledgers.is_empty() {
-                            self.ledger_cursor =
-                                (self.ledger_cursor + 1).min(self.ledgers.len() - 1);
+                            self.ledger_cursor = self
+                                .ledger_cursor
+                                .saturating_add(1)
+                                .min(self.ledgers.len().saturating_sub(1));
                             self.add_cursor = 0;
                         }
                     }
                     LedgerFocus::Content => {
                         if self.ledger_sub_tab == LedgerSubTab::Users {
-                            // addable.len() + 1 for "Create new" row
-                            let total = self.addable_users().len() + 1;
-                            self.add_cursor = (self.add_cursor + 1).min(total - 1);
+                            // The final index is the "Create new" row.
+                            self.add_cursor = self
+                                .add_cursor
+                                .saturating_add(1)
+                                .min(self.addable_users().len());
                         }
                     }
                 }
@@ -604,7 +585,9 @@ impl SettingsPopup {
                         self.creating_new_user = true;
                         PopupOutcome::Pending
                     } else {
-                        let user = addable[self.add_cursor].clone();
+                        let Some(user) = addable.get(self.add_cursor).cloned() else {
+                            return PopupOutcome::Pending;
+                        };
                         PopupOutcome::Action(PopupAction::AddUser {
                             ledger_id,
                             user: NewUser {

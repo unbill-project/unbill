@@ -44,6 +44,11 @@ and bill editor seed.
 Feedback signals include status message,
 error message,
 and loading count.
+Strict Clippy exceptions stay local to bounded calendar values,
+character-boundary truncation,
+guarded counts,
+and the practical limit on concurrent UI operations.
+The event subscription requires the service initialized before the app mounts.
 
 After bootstrap,
 one async task subscribes to service events.

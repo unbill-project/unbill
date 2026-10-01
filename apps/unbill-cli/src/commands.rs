@@ -401,7 +401,12 @@ pub async fn bill_conflicts(
             return Ok(());
         }
         for (i, group) in groups.iter().enumerate() {
-            println!("conflict {} of {}", i + 1, groups.len());
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "The index is below the length of an allocated vector of conflict groups"
+            )]
+            let display_index = i + 1;
+            println!("conflict {} of {}", display_index, groups.len());
             println!("  conflicting:");
             for b in &group.conflicting {
                 println!(

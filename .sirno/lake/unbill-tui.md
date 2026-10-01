@@ -15,6 +15,12 @@ It follows the shared UI model but is always a three-column layout.
 There is no compact mode and no mouse support.
 
 Rendering uses Ratatui on a Crossterm backend.
+Fixed layouts use arrays whose lengths match their constraint counts.
+Visible rows are bounded by the available rectangle,
+and popup sizing widens percentage arithmetic before multiplication.
+Text truncation preserves UTF-8 boundaries,
+and amount parsing rejects cent-conversion overflow.
+Strict Clippy exceptions stay local to operations with documented bounds.
 The TUI connects to a running `unbill-daemon` through `RpcAsymChannel`
 and opens `UnbillConsole` over that channel.
 
@@ -89,8 +95,12 @@ Both the saved-bill detail view and the editor's live split use
 `UnbillConsole::calculate_bill_split` through the console passed to the renderer.
 Calculation failures appear in the detail or editor area instead of entering
 the unchecked settlement function.
+The editor and confirmation path share the same amount parser.
 
 Invitation popups keep the URL visible and show an error message when QR encoding fails.
-This fallback is covered by a unit test.
+Unit tests cover this fallback,
+amount overflow and invalid fractions,
+Unicode description truncation,
+and popup geometry for large terminal dimensions.
 Domain correctness is covered by shared crates,
 and the TUI is validated manually against the same service exercised by CLI e2e tests.

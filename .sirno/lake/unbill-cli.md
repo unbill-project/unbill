@@ -31,6 +31,8 @@ IDs and node identities remain opaque strings until parsed by the CLI or core ty
 Invalid IDs,
 invalid amounts,
 and invalid node IDs fail before service calls.
+Amount parsing rejects cent-conversion overflow and invalid UTF-8 fraction boundaries.
+Strict Clippy exceptions stay local to character-boundary truncation and bounded display numbering.
 Service errors surface as non-zero exits with human-readable stderr.
 Invitation QR encoding errors also propagate to stderr and a non-zero exit; the URL is printed first.
 Commands fail clearly when the daemon socket cannot be reached.

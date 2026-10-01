@@ -292,7 +292,7 @@ fingerprint = "sha256:e8f886c4709a07d713d6817d0ec0cbd941429457b2332709780c539d9d
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-cli]
-fingerprint = "sha256:da9ea4a4abb5c701900b2cd6dc16f7b8e60a48894c0a48c4a674c15285223b0e"
+fingerprint = "sha256:424021f53a20327adcc8ab73430fc425d2c5f3b267be0eda8bedfabd6a2032d6"
 "core.belongs" = ["applications"]
 "core.refines" = ["device-console-split"]
 
@@ -346,7 +346,7 @@ fingerprint = "sha256:f4e8540941f587acc5952891e9f896c46c0517ff257d769df501cbfe1f
 "core.refines" = ["unbill-ui-native"]
 
 [entries.unbill-tui]
-fingerprint = "sha256:8064d445b11e4a7d697b7d1571983571b1a3951e1a9a0dc8902e0db67424e6dc"
+fingerprint = "sha256:7252d37e018367ae220b1589848afb72a0c1b669cd9cc56269a489e712273de6"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -362,7 +362,7 @@ fingerprint = "sha256:a79358ab8c0939531b79e95dc003355eac6ba5eff23687be45841f9a1c
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-ui-remote]
-fingerprint = "sha256:5088a483e92cbf420a766b7f365595335d8b12912dce63014162519d182fb687"
+fingerprint = "sha256:3b5c90adc36b4ec90de583c07dd3761ba83957583e8554ef57e90a8bd334558e"
 "core.belongs" = [
     "frontend-ui",
     "applications",

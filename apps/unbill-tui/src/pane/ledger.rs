@@ -10,6 +10,7 @@ use crate::pane::Pane;
 
 fn truncate_name(name: &str) -> &str {
     match name.char_indices().nth(12) {
+        #[allow(clippy::string_slice, reason = "char_indices returns UTF-8 boundaries")]
         Some((pos, _)) => &name[..pos],
         None => name,
     }
@@ -44,8 +45,14 @@ pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
         .map(|l| {
             let user_part = match state.ledger_user_names.get(&l.ledger_id) {
                 Some(names) if names.len() > 3 => {
-                    let visible: Vec<&str> = names[..3].iter().map(|n| truncate_name(n)).collect();
-                    format!("{} +{} more", visible.join(", "), names.len() - 3)
+                    let visible: Vec<&str> =
+                        names.iter().take(3).map(|n| truncate_name(n)).collect();
+                    #[allow(
+                        clippy::arithmetic_side_effects,
+                        reason = "This branch requires names.len() > 3"
+                    )]
+                    let remaining = names.len() - 3;
+                    format!("{} +{remaining} more", visible.join(", "))
                 }
                 Some(names) if !names.is_empty() => {
                     let parts: Vec<&str> = names.iter().map(|n| truncate_name(n)).collect();

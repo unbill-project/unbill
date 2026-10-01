@@ -50,7 +50,7 @@ impl PopupView for InviteResultPopup {
             Constraint::Min(0),           // url
             Constraint::Length(1),        // hint
         ])
-        .split(inner);
+        .areas::<4>(inner);
 
         frame.render_widget(Paragraph::new(self.qr_text.as_str()), rows[0]);
         frame.render_widget(
