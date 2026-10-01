@@ -68,6 +68,10 @@ status,
 errors,
 and loading count in Leptos signals.
 
+Local Clippy allowances document character-boundary truncation,
+guarded user counts, and zero-based month conversion.
+Loading-counter increments assume the UI cannot realistically have `usize::MAX` operations in flight.
+
 Mutating actions call the bridge,
 show feedback,
 refresh bootstrap state,

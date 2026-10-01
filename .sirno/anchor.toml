@@ -354,7 +354,7 @@ fingerprint = "sha256:58333fef3604cad1ab153fe28ff8d2d15cd66694c24b681423a3d1f560
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-ui-native]
-fingerprint = "sha256:e85463d42f1f5e50bacf66e2675c9961ade87fc2fda567799f78804ffd7a5369"
+fingerprint = "sha256:a79358ab8c0939531b79e95dc003355eac6ba5eff23687be45841f9a1cf629e3"
 "core.belongs" = [
     "frontend-ui",
     "applications",
