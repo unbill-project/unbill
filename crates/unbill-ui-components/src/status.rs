@@ -31,6 +31,10 @@ impl ToastContext {
 
     fn push(self, message: String, is_error: bool) {
         let id = self.next_id.get_untracked();
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "An app session cannot realistically create u64::MAX toasts"
+        )]
         self.next_id.update(|n| *n += 1);
         self.entries.update(|t| {
             t.push(ToastEntry {
@@ -43,6 +47,10 @@ impl ToastContext {
 }
 
 /// Access the nearest [`ToastProvider`] context. Panics if none is in the tree.
+#[allow(
+    clippy::expect_used,
+    reason = "ToastProvider is required by this API and installed by both app roots"
+)]
 pub fn use_toast() -> ToastContext {
     use_context::<ToastContext>().expect("ToastProvider missing from component tree")
 }
@@ -79,16 +87,25 @@ pub fn ToastProvider(children: Children) -> impl IntoView {
 
 #[component]
 fn ToastItem(entry: ToastEntry, on_dismiss: Callback<()>) -> impl IntoView {
+    // sirno:witness:ui-components:begin
     spawn_local(async move {
+        #[allow(
+            clippy::unwrap_used,
+            reason = "ToastItem is rendered only inside a browser window"
+        )]
+        let window = web_sys::window().unwrap();
+        let mut timer_scheduled = false;
         let promise = js_sys::Promise::new(&mut |resolve, _| {
-            web_sys::window()
-                .unwrap()
+            timer_scheduled = window
                 .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, TOAST_DURATION_MS)
-                .unwrap();
+                .is_ok();
         });
-        JsFuture::from(promise).await.ok();
-        on_dismiss.run(());
+        // Keep the message visible if automatic dismissal is unavailable.
+        if timer_scheduled && JsFuture::from(promise).await.is_ok() {
+            on_dismiss.run(());
+        }
     });
+    // sirno:witness:ui-components:end
 
     let class = if entry.is_error {
         "toast toast-error"

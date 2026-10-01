@@ -186,6 +186,7 @@ pub fn amend_bill_seed(
     }
 }
 
+// sirno:witness:ui-components:begin
 pub fn parse_amount_text(input: &str) -> Result<i64, String> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
@@ -221,8 +222,12 @@ pub fn parse_amount_text(input: &str) -> Result<i64, String> {
         }
     };
 
-    Ok(units * 100 + cents)
+    units
+        .checked_mul(100)
+        .and_then(|amount| amount.checked_add(cents))
+        .ok_or_else(|| "Amount is too large.".to_owned())
 }
+// sirno:witness:ui-components:end
 
 pub fn build_bill_save_request(
     prev_bill_id: Option<String>,
@@ -696,6 +701,10 @@ impl<'a> ShareWeightParser<'a> {
                 return Some(total);
             };
 
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "peek_byte succeeded, so advancing once cannot exceed input.len()"
+            )]
             match operator {
                 b'+' => {
                     self.position += 1;
@@ -714,6 +723,10 @@ impl<'a> ShareWeightParser<'a> {
         self.skip_whitespace();
         let start = self.position;
 
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Each increment follows a successful bounds-checked byte lookup"
+        )]
         while matches!(self.peek_byte(), Some(byte) if byte.is_ascii_digit()) {
             self.position += 1;
         }
@@ -722,7 +735,12 @@ impl<'a> ShareWeightParser<'a> {
             return None;
         }
 
-        self.input[start..self.position].parse::<i64>().ok()
+        #[allow(
+            clippy::string_slice,
+            reason = "The cursor stays within input and advances only over ASCII, preserving UTF-8 boundaries"
+        )]
+        let number = &self.input[start..self.position];
+        number.parse::<i64>().ok()
     }
 
     fn finish(&mut self) -> bool {
@@ -731,6 +749,10 @@ impl<'a> ShareWeightParser<'a> {
     }
 
     fn skip_whitespace(&mut self) {
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Each increment follows a successful bounds-checked byte lookup"
+        )]
         while matches!(self.peek_byte(), Some(byte) if byte.is_ascii_whitespace()) {
             self.position += 1;
         }
@@ -768,6 +790,21 @@ mod tests {
             display_name: user_id.to_owned(),
             included,
             shares: shares.to_owned(),
+        }
+    }
+
+    #[test]
+    fn amount_conversion_checks_multiplication_and_addition_overflow() {
+        assert_eq!(parse_amount_text("92233720368547758.07"), Ok(i64::MAX));
+        for input in [
+            "92233720368547758.08",
+            "92233720368547759",
+            "9223372036854775807",
+        ] {
+            assert_eq!(
+                parse_amount_text(input),
+                Err("Amount is too large.".to_owned())
+            );
         }
     }
 

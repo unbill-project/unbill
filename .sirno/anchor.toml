@@ -265,7 +265,7 @@ fingerprint = "sha256:5b5b3a07dd04e7d70b4375791dcc830271c5ccd94df75df4a64f6c48da
 "core.refines" = ["design-principles"]
 
 [entries.ui-components]
-fingerprint = "sha256:4a525df77f9d37ae00a72a357b83603e1bc5f203631f982bfb887cd72cfd27c8"
+fingerprint = "sha256:11ef261e9b2a23191d9ee467a204f647dc6b40e8d4a3f4be9e1fd4e9e2dbb6aa"
 "core.belongs" = [
     "frontend-ui",
     "workspace-layout",
