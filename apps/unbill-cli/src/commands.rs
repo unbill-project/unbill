@@ -2,7 +2,7 @@
 // Each function takes the service and any parsed arguments, performs the
 // operation, and prints the result. Nothing here touches storage directly.
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
 };
@@ -365,7 +365,8 @@ pub async fn ledger_invite(svc: &UnbillConsole, ledger_id: &str, json: bool) -> 
     } else {
         println!("{url}");
         println!();
-        print!("{}", unbill_console::qr::to_text(&url));
+        let qr = unbill_console::qr::to_text(&url).context("QR encoding failed")?;
+        print!("{qr}");
     }
     Ok(())
 }

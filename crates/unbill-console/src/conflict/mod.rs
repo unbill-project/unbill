@@ -50,6 +50,7 @@ impl UnionFind {
         root
     }
 
+    // sirno:witness:conflict-detection:begin
     fn union(&mut self, x: BillId, y: BillId) {
         let rx = self.find(x);
         let ry = self.find(y);
@@ -65,12 +66,17 @@ impl UnionFind {
             std::cmp::Ordering::Greater => {
                 self.parent.insert(ry, rx);
             }
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "Rank is at most log2(node count), so incrementing it cannot overflow usize"
+            )]
             std::cmp::Ordering::Equal => {
                 self.parent.insert(ry, rx);
                 *self.rank.entry(rx).or_default() += 1;
             }
         }
     }
+    // sirno:witness:conflict-detection:end
 }
 
 /// Detect amendment conflicts in a full bill list.

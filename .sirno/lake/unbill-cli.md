@@ -32,6 +32,7 @@ Invalid IDs,
 invalid amounts,
 and invalid node IDs fail before service calls.
 Service errors surface as non-zero exits with human-readable stderr.
+Invitation QR encoding errors also propagate to stderr and a non-zero exit; the URL is printed first.
 Commands fail clearly when the daemon socket cannot be reached.
 
 Implementation:

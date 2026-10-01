@@ -38,3 +38,4 @@ When unset or zero the periodic sync arm is dormant.
 The process exits cleanly when any task returns.
 
 Tracing goes to stderr so stdout remains reserved for the readiness line.
+Tracing directive parsing errors propagate through the startup result.

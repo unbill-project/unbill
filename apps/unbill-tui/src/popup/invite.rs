@@ -22,14 +22,17 @@ pub struct InviteResultPopup {
 }
 
 impl InviteResultPopup {
+    // sirno:witness:unbill-tui:begin
     pub fn new(url: String) -> Self {
-        let qr_text = unbill_console::qr::to_text(&url);
+        let qr_text = unbill_console::qr::to_text(&url)
+            .unwrap_or_else(|error| format!("QR code unavailable: {error}"));
         Self {
             title: "Invite URL",
             url,
             qr_text,
         }
     }
+    // sirno:witness:unbill-tui:end
 }
 
 impl PopupView for InviteResultPopup {
@@ -65,5 +68,18 @@ impl PopupView for InviteResultPopup {
             KeyCode::Esc => PopupOutcome::Cancelled,
             _ => PopupOutcome::Pending,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn oversized_qr_keeps_the_invitation_url() {
+        let url = "x".repeat(10_000);
+        let popup = InviteResultPopup::new(url.clone());
+        assert_eq!(popup.url, url);
+        assert!(popup.qr_text.starts_with("QR code unavailable: "));
     }
 }

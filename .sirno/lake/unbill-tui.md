@@ -90,6 +90,7 @@ Both the saved-bill detail view and the editor's live split use
 Calculation failures appear in the detail or editor area instead of entering
 the unchecked settlement function.
 
-The TUI has no unit tests of its own.
+Invitation popups keep the URL visible and show an error message when QR encoding fails.
+This fallback is covered by a unit test.
 Domain correctness is covered by shared crates,
 and the TUI is validated manually against the same service exercised by CLI e2e tests.
