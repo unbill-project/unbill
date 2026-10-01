@@ -38,12 +38,21 @@
         craneLib = (crane.mkLib pkgs).overrideToolchain rustToolchain;
         craneLibWasm = (crane.mkLib pkgs).overrideToolchain rustToolchainWasm;
 
+        # sirno:witness:ci-cd-pipeline:begin
+        # Diesel embeds SQL migrations at compile time; Crane's default Cargo
+        # source filter excludes them.
+        cargoSource = pkgs.lib.cleanSourceWith {
+          src = pkgs.lib.cleanSource ./.;
+          filter = path: type:
+            craneLib.filterCargoSources path type || pkgs.lib.hasSuffix ".sql" path;
+        };
+        # sirno:witness:ci-cd-pipeline:end
 
         # ── CLI / TUI / daemon ────────────────────────────────────────────────
 
         commonArgs = {
           pname = "unbill";
-          src = craneLib.cleanCargoSource ./.;
+          src = cargoSource;
           strictDeps = true;
           # Exclude unbill-tauri here to avoid pulling in GTK/WebKit for these
           # lightweight packages.
@@ -106,12 +115,12 @@
 
         wasmArgs = {
           pname = "unbill-ui-native-wasm";
-          src = craneLib.cleanCargoSource ./.;
+          src = cargoSource;
           strictDeps = true;
           CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
           cargoExtraArgs = "-p unbill-ui-native";
           doCheck = false;
-          # cleanCargoSource strips .js files, but api.rs references bridge.js
+          # The Cargo source filter strips .js files, but api.rs references bridge.js
           # via #[wasm_bindgen(module = "/src/bridge.js")].
           preBuild = ''
             cp ${./apps/unbill-ui-native/src/bridge.js} \
@@ -176,13 +185,13 @@
         # ── Tauri desktop app ─────────────────────────────────────────────────
         # tauri-build (the build.rs) needs several non-Rust files at compile
         # time: tauri.conf.json, capabilities/, icons/, and the pre-built WASM
-        # dist.  crane's cleanCargoSource strips these, so we copy them back in
+        # dist. The Cargo source filter strips these, so we copy them back in
         # preBuild from the Nix store.  (gen/ is not committed to git and is
         # produced by tauri-build itself into OUT_DIR.)
 
         tauriCommonArgs = {
           pname = "unbill-tauri";
-          src = craneLib.cleanCargoSource ./.;
+          src = cargoSource;
           strictDeps = true;
           # --features tauri/custom-protocol switches Tauri from dev mode
           # (which tries to connect to devUrl) to production mode (which
