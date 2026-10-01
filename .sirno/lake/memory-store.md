@@ -17,6 +17,8 @@ The store holds ledger data, typed label and invitation maps, and an optional se
 All metadata operations use the same typed interface as the filesystem and SQLite backends.
 Invitation consumption removes and returns one entry atomically.
 All operations are synchronous under that lock and do no I/O.
+Poisoned locks reuse the stored data: mutations replace or remove complete values,
+so recovery requires no multi-step state repair.
 
 Saved ledgers pair `LedgerMeta` with serialized document bytes.
 The store serializes through `LedgerDoc::save` and deserializes on load,
@@ -30,7 +32,7 @@ matching the contract of production stores.
 `get_secret_key` is supported,
 unlike remote stores that cannot expose raw key material.
 
-The crate is exercised by higher-level tests that use it as a dependency.
+The crate tests recovery after lock poisoning and is also exercised by higher-level tests.
 
 Invitation creation generates a fresh token inside the backend; callers cannot resubmit consumed tokens.
 Typed metadata mutations emit process-local invalidation events after persistence.

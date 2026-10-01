@@ -198,7 +198,7 @@ fingerprint = "sha256:c00ff936fbc7b8a2b1cd3db03417229671925318bd80ec3e4fe26b778a
 "core.refines" = ["unbill-storage"]
 
 [entries.memory-store]
-fingerprint = "sha256:b0a4d2d919b6a583556a5e2ddd43c1b66ca7cca7e00ca109fd42c25dc9e494fe"
+fingerprint = "sha256:b46305f6ed61413cb1ff3d7aea09eac3d545345f0b668d8693e390b04ce1e02b"
 "core.belongs" = [
     "storage",
     "workspace-layout",
