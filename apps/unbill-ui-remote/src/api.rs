@@ -7,7 +7,9 @@ use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, UserId,
 };
 use unbill_console::service::UnbillConsole;
-use unbill_ui_components::bill_editor::BillShareInput;
+use unbill_ui_components::bill_editor::{
+    BillShareAmount, BillShareInput, BillSplit, BillSplitRequest,
+};
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
 
@@ -161,6 +163,10 @@ pub struct ResolveConflictInput {
 // ---------------------------------------------------------------------------
 
 pub fn subscribe() -> tokio::sync::broadcast::Receiver<unbill_console::service::ServiceEvent> {
+    #[allow(
+        clippy::expect_used,
+        reason = "Root initializes the service before mounting App, which subscribes to events"
+    )]
     get_service().expect("service not initialized").subscribe()
 }
 
@@ -399,6 +405,42 @@ pub async fn save_bill(input: SaveBillInput) -> Result<String, String> {
 pub async fn resolve_conflict(input: ResolveConflictInput) -> Result<String, String> {
     let svc = get_service()?;
     resolve_conflict_with_service(&svc, input).await
+}
+
+pub async fn calculate_bill_split(input: BillSplitRequest) -> Result<BillSplit, String> {
+    let service = get_service()?;
+    let parse_shares = |items: Vec<BillShareInput>| {
+        items
+            .into_iter()
+            .map(|item| {
+                parse_user_id(&item.user_id).map(|user_id| unbill_console::model::Share {
+                    user_id,
+                    shares: item.shares,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()
+    };
+    let split = service
+        .calculate_bill_split(
+            &parse_shares(input.payers)?,
+            &parse_shares(input.payees)?,
+            input.amount_cents,
+            parse_bill_id(&input.bill_id)?,
+        )
+        .map_err(|error| error.to_string())?;
+    let map_amounts = |amounts: Vec<(UserId, i64)>| {
+        amounts
+            .into_iter()
+            .map(|(user_id, amount_cents)| BillShareAmount {
+                user_id: user_id.to_string(),
+                amount_cents,
+            })
+            .collect()
+    };
+    Ok(BillSplit {
+        payer_amounts: map_amounts(split.payer_amounts),
+        payee_amounts: map_amounts(split.payee_amounts),
+    })
 }
 
 async fn resolve_conflict_with_service(
@@ -648,16 +690,23 @@ pub fn format_money(amount_cents: i64, currency: &str) -> String {
     format!("{sign}{currency} {units}.{cents:02}")
 }
 
+// sirno:witness:unbill-ui-remote:begin
 pub fn format_timestamp(timestamp_ms: i64) -> String {
     let date = js_sys::Date::new(&JsValue::from_f64(timestamp_ms as f64));
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "JavaScript month indices are at most 11, so adding one cannot overflow u32"
+    )]
+    let month = date.get_month() + 1;
     format_timestamp_parts(
         date.get_full_year(),
-        date.get_month() + 1,
+        month,
         date.get_date(),
         date.get_hours(),
         date.get_minutes(),
     )
 }
+// sirno:witness:unbill-ui-remote:end
 
 fn format_timestamp_parts(year: u32, month: u32, day: u32, hour: u32, minute: u32) -> String {
     format!("{year:04}/{month:02}/{day:02} {hour:02}:{minute:02}")
@@ -687,6 +736,58 @@ mod tests {
             format_timestamp_parts(2026, 11, 19, 23, 58),
             "2026/11/19 23:58"
         );
+    }
+
+    #[tokio::test]
+    async fn bill_split_uses_seeded_rounding_and_propagates_validation_errors() {
+        init(open_console().await);
+        let alice = UserId::from_u128(1).to_string();
+        let bob = UserId::from_u128(2).to_string();
+        let mut input = BillSplitRequest {
+            bill_id: BillId::from_u128(0).to_string(),
+            amount_cents: 101,
+            payers: vec![BillShareInput {
+                user_id: alice.clone(),
+                shares: 1,
+            }],
+            payees: vec![
+                BillShareInput {
+                    user_id: alice.clone(),
+                    shares: 1,
+                },
+                BillShareInput {
+                    user_id: bob.clone(),
+                    shares: 1,
+                },
+            ],
+        };
+        let split = calculate_bill_split(input.clone()).await.unwrap();
+        assert_eq!(
+            split.payer_amounts,
+            vec![BillShareAmount {
+                user_id: alice.clone(),
+                amount_cents: 101,
+            }]
+        );
+        // This seed assigns the leftover cent to Bob, unlike the old UI splitter.
+        assert_eq!(
+            split.payee_amounts,
+            vec![
+                BillShareAmount {
+                    user_id: alice,
+                    amount_cents: 50
+                },
+                BillShareAmount {
+                    user_id: bob,
+                    amount_cents: 51
+                },
+            ]
+        );
+        input.amount_cents = i64::MAX;
+        assert!(calculate_bill_split(input.clone()).await.is_err());
+        input.amount_cents = 101;
+        input.payers.clear();
+        assert!(calculate_bill_split(input).await.is_err());
     }
 
     #[tokio::test]

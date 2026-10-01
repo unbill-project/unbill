@@ -1,7 +1,7 @@
 // In-memory LedgerStore implementation for unit tests.
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use async_trait::async_trait;
 use rand::TryRng as _;
@@ -16,6 +16,13 @@ use unbill_storage::{LedgerStore, StorageResult as Result};
 pub struct InMemoryStore {
     inner: Mutex<Inner>,
     events: broadcast::Sender<ServiceEvent>,
+}
+
+impl InMemoryStore {
+    fn lock_inner(&self) -> MutexGuard<'_, Inner> {
+        // Mutations replace or remove complete values, so poisoning needs no state repair.
+        self.inner.lock().unwrap_or_else(PoisonError::into_inner)
+    }
 }
 
 impl Default for InMemoryStore {
@@ -44,7 +51,7 @@ struct StoredLedger {
 #[async_trait]
 impl LedgerStore for InMemoryStore {
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.lock_inner();
         let id = meta.ledger_id.to_string();
         inner
             .ledgers
@@ -58,12 +65,12 @@ impl LedgerStore for InMemoryStore {
     }
 
     async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.lock_inner();
         Ok(inner.ledgers.values().map(|s| s.meta.clone()).collect())
     }
 
     async fn load_ledger(&self, ledger_id: &str) -> Result<Option<LedgerDoc>> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.lock_inner();
         match inner.ledgers.get(ledger_id) {
             None => Ok(None),
             Some(s) if s.bytes.is_empty() => Ok(None),
@@ -76,7 +83,7 @@ impl LedgerStore for InMemoryStore {
     async fn save_ledger(&self, ledger_id: &str, doc: &mut LedgerDoc) -> Result<()> {
         let bytes = doc.save();
         {
-            let mut inner = self.inner.lock().unwrap();
+            let mut inner = self.lock_inner();
             inner
                 .ledgers
                 .entry(ledger_id.to_owned())
@@ -85,6 +92,10 @@ impl LedgerStore for InMemoryStore {
                     meta: LedgerMeta {
                         ledger_id: LedgerId::from_u128(0),
                         name: String::new(),
+                        #[allow(
+                            clippy::unwrap_used,
+                            reason = "USD is a fixed ISO currency code supported by Currency"
+                        )]
                         currency: Currency::from_code("USD").unwrap(),
                         created_at: Timestamp::from_millis(0),
                         updated_at: Timestamp::from_millis(0),
@@ -103,10 +114,10 @@ impl LedgerStore for InMemoryStore {
     }
 
     async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
-        Ok(self.inner.lock().unwrap().labels.clone())
+        Ok(self.lock_inner().labels.clone())
     }
     async fn set_device_label(&self, node_id: &NodeId, label: Option<&str>) -> Result<()> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.lock_inner();
         match label {
             Some(label) => {
                 inner.labels.insert(node_id.to_string(), label.to_owned());
@@ -119,14 +130,7 @@ impl LedgerStore for InMemoryStore {
         Ok(())
     }
     async fn list_pending_invitations(&self) -> Result<Vec<Invitation>> {
-        Ok(self
-            .inner
-            .lock()
-            .unwrap()
-            .invitations
-            .values()
-            .cloned()
-            .collect())
+        Ok(self.lock_inner().invitations.values().cloned().collect())
     }
     async fn create_invitation(
         &self,
@@ -136,29 +140,27 @@ impl LedgerStore for InMemoryStore {
         expires_at: Timestamp,
     ) -> Result<Invitation> {
         let invitation = Invitation {
-            token: unbill_model::InviteToken::generate(),
+            token: unbill_model::InviteToken::generate().map_err(std::io::Error::from)?,
             ledger_id,
             created_by_device: created_by_device.clone(),
             created_at,
             expires_at,
         };
-        self.inner
-            .lock()
-            .unwrap()
+        self.lock_inner()
             .invitations
             .insert(invitation.token.to_string(), invitation.clone());
         let _ = self.events.send(ServiceEvent::PendingInvitationsUpdated);
         Ok(invitation)
     }
     async fn consume_invitation(&self, token: &str) -> Result<Option<Invitation>> {
-        let invitation = self.inner.lock().unwrap().invitations.remove(token);
+        let invitation = self.lock_inner().invitations.remove(token);
         if invitation.is_some() {
             let _ = self.events.send(ServiceEvent::PendingInvitationsUpdated);
         }
         Ok(invitation)
     }
     async fn create_secret_key(&self) -> Result<()> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.lock_inner();
         if inner.secret.is_none() {
             let mut bytes = [0; 32];
             rand::rngs::SysRng
@@ -170,7 +172,7 @@ impl LedgerStore for InMemoryStore {
         Ok(())
     }
     async fn is_device_initialized(&self) -> Result<bool> {
-        Ok(self.inner.lock().unwrap().secret.is_some())
+        Ok(self.lock_inner().secret.is_some())
     }
     async fn get_device_id(&self) -> Result<NodeId> {
         let key = self.get_secret_key().await?;
@@ -179,12 +181,41 @@ impl LedgerStore for InMemoryStore {
         ))
     }
     async fn get_secret_key(&self) -> Result<SecretKey> {
-        self.inner
-            .lock()
-            .unwrap()
+        self.lock_inner()
             .secret
             .map(SecretKey::from_bytes)
             .ok_or_else(|| StorageError::Serialization("device not initialized".into()))
     }
 }
 // sirno:witness:memory-store:end
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn poisoned_lock_preserves_labels_and_accepts_updates() -> Result<()> {
+        let store = InMemoryStore::default();
+        let node_id = NodeId::new(iroh::SecretKey::from([1; 32]).public().to_string());
+        store.set_device_label(&node_id, Some("Before")).await?;
+
+        let inner = &store.inner;
+        let panic = std::panic::catch_unwind(|| {
+            let _guard = inner.lock().unwrap();
+            panic!("simulate a panic while the store is locked");
+        });
+        assert!(panic.is_err());
+        assert!(inner.is_poisoned());
+
+        assert_eq!(
+            store.list_device_labels().await?.get(&node_id.to_string()),
+            Some(&"Before".to_owned())
+        );
+        store.set_device_label(&node_id, Some("After")).await?;
+        assert_eq!(
+            store.list_device_labels().await?.get(&node_id.to_string()),
+            Some(&"After".to_owned())
+        );
+        Ok(())
+    }
+}

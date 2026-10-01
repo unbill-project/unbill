@@ -181,7 +181,8 @@ impl LedgerStore for SqliteStore {
             .run(move |conn| {
                 let merged = transaction::write(conn, |conn| {
                     let mut incoming = LedgerDoc::from_bytes(&bytes).map_err(serialization)?;
-                    let incoming_meta = metadata(&incoming, Timestamp::now())?;
+                    let incoming_meta =
+                        metadata(&incoming, Timestamp::now().map_err(std::io::Error::other)?)?;
                     if incoming_meta.ledger_id.to_string() != id {
                         return Err(serialization(
                             "document ledger ID does not match storage key",
@@ -203,7 +204,8 @@ impl LedgerStore for SqliteStore {
                     } else {
                         incoming
                     };
-                    let mut meta = metadata(&merged, Timestamp::now())?;
+                    let mut meta =
+                        metadata(&merged, Timestamp::now().map_err(std::io::Error::other)?)?;
                     if let Some(old) = old_meta
                         && old.updated_at > meta.updated_at
                     {
@@ -294,7 +296,7 @@ impl LedgerStore for SqliteStore {
         expires_at: Timestamp,
     ) -> Result<Invitation> {
         let invitation = Invitation {
-            token: unbill_model::InviteToken::generate(),
+            token: unbill_model::InviteToken::generate().map_err(std::io::Error::from)?,
             ledger_id,
             created_by_device: created_by_device.clone(),
             created_at,

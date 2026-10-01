@@ -41,10 +41,21 @@ fn find_bill_index_by_id(bills: &Vec<Bill>, target_id: u128) -> (idx: usize)
             exists|i: int| k <= i < bills.len() && (#[trigger] bills@[i]).id == target_id,
         decreases bills.len() - k,
     {
+        // sirno:witness:formal-verification:begin
+        assert(k < bills.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         if bills[k].id == target_id {
             return k;
         }
-        k = k + 1;
+        assert(k < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
+        {
+            k = k + 1;
+        }
+        // sirno:witness:formal-verification:end
     }
     proof { assert(false); }
     0
@@ -126,7 +137,11 @@ pub fn filter_effective_indices(bills: &Vec<Bill>) -> (effective: Vec<usize>)
                 ==> superseded@.contains(idx as usize),
         decreases bills.len() - j,
     {
+        // sirno:witness:formal-verification:begin
+        assert(j < bills.len());
+        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
         let prev_len = bills[j].prev.len();
+        // sirno:witness:formal-verification:end
         let mut p: usize = 0;
         while p < prev_len
             invariant
@@ -162,7 +177,12 @@ pub fn filter_effective_indices(bills: &Vec<Bill>) -> (effective: Vec<usize>)
                     ==> superseded@.contains(idx as usize),
             decreases prev_len - p,
         {
+            // sirno:witness:formal-verification:begin
+            assert(j < bills.len());
+            assert(p < bills@[j as int].prev.len());
+            #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertions")]
             let target_id = bills[j].prev[p];
+            // sirno:witness:formal-verification:end
             // Trigger the quantifier: target_id == bills@[j].prev@[p].
             assert(bills@[j as int].prev@[p as int] == target_id);
             let idx = find_bill_index_by_id(bills, target_id);
@@ -217,9 +237,27 @@ pub fn filter_effective_indices(bills: &Vec<Bill>) -> (effective: Vec<usize>)
                 }
             }
 
-            p = p + 1;
+            // sirno:witness:formal-verification:begin
+            assert(p < usize::MAX);
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "Arithmetic safety proved by the preceding Verus assertion"
+            )]
+            {
+                p = p + 1;
+            }
+            // sirno:witness:formal-verification:end
         }
-        j = j + 1;
+        // sirno:witness:formal-verification:begin
+        assert(j < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
+        {
+            j = j + 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     // After the loop: superseded@ characterizes exactly the superseded indices.
@@ -347,7 +385,16 @@ pub fn filter_effective_indices(bills: &Vec<Bill>) -> (effective: Vec<usize>)
                 }
             }
         }
-        i = i + 1;
+        // sirno:witness:formal-verification:begin
+        assert(i < usize::MAX);
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Arithmetic safety proved by the preceding Verus assertion"
+        )]
+        {
+            i = i + 1;
+        }
+        // sirno:witness:formal-verification:end
     }
 
     proof {

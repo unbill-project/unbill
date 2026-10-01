@@ -27,6 +27,8 @@ Detection runs over the full bill list,
 not only the effective bill list.
 Each bill ID starts as its own Union-Find component.
 Every `prev` link unions the successor with its predecessor.
+Rank increases only when equal-rank roots merge, doubling the minimum component size.
+This logarithmic bound justifies the local Clippy allowance on rank increments.
 
 After all links are processed,
 the projection collects effective bills and groups them by Union-Find root.

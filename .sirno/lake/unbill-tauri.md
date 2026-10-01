@@ -28,6 +28,8 @@ trigger sync,
 check for application updates,
 and install application updates.
 IDs cross the IPC boundary as strings and are parsed into typed Rust values before core code.
+The bill-split command calls `UnbillConsole::calculate_bill_split` on the console
+in managed application state and propagates validation errors through its command result.
 
 The desktop app owns one visible `main` window.
 Capability bindings and frontend bootstrap assume that label remains stable.

@@ -68,6 +68,10 @@ status,
 errors,
 and loading count in Leptos signals.
 
+Local Clippy allowances document character-boundary truncation,
+guarded user counts, and zero-based month conversion.
+Loading-counter increments assume the UI cannot realistically have `usize::MAX` operations in flight.
+
 Mutating actions call the bridge,
 show feedback,
 refresh bootstrap state,
@@ -97,6 +101,8 @@ Both paths open the join ledger overlay with the URL pre-filled.
 
 Bill editor draft behavior lives in `unbill-ui-components::bill_editor`.
 The native app adapts DTOs into editor seeds and maps save requests to Tauri bridge inputs.
+Live payer and payee amounts come from the Tauri bill-split command,
+which delegates to the console calculation.
 
 Conflict groups come from the Tauri bridge ledger detail DTO.
 The UI renders them above settlement and sends selected bill plus competing set for resolution.

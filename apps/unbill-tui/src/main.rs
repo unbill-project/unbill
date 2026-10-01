@@ -20,8 +20,8 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("warn".parse().unwrap())
-                .add_directive("iroh::socket::remote_map=error".parse().unwrap()),
+                .add_directive("warn".parse()?)
+                .add_directive("iroh::socket::remote_map=error".parse()?),
         )
         .with_writer(std::io::stderr)
         .init();

@@ -265,7 +265,10 @@ mod tests {
     }
 
     /// Save a doc and its meta to a store.
-    async fn save_doc(store: &StoreServer, doc: &mut LedgerDoc) {
+    async fn save_doc(
+        store: &StoreServer,
+        doc: &mut LedgerDoc,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let ledger = doc.get_ledger().unwrap();
         let id = ledger.ledger_id.to_string();
         let meta = unbill_model::LedgerMeta {
@@ -273,10 +276,11 @@ mod tests {
             name: ledger.name.clone(),
             currency: ledger.currency,
             created_at: ledger.created_at,
-            updated_at: Timestamp::now(),
+            updated_at: Timestamp::now()?,
         };
         store.save_ledger_meta(&meta).await.unwrap();
         store.save_ledger(&id, doc).await.unwrap();
+        Ok(())
     }
 
     /// Run sync between two stores over an in-process duplex channel.
@@ -315,7 +319,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_sync_empty_hello_ack_no_shared_ledgers() {
+    async fn test_sync_empty_hello_ack_no_shared_ledgers() -> Result<(), Box<dyn std::error::Error>>
+    {
         let node_a = NodeId::from_seed(1);
         let node_b = NodeId::from_seed(2);
 
@@ -323,42 +328,53 @@ mod tests {
         let store_a = Arc::new(StoreServer::spawn(make_store()));
         let store_b = Arc::new(StoreServer::spawn(make_store()));
 
-        let mut doc_a =
-            LedgerDoc::new(LedgerId::new(), "Test".to_string(), usd(), Timestamp::now()).unwrap();
+        let mut doc_a = LedgerDoc::new(
+            LedgerId::new(),
+            "Test".to_string(),
+            usd(),
+            Timestamp::now()?,
+        )
+        .unwrap();
         doc_a
             .add_device(
                 NewDevice {
                     node_id: node_b.clone(),
                 },
-                Timestamp::now(),
+                Timestamp::now()?,
             )
             .unwrap();
-        save_doc(&store_a, &mut doc_a).await;
+        save_doc(&store_a, &mut doc_a).await?;
 
         sync_pair(store_a, store_b, node_a, node_b).await;
         // No panic = both sides closed cleanly with empty accepted list.
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_sync_converges_after_divergence() {
+    async fn test_sync_converges_after_divergence() -> Result<(), Box<dyn std::error::Error>> {
         let node_a = NodeId::from_seed(1);
         let node_b = NodeId::from_seed(2);
 
         // Build a base ledger that both A and B start with.
-        let mut base =
-            LedgerDoc::new(LedgerId::new(), "Trip".to_string(), usd(), Timestamp::now()).unwrap();
+        let mut base = LedgerDoc::new(
+            LedgerId::new(),
+            "Trip".to_string(),
+            usd(),
+            Timestamp::now()?,
+        )
+        .unwrap();
         base.add_device(
             NewDevice {
                 node_id: node_a.clone(),
             },
-            Timestamp::now(),
+            Timestamp::now()?,
         )
         .unwrap();
         base.add_device(
             NewDevice {
                 node_id: node_b.clone(),
             },
-            Timestamp::now(),
+            Timestamp::now()?,
         )
         .unwrap();
         let payer = UserId::from_u128(99);
@@ -367,7 +383,7 @@ mod tests {
                 user_id: payer,
                 display_name: "Payer".to_string(),
             },
-            Timestamp::now(),
+            Timestamp::now()?,
         )
         .unwrap();
         let base_bytes = base.save();
@@ -393,7 +409,7 @@ mod tests {
                     prev: vec![],
                 },
                 node_a.clone(),
-                Timestamp::now(),
+                Timestamp::now()?,
             )
             .unwrap();
 
@@ -413,14 +429,14 @@ mod tests {
                     prev: vec![],
                 },
                 node_b.clone(),
-                Timestamp::now(),
+                Timestamp::now()?,
             )
             .unwrap();
 
         let store_a = Arc::new(StoreServer::spawn(make_store()));
         let store_b = Arc::new(StoreServer::spawn(make_store()));
-        save_doc(&store_a, &mut doc_a).await;
-        save_doc(&store_b, &mut doc_b).await;
+        save_doc(&store_a, &mut doc_a).await?;
+        save_doc(&store_b, &mut doc_b).await?;
 
         sync_pair(Arc::clone(&store_a), Arc::clone(&store_b), node_a, node_b).await;
 
@@ -439,10 +455,11 @@ mod tests {
         descs_a.sort();
         descs_b.sort();
         assert_eq!(descs_a, descs_b);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_sync_unauthorized_device_rejected() {
+    async fn test_sync_unauthorized_device_rejected() -> Result<(), Box<dyn std::error::Error>> {
         let node_a = NodeId::from_seed(1);
         let node_b = NodeId::from_seed(2);
 
@@ -454,18 +471,18 @@ mod tests {
             LedgerId::new(),
             "Private".to_string(),
             usd(),
-            Timestamp::now(),
+            Timestamp::now()?,
         )
         .unwrap();
         let id = doc_a.get_ledger().unwrap().ledger_id.to_string();
-        save_doc(&store_a, &mut doc_a).await;
+        save_doc(&store_a, &mut doc_a).await?;
 
         // B has the same ledger ID.
         let mut doc_b = LedgerDoc::new(
             LedgerId::new(),
             "Same id?".to_string(),
             usd(),
-            Timestamp::now(),
+            Timestamp::now()?,
         )
         .unwrap();
         // Manually set the same ID by saving with A's id key.
@@ -473,5 +490,6 @@ mod tests {
 
         sync_pair(store_a, store_b, node_a, node_b).await;
         // No panic — A just rejects the ledger.
+        Ok(())
     }
 }

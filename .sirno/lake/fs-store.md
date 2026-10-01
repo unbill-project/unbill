@@ -60,6 +60,7 @@ Data is written to a sibling temporary file and renamed into place.
 
 `list_ledgers` skips directories with missing or invalid metadata and logs a warning.
 `create_secret_key` is idempotent and never overwrites an existing key.
+System RNG failures return a storage I/O error before writing a key or emitting an initialization event.
 The root directory is created on demand.
 
 `MetaJson` mirrors `LedgerMeta` with serialization-friendly primitives.

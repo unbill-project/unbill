@@ -160,6 +160,10 @@ pub fn App() -> impl IntoView {
 
     let load_selected_ledger = move |ledger_id: String| {
         selected_ledger_id.set(Some(ledger_id.clone()));
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "The UI cannot realistically have usize::MAX operations in flight"
+        )]
         loading_count.update(|n| *n += 1);
         spawn_local(async move {
             match api::load_ledger_detail(&ledger_id).await {
@@ -173,6 +177,10 @@ pub fn App() -> impl IntoView {
     };
 
     let load_settings_ledger = move |ledger_id: String| {
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "The UI cannot realistically have usize::MAX operations in flight"
+        )]
         loading_count.update(|n| *n += 1);
         spawn_local(async move {
             match api::load_ledger_detail(&ledger_id).await {
@@ -189,6 +197,10 @@ pub fn App() -> impl IntoView {
     };
 
     let reload_bootstrap = move || {
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "The UI cannot realistically have usize::MAX operations in flight"
+        )]
         loading_count.update(|n| *n += 1);
         spawn_local(async move {
             match api::bootstrap_app().await {
@@ -353,6 +365,10 @@ pub fn App() -> impl IntoView {
 
     let save_bill = move |request: BillSaveRequest| {
         if let Some(ledger_id) = selected_ledger_id.get() {
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "The UI cannot realistically have usize::MAX operations in flight"
+            )]
             loading_count.update(|n| *n += 1);
             spawn_local(async move {
                 match api::save_bill(SaveBillInput {
@@ -379,6 +395,10 @@ pub fn App() -> impl IntoView {
     let resolve_conflict =
         move |(selected_bill_id, conflicting_bill_ids): (String, Vec<String>)| {
             if let Some(ledger_id) = selected_ledger_id.get() {
+                #[allow(
+                    clippy::arithmetic_side_effects,
+                    reason = "The UI cannot realistically have usize::MAX operations in flight"
+                )]
                 loading_count.update(|n| *n += 1);
                 spawn_local(async move {
                     match api::resolve_conflict(ResolveConflictInput {
@@ -402,6 +422,10 @@ pub fn App() -> impl IntoView {
             .and_then(|popup| popup.selected_ledger_id)
             .or_else(|| selected_ledger_id.get())
         {
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "The UI cannot realistically have usize::MAX operations in flight"
+            )]
             loading_count.update(|n| *n += 1);
             spawn_local(async move {
                 match api::create_invitation(&ledger_id).await {
@@ -485,6 +509,10 @@ pub fn App() -> impl IntoView {
 
     // sirno:witness:unbill-ui-remote:begin
     let sync_device = move |(peer_node_id, done): (String, Callback<()>)| {
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "The UI cannot realistically have usize::MAX operations in flight"
+        )]
         loading_count.update(|n| *n += 1);
         spawn_local(async move {
             match api::sync_device(peer_node_id).await {
@@ -506,6 +534,10 @@ pub fn App() -> impl IntoView {
                     <CreateLedgerSheet
                         on_cancel=Callback::new(move |_| overlay.set(None))
                         on_submit=Callback::new(move |(name, currency): (String, String)| {
+                            #[allow(
+                                clippy::arithmetic_side_effects,
+                                reason = "The UI cannot realistically have usize::MAX operations in flight"
+                            )]
                             loading_count.update(|n| *n += 1);
                             spawn_local(async move {
                                 match api::create_ledger(api::CreateLedgerInput { name, currency }).await {
@@ -533,6 +565,10 @@ pub fn App() -> impl IntoView {
                         initial_url=url
                         on_cancel=Callback::new(move |_| overlay.set(None))
                         on_submit=Callback::new(move |(url, label): (String, Option<String>)| {
+                            #[allow(
+                                clippy::arithmetic_side_effects,
+                                reason = "The UI cannot realistically have usize::MAX operations in flight"
+                            )]
                             loading_count.update(|n| *n += 1);
                             spawn_local(async move {
                                 match api::join_ledger(url, label).await {
@@ -561,6 +597,10 @@ pub fn App() -> impl IntoView {
                                 .get()
                                 .and_then(|popup| popup.selected_ledger_id)
                             {
+                                #[allow(
+                                    clippy::arithmetic_side_effects,
+                                    reason = "The UI cannot realistically have usize::MAX operations in flight"
+                                )]
                                 loading_count.update(|n| *n += 1);
                                 spawn_local(async move {
                                     match api::add_user(AddUserInput { ledger_id: ledger_id.clone(), user_id }).await {
@@ -579,6 +619,10 @@ pub fn App() -> impl IntoView {
                                 .get()
                                 .and_then(|popup| popup.selected_ledger_id)
                             {
+                                #[allow(
+                                    clippy::arithmetic_side_effects,
+                                    reason = "The UI cannot realistically have usize::MAX operations in flight"
+                                )]
                                 loading_count.update(|n| *n += 1);
                                 spawn_local(async move {
                                     match api::create_user(CreateUserInput { ledger_id: ledger_id.clone(), display_name }).await {
@@ -613,6 +657,7 @@ pub fn App() -> impl IntoView {
                     show_back=true
                     on_back=Callback::new(move |_| bill_editor.set(None))
                     on_save=Callback::new(save_bill)
+                    calculate_bill_split=api::calculate_bill_split
                 />
             }
             .into_any();
@@ -738,6 +783,7 @@ pub fn App() -> impl IntoView {
                                         seed=seed
                                         on_back=Callback::new(move |_| bill_editor.set(None))
                                         on_save=Callback::new(save_bill)
+                                        calculate_bill_split=api::calculate_bill_split
                                     />
                                 }
                                 .into_any()

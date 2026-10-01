@@ -33,6 +33,8 @@ It translates `ServiceEvent` into `AsymChannelEvent` through a background task.
 `RpcAsymChannel` uses tarpc over a Unix local socket.
 The server side lives in `rpc::serve`.
 Event delivery is polled through per-connection queues.
+Poisoned queue locks reuse the contained event vector;
+appending or draining events requires no multi-step state repair.
 
 `HttpAsymChannel` wraps a `reqwest::Client` with base URL and bearer token.
 It maps trait methods to the `unbill-server` REST API.

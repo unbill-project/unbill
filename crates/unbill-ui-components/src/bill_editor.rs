@@ -35,6 +35,31 @@ pub struct BillShareInput {
     pub shares: u32,
 }
 
+// sirno:witness:ui-components:begin
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BillSplitRequest {
+    pub bill_id: String,
+    pub amount_cents: i64,
+    pub payers: Vec<BillShareInput>,
+    pub payees: Vec<BillShareInput>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BillShareAmount {
+    pub user_id: String,
+    pub amount_cents: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BillSplit {
+    pub payer_amounts: Vec<BillShareAmount>,
+    pub payee_amounts: Vec<BillShareAmount>,
+}
+// sirno:witness:ui-components:end
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BillEditorExistingBill {
@@ -161,6 +186,7 @@ pub fn amend_bill_seed(
     }
 }
 
+// sirno:witness:ui-components:begin
 pub fn parse_amount_text(input: &str) -> Result<i64, String> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
@@ -196,8 +222,12 @@ pub fn parse_amount_text(input: &str) -> Result<i64, String> {
         }
     };
 
-    Ok(units * 100 + cents)
+    units
+        .checked_mul(100)
+        .and_then(|amount| amount.checked_add(cents))
+        .ok_or_else(|| "Amount is too large.".to_owned())
 }
+// sirno:witness:ui-components:end
 
 pub fn build_bill_save_request(
     prev_bill_id: Option<String>,
@@ -283,61 +313,20 @@ pub fn share_lookup_shares(share_rows: &[BillShareDraft], user_id: &str) -> Stri
         .unwrap_or_else(|| "1".to_owned())
 }
 
-pub fn derived_share_preview(
-    amount_cents: i64,
-    share_mode: ShareMode,
-    share_rows: &[BillShareDraft],
-) -> Vec<(String, i64)> {
-    let active = share_rows
-        .iter()
-        .filter(|share_row| share_row.included)
-        .map(|share_row| {
-            (
-                share_row.user_id.clone(),
-                if share_mode == ShareMode::Equal {
-                    1
-                } else {
-                    parse_share_weight(&share_row.shares).unwrap_or(0)
-                },
-            )
-        })
-        .collect::<Vec<_>>();
-
-    let total_shares = active.iter().map(|(_, shares)| *shares as i64).sum::<i64>();
-    if total_shares == 0 {
-        return Vec::new();
-    }
-
-    let mut allocations = active
-        .iter()
-        .map(|(user_id, shares)| {
-            (
-                user_id.clone(),
-                amount_cents * *shares as i64 / total_shares,
-            )
-        })
-        .collect::<Vec<_>>();
-    let assigned = allocations.iter().map(|(_, amount)| *amount).sum::<i64>();
-    let mut remainder = amount_cents - assigned;
-    for (_, amount) in allocations.iter_mut() {
-        if remainder == 0 {
-            break;
-        }
-        *amount += 1;
-        remainder -= 1;
-    }
-    allocations
-}
-
 #[component]
-pub fn BillEditorPage(
+pub fn BillEditorPage<F, Fut>(
     title: String,
     currency: String,
     seed: BillEditorSeed,
     #[prop(optional)] show_back: bool,
     on_back: Callback<()>,
     on_save: Callback<BillSaveRequest>,
-) -> impl IntoView {
+    calculate_bill_split: F,
+) -> impl IntoView
+where
+    F: Fn(BillSplitRequest) -> Fut + Copy + Send + Sync + 'static,
+    Fut: std::future::Future<Output = Result<BillSplit, String>> + 'static,
+{
     let prev_bill_id = seed.prev_bill_id.clone();
     let description = RwSignal::new(seed.description);
     let amount_text = RwSignal::new(seed.amount_text);
@@ -349,6 +338,51 @@ pub fn BillEditorPage(
     let currency_field_value = currency.clone();
     let payer_currency = currency.clone();
     let split_currency = currency.clone();
+
+    // sirno:witness:ui-components:begin
+    // Saving assigns a fresh ID; this seed only keeps draft rounding stable.
+    let split_bill_id = prev_bill_id
+        .clone()
+        .unwrap_or_else(|| "00000000000000000000000000".to_owned());
+    let split_request = Memo::new(move |_| {
+        let amount = amount_text.get();
+        build_bill_save_request(
+            None,
+            String::new(),
+            payer_mode.get(),
+            &payer_rows.get(),
+            if amount.trim().is_empty() {
+                "0"
+            } else {
+                &amount
+            },
+            share_mode.get(),
+            &share_rows.get(),
+        )
+        .map(|request| BillSplitRequest {
+            bill_id: split_bill_id.clone(),
+            amount_cents: request.amount_cents,
+            payers: request.payers,
+            payees: request.shares,
+        })
+    });
+    let split_resource = LocalResource::new(move || {
+        let request = split_request.get();
+        async move {
+            let result = match request.clone() {
+                Ok(request) => calculate_bill_split(request).await,
+                Err(error) => Err(error),
+            };
+            (request, result)
+        }
+    });
+    let current_split = move || {
+        split_resource
+            .get()
+            .filter(|(request, _)| *request == split_request.get())
+            .map(|(_, result)| result)
+    };
+    // sirno:witness:ui-components:end
 
     let save_click = move |_| {
         let current_payer_rows = payer_rows.get();
@@ -450,9 +484,7 @@ pub fn BillEditorPage(
 
                         {move || {
                             let current_mode = payer_mode.get();
-                            let current_amount = parse_amount_text(&amount_text.get()).unwrap_or(0);
                             let current_rows = payer_rows.get();
-                            let preview = derived_share_preview(current_amount, current_mode, &current_rows);
 
                             current_rows
                                 .into_iter()
@@ -462,11 +494,15 @@ pub fn BillEditorPage(
                                     let share_user_id = user_id.clone();
                                     let share_value_user_id = user_id.clone();
                                     let display_name = row.display_name.clone();
-                                    let preview_text = preview
-                                        .iter()
-                                        .find(|(pid, _)| pid == &user_id)
-                                        .map(|(_, cents)| format_money(*cents, &payer_currency))
-                                        .unwrap_or_else(|| format!("{} 0.00", payer_currency));
+                                    let currency = payer_currency.clone();
+                                    let preview_text = move || {
+                                        current_split().and_then(Result::ok).map(|split| {
+                                            let cents = split.payer_amounts.iter()
+                                                .find(|amount| amount.user_id == user_id)
+                                                .map_or(0, |amount| amount.amount_cents);
+                                            format_money(cents, &currency)
+                                        }).unwrap_or_else(|| "—".to_owned())
+                                    };
 
                                     view! {
                                         <div class="share-row">
@@ -551,9 +587,7 @@ pub fn BillEditorPage(
 
                         {move || {
                             let current_mode = share_mode.get();
-                            let current_amount = parse_amount_text(&amount_text.get()).unwrap_or(0);
                             let current_rows = share_rows.get();
-                            let preview = derived_share_preview(current_amount, current_mode, &current_rows);
 
                             current_rows
                                 .into_iter()
@@ -563,11 +597,15 @@ pub fn BillEditorPage(
                                     let share_user_id = user_id.clone();
                                     let share_value_user_id = user_id.clone();
                                     let display_name = share_row.display_name.clone();
-                                    let preview_text = preview
-                                        .iter()
-                                        .find(|(preview_user_id, _)| preview_user_id == &user_id)
-                                        .map(|(_, cents)| format_money(*cents, &split_currency))
-                                        .unwrap_or_else(|| format!("{} 0.00", split_currency));
+                                    let currency = split_currency.clone();
+                                    let preview_text = move || {
+                                        current_split().and_then(Result::ok).map(|split| {
+                                            let cents = split.payee_amounts.iter()
+                                                .find(|amount| amount.user_id == user_id)
+                                                .map_or(0, |amount| amount.amount_cents);
+                                            format_money(cents, &currency)
+                                        }).unwrap_or_else(|| "—".to_owned())
+                                    };
 
                                     view! {
                                         <div class="share-row">
@@ -620,6 +658,7 @@ pub fn BillEditorPage(
                 {move || {
                     validation_error
                         .get()
+                        .or_else(|| current_split().and_then(Result::err))
                         .map(|error| view! { <p class="form-error">{error}</p> }.into_any())
                 }}
             </div>
@@ -662,6 +701,10 @@ impl<'a> ShareWeightParser<'a> {
                 return Some(total);
             };
 
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "peek_byte succeeded, so advancing once cannot exceed input.len()"
+            )]
             match operator {
                 b'+' => {
                     self.position += 1;
@@ -680,6 +723,10 @@ impl<'a> ShareWeightParser<'a> {
         self.skip_whitespace();
         let start = self.position;
 
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Each increment follows a successful bounds-checked byte lookup"
+        )]
         while matches!(self.peek_byte(), Some(byte) if byte.is_ascii_digit()) {
             self.position += 1;
         }
@@ -688,7 +735,12 @@ impl<'a> ShareWeightParser<'a> {
             return None;
         }
 
-        self.input[start..self.position].parse::<i64>().ok()
+        #[allow(
+            clippy::string_slice,
+            reason = "The cursor stays within input and advances only over ASCII, preserving UTF-8 boundaries"
+        )]
+        let number = &self.input[start..self.position];
+        number.parse::<i64>().ok()
     }
 
     fn finish(&mut self) -> bool {
@@ -697,6 +749,10 @@ impl<'a> ShareWeightParser<'a> {
     }
 
     fn skip_whitespace(&mut self) {
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "Each increment follows a successful bounds-checked byte lookup"
+        )]
         while matches!(self.peek_byte(), Some(byte) if byte.is_ascii_whitespace()) {
             self.position += 1;
         }
@@ -734,6 +790,21 @@ mod tests {
             display_name: user_id.to_owned(),
             included,
             shares: shares.to_owned(),
+        }
+    }
+
+    #[test]
+    fn amount_conversion_checks_multiplication_and_addition_overflow() {
+        assert_eq!(parse_amount_text("92233720368547758.07"), Ok(i64::MAX));
+        for input in [
+            "92233720368547758.08",
+            "92233720368547759",
+            "9223372036854775807",
+        ] {
+            assert_eq!(
+                parse_amount_text(input),
+                Err("Amount is too large.".to_owned())
+            );
         }
     }
 
@@ -801,23 +872,6 @@ mod tests {
         ];
 
         assert_eq!(share_lookup_shares(&rows, "alice"), "");
-        assert_eq!(
-            derived_share_preview(900, ShareMode::Custom, &rows),
-            vec![("alice".to_owned(), 0), ("bob".to_owned(), 900)]
-        );
-    }
-
-    #[test]
-    fn custom_share_preview_evaluates_addition_and_subtraction() {
-        let rows = vec![
-            bill_share_draft("alice", true, "1 + 2"),
-            bill_share_draft("bob", true, "5-1"),
-        ];
-
-        assert_eq!(
-            derived_share_preview(700, ShareMode::Custom, &rows),
-            vec![("alice".to_owned(), 300), ("bob".to_owned(), 400)]
-        );
     }
 
     #[test]

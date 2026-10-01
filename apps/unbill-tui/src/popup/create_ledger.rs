@@ -42,7 +42,7 @@ impl PopupView for CreateLedgerPopup {
             Constraint::Length(1), // spacer
             Constraint::Length(1), // error / hint
         ])
-        .split(inner);
+        .areas::<4>(inner);
 
         render_text_field(frame, rows[0], &self.name, self.focused_field == 0);
         render_text_field(frame, rows[1], &self.currency, self.focused_field == 1);
@@ -65,13 +65,13 @@ impl PopupView for CreateLedgerPopup {
         match key.code {
             KeyCode::Esc => return PopupOutcome::Cancelled,
             KeyCode::Tab => {
-                self.focused_field = (self.focused_field + 1) % 2;
+                self.focused_field = if self.focused_field == 0 { 1 } else { 0 };
             }
             KeyCode::BackTab => {
                 self.focused_field = if self.focused_field == 0 { 1 } else { 0 };
             }
             KeyCode::Down => {
-                self.focused_field = (self.focused_field + 1) % 2;
+                self.focused_field = if self.focused_field == 0 { 1 } else { 0 };
             }
             KeyCode::Up => {
                 self.focused_field = if self.focused_field == 0 { 1 } else { 0 };

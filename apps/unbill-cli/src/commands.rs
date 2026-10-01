@@ -2,7 +2,7 @@
 // Each function takes the service and any parsed arguments, performs the
 // operation, and prints the result. Nothing here touches storage directly.
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
 };
@@ -365,7 +365,8 @@ pub async fn ledger_invite(svc: &UnbillConsole, ledger_id: &str, json: bool) -> 
     } else {
         println!("{url}");
         println!();
-        print!("{}", unbill_console::qr::to_text(&url));
+        let qr = unbill_console::qr::to_text(&url).context("QR encoding failed")?;
+        print!("{qr}");
     }
     Ok(())
 }
@@ -400,7 +401,12 @@ pub async fn bill_conflicts(
             return Ok(());
         }
         for (i, group) in groups.iter().enumerate() {
-            println!("conflict {} of {}", i + 1, groups.len());
+            #[allow(
+                clippy::arithmetic_side_effects,
+                reason = "The index is below the length of an allocated vector of conflict groups"
+            )]
+            let display_index = i + 1;
+            println!("conflict {} of {}", display_index, groups.len());
             println!("  conflicting:");
             for b in &group.conflicting {
                 println!(

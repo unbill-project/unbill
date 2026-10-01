@@ -79,6 +79,10 @@ are all public methods on `StoreServer`.
 Compound operations execute as single MPSC commands,
 preventing interleaving within that actor. SQLite additionally merges and persists each document atomically across processes.
 
+Invitations expire 24 hours after creation.
+The expiry calculation has a local Clippy arithmetic allowance based on the assumption
+that the system clock is far below the `i64` millisecond limit of about 292 million years.
+
 `merge_and_save_ledger` handles the sync session save phase:
 it atomically loads the current stored version,
 merges the synced document via `LedgerDoc::merge`,
@@ -106,6 +110,9 @@ both sync sessions `merge_and_save_ledger` at the end,
 and automerge merge is commutative and idempotent.
 
 ### Error handling
+
+Invitation creation returns `StorageError::Io` if token generation fails.
+No invitation is persisted or invalidation event emitted for that failed operation.
 
 `StorageError::ChannelClosed` is the discriminable variant
 for StoreServer actor communication failures

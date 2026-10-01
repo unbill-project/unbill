@@ -62,6 +62,9 @@ pub enum UnbillError {
     #[error("validation error: {0}")]
     Validation(String),
 
+    #[error("system clock before Unix epoch: {0}")]
+    SystemTime(#[from] web_time::SystemTimeError),
+
     #[error("storage error: {0}")]
     Storage(#[from] StorageError),
 

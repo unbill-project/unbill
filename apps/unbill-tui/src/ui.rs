@@ -4,6 +4,7 @@ use ratatui::{
     style::{Color, Style},
     widgets::Paragraph,
 };
+use unbill_console::service::UnbillConsole;
 
 use crate::app::{AppState, SyncStatus};
 use crate::pane;
@@ -11,11 +12,12 @@ use crate::popup::centered_rect;
 
 // sirno:witness:unbill-tui:begin
 /// Top-level render function. Composes panes, popup, and status bar.
-pub fn render(frame: &mut Frame, state: &AppState) {
+pub fn render(frame: &mut Frame, state: &AppState, svc: &UnbillConsole) {
     let full_area = frame.area();
 
     // Split vertically: main area + 1-line status bar.
-    let vertical = Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).split(full_area);
+    let vertical =
+        Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas::<2>(full_area);
 
     let main_area = vertical[0];
     let status_area = vertical[1];
@@ -26,12 +28,12 @@ pub fn render(frame: &mut Frame, state: &AppState) {
         Constraint::Percentage(40),
         Constraint::Percentage(40),
     ])
-    .split(main_area);
+    .areas::<3>(main_area);
 
     // Render panes.
     pane::ledger::render(frame, cols[0], state);
     pane::bills::render(frame, cols[1], state);
-    pane::detail::render(frame, cols[2], state);
+    pane::detail::render(frame, cols[2], state, svc);
 
     // Status bar.
     render_status_bar(frame, status_area, state);
@@ -65,7 +67,7 @@ fn render_status_bar(frame: &mut Frame, area: ratatui::layout::Rect, state: &App
         Constraint::Min(0),
         Constraint::Length(sync_text.len().max(1) as u16),
     ])
-    .split(area);
+    .areas::<2>(area);
 
     frame.render_widget(
         Paragraph::new(hints).style(Style::default().fg(Color::DarkGray)),

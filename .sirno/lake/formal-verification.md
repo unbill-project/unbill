@@ -271,6 +271,10 @@ Verified crates suppress clippy lints at the crate level:
 `deprecated` (vstd's `SliceAdditionalExecFns::set`),
 `unused_imports` (vstd imports erased under cargo).
 
+Local `indexing_slicing` and `arithmetic_side_effects` allowances are preceded
+by a Verus assertion of index bounds or overflow safety. Each allowance applies
+to the individual statement and names the preceding proof in its reason.
+
 ## Verification workflow
 
 1. Define spec types and predicates in `spec.rs`.

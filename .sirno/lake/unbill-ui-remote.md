@@ -44,6 +44,11 @@ and bill editor seed.
 Feedback signals include status message,
 error message,
 and loading count.
+Strict Clippy exceptions stay local to bounded calendar values,
+character-boundary truncation,
+guarded counts,
+and the practical limit on concurrent UI operations.
+The event subscription requires the service initialized before the app mounts.
 
 After bootstrap,
 one async task subscribes to service events.
@@ -61,6 +66,8 @@ then rely on the service event stream for projection refresh.
 The bill editor is isolated from background detail refresh.
 Its seed captures currency and users at open time,
 and the page reads only the editor signal.
+The editor's calculation callback calls `UnbillConsole::calculate_bill_split`
+through the API adapter for live payer and payee amounts.
 
 Device Settings shows the server-assigned device ID,
 known peer devices,

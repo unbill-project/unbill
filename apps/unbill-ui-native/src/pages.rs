@@ -14,6 +14,10 @@ const MAX_NAME_LEN: usize = 12;
 
 fn truncate_name(name: &str) -> &str {
     match name.char_indices().nth(MAX_NAME_LEN) {
+        #[allow(
+            clippy::string_slice,
+            reason = "char_indices supplies an in-bounds UTF-8 character boundary"
+        )]
         Some((pos, _)) => &name[..pos],
         None => name,
     }
@@ -31,6 +35,10 @@ fn format_ledger_meta(user_names: &[String], currency: &str) -> String {
     if user_names.len() <= MAX_VISIBLE_NAMES {
         format!("{} · {currency}", shown.join(", "))
     } else {
+        #[allow(
+            clippy::arithmetic_side_effects,
+            reason = "This branch requires user_names.len() > MAX_VISIBLE_NAMES"
+        )]
         let remaining = user_names.len() - MAX_VISIBLE_NAMES;
         format!("{} +{remaining} more · {currency}", shown.join(", "))
     }

@@ -23,11 +23,16 @@ pub fn ConflictGroupView(
             on_commit.run((selected, commit_ids.clone()));
         }
     };
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "Callers enumerate a Vec, so index + 1 cannot exceed its length"
+    )]
+    let display_index = index + 1;
 
     view! {
         <div class="conflict-group">
             <div class="conflict-summary">
-                <p class="row-title">{format!("Conflict {}", index + 1)}</p>
+                <p class="row-title">{format!("Conflict {}", display_index)}</p>
                 <p class="row-meta">{format!("{} competing versions", bill_ids.len())}</p>
             </div>
             <div class="stack-gap">

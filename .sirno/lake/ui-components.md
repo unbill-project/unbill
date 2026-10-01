@@ -103,11 +103,22 @@ Preview parsing is tolerant and supports simple addition and subtraction express
 The save-request builder performs strict amount,
 participant,
 and share-weight validation.
+Amount conversion returns a validation error if the cent value overflows.
+Local Clippy allowances document bounded ASCII parsing, collection-derived display indices,
+and the practical lifetime bound on the toast counter.
+The editor requests both sides of a split through an asynchronous calculation callback;
+it does not allocate cents locally.
+Only results matching the current draft are displayed, and calculation errors stay inline.
+Amendments use the previous bill ID as the preview seed;
+new drafts use a fixed placeholder ID, since saving assigns a fresh bill ID.
 
 `conflict.rs` owns the reusable conflict group panel.
 Apps map backend DTOs to display items.
 The component stores only selected bill ID and emits the selected bill ID
 with the full competing bill ID set on commit.
+
+Toast consumers require a `ToastProvider` ancestor and a browser window.
+If the browser cannot schedule automatic dismissal, the toast remains visible.
 
 ## Color system and theming
 

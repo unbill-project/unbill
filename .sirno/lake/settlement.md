@@ -31,9 +31,20 @@ Positive balances mean the system owes that user.
 Negative balances mean that user owes the system.
 
 Share splitting floors each proportional amount,
-then assigns the full remainder to one deterministic recipient.
-The recipient index is derived from a fixed FNV-1a hash of the bill ID bytes modulo the share count.
+then distributes the remainder one cent at a time to consecutive participants.
+The starting index is derived from a fixed FNV-1a hash of the bill ID bytes modulo the share count.
 This makes every peer arrive at the same cent allocation.
+
+The console's bill split calculation validates both sides before invoking
+the verified algorithm and returns payer and payee allocations together.
+The console method and the pure settlement function share the name
+`calculate_bill_split`; the settlement function expects validated numerical inputs.
+The total must lie between zero and `i32::MAX` cents, each side must be nonempty
+and have at most `i32::MAX` entries, and every weight must be positive.
+Those bounds keep the verified products and weight totals within `i64`.
+The Rust bridge normalizes the rounding index before the verified call
+and does not sum weights in a narrower integer type.
+Each side preserves input order and independently sums to the bill total.
 
 Reduction partitions balances into creditors and debtors.
 Both sides are sorted by amount descending and user ID ascending.

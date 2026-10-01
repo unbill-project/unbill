@@ -56,10 +56,14 @@ flowchart LR
 
 `ci.yml` runs on pushes to `main` and pull requests targeting `main`.
 It sets warnings as errors.
-It runs three parallel jobs:
+It runs four parallel jobs:
+Sirno lake and anchor validation,
 lint through `prek run --all-files`,
 Clippy for the workspace excluding `unbill-tauri`,
 and tests for the workspace excluding `unbill-tauri`.
+Clippy explicitly enables `arithmetic_side_effects`, `indexing_slicing`,
+`string_slice`, `unwrap_used`, `expect_used`, `panic`, `unreachable`, and `todo`.
+The warnings-as-errors policy makes findings from these lints fail CI.
 
 `build.yml` is reusable and also manually dispatchable.
 It accepts a tag used for Docker image tagging.

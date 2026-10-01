@@ -148,23 +148,32 @@ pub fn fmt_amount(cents: i64) -> String {
 
 /// Parse a decimal amount string into integer cents (e.g. "12.50" → 1250).
 /// Whole numbers are treated as full currency units (e.g. "12" → 1200).
+// sirno:witness:unbill-cli:begin
 pub fn parse_amount(s: &str) -> anyhow::Result<i64> {
     if let Some((whole, frac)) = s.split_once('.') {
         let whole: i64 = whole
             .parse()
             .map_err(|_| anyhow::anyhow!("invalid amount: {s:?}"))?;
         let frac_padded = format!("{:0<2}", frac);
-        let cents: i64 = frac_padded[..2]
+        let cents: i64 = frac_padded
+            .get(..2)
+            .ok_or_else(|| anyhow::anyhow!("invalid amount fraction: {s:?}"))?
             .parse()
             .map_err(|_| anyhow::anyhow!("invalid amount fraction: {s:?}"))?;
-        Ok(whole * 100 + cents)
+        whole
+            .checked_mul(100)
+            .and_then(|units| units.checked_add(cents))
+            .ok_or_else(|| anyhow::anyhow!("amount is too large: {s:?}"))
     } else {
         let whole: i64 = s
             .parse()
             .map_err(|_| anyhow::anyhow!("invalid amount: {s:?}"))?;
-        Ok(whole * 100)
+        whole
+            .checked_mul(100)
+            .ok_or_else(|| anyhow::anyhow!("amount is too large: {s:?}"))
     }
 }
+// sirno:witness:unbill-cli:end
 
 pub fn print_json<T: serde::Serialize>(v: &T) -> anyhow::Result<()> {
     println!("{}", serde_json::to_string_pretty(v)?);
@@ -174,6 +183,41 @@ pub fn print_json<T: serde::Serialize>(v: &T) -> anyhow::Result<()> {
 pub fn truncate(s: &str, max: usize) -> &str {
     match s.char_indices().nth(max) {
         None => s,
+        #[allow(clippy::string_slice, reason = "char_indices returns UTF-8 boundaries")]
         Some((byte_pos, _)) => &s[..byte_pos],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_amount;
+
+    #[test]
+    fn amount_parsing_handles_cent_boundaries() -> anyhow::Result<()> {
+        for (input, expected) in [
+            ("12", 1200),
+            ("12.", 1200),
+            ("12.3", 1230),
+            ("12.34", 1234),
+            ("12.345", 1234),
+            ("92233720368547758.07", i64::MAX),
+        ] {
+            assert_eq!(parse_amount(input)?, expected, "{input}");
+        }
+        for input in [
+            "92233720368547759",
+            "92233720368547758.08",
+            "-92233720368547759",
+        ] {
+            assert!(parse_amount(input).is_err(), "{input}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn amount_parsing_rejects_invalid_unicode_fractions() {
+        for input in ["1.€", "1.1é", "1.é", "1.💰"] {
+            assert!(parse_amount(input).is_err(), "{input}");
+        }
     }
 }

@@ -216,7 +216,7 @@ impl LedgerStore for FsStore {
         expires_at: Timestamp,
     ) -> Result<Invitation> {
         let invitation = Invitation {
-            token: unbill_model::InviteToken::generate(),
+            token: unbill_model::InviteToken::generate().map_err(std::io::Error::from)?,
             ledger_id,
             created_by_device: created_by_device.clone(),
             created_at,
@@ -250,7 +250,7 @@ impl LedgerStore for FsStore {
         let mut arr = [0u8; 32];
         rand::rngs::SysRng
             .try_fill_bytes(&mut arr)
-            .expect("system RNG should generate device keys");
+            .map_err(std::io::Error::from)?;
         atomic_write(self.root.join("device_key.bin"), &arr).await?;
         let _ = self.events.send(ServiceEvent::DeviceIdentityInitialized);
         Ok(())

@@ -9,14 +9,16 @@ use unbill_store_sqlite::SqliteStore;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // sirno:witness:unbill-daemon:begin
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("info".parse().unwrap())
-                .add_directive("iroh::socket::remote_map=error".parse().unwrap()),
+                .add_directive("info".parse()?)
+                .add_directive("iroh::socket::remote_map=error".parse()?),
         )
         .with_writer(std::io::stderr)
         .init();
+    // sirno:witness:unbill-daemon:end
 
     let sync_interval = parse_sync_interval();
 

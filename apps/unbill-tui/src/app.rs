@@ -100,7 +100,7 @@ pub async fn run(
             break;
         }
 
-        terminal.draw(|f| crate::ui::render(f, &state))?;
+        terminal.draw(|f| crate::ui::render(f, &state, &svc))?;
 
         tokio::select! {
             _ = tick.tick() => {
@@ -157,11 +157,8 @@ async fn handle_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillConsole
     }
 
     // Dispatch to popup first.
-    if state.popup.is_some() {
-        let outcome = {
-            let popup = state.popup.as_mut().unwrap();
-            popup.handle_key(key)
-        };
+    if let Some(popup) = state.popup.as_mut() {
+        let outcome = popup.handle_key(key);
         match outcome {
             PopupOutcome::Pending => {}
             PopupOutcome::Cancelled => {
@@ -201,14 +198,17 @@ async fn handle_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillConsole
 async fn handle_ledger_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillConsole>) {
     match key.code {
         KeyCode::Char('j') | KeyCode::Down if !state.ledgers.is_empty() => {
-            state.ledger_cursor = (state.ledger_cursor + 1).min(state.ledgers.len() - 1);
+            state.ledger_cursor = state
+                .ledger_cursor
+                .saturating_add(1)
+                .min(state.ledgers.len().saturating_sub(1));
             state.bill_cursor = 0;
             refresh_bills(svc, state).await;
             refresh_users(svc, state).await;
             refresh_settlement(svc, state).await;
         }
         KeyCode::Char('k') | KeyCode::Up if state.ledger_cursor > 0 => {
-            state.ledger_cursor -= 1;
+            state.ledger_cursor = state.ledger_cursor.saturating_sub(1);
             state.bill_cursor = 0;
             refresh_bills(svc, state).await;
             refresh_users(svc, state).await;
@@ -222,7 +222,7 @@ async fn handle_ledger_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
             refresh_settlement(svc, state).await;
         }
         KeyCode::Char('G') if !state.ledgers.is_empty() => {
-            state.ledger_cursor = state.ledgers.len() - 1;
+            state.ledger_cursor = state.ledgers.len().saturating_sub(1);
             state.bill_cursor = 0;
             refresh_bills(svc, state).await;
             refresh_users(svc, state).await;
@@ -247,7 +247,10 @@ async fn handle_ledger_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
 async fn handle_bills_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillConsole>) {
     match key.code {
         KeyCode::Char('j') | KeyCode::Down if !state.bills.is_empty() => {
-            state.bill_cursor = (state.bill_cursor + 1).min(state.bills.len() - 1);
+            state.bill_cursor = state
+                .bill_cursor
+                .saturating_add(1)
+                .min(state.bills.len().saturating_sub(1));
         }
         KeyCode::Char('k') | KeyCode::Up => {
             state.bill_cursor = state.bill_cursor.saturating_sub(1);
@@ -256,7 +259,7 @@ async fn handle_bills_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillC
             state.bill_cursor = 0;
         }
         KeyCode::Char('G') if !state.bills.is_empty() => {
-            state.bill_cursor = state.bills.len() - 1;
+            state.bill_cursor = state.bills.len().saturating_sub(1);
         }
         KeyCode::Char('h') | KeyCode::BackTab => {
             state.focused_pane = Pane::Ledgers;
@@ -335,10 +338,16 @@ async fn handle_editor_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
             }
             KeyCode::Down => match editor.section {
                 EditorSection::Payers if !editor.payers.is_empty() => {
-                    editor.payer_cursor = (editor.payer_cursor + 1).min(editor.payers.len() - 1);
+                    editor.payer_cursor = editor
+                        .payer_cursor
+                        .saturating_add(1)
+                        .min(editor.payers.len().saturating_sub(1));
                 }
                 EditorSection::Payees if !editor.payees.is_empty() => {
-                    editor.payee_cursor = (editor.payee_cursor + 1).min(editor.payees.len() - 1);
+                    editor.payee_cursor = editor
+                        .payee_cursor
+                        .saturating_add(1)
+                        .min(editor.payees.len().saturating_sub(1));
                 }
                 _ => {}
             },
@@ -357,8 +366,10 @@ async fn handle_editor_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
                 EditorSection::Amount => {}
                 EditorSection::Payers => match c {
                     'j' if !editor.payers.is_empty() => {
-                        editor.payer_cursor =
-                            (editor.payer_cursor + 1).min(editor.payers.len() - 1);
+                        editor.payer_cursor = editor
+                            .payer_cursor
+                            .saturating_add(1)
+                            .min(editor.payers.len().saturating_sub(1));
                     }
                     'k' => {
                         editor.payer_cursor = editor.payer_cursor.saturating_sub(1);
@@ -380,8 +391,10 @@ async fn handle_editor_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
                 },
                 EditorSection::Payees => match c {
                     'j' if !editor.payees.is_empty() => {
-                        editor.payee_cursor =
-                            (editor.payee_cursor + 1).min(editor.payees.len() - 1);
+                        editor.payee_cursor = editor
+                            .payee_cursor
+                            .saturating_add(1)
+                            .min(editor.payees.len().saturating_sub(1));
                     }
                     'k' => {
                         editor.payee_cursor = editor.payee_cursor.saturating_sub(1);
@@ -655,7 +668,7 @@ pub async fn refresh_ledgers(svc: &Arc<UnbillConsole>, state: &mut AppState) {
             state.ledger_user_names = names;
             state.ledgers = ledgers;
             if state.ledger_cursor >= state.ledgers.len() && !state.ledgers.is_empty() {
-                state.ledger_cursor = state.ledgers.len() - 1;
+                state.ledger_cursor = state.ledgers.len().saturating_sub(1);
             }
         }
         Err(e) => state.status_message = Some(format!("list ledgers: {e}")),
@@ -668,7 +681,7 @@ pub async fn refresh_bills(svc: &Arc<UnbillConsole>, state: &mut AppState) {
             Ok(effective) => {
                 state.bills = effective.into_vec();
                 if state.bill_cursor >= state.bills.len() && !state.bills.is_empty() {
-                    state.bill_cursor = state.bills.len() - 1;
+                    state.bill_cursor = state.bills.len().saturating_sub(1);
                 }
                 if state.bills.is_empty() {
                     state.bill_cursor = 0;
@@ -798,7 +811,8 @@ fn build_amend_editor(ledger_id: LedgerId, bill: &Bill, users: Vec<User>) -> Bil
 // Amount parsing helper
 // ---------------------------------------------------------------------------
 
-fn parse_amount_cents(s: &str) -> Option<i64> {
+// sirno:witness:unbill-tui:begin
+pub(crate) fn parse_amount_cents(s: &str) -> Option<i64> {
     let s = s.trim();
     if s.is_empty() {
         return None;
@@ -807,12 +821,46 @@ fn parse_amount_cents(s: &str) -> Option<i64> {
         let whole: i64 = whole.parse().ok()?;
         let frac = match frac.len() {
             0 => 0i64,
-            1 => frac.parse::<i64>().ok()? * 10,
-            _ => frac[..2].parse::<i64>().ok()?,
+            1 => frac.parse::<i64>().ok()?.checked_mul(10)?,
+            _ => frac.get(..2)?.parse::<i64>().ok()?,
         };
-        Some(whole * 100 + frac)
+        whole.checked_mul(100)?.checked_add(frac)
     } else {
         let whole: i64 = s.parse().ok()?;
-        Some(whole * 100)
+        whole.checked_mul(100)
+    }
+}
+// sirno:witness:unbill-tui:end
+
+#[cfg(test)]
+mod tests {
+    use super::parse_amount_cents;
+
+    #[test]
+    fn amount_parsing_handles_cent_boundaries() {
+        for (input, expected) in [
+            ("12", 1200),
+            ("12.", 1200),
+            ("12.3", 1230),
+            ("12.34", 1234),
+            ("12.345", 1234),
+            ("92233720368547758.07", i64::MAX),
+        ] {
+            assert_eq!(parse_amount_cents(input), Some(expected), "{input}");
+        }
+        for input in [
+            "92233720368547759",
+            "92233720368547758.08",
+            "-92233720368547759",
+        ] {
+            assert_eq!(parse_amount_cents(input), None, "{input}");
+        }
+    }
+
+    #[test]
+    fn amount_parsing_rejects_invalid_unicode_fractions() {
+        for input in ["1.€", "1.1é", "1.é", "1.💰"] {
+            assert_eq!(parse_amount_cents(input), None, "{input}");
+        }
     }
 }

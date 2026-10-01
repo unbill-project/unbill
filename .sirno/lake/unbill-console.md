@@ -25,6 +25,7 @@ They operate over projected ledger state.
 
 `qr/` generates text and SVG QR codes from invitation URLs
 for terminal and browser display.
+Encoding returns an error when the input exceeds QR capacity; callers decide how to display it.
 
 `storage/` re-exports `LedgerStore` and `StorageResult` from `unbill-storage`
 for test scaffolding only (`#[cfg(test)]`).

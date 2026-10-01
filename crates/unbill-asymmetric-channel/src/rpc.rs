@@ -5,7 +5,7 @@
 // task; the client polls it at a fixed interval and feeds its own broadcast.
 
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -122,6 +122,7 @@ impl From<WireEvent> for AsymChannelEvent {
 struct AsymChannelServiceServer<C: AsymChannel> {
     channel: Arc<C>,
     /// Per-connection event queue populated by a background subscriber task.
+    /// Only push and take run under the lock, so the Vec can be reused after poisoning.
     event_queue: Arc<Mutex<Vec<WireEvent>>>,
 }
 
@@ -230,7 +231,11 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
     }
 
     async fn poll_events(self, _ctx: tarpc::context::Context) -> Vec<WireEvent> {
-        std::mem::take(&mut *self.event_queue.lock().unwrap())
+        let mut queue = self
+            .event_queue
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        std::mem::take(&mut *queue)
     }
 }
 
@@ -283,7 +288,10 @@ where
         tokio::spawn(async move {
             loop {
                 match rx.recv().await {
-                    Ok(evt) => q2.lock().unwrap().push(WireEvent::from(evt)),
+                    Ok(evt) => q2
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .push(WireEvent::from(evt)),
                     Err(broadcast::error::RecvError::Lagged(_)) => continue,
                     Err(broadcast::error::RecvError::Closed) => break,
                 }
