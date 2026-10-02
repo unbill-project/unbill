@@ -148,6 +148,47 @@ docker build -t unbill-server:local .
 docker run --rm -p 8080:80 unbill-server:local
 ```
 
+### Formal verification
+
+<!-- sirno:witness:formal-verification:begin -->
+
+Unbill uses Verus for unbounded deductive verification of core ledger
+and settlement algorithms. The verified code lives in
+`crates/unbill-model/verified` and `crates/unbill-console/verified`;
+production ledger mutations and settlement computation call into those
+crates through typed bridge functions.
+
+The current proven surface is the pure ledger and settlement core,
+not the distributed application as a whole. Verus proves that the
+ledger invariant is established by initialization and preserved by the
+add-user, add-device, and add-bill wrappers. It also proves settlement
+properties such as exact weighted share splitting, floor-or-plus-one
+rounding bounds, non-negative split amounts, positive settlement
+transactions, and balance conservation in the verified settlement core.
+The broader invariant catalog is tracked in
+[unbill-docs/formal-invariants.md](unbill-docs/formal-invariants.md),
+with status recorded per invariant.
+
+Run Verus from each verified crate:
+
+```sh
+cd crates/unbill-model/verified && cargo verus verify
+cd crates/unbill-console/verified && cargo verus verify
+```
+
+The formal boundary is explicit. Verus does not prove Automerge
+convergence, peer-to-peer transport behavior, storage durability,
+UI or IPC code, release packaging, hosted deployment behavior,
+payment execution, or the security model for malicious insiders and
+compromised devices. Production-to-model bridge conversions and
+Automerge hydration/reconciliation are covered by tests rather than
+Verus, and ULID freshness is a trusted assumption.
+
+See [unbill-docs/formal-verification.md](unbill-docs/formal-verification.md)
+for the full verification model, toolchain, and proof workflow.
+
+<!-- sirno:witness:formal-verification:end -->
+
 ### Repository shape
 
 <!-- sirno:witness:workspace-layout:begin -->

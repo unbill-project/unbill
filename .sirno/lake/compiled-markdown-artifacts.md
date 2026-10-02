@@ -21,9 +21,10 @@ After the lake is updated and checked,
 root artifacts can be regenerated so external readers have a short route in.
 
 `README.md` compiles product identity, repository shape, build and release routes,
+formal verification boundaries,
 and pointers into the lake.
 Its sources are `unbill`, `workspace-layout`, `distribution-and-release`,
-`ci-cd-pipeline`, and `introduction`.
+`ci-cd-pipeline`, `formal-verification`, `formal-invariants`, and `introduction`.
 
 The root artifact should stay concise.
 It should point to lake entries instead of duplicating every local crate or module fact.
