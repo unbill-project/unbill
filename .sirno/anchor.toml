@@ -115,7 +115,7 @@ fingerprint = "sha256:cc6ee4c609ec47c06e191742ac3d8cfacf72070d1b9db2f91c017034fa
 "core.belongs" = ["unbill"]
 
 [entries.emoji-fingerprint]
-fingerprint = "sha256:8d50793b2a6c3972a82d9643f635f5eb7df26d12cea3a88693a8e74ee7aea85d"
+fingerprint = "sha256:f0e678886344c4c7be4691d1ee3c095ec1dfa01aaaa065d0f883449c7c0c7834"
 "core.belongs" = ["unbill-console"]
 
 [entries.formal-invariants]

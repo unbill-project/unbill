@@ -32,3 +32,6 @@ part of the encoding contract; updating the dependency requires reviewing
 encoding compatibility. Symbols can be multi-code-point emoji sequences,
 so symbol count differs from UTF-8 byte count and Unicode scalar count.
 Separators preserve symbol boundaries for combined sequences.
+The pinned alphabet is nonempty, so radix division has a nonzero divisor
+and each remainder is a valid alphabet index. Lint exceptions for these
+operations remain local and document those bounds.

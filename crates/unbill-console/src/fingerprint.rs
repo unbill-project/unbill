@@ -38,16 +38,29 @@ fn alphabet() -> &'static [&'static str] {
 pub(crate) fn sha256_to_emojis(hash: &[u8; 32]) -> String {
     let symbols = alphabet();
     let radix = symbols.len() as u64;
-    let mut value = u64::from_be_bytes(std::array::from_fn(|i| hash[i]));
+    let mut prefix = [0; 8];
+    for (byte, source) in prefix.iter_mut().zip(hash) {
+        *byte = *source;
+    }
+    let mut value = u64::from_be_bytes(prefix);
     let mut digits = [0_usize; SYMBOL_COUNT];
 
     // Six base-3953 digits fit every 64-bit prefix, including leading zeros.
+    #[allow(
+        clippy::arithmetic_side_effects,
+        reason = "The pinned alphabet contains 3953 symbols, so radix is nonzero"
+    )]
     for digit in digits.iter_mut().rev() {
         *digit = (value % radix) as usize;
         value /= radix;
     }
 
-    digits.map(|digit| symbols[digit]).join(" ")
+    #[allow(
+        clippy::indexing_slicing,
+        reason = "Each digit is a remainder modulo the alphabet length, so it is a valid index"
+    )]
+    let encoded = digits.map(|digit| symbols[digit]);
+    encoded.join(" ")
 }
 // sirno:witness:emoji-fingerprint:end
 
