@@ -9,6 +9,7 @@ struct LedgerDetailView: View {
     @State private var showingAddBill = false
     @State private var showingAddPerson = false
     @State private var showingInvite = false
+    @State private var showingSettings = false
     @State private var resolvingConflict: ConflictGroup?
 
     var body: some View {
@@ -39,6 +40,12 @@ struct LedgerDetailView: View {
                     .disabled(detail?.users.isEmpty ?? true)
 
                     Divider()
+
+                    Button {
+                        showingSettings = true
+                    } label: {
+                        Label("Ledger Settings", systemImage: "gearshape")
+                    }
 
                     Button {
                         showingInvite = true
@@ -89,7 +96,21 @@ struct LedgerDetailView: View {
                 Task { await load() }
             }
         }
-        .task { await load() }
+        .sheet(isPresented: $showingSettings) {
+            if let detail {
+                LedgerSettingsView(detail: detail)
+            }
+        }
+        .task {
+            let updates = await console.ledgerUpdates()
+            await load()
+            for await updatedID in updates {
+                if Task.isCancelled { break }
+                if updatedID == nil || updatedID == ledgerID {
+                    await load()
+                }
+            }
+        }
     }
 
     private func load() async {

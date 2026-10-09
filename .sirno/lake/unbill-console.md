@@ -28,7 +28,7 @@ for terminal and browser display.
 Encoding returns an error when the input exceeds QR capacity; callers decide how to display it.
 
 `UnbillConsole::ledger_emojis` calculates a ledger state's hash internally and
-returns a stable, lossless string of 22 emojis for display across frontends.
+returns a stable, shortened string of six emojis for display across frontends.
 The private `fingerprint/` module owns the encoding contract defined by
 the `emoji-fingerprint` entry.
 

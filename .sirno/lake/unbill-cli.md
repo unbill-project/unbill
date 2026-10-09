@@ -54,3 +54,6 @@ The suite covers JSON output,
 multi-process persistence,
 join,
 and one-shot peer sync flows.
+
+Ledger show includes the console-generated emoji fingerprint beneath the ledger
+name and exposes it as emoji_fingerprint in JSON output.

@@ -74,6 +74,7 @@ actor RustConsoleClient: ConsoleClient {
         let d = try console.ledgerDetail(ledgerId: id)
         return LedgerDetail(
             summary: Self.summary(d.summary),
+            emojiFingerprint: d.emojiFingerprint,
             users: d.users.map(Self.user),
             bills: d.bills.map(Self.bill),
             conflicts: d.conflicts.map {
@@ -83,6 +84,14 @@ actor RustConsoleClient: ConsoleClient {
                 Transaction(fromName: $0.fromName, toName: $0.toName, amountCents: $0.amountCents)
             }
         )
+    }
+
+    func ledgerUpdates() async -> AsyncStream<String?> {
+        AsyncStream { continuation in
+            let observer = LedgerUpdateObserver(continuation: continuation)
+            let subscription = console.observe(observer: observer)
+            continuation.onTermination = { _ in subscription.cancel() }
+        }
     }
 
     func resolveConflict(
@@ -196,5 +205,24 @@ actor RustConsoleClient: ConsoleClient {
 
     private static func user(_ u: FfiUser) -> User {
         User(userID: u.userId, displayName: u.displayName, addedAtMs: u.addedAtMs)
+    }
+}
+
+private final class LedgerUpdateObserver: FfiConsoleObserver {
+    let continuation: AsyncStream<String?>.Continuation
+
+    init(continuation: AsyncStream<String?>.Continuation) {
+        self.continuation = continuation
+    }
+
+    func onEvent(event: FfiServiceEvent) {
+        switch event {
+        case .ledgerUpdated(let ledgerID):
+            continuation.yield(ledgerID)
+        case .resyncNeeded:
+            continuation.yield(nil)
+        default:
+            break
+        }
     }
 }

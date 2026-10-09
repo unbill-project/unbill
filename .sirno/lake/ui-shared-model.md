@@ -99,3 +99,11 @@ Dates render in the viewer's local calendar as zero-padded year, month, day, hou
 Status, busy, and error feedback are shared across the shell.
 Mutating actions refresh bootstrap state,
 and ledger-scoped actions refresh selected ledger detail when that detail could have changed.
+
+Ledger Settings displays the selected ledger name followed by its six-emoji
+fingerprint, a copy action, and the explanation: Matching fingerprints suggest these
+devices have the same ledger state. Symbols wrap without truncation. Fingerprints
+come from UnbillConsole::ledger_emojis through ledger-detail DTOs and refresh
+with ledger updates and sync. Apple exposes the same information in a Ledger
+Settings sheet; the terminal UI provides a copy shortcut. CLI ledger show includes
+the fingerprint in both human-readable and JSON output.

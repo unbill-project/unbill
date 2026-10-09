@@ -256,6 +256,10 @@ fn test_ledger_show_reports_bill_and_user_counts() {
     let v = env.json(&["ledger", "show", &lid]);
     assert_eq!(v["bill_count"].as_u64().unwrap(), 1);
     assert_eq!(v["user_count"].as_u64().unwrap(), 3);
+    assert_eq!(
+        v["emoji_fingerprint"].as_str().unwrap().split(' ').count(),
+        6
+    );
 }
 
 #[test]

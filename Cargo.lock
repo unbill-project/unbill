@@ -8663,6 +8663,7 @@ name = "unbill-tui"
 version = "0.0.5"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "crossterm",
  "futures",
  "ratatui",

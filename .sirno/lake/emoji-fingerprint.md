@@ -15,10 +15,13 @@ The public console API exposes the emoji result; callers do not supply a hash
 or handle a ledger document. As with other console reads, the fingerprint
 reflects the current console projection; callers sync to refresh it from peers.
 
-The private `fingerprint::sha256_to_emojis` helper preserves all
-256 bits as a fixed-width, 22-symbol emoji string separated by single spaces.
-It interprets the bytes as an unsigned big-endian integer and encodes them
-in the base given by the emoji alphabet size, including leading zero digits.
+The ledger model continues to calculate the full 256-bit SHA-256 state hash.
+The private display helper `fingerprint::sha256_to_emojis` takes that full hash,
+uses its first eight bytes (64 bits) as an unsigned big-endian integer, and
+encodes that prefix as exactly six emoji symbols separated by single spaces.
+Encoding uses the emoji alphabet size as its base and preserves leading zero
+digits. This is a short visual comparison aid; it cannot reconstruct the full
+hash, and different ledger states can share a fingerprint.
 
 The alphabet is the complete Unicode 17.0 emoji dataset supplied by the pinned
 `emojis` 0.9.0 package, expanding skin-tone variants and adding the nine

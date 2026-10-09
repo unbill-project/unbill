@@ -49,6 +49,8 @@ struct LedgerSummaryDto {
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LedgerDetailDto {
+    emoji_fingerprint: String,
+
     summary: LedgerSummaryDto,
     users: Vec<UserDto>,
     devices: Vec<SyncDeviceDto>,
@@ -652,6 +654,7 @@ async fn load_ledger_detail_inner(
     let conflict_dtos = map_conflicts_from(conflicts, &user_name_lookup);
 
     Ok(LedgerDetailDto {
+        emoji_fingerprint: service.ledger_emojis(ledger_id).await?,
         summary,
         users: user_dtos,
         devices,
@@ -1159,6 +1162,10 @@ mod tests {
             .unwrap();
 
         assert_eq!(detail.conflicts.len(), 1);
+        assert_eq!(
+            detail.emoji_fingerprint,
+            service.ledger_emojis(ledger_id).await.unwrap()
+        );
         let group = &detail.conflicts[0];
         let conflicting_ids = group
             .conflicting

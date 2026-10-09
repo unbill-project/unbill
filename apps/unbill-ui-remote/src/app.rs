@@ -440,6 +440,15 @@ pub fn App() -> impl IntoView {
         }
     };
 
+    let copy_fingerprint = move |text: String| {
+        spawn_local(async move {
+            match api::write_clipboard_text(&text).await {
+                Ok(()) => toast.show("Fingerprint copied.".to_owned()),
+                Err(message) => toast.error(message),
+            }
+        });
+    };
+
     let copy_invitation_url = move || {
         if let Some(url) = invitation_url.get() {
             spawn_local(async move {
@@ -717,6 +726,7 @@ pub fn App() -> impl IntoView {
                     on_sync_device=Callback::new(sync_device)
                     on_create_invitation=Callback::new(move |_| create_invitation())
                     on_copy_invitation=Callback::new(move |_| copy_invitation_url())
+                    on_copy_fingerprint=Callback::new(copy_fingerprint)
                 />
             }
         })

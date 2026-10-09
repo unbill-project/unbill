@@ -133,7 +133,7 @@ impl UnbillConsole {
     // sirno:witness:console-service:end
 
     // sirno:witness:emoji-fingerprint:begin
-    /// Return the current projected ledger state's 22-emoji fingerprint.
+    /// Return the current projected ledger state's six-emoji fingerprint.
     ///
     /// Calculates the ledger's state hash internally. Like other console
     /// reads, this uses the cached projection or syncs from the device when
@@ -1240,7 +1240,7 @@ mod tests {
             .await
             .unwrap();
         let before = svc.ledger_emojis(ledger_id).await.unwrap();
-        assert_eq!(before.split(' ').count(), 22);
+        assert_eq!(before.split(' ').count(), 6);
         assert_eq!(svc.ledger_emojis(ledger_id).await.unwrap(), before);
         svc.create_user(
             ledger_id,

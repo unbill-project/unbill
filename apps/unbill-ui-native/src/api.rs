@@ -48,6 +48,8 @@ pub struct LedgerSummary {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LedgerDetail {
+    pub emoji_fingerprint: String,
+
     pub summary: LedgerSummary,
     pub users: Vec<User>,
     pub devices: Vec<SyncDevice>,

@@ -118,6 +118,8 @@ pub struct FfiBootstrap {
 
 #[derive(uniffi::Record)]
 pub struct FfiLedgerDetail {
+    pub emoji_fingerprint: String,
+
     pub summary: FfiLedgerSummary,
     pub users: Vec<FfiUser>,
     pub devices: Vec<FfiSyncDevice>,
@@ -445,6 +447,7 @@ async fn ledger_detail(service: &Arc<UnbillConsole>, ledger_id: LedgerId) -> R<F
         .collect();
 
     Ok(FfiLedgerDetail {
+        emoji_fingerprint: service.ledger_emojis(ledger_id).await?,
         summary,
         users: users.into_iter().map(user_to_dto).collect(),
         devices,
@@ -703,6 +706,7 @@ mod tests {
         assert_eq!(console.device_id(), device_id);
         let detail = console.ledger_detail(ledger.ledger_id).unwrap();
         assert_eq!(detail.summary.name, "Shared dinner");
+        assert_eq!(detail.emoji_fingerprint.split(' ').count(), 6);
         assert!(dir.path().join("unbill.sqlite3").is_file());
         assert!(!dir.path().join("unbill.lock").exists());
         assert!(!dir.path().join("device_key.bin").exists());

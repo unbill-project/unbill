@@ -98,3 +98,6 @@ The capability file grants `updater:default` on all desktop platforms.
 
 Most correctness testing belongs in core crates.
 This crate is best verified by end-to-end UI flows and iOS project regeneration smoke tests.
+
+Ledger detail DTOs include emojiFingerprint calculated by the console, so the
+native frontend refreshes the fingerprint through its existing detail queries.

@@ -105,16 +105,19 @@ pub async fn ledger_show(svc: &UnbillConsole, ledger_id: &str, json: bool) -> an
         .ok_or_else(|| anyhow!("ledger not found: {ledger_id}"))?;
     let bills = svc.list_bills(lid).await?;
     let users = svc.list_users(lid).await?;
+    let emoji_fingerprint = svc.ledger_emojis(lid).await?;
 
     if json {
         print_json(&serde_json::json!({
             "ledger": ledger_out(meta),
+            "emoji_fingerprint": emoji_fingerprint,
             "bill_count": bills.0.len(),
             "user_count": users.len(),
         }))?;
     } else {
         println!("ID:       {}", meta.ledger_id);
         println!("Name:     {}", meta.name);
+        println!("Ledger fingerprint: {emoji_fingerprint}");
         println!("Currency: {}", meta.currency.code());
         println!("Bills:    {}", bills.0.len());
         println!("Users:    {}", users.len());

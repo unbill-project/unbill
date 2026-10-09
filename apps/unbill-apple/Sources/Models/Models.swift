@@ -67,6 +67,7 @@ struct ConflictGroup: Identifiable, Hashable {
 
 struct LedgerDetail: Hashable {
     let summary: LedgerSummary
+    let emojiFingerprint: String
     let users: [User]
     let bills: [Bill]
     let conflicts: [ConflictGroup]

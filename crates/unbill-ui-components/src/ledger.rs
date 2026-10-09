@@ -1,6 +1,29 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
+// sirno:witness:ui-components:begin
+#[component]
+pub fn LedgerFingerprint(fingerprint: String, on_copy: Callback<String>) -> impl IntoView {
+    let copy_text = fingerprint.clone();
+    view! {
+        <div class="stack-gap">
+            <p class="row-title">"Ledger fingerprint"</p>
+            <p style="display:flex;flex-wrap:wrap;gap:0.25rem;font-size:1.35rem;line-height:1.6;min-width:0;user-select:text;">
+                {fingerprint.split(' ').map(|symbol| view! {
+                    <span style="white-space:nowrap;">{format!("{symbol} ")}</span>
+                }).collect_view()}
+            </p>
+            <p class="row-meta">"Matching fingerprints suggest these devices have the same ledger state."</p>
+            <crate::button::ActionButton
+                label="Copy fingerprint".to_owned()
+                tone=crate::button::ButtonTone::Secondary
+                on_press=Callback::new(move |_| on_copy.run(copy_text.clone()))
+            />
+        </div>
+    }
+}
+// sirno:witness:ui-components:end
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LedgerItem {
     pub id: String,

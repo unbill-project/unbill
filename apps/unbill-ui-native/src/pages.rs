@@ -1,5 +1,6 @@
 use crate::api::{self, Bill, LedgerDetail, LedgerSummary, SyncDevice, User};
 use crate::app::SettingsTab;
+use crate::components::LedgerFingerprint;
 use crate::components::{
     ActionButton, ButtonTone, ConflictBillItem, ConflictGroupView, CurrencyCombobox, FieldBlock,
     IconButton, IconButtonKind, ListRow, ModalSheet, QrCode, ScreenFrame, SectionCard,
@@ -305,6 +306,7 @@ pub fn SettingsPopup(
     on_sync_device: Callback<(String, Callback<()>)>,
     on_create_invitation: Callback<()>,
     on_copy_invitation: Callback<()>,
+    on_copy_fingerprint: Callback<String>,
 ) -> impl IntoView {
     // sirno:witness:unbill-ui-native:end
     let theme_mode = RwSignal::new(load_theme());
@@ -450,6 +452,14 @@ pub fn SettingsPopup(
                             <div class="settings-grid">
                                 {if let Some(detail) = ledger_detail.clone() {
                                     view! {
+                                        // sirno:witness:ui-shared-model:begin
+                                        <SectionCard title=detail.summary.name.clone()>
+                                            <LedgerFingerprint
+                                                fingerprint=detail.emoji_fingerprint.clone()
+                                                on_copy=on_copy_fingerprint
+                                            />
+                                        </SectionCard>
+                                        // sirno:witness:ui-shared-model:end
                                         <SectionCard title="Users".to_owned()>
                                             <div class="stack-gap">
                                                 {if detail.users.is_empty() {

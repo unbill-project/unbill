@@ -66,3 +66,8 @@ because the core pulls C crypto through `unbill-device` and no single global SDK
 Swift binding generation invokes the host binary built in the first phase directly,
 so it does not rebuild host dependencies under the cross-compilation environment.
 The app builds and runs on the iOS Simulator, Mac Catalyst, and a real iPhone with automatic code signing.
+
+Ledger detail DTOs include the console-generated emoji fingerprint. A Ledger
+Settings sheet shows it with wrapping, text selection, and a copy action.
+The Swift console boundary exposes ledger-update events through AsyncStream;
+ledger detail reloads on matching updates and resync notifications.

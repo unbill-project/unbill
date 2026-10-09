@@ -104,3 +104,8 @@ Unicode description truncation,
 and popup geometry for large terminal dimensions.
 Domain correctness is covered by shared crates,
 and the TUI is validated manually against the same service exercised by CLI e2e tests.
+
+Ledger Settings shows each selected ledger's six-emoji fingerprint and a
+copy shortcut. Fingerprints are obtained from the console when opening settings
+and refreshed on ledger-update events. Copy uses the terminal OSC 52 clipboard
+protocol; clipboard support depends on the terminal.

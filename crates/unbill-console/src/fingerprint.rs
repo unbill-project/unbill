@@ -2,7 +2,7 @@
 
 use std::sync::OnceLock;
 
-const SYMBOL_COUNT: usize = 22;
+const SYMBOL_COUNT: usize = 6;
 
 // sirno:witness:emoji-fingerprint:begin
 fn alphabet() -> &'static [&'static str] {
@@ -26,30 +26,25 @@ fn alphabet() -> &'static [&'static str] {
     })
 }
 
-/// Encode a complete SHA-256 value as 22 space-separated emoji symbols.
+/// Shorten a full SHA-256 value to six space-separated emoji symbols.
 ///
 /// Uses the full Unicode 17.0 dataset from the pinned `emojis` package,
 /// including skin-tone variants and standalone components, in sorted UTF-8
-/// order. Bytes are interpreted as an unsigned big-endian integer, with
-/// leading zero digits preserved.
+/// order. The first eight bytes are interpreted as an unsigned big-endian
+/// integer, with leading zero digits preserved. This visual fingerprint
+/// preserves 64 bits, not the complete hash.
 /// The dataset version, ordering, and width are part of the encoding contract.
 /// Emoji symbols may contain multiple Unicode code points.
 pub(crate) fn sha256_to_emojis(hash: &[u8; 32]) -> String {
     let symbols = alphabet();
-    let radix = symbols.len() as u32;
-    let mut value = *hash;
+    let radix = symbols.len() as u64;
+    let mut value = u64::from_be_bytes(std::array::from_fn(|i| hash[i]));
     let mut digits = [0_usize; SYMBOL_COUNT];
 
-    // Long division converts the big-endian 256-bit integer without a bigint
-    // dependency. Each intermediate is below 256 * radix and fits in u32.
+    // Six base-3953 digits fit every 64-bit prefix, including leading zeros.
     for digit in digits.iter_mut().rev() {
-        let mut remainder = 0_u32;
-        for byte in &mut value {
-            let dividend = remainder * 256 + u32::from(*byte);
-            *byte = (dividend / radix) as u8;
-            remainder = dividend % radix;
-        }
-        *digit = remainder as usize;
+        *digit = (value % radix) as usize;
+        value /= radix;
     }
 
     digits.map(|digit| symbols[digit]).join(" ")
@@ -74,27 +69,24 @@ mod tests {
 
     #[test]
     fn zero_and_one_have_stable_fixed_width_encodings() {
-        assert_eq!(sha256_to_emojis(&[0; 32]), vec!["#️⃣"; 22].join(" "));
+        assert_eq!(sha256_to_emojis(&[0; 32]), ["#️⃣"; 6].join(" "));
         let mut one = [0; 32];
-        one[31] = 1;
-        let mut expected = vec!["#️⃣"; 22];
-        expected[21] = "*️⃣";
+        one[7] = 1;
+        let mut expected = ["#️⃣"; 6];
+        expected[5] = "*️⃣";
         assert_eq!(sha256_to_emojis(&one), expected.join(" "));
     }
 
     #[test]
     fn maximum_hash_has_a_stable_encoding() {
         // Independently calculated with Python integer divmod in base 3953.
-        assert_eq!(
-            sha256_to_emojis(&[u8::MAX; 32]),
-            "⏬ 🤽🏻‍♂️ 🧝🏼‍♂️ 👩🏼‍❤️‍👩🏽 🏄🏽 🫵🏾 👨🏼‍🤝‍👨🏿 👩‍🍼 👨🏻‍🏭 🧚‍♂️ 💁🏾 👨‍🦳 🏊🏾‍♀️ 🧑🏾‍❤️‍💋‍🧑🏽 🎑 🥹 🤲🏽 🕢 🧑🏼‍🦳 ⛹🏽‍♀️ 👬🏼 💇🏾"
-        );
+        assert_eq!(sha256_to_emojis(&[u8::MAX; 32]), "↕️ 🇷🇴 🎣 👨🏽 🧑🏾‍🔧 👼");
     }
 
-    fn decode(encoded: &str) -> [u8; 32] {
+    fn decode(encoded: &str) -> [u8; 8] {
         let symbols: Vec<_> = encoded.split(' ').collect();
         assert_eq!(symbols.len(), SYMBOL_COUNT);
-        let mut bytes = [0_u8; 32];
+        let mut bytes = [0_u8; 8];
         for symbol in symbols {
             let mut carry = alphabet().binary_search(&symbol).unwrap() as u32;
             for byte in bytes.iter_mut().rev() {
@@ -102,15 +94,15 @@ mod tests {
                 *byte = (value % 256) as u8;
                 carry = value / 256;
             }
-            assert_eq!(carry, 0, "encoded value exceeds SHA-256 width");
+            assert_eq!(carry, 0, "encoded value exceeds 64-bit prefix width");
         }
         bytes
     }
 
     #[test]
-    fn full_hash_round_trips_including_zero_bytes_and_maximum_value() {
+    fn hash_prefix_round_trips_including_zero_bytes_and_maximum_value() {
         for hash in [[0; 32], [u8::MAX; 32], std::array::from_fn(|i| i as u8)] {
-            assert_eq!(decode(&sha256_to_emojis(&hash)), hash);
+            assert_eq!(decode(&sha256_to_emojis(&hash)), hash[..8]);
         }
     }
 
@@ -123,16 +115,27 @@ mod tests {
     }
 
     #[test]
-    fn every_byte_position_and_value_affects_the_encoding() {
-        for position in 0..32 {
+    fn every_prefix_byte_position_and_value_affects_the_encoding() {
+        for position in 0..8 {
             let mut encodings = HashSet::new();
             for byte in 0..=u8::MAX {
                 let mut hash = [0; 32];
                 hash[position] = byte;
                 let encoded = sha256_to_emojis(&hash);
-                assert_eq!(decode(&encoded), hash);
+                assert_eq!(decode(&encoded), hash[..8]);
                 assert!(encodings.insert(encoded));
             }
+        }
+    }
+
+    #[test]
+    fn shortening_happens_in_conversion_and_ignores_the_hash_suffix() {
+        let mut hash = [0; 32];
+        let expected = sha256_to_emojis(&hash);
+        assert_eq!(expected.split(' ').count(), 6);
+        for position in 8..32 {
+            hash[position] = u8::MAX;
+            assert_eq!(sha256_to_emojis(&hash), expected);
         }
     }
 }
