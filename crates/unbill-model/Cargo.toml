@@ -20,4 +20,5 @@ ulid.workspace = true
 iso_currency = { workspace = true, features = ["iterator"] }
 rand.workspace = true
 serde.workspace = true
+sha2 = "0.10"
 web-time = "1"

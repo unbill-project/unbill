@@ -136,3 +136,7 @@ The choice is persisted in local storage and applied before the first render.
 
 Pure helpers are unit-tested directly.
 Component rendering is covered by consuming frontend crates.
+
+`LedgerFingerprint` displays the backend-provided six-emoji string and
+a copy callback. It wraps at symbol boundaries, preserving combined emoji
+sequences, and explains matching ledger state without computing any hash.

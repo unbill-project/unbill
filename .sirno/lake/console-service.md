@@ -19,6 +19,11 @@ computes settlement,
 detects conflicts,
 and surfaces service events.
 
+`ledger_emojis` returns the current projected ledger state's emoji fingerprint
+for a ledger ID. It calculates the state hash internally and returns a string;
+shells do not supply or encode hash bytes. This query uses the normal document
+cache and cold-cache sync path and returns ledger-not-found for unknown IDs.
+
 `calculate_bill_split` synchronously calculates payer and payee amounts together
 without reading or changing a ledger.
 The same calculation serves saved bills and unsaved drafts.

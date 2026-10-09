@@ -2126,6 +2126,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
 
 [[package]]
+name = "emojis"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b1514ced566c94991ed9563258ecf61e311fd773bf0a3f20606830386bf66e3"
+dependencies = [
+ "phf",
+]
+
+[[package]]
 name = "encoding_rs"
 version = "0.8.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8419,6 +8428,7 @@ dependencies = [
  "automerge",
  "autosurgeon",
  "ciborium",
+ "emojis",
  "garde",
  "iso_currency",
  "proptest",
@@ -8503,6 +8513,7 @@ dependencies = [
  "iso_currency",
  "rand 0.10.3",
  "serde",
+ "sha2 0.10.9",
  "thiserror 2.0.21",
  "ulid",
  "unbill-model-verified",
@@ -8652,6 +8663,7 @@ name = "unbill-tui"
 version = "0.0.5"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "crossterm",
  "futures",
  "ratatui",

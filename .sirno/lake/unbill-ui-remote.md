@@ -92,3 +92,7 @@ and no padding or gaps around the ranger grid.
 Trunk builds the static bundle.
 `UNBILL_SERVER_URL` is set before build or serve when the server is not same-origin.
 Pure DTO mapping and navigation helper tests live beside `api.rs` and `app.rs`.
+
+Ledger detail DTOs include the console-generated emoji fingerprint. Ledger
+Settings displays the six-emoji fingerprint with wrapping and a clipboard action;
+the existing ledger-detail event refresh keeps it current.

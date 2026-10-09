@@ -132,6 +132,20 @@ impl UnbillConsole {
     }
     // sirno:witness:console-service:end
 
+    // sirno:witness:emoji-fingerprint:begin
+    /// Return the current projected ledger state's six-emoji fingerprint.
+    ///
+    /// Calculates the ledger's state hash internally. Like other console
+    /// reads, this uses the cached projection or syncs from the device when
+    /// the cache is cold. Unknown ledger IDs return a ledger-not-found error.
+    pub async fn ledger_emojis(&self, ledger_id: LedgerId) -> Result<String> {
+        let mut doc = self.take_doc(ledger_id).await?;
+        let emojis = crate::fingerprint::sha256_to_emojis(&doc.state_hash());
+        self.put_doc(ledger_id, doc).await;
+        Ok(emojis)
+    }
+    // sirno:witness:emoji-fingerprint:end
+
     // -----------------------------------------------------------------------
     // Bills
     // -----------------------------------------------------------------------
@@ -1213,6 +1227,65 @@ mod tests {
         let all = svc.list_all_users().await.unwrap();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].user_id, alice.user_id);
+    }
+
+    #[tokio::test]
+    async fn ledger_emojis_are_stable_and_change_with_ledger_updates() {
+        let svc = open().await;
+        let ledger_id = svc
+            .create_ledger(NewLedger {
+                name: "Shared expenses".into(),
+                currency: usd(),
+            })
+            .await
+            .unwrap();
+        let before = svc.ledger_emojis(ledger_id).await.unwrap();
+        assert_eq!(before.split(' ').count(), 6);
+        assert_eq!(svc.ledger_emojis(ledger_id).await.unwrap(), before);
+        svc.create_user(
+            ledger_id,
+            NewUserName {
+                display_name: "Alice".into(),
+            },
+        )
+        .await
+        .unwrap();
+        let after = svc.ledger_emojis(ledger_id).await.unwrap();
+        assert_ne!(after, before);
+        assert_eq!(svc.list_users(ledger_id).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn ledger_emojis_match_the_stored_document_with_a_cold_cache() {
+        let store = mem_store();
+        let channel = MockAsymChannel::new(store.clone()).await;
+        let svc = UnbillConsole::open(channel).await;
+        let ledger_id = svc
+            .create_ledger(NewLedger {
+                name: "Shared expenses".into(),
+                currency: usd(),
+            })
+            .await
+            .unwrap();
+        let mut stored = store
+            .load_ledger(&ledger_id.to_string())
+            .await
+            .unwrap()
+            .unwrap();
+        let expected = crate::fingerprint::sha256_to_emojis(&stored.state_hash());
+        svc.cache.lock().await.clear();
+        assert_eq!(svc.ledger_emojis(ledger_id).await.unwrap(), expected);
+        assert!(svc.cache.lock().await.contains_key(&ledger_id));
+    }
+
+    #[tokio::test]
+    async fn ledger_emojis_return_an_error_for_an_unknown_ledger() {
+        let svc = open().await;
+        let ledger_id = LedgerId::from_u128(999);
+        assert!(matches!(
+            svc.ledger_emojis(ledger_id).await,
+            Err(UnbillError::LedgerNotFound(id)) if id == ledger_id.to_string()
+        ));
     }
 
     // unused import suppression

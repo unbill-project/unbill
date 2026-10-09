@@ -27,6 +27,11 @@ They operate over projected ledger state.
 for terminal and browser display.
 Encoding returns an error when the input exceeds QR capacity; callers decide how to display it.
 
+`UnbillConsole::ledger_emojis` calculates a ledger state's hash internally and
+returns a stable, shortened string of six emojis for display across frontends.
+The private `fingerprint/` module owns the encoding contract defined by
+the `emoji-fingerprint` entry.
+
 `storage/` re-exports `LedgerStore` and `StorageResult` from `unbill-storage`
 for test scaffolding only (`#[cfg(test)]`).
 

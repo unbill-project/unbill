@@ -114,6 +114,7 @@ pub async fn run(
                         refresh_bills(&svc, &mut state).await;
                         refresh_users(&svc, &mut state).await;
                         refresh_settlement(&svc, &mut state).await;
+                        refresh_fingerprints(&svc, &mut state).await;
                     }
                     ServiceEvent::SyncError { error, .. } => {
                         state.sync_status = SyncStatus::Error(error);
@@ -127,6 +128,7 @@ pub async fn run(
                     Ok(()) => SyncStatus::Idle,
                     Err(e) => SyncStatus::Error(e),
                 };
+                refresh_fingerprints(&svc, &mut state).await;
             }
 
             Some(Ok(ev)) = events.next() => {
@@ -170,6 +172,16 @@ async fn handle_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillConsole
             }
             PopupOutcome::OpenNext(next) => {
                 state.popup = Some(next);
+            }
+            PopupOutcome::CopyText(text) => {
+                use std::io::Write;
+                let result = std::io::stdout()
+                    .write_all(clipboard_sequence(&text).as_bytes())
+                    .and_then(|_| std::io::stdout().flush());
+                state.status_message = Some(match result {
+                    Ok(()) => "Fingerprint sent to terminal clipboard.".to_owned(),
+                    Err(error) => format!("Clipboard: {error}"),
+                });
             }
         }
         return;
@@ -647,6 +659,33 @@ async fn open_settings_popup(tab: TopTab, state: &mut AppState, svc: &Arc<Unbill
         ledger_users_map,
         state.ledger_cursor,
     )));
+    refresh_fingerprints(svc, state).await;
+}
+
+async fn refresh_fingerprints(svc: &Arc<UnbillConsole>, state: &mut AppState) {
+    if state.popup.is_none() {
+        return;
+    }
+    let mut fingerprints = crate::popup::LedgerFingerprints::new();
+    for ledger in &state.ledgers {
+        fingerprints.insert(
+            ledger.ledger_id,
+            svc.ledger_emojis(ledger.ledger_id)
+                .await
+                .map_err(|e| e.to_string()),
+        );
+    }
+    if let Some(popup) = state.popup.as_mut() {
+        popup.update_fingerprints(&fingerprints);
+    }
+}
+
+fn clipboard_sequence(text: &str) -> String {
+    use base64::Engine;
+    format!(
+        "\u{1b}]52;c;{}\u{7}",
+        base64::engine::general_purpose::STANDARD.encode(text)
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -862,5 +901,21 @@ mod tests {
         for input in ["1.€", "1.1é", "1.é", "1.💰"] {
             assert_eq!(parse_amount_cents(input), None, "{input}");
         }
+    }
+
+    #[test]
+    fn terminal_copy_preserves_the_complete_unicode_fingerprint() {
+        use base64::Engine;
+        let text = ["👩🏼‍❤️‍👩🏽"; 6].join(" ");
+        let sequence = super::clipboard_sequence(&text);
+        let payload = sequence
+            .strip_prefix("\u{1b}]52;c;")
+            .unwrap()
+            .strip_suffix('\u{7}')
+            .unwrap();
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(payload)
+            .unwrap();
+        assert_eq!(decoded, text.as_bytes());
     }
 }

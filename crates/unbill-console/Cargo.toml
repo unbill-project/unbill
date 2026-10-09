@@ -24,6 +24,8 @@ garde.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 qrcode.workspace = true
+# The emoji dataset is part of the fingerprint encoding contract.
+emojis = "=0.9.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { workspace = true, features = ["rt"] }

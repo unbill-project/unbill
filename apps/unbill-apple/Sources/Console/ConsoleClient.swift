@@ -7,6 +7,8 @@ protocol ConsoleClient {
     func supportedCurrencies() async -> [String]
     func ledgers() async throws -> [LedgerSummary]
     func ledgerDetail(id: String) async throws -> LedgerDetail
+    // A ledger ID to refresh, or nil when all projections need refreshing.
+    func ledgerUpdates() async -> AsyncStream<String?>
     @discardableResult
     func createLedger(name: String, currency: String) async throws -> LedgerSummary
     // Create a new named user in a ledger.

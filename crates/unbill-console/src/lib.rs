@@ -4,6 +4,7 @@
 // sirno:witness:unbill-console:begin
 pub mod conflict;
 pub mod error;
+mod fingerprint;
 pub use unbill_event as event;
 pub use unbill_model as model;
 pub use unbill_model::LedgerDoc;
