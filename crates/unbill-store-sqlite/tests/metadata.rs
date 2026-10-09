@@ -1,6 +1,5 @@
 use unbill_model::{Invitation, InviteToken, LedgerId, NodeId, Timestamp};
 use unbill_storage::LedgerStore;
-use unbill_store_fs::FsStore;
 use unbill_store_memory::InMemoryStore;
 use unbill_store_sqlite::SqliteStore;
 
@@ -85,20 +84,6 @@ async fn memory_metadata_contract() -> Result<(), rand::rngs::SysError> {
 }
 
 #[tokio::test]
-async fn filesystem_metadata_contract() -> Result<(), rand::rngs::SysError> {
-    let dir = tempfile::tempdir().unwrap();
-    let store = FsStore::open(dir.path().into()).unwrap();
-    metadata_contract(&store).await?;
-    let id = store.get_device_id().await.unwrap();
-    drop(store);
-    let store = FsStore::open(dir.path().into()).unwrap();
-    assert_eq!(store.get_device_id().await.unwrap(), id);
-    assert_eq!(store.list_device_labels().await.unwrap()["peer-b"], "Phone");
-    assert_eq!(store.list_pending_invitations().await.unwrap().len(), 1);
-    Ok(())
-}
-
-#[tokio::test]
 async fn sqlite_metadata_contract() -> Result<(), rand::rngs::SysError> {
     let dir = tempfile::tempdir().unwrap();
     let store = SqliteStore::open(dir.path().into()).await.unwrap();
@@ -113,8 +98,7 @@ async fn sqlite_metadata_contract() -> Result<(), rand::rngs::SysError> {
 }
 
 #[tokio::test]
-async fn existing_filesystem_metadata_is_read_without_conversion()
--> Result<(), rand::rngs::SysError> {
+async fn legacy_flat_files_are_left_untouched_by_sqlite() -> Result<(), rand::rngs::SysError> {
     let dir = tempfile::tempdir().unwrap();
     let inv = invitation()?;
     std::fs::write(
@@ -132,21 +116,27 @@ async fn existing_filesystem_metadata_is_read_without_conversion()
     )
     .unwrap();
     std::fs::write(dir.path().join("device_key.bin"), [7u8; 32]).unwrap();
-    let store = FsStore::open(dir.path().into()).unwrap();
+    let store = SqliteStore::open(dir.path().into()).await.unwrap();
+    assert!(!store.is_device_initialized().await.unwrap());
+    assert!(store.list_device_labels().await.unwrap().is_empty());
+    assert!(store.list_pending_invitations().await.unwrap().is_empty());
     assert_eq!(
-        store.list_device_labels().await.unwrap()["old-node"],
-        "Old laptop"
+        std::fs::read(dir.path().join("device_key.bin")).unwrap(),
+        [7u8; 32]
     );
     assert_eq!(
-        store
-            .consume_invitation(inv.token.as_str())
-            .await
-            .unwrap()
-            .unwrap()
-            .token,
+        std::fs::read(dir.path().join("device_labels.json")).unwrap(),
+        br#"{"old-node":"Old laptop"}"#
+    );
+    let invitations: std::collections::HashMap<String, Invitation> = serde_json::from_slice(
+        &std::fs::read(dir.path().join("pending_invitations.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        invitations.get(inv.token.as_str()).unwrap().token,
         inv.token
     );
-    assert_eq!(store.get_secret_key().await.unwrap().as_bytes(), &[7u8; 32]);
+
     Ok(())
 }
 

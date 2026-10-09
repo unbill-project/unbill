@@ -18,7 +18,7 @@ path = "src/lib.rs"
 [dependencies]
 unbill-device = { path = "../../crates/unbill-device" }
 unbill-model = { path = "../../crates/unbill-model" }
-unbill-store-fs = { path = "../../crates/unbill-store-fs" }
+unbill-storage = { path = "../../crates/unbill-storage" }
 unbill-store-sqlite = { path = "../../crates/unbill-store-sqlite" }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
 tokio-stream.workspace = true
@@ -32,7 +32,6 @@ tower-http.workspace = true
 serde.workspace = true
 
 [dev-dependencies]
-unbill-storage = { path = "../../crates/unbill-storage" }
 automerge.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "test-util"] }

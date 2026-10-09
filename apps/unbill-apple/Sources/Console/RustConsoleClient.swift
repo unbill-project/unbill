@@ -10,7 +10,7 @@ import Foundation
 //
 // Maps the aggregated FFI DTOs (bootstrap / ledger detail) to the app's models.
 // On first run it seeds one ledger with users and bills so the detail screen
-// shows real, Rust-computed settlement. Persisted to disk via FsStore.
+// shows real, Rust-computed settlement. Persisted to SQLite.
 actor RustConsoleClient: ConsoleClient {
     private let console: FfiConsole
 

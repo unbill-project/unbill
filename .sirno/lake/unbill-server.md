@@ -44,7 +44,7 @@ Configuration comes from environment variables.
 `API_KEY` is required.
 `PORT` defaults to 8080.
 The data directory follows `UNBILL_DATA_DIR` when set,
-otherwise the platform default from `unbill-store-fs`.
+otherwise the platform default from `unbill-storage::UNBILL_PATH`.
 
 Boundaries:
 one API key,

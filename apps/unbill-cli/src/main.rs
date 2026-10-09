@@ -5,7 +5,7 @@ use anyhow::bail;
 use clap::Parser;
 use unbill_asymmetric_channel::rpc::RpcAsymChannel;
 use unbill_console::service::UnbillConsole;
-use unbill_store_fs::UNBILL_PATH;
+use unbill_storage::UNBILL_PATH;
 
 mod commands;
 mod output;

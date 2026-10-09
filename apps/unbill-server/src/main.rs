@@ -18,7 +18,7 @@ async fn main() -> Result<()> {
         .parse()
         .context("PORT must be a valid port number")?;
 
-    let data_dir = unbill_store_fs::UNBILL_PATH
+    let data_dir = unbill_storage::UNBILL_PATH
         .ensure_data_dir()
         .context("failed to resolve data directory")?;
     // sirno:witness:unbill-server:begin
