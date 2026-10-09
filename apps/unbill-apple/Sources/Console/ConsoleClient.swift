@@ -39,7 +39,7 @@ protocol ConsoleClient {
     // Create an invitation URL others can use to join this ledger.
     func createInvitation(ledgerID: String) async throws -> String
     // Join a ledger from an invitation URL.
-    func joinLedger(url: String, label: String?) async throws
+    func joinLedger(url: String, label: String) async throws
     // Peer devices known to this device.
     func syncDevices() async throws -> [SyncDevice]
     // Run one sync round with a peer.

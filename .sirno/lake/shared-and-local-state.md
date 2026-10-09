@@ -11,22 +11,21 @@ core.refines:
 
 Shared state is the minimum durable record peers need to agree on a ledger.
 It includes ledger metadata, ledger users, bills, supersession links,
-and authorized device `NodeId` values.
+and authorized devices with their ledger-scoped names.
 
 Local state makes one device usable.
 It includes the device secret key,
 ledger metadata caches,
-device labels,
 pending invitation tokens,
 runtime UI state,
 and other machine-specific metadata.
 
 Shared and local state are stored separately.
 Peers converge only on shared ledger data.
-They do not converge on personal labels, saved user conveniences, clipboard contents,
+They do not converge on saved user conveniences, clipboard contents,
 or transient UI state.
 
-Device labels and pending invitations are local metadata.
+Device labels are shared fields on ledger devices. Pending invitations remain local metadata.
 All stores expose typed operations for these records and identity; there is no generic metadata fallback.
 Invitation URLs and copied invitation text are local client concerns.
 The current service lists all known users by aggregating ledger users across local ledgers,
@@ -38,13 +37,12 @@ flowchart TB
         Ledger["Ledger metadata"]
         Users["Ledger users"]
         Bills["Bills and supersession links"]
-        Devices["Authorized device NodeIds"]
+        Devices["Authorized device NodeIds and labels"]
     end
 
     subgraph Local["Device-local state"]
         Key["Device key"]
         MetaCache["Ledger metadata cache"]
-        Labels["Device labels"]
         Pending["Pending invite tokens"]
         Ui["Runtime UI state"]
     end

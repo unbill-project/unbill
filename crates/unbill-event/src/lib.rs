@@ -2,7 +2,6 @@
 #[derive(Clone, Debug)]
 pub enum ServiceEvent {
     DeviceIdentityInitialized,
-    DeviceLabelsUpdated,
     PendingInvitationsUpdated,
     LedgerUpdated {
         ledger_id: String,

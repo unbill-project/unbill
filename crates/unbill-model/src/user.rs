@@ -35,6 +35,7 @@ pub struct User {
 pub struct Device {
     /// The iroh NodeId (a 32-byte Ed25519 public key).
     pub node_id: NodeId,
+    pub label: crate::DeviceLabel,
     pub added_at: Timestamp,
 }
 
@@ -67,6 +68,7 @@ pub struct NewUser {
 #[derive(Clone, Debug)]
 pub struct NewDevice {
     pub node_id: NodeId,
+    pub label: crate::DeviceLabel,
 }
 // sirno:witness:users-and-devices:end
 

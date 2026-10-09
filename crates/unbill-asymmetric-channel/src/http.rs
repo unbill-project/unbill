@@ -26,7 +26,7 @@ struct InvitationJson {
 #[derive(Serialize)]
 struct JoinBody {
     url: String,
-    label: Option<String>,
+    label: unbill_model::DeviceLabel,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -138,7 +138,7 @@ impl AsymChannel for HttpAsymChannel {
         Ok(body.url)
     }
 
-    async fn join_ledger(&self, url: String, label: Option<String>) -> Result<()> {
+    async fn join_ledger(&self, url: String, label: unbill_model::DeviceLabel) -> Result<()> {
         let resp = self
             .auth(
                 self.client
@@ -233,34 +233,6 @@ impl AsymChannel for HttpAsymChannel {
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?;
         Self::check(resp).await?;
-        Ok(())
-    }
-
-    async fn list_device_labels(&self) -> Result<std::collections::HashMap<String, String>> {
-        let response = self
-            .auth(self.client.get(self.url("/device/labels")))
-            .send()
-            .await
-            .map_err(|e| UnbillError::Network(e.to_string()))?;
-        Self::check(response)
-            .await?
-            .json()
-            .await
-            .map_err(|e| UnbillError::Network(e.to_string()))
-    }
-    async fn set_device_label(&self, node_id: &NodeId, label: Option<String>) -> Result<()> {
-        let mut url = reqwest::Url::parse(&self.url("/device/labels/"))
-            .map_err(|e| UnbillError::Network(e.to_string()))?;
-        url.path_segments_mut()
-            .map_err(|_| UnbillError::Network("invalid server URL".into()))?
-            .pop_if_empty()
-            .push(&node_id.to_string());
-        let response = self
-            .auth(self.client.put(url).json(&label))
-            .send()
-            .await
-            .map_err(|e| UnbillError::Network(e.to_string()))?;
-        Self::check(response).await?;
         Ok(())
     }
 

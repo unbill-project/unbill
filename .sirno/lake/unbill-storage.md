@@ -24,7 +24,6 @@ flowchart TB
     end
     subgraph DeviceData["Device-local data"]
         Key["Secret key"]
-        Labels["Device labels"]
         Pending["Pending invitations"]
     end
 
@@ -34,11 +33,9 @@ flowchart TB
 
 `LedgerStore` loads and saves ledgers as `LedgerDoc`.
 Ledger metadata supports fast listing without hydrating Automerge bytes.
-Device-local storage covers labels,
-pending invitations,
+Device-local storage covers pending invitations,
 and the secret key.
-Every backend exposes the same typed operations: list labels, set or remove one label,
-create an invitation with a backend-generated token, list invitations, and atomically consume one invitation.
+Every backend exposes the same typed operations: create an invitation with a backend-generated token, list invitations, and atomically consume one invitation.
 There is no arbitrary key/value metadata API or fallback storage.
 
 `save_ledger` takes a mutable document.

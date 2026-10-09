@@ -29,6 +29,7 @@ fn user_to_model(user: &User) -> v::User {
 fn device_to_model(device: &Device) -> v::Device {
     v::Device {
         node_id: device.node_id.to_string().into_bytes(),
+        label: device.label.to_string().into_bytes(),
         added_at: device.added_at.as_millis(),
     }
 }
@@ -110,6 +111,8 @@ fn model_to_device(device: &v::Device) -> Result<Device, BridgeError> {
         node_id: id_str
             .parse::<NodeId>()
             .map_err(|e| BridgeError(format!("node_id: {e}")))?,
+        label: crate::DeviceLabel::new(bytes_to_string(&device.label)?)
+            .map_err(|e| BridgeError(e.to_string()))?,
         added_at: Timestamp::from_millis(device.added_at),
     })
 }
@@ -246,6 +249,7 @@ mod tests {
             }],
             devices: vec![Device {
                 node_id: NodeId::from_seed(1),
+                label: crate::DeviceLabel::new("Phone".into()).unwrap(),
                 added_at: ts(50),
             }],
         };
@@ -261,6 +265,7 @@ mod tests {
         assert_eq!(recovered.bills[0].amount_cents, 5000);
         assert_eq!(recovered.bills[0].payees.len(), 2);
         assert_eq!(recovered.devices.len(), 1);
+        assert_eq!(recovered.devices[0].label.as_str(), "Phone");
     }
 
     #[test]

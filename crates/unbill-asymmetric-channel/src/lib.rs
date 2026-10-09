@@ -55,7 +55,7 @@ pub trait AsymChannel: MaybeSend + MaybeSync {
     // --- Control plane ---
 
     async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String>;
-    async fn join_ledger(&self, url: String, label: Option<String>) -> Result<()>;
+    async fn join_ledger(&self, url: String, label: unbill_model::DeviceLabel) -> Result<()>;
     async fn trigger_peer_sync(&self, peer: NodeId) -> Result<()>;
 
     // --- Data plane ---
@@ -68,8 +68,6 @@ pub trait AsymChannel: MaybeSend + MaybeSync {
 
     async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>>;
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()>;
-    async fn list_device_labels(&self) -> Result<std::collections::HashMap<String, String>>;
-    async fn set_device_label(&self, node_id: &NodeId, label: Option<String>) -> Result<()>;
 
     // --- Event subscription ---
 

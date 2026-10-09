@@ -32,3 +32,14 @@ There is no device removal in the current design.
 
 `add_device` returns an error when the `NodeId` is already authorized.
 Callers that want idempotent behavior catch the `DuplicateDevice` check error.
+
+A device name belongs to its ledger device record, not to local device metadata.
+`DeviceLabel` is a required, nonempty, validated name. `NewDevice` and the join
+request require it; the joining device supplies its own name. The host records
+that name with the TLS-authenticated joining NodeId before returning the snapshot.
+Renaming requires both a ledger ID and a NodeId, changes the CRDT, and propagates
+through ledger sync and ledger-update events. There is no personal device alias API.
+The ledger creator initially uses the shared name "Unnamed device".
+Ledger-scoped device views use the selected ledger's label. Across-ledger peer
+views choose the label from the lowest ledger ID, deterministically.
+Old schemas and unlabeled documents are not supported by this change.

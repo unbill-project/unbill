@@ -603,6 +603,23 @@ fn test_join_flow() {
     let arr = ledgers.as_array().unwrap();
     assert_eq!(arr.len(), 1, "joiner should have exactly one ledger");
     assert_eq!(arr[0]["id"].as_str().unwrap(), lid);
+    for env in [&host, &joiner] {
+        let devices = env.json(&["ledger", "devices", &lid]);
+        let joined = devices
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|d| d["node_id"].as_str() == Some(joiner.node_id.as_str()))
+            .unwrap();
+        assert_eq!(joined["label"], "joiner");
+        let inviter = devices
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|d| d["node_id"].as_str() == Some(host.node_id.as_str()))
+            .unwrap();
+        assert_eq!(inviter["label"], "Unnamed device");
+    }
 }
 
 /// After joining, the host adds a bill. The joiner runs `sync once` against

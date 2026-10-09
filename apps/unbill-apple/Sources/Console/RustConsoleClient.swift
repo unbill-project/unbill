@@ -114,7 +114,7 @@ actor RustConsoleClient: ConsoleClient {
         try console.createInvitation(ledgerId: ledgerID)
     }
 
-    func joinLedger(url: String, label: String?) async throws {
+    func joinLedger(url: String, label: String) async throws {
         try console.joinLedger(url: url, label: label)
     }
 

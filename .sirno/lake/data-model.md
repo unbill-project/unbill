@@ -16,7 +16,9 @@ A user is a named person or role inside one ledger.
 Users are append-only shared records and are not login identities.
 
 A device is an authorized sync peer identified by a `NodeId`.
-Devices are append-only, ledger-scoped, and separate from users.
+Device membership is append-only, ledger-scoped, and separate from users.
+Each device record has a required `DeviceLabel`, its shared name in that ledger.
+Names may be changed without changing device identity or authorization.
 
 A bill is an expense record with payer shares, payee shares, amount in cents,
 timestamp, description, and optional `prev` links to superseded bills.
@@ -33,10 +35,9 @@ Domain types use typed IDs and opaque wrappers.
 `SecretKey` is raw Ed25519 key material and remains opaque to the model crate.
 
 The shared ledger stores durable collaborative state only:
-ledger metadata, users, bills and supersession links, and authorized device IDs.
+ledger metadata, users, bills and supersession links, and authorized device IDs and labels.
 Device-local storage holds the device key,
 ledger metadata caches,
-device labels,
 and pending invitation tokens.
 Each kind of record has typed storage operations.
 Runtime UI state and projection caches are not replicated ledger facts.

@@ -38,6 +38,7 @@ pub struct UserSpec {
 /// Mirrors production `Device`.
 pub struct DeviceSpec {
     pub node_id: Seq<u8>,
+    pub label: Seq<u8>,
     pub added_at: i64,
 }
 

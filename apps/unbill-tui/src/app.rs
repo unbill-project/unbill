@@ -605,7 +605,7 @@ async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<Unb
             Err(e) => state.status_message = Some(format!("invite: {e}")),
         },
 
-        PopupAction::JoinLedger { url } => match svc.join_ledger(&url, None).await {
+        PopupAction::JoinLedger { url, label } => match svc.join_ledger(&url, label).await {
             Ok(_) => {
                 refresh_ledgers(svc, state).await;
                 refresh_bills(svc, state).await;

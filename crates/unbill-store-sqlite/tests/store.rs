@@ -59,8 +59,20 @@ async fn document_metadata_is_authoritative_and_survives_reopen() {
             .is_none()
     );
     let node = NodeId::new("test-node".into());
-    store.set_device_label(&node, Some("old")).await.unwrap();
-    store.set_device_label(&node, Some("new")).await.unwrap();
+    let mut saved = store.load_ledger(&id).await.unwrap().unwrap();
+    saved
+        .add_device(
+            unbill_model::NewDevice {
+                node_id: node.clone(),
+                label: unbill_model::DeviceLabel::new("old".into()).unwrap(),
+            },
+            Timestamp::from_millis(2000),
+        )
+        .unwrap();
+    saved
+        .set_device_label(&node, unbill_model::DeviceLabel::new("new".into()).unwrap())
+        .unwrap();
+    store.save_ledger(&id, &mut saved).await.unwrap();
     drop(store);
     let store = SqliteStore::open(dir.path().into()).await.unwrap();
     let metas = store.list_ledgers().await.unwrap();
@@ -81,12 +93,15 @@ async fn document_metadata_is_authoritative_and_survives_reopen() {
     );
     assert_eq!(
         store
-            .list_device_labels()
+            .load_ledger(&id)
             .await
             .unwrap()
-            .get("test-node")
-            .map(String::as_str),
-        Some("new")
+            .unwrap()
+            .list_devices()
+            .unwrap()[0]
+            .label
+            .as_str(),
+        "new"
     );
 }
 
@@ -209,21 +224,17 @@ async fn actor_forwarding_survives_no_listeners_and_recovers_lag() {
     raw.save_ledger(&id, &mut doc("Test")).await.unwrap();
     tokio::task::yield_now().await;
     let mut events = actor.subscribe();
-    raw.set_device_label(&NodeId::new("peer".into()), Some("label"))
-        .await
-        .unwrap();
+    raw.save_ledger(&id, &mut doc("Test")).await.unwrap();
     assert!(matches!(
         tokio::time::timeout(Duration::from_secs(2), events.recv())
             .await
             .unwrap()
             .unwrap(),
-        ServiceEvent::DeviceLabelsUpdated
+        ServiceEvent::LedgerUpdated { .. }
     ));
     // These in-memory operations do not yield, so overflow the raw-store receiver.
-    for n in 0..300 {
-        raw.set_device_label(&NodeId::new("peer".into()), Some(&n.to_string()))
-            .await
-            .unwrap();
+    for _ in 0..300 {
+        raw.save_ledger(&id, &mut doc("Test")).await.unwrap();
     }
     tokio::time::timeout(Duration::from_secs(2), async {
         loop {
@@ -236,12 +247,10 @@ async fn actor_forwarding_survives_no_listeners_and_recovers_lag() {
     })
     .await
     .unwrap();
-    raw.set_device_label(&NodeId::new("peer".into()), None)
-        .await
-        .unwrap();
+    raw.save_ledger(&id, &mut doc("Test")).await.unwrap();
     tokio::time::timeout(Duration::from_secs(2), async {
         loop {
-            if matches!(events.recv().await, Ok(ServiceEvent::DeviceLabelsUpdated)) {
+            if matches!(events.recv().await, Ok(ServiceEvent::LedgerUpdated { .. })) {
                 break;
             }
         }

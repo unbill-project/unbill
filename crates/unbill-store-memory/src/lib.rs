@@ -38,7 +38,6 @@ impl Default for InMemoryStore {
 #[derive(Default)]
 struct Inner {
     ledgers: HashMap<String, StoredLedger>,
-    labels: HashMap<String, String>,
     invitations: HashMap<String, Invitation>,
     secret: Option<[u8; 32]>,
 }
@@ -113,22 +112,6 @@ impl LedgerStore for InMemoryStore {
         self.events.subscribe()
     }
 
-    async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
-        Ok(self.lock_inner().labels.clone())
-    }
-    async fn set_device_label(&self, node_id: &NodeId, label: Option<&str>) -> Result<()> {
-        let mut inner = self.lock_inner();
-        match label {
-            Some(label) => {
-                inner.labels.insert(node_id.to_string(), label.to_owned());
-            }
-            None => {
-                inner.labels.remove(&node_id.to_string());
-            }
-        }
-        let _ = self.events.send(ServiceEvent::DeviceLabelsUpdated);
-        Ok(())
-    }
     async fn list_pending_invitations(&self) -> Result<Vec<Invitation>> {
         Ok(self.lock_inner().invitations.values().cloned().collect())
     }
@@ -194,27 +177,50 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn poisoned_lock_preserves_labels_and_accepts_updates() -> Result<()> {
+    async fn poisoned_lock_preserves_ledger_and_accepts_updates() -> Result<()> {
         let store = InMemoryStore::default();
-        let node_id = NodeId::new(iroh::SecretKey::from([1; 32]).public().to_string());
-        store.set_device_label(&node_id, Some("Before")).await?;
-
-        let inner = &store.inner;
+        let mut doc = LedgerDoc::new(
+            LedgerId::from_u128(1),
+            "Trip".into(),
+            Currency::from_code("USD").unwrap(),
+            Timestamp::from_millis(1),
+        )
+        .unwrap();
+        let node_id = NodeId::new("peer".into());
+        doc.add_device(
+            unbill_model::NewDevice {
+                node_id: node_id.clone(),
+                label: unbill_model::DeviceLabel::new("Before".into()).unwrap(),
+            },
+            Timestamp::from_millis(1),
+        )
+        .unwrap();
+        let id = LedgerId::from_u128(1).to_string();
+        store.save_ledger(&id, &mut doc).await?;
         let panic = std::panic::catch_unwind(|| {
-            let _guard = inner.lock().unwrap();
+            let _guard = store.inner.lock().unwrap();
             panic!("simulate a panic while the store is locked");
         });
         assert!(panic.is_err());
-        assert!(inner.is_poisoned());
-
+        assert!(store.inner.is_poisoned());
+        let mut doc = store.load_ledger(&id).await?.unwrap();
+        assert_eq!(doc.list_devices().unwrap()[0].label.as_str(), "Before");
+        doc.set_device_label(
+            &node_id,
+            unbill_model::DeviceLabel::new("After".into()).unwrap(),
+        )
+        .unwrap();
+        store.save_ledger(&id, &mut doc).await?;
         assert_eq!(
-            store.list_device_labels().await?.get(&node_id.to_string()),
-            Some(&"Before".to_owned())
-        );
-        store.set_device_label(&node_id, Some("After")).await?;
-        assert_eq!(
-            store.list_device_labels().await?.get(&node_id.to_string()),
-            Some(&"After".to_owned())
+            store
+                .load_ledger(&id)
+                .await?
+                .unwrap()
+                .list_devices()
+                .unwrap()[0]
+                .label
+                .as_str(),
+            "After"
         );
         Ok(())
     }

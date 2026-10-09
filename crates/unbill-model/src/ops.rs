@@ -159,11 +159,28 @@ pub(super) fn add_device(
         &mut model,
         v::Device {
             node_id: input.node_id.to_string().into_bytes(),
+            label: input.label.to_string().into_bytes(),
             added_at: now.as_millis(),
         },
     )?;
     let ledger = model_to_ledger(&model).map_err(|e| AddDeviceOpError::Reconcile(e.0))?;
     reconcile(doc, &ledger).map_err(|e| AddDeviceOpError::Reconcile(e.to_string()))
+}
+
+// Renaming changes only presentation metadata; membership and accounting stay intact.
+pub(super) fn set_device_label(
+    doc: &mut AutoCommit,
+    node_id: &NodeId,
+    label: crate::DeviceLabel,
+) -> Result<()> {
+    let mut ledger = get_ledger(doc)?;
+    let device = ledger
+        .devices
+        .iter_mut()
+        .find(|device| &device.node_id == node_id)
+        .ok_or_else(|| UnbillError::DeviceNotFound(node_id.to_string()))?;
+    device.label = label;
+    reconcile(doc, &ledger).map_err(|error| UnbillError::Reconcile(error.to_string()))
 }
 
 pub(super) fn list_devices(doc: &AutoCommit) -> Result<Vec<Device>> {
@@ -212,7 +229,15 @@ mod tests {
 
     fn doc_with_users(user_ids: &[UserId]) -> AutoCommit {
         let mut doc = fresh_doc();
-        add_device(&mut doc, NewDevice { node_id: device() }, ts(0)).unwrap();
+        add_device(
+            &mut doc,
+            NewDevice {
+                node_id: device(),
+                label: crate::DeviceLabel::new("Device".into()).unwrap(),
+            },
+            ts(0),
+        )
+        .unwrap();
         let mut ledger = get_ledger(&doc).unwrap();
         for &user_id in user_ids {
             ledger.users.push(User {
@@ -328,6 +353,7 @@ mod tests {
             &mut doc,
             NewDevice {
                 node_id: NodeId::from_seed(1),
+                label: crate::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             ts(0),
         )
@@ -344,6 +370,7 @@ mod tests {
             &mut doc,
             NewDevice {
                 node_id: NodeId::from_seed(1),
+                label: crate::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             ts(0),
         )
@@ -352,6 +379,7 @@ mod tests {
             &mut doc,
             NewDevice {
                 node_id: NodeId::from_seed(1),
+                label: crate::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             ts(1),
         );

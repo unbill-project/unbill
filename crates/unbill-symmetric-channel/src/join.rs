@@ -93,6 +93,7 @@ where
     doc.add_device(
         NewDevice {
             node_id: peer_node_id,
+            label: req.label,
         },
         Timestamp::now()?,
     )?;
@@ -116,8 +117,6 @@ where
 /// Send a `JoinRequest`, and on success persist the received ledger to the store.
 // sirno:witness:symmetric-channel:begin
 pub async fn run_join_requester<R, W>(
-    host_node_id: NodeId,
-    local_label: Option<String>,
     request: JoinRequest,
     store: &StoreServer,
     mut reader: R,
@@ -144,9 +143,6 @@ where
             };
             store.save_ledger_meta(&meta).await?;
             store.save_ledger(&ledger_id, &mut doc).await?;
-            if let Some(label) = local_label {
-                store.set_device_label(&host_node_id, Some(&label)).await?;
-            }
             Ok(())
         }
         JoinReply::Err(e) => Err(UnbillError::Network(format!(
@@ -197,6 +193,7 @@ mod tests {
         doc.add_device(
             NewDevice {
                 node_id: host_node.clone(),
+                label: unbill_model::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             Timestamp::now()?,
         )
@@ -245,6 +242,7 @@ mod tests {
         let joiner_store2 = Arc::clone(&joiner_store);
 
         let request = JoinRequest {
+            label: unbill_model::DeviceLabel::new("Joining phone".into()).unwrap(),
             token: token.to_string(),
             ledger_id: ledger_id_str.clone(),
         };
@@ -258,18 +256,10 @@ mod tests {
             }
         });
         let task_joiner = tokio::spawn({
-            let host_node = host_node.clone();
             async move {
-                run_join_requester(
-                    host_node,
-                    Some("host laptop".to_string()),
-                    request,
-                    &joiner_store2,
-                    joiner_read,
-                    joiner_write,
-                )
-                .await
-                .unwrap();
+                run_join_requester(request, &joiner_store2, joiner_read, joiner_write)
+                    .await
+                    .unwrap();
             }
         });
 
@@ -285,19 +275,42 @@ mod tests {
             devices.iter().any(|d| d.node_id == joiner_node),
             "joiner's device should be in the ledger"
         );
-        assert!(
+        assert_eq!(
             devices
                 .iter()
-                .all(|d| d.node_id != host_node || d.added_at.as_millis() >= 0),
-            "host device entry should still be present without relying on a synced label"
+                .find(|d| d.node_id == host_node)
+                .unwrap()
+                .label
+                .as_str(),
+            "Unnamed device"
         );
 
-        let device_labels = raw_joiner_store.list_device_labels().await.unwrap();
         assert_eq!(
-            device_labels
-                .get(&host_node.to_string())
-                .map(String::as_str),
-            Some("host laptop")
+            joiner_doc
+                .list_devices()
+                .unwrap()
+                .iter()
+                .find(|d| d.node_id == joiner_node)
+                .unwrap()
+                .label
+                .as_str(),
+            "Joining phone"
+        );
+        let host_doc = host_store
+            .load_ledger(&ledger_id_str)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            host_doc
+                .list_devices()
+                .unwrap()
+                .iter()
+                .find(|d| d.node_id == joiner_node)
+                .unwrap()
+                .label
+                .as_str(),
+            "Joining phone"
         );
 
         // Token was consumed.
@@ -341,6 +354,7 @@ mod tests {
 
         let fake_token = InviteToken::generate()?;
         let request = JoinRequest {
+            label: unbill_model::DeviceLabel::new("Joining phone".into()).unwrap(),
             token: fake_token.to_string(),
             ledger_id: ledger_id_str.clone(),
         };
@@ -351,15 +365,8 @@ mod tests {
                 .unwrap();
         });
         let task_joiner = tokio::spawn(async move {
-            let result = run_join_requester(
-                NodeId::from_seed(1),
-                Some("host".to_string()),
-                request,
-                &joiner_store2,
-                joiner_read,
-                joiner_write,
-            )
-            .await;
+            let result =
+                run_join_requester(request, &joiner_store2, joiner_read, joiner_write).await;
             assert!(result.is_err(), "should fail with invalid token");
         });
 

@@ -9,8 +9,7 @@ use diesel::prelude::*;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use meta::MetaJson;
 use rand::TryRng as _;
-use schema::{device_identity, device_labels, ledgers, pending_invitations};
-use std::collections::HashMap;
+use schema::{device_identity, ledgers, pending_invitations};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -242,41 +241,6 @@ impl LedgerStore for SqliteStore {
         self.events.subscribe()
     }
 
-    async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
-        self.run(|conn| {
-            device_labels::table
-                .load::<(String, String)>(conn)
-                .map(|rows| rows.into_iter().collect())
-                .map_err(io_error)
-        })
-        .await
-    }
-    async fn set_device_label(&self, node_id: &NodeId, label: Option<&str>) -> Result<()> {
-        let node = node_id.to_string();
-        let label = label.map(str::to_owned);
-        let events = self.events.clone();
-        self.run(move |conn| {
-            if let Some(label) = label {
-                diesel::insert_into(device_labels::table)
-                    .values((
-                        device_labels::node_id.eq(node),
-                        device_labels::label.eq(&label),
-                    ))
-                    .on_conflict(device_labels::node_id)
-                    .do_update()
-                    .set(device_labels::label.eq(&label))
-                    .execute(conn)
-                    .map_err(io_error)?;
-            } else {
-                diesel::delete(device_labels::table.find(node))
-                    .execute(conn)
-                    .map_err(io_error)?;
-            }
-            let _ = events.send(ServiceEvent::DeviceLabelsUpdated);
-            Ok(())
-        })
-        .await
-    }
     async fn list_pending_invitations(&self) -> Result<Vec<Invitation>> {
         self.run(|conn| {
             pending_invitations::table

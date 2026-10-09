@@ -7,6 +7,7 @@ struct JoinLedgerView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var url = ""
+    @State private var deviceName = ""
     #if !targetEnvironment(macCatalyst)
     @State private var isScanning = false
     #endif
@@ -51,6 +52,10 @@ struct JoinLedgerView: View {
                     #endif
                 }
 
+                Section("This Device’s Name in This Ledger") {
+                    TextField("Device name", text: $deviceName)
+                }
+
                 if isJoining {
                     Section { HStack { ProgressView(); Text("Joining…").foregroundStyle(.secondary) } }
                 }
@@ -65,7 +70,7 @@ struct JoinLedgerView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Join") { Task { await join(trimmedURL) } }
-                        .disabled(trimmedURL.isEmpty || isJoining)
+                        .disabled(trimmedURL.isEmpty || deviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isJoining)
                 }
             }
             #if !targetEnvironment(macCatalyst)
@@ -74,7 +79,6 @@ struct JoinLedgerView: View {
                     QRScannerView { scanned in
                         isScanning = false
                         url = scanned
-                        Task { await join(scanned) }
                     }
                     .ignoresSafeArea()
                     .navigationTitle("Scan QR")
@@ -91,11 +95,12 @@ struct JoinLedgerView: View {
 
     private func join(_ link: String) async {
         let link = link.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !link.isEmpty else { return }
+        let name = deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !link.isEmpty, !name.isEmpty else { return }
         isJoining = true
         error = nil
         do {
-            try await console.joinLedger(url: link, label: nil)
+            try await console.joinLedger(url: link, label: name)
             onJoined()
             dismiss()
         } catch {

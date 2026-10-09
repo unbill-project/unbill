@@ -81,6 +81,8 @@ pub enum SyncFrame {
 /// is not included in this message.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct JoinRequest {
+    /// The joining device's shared name in this ledger.
+    pub label: unbill_model::DeviceLabel,
     /// Hex-encoded 32-byte token from the invite URL.
     pub token: String,
     /// ULID of the ledger to join (from the invite URL).

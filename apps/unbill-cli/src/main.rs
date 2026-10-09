@@ -87,9 +87,9 @@ pub enum LedgerCmd {
     /// Join a ledger using an unbill://join/... URL.
     Join {
         url: String,
-        /// Optional local label for this device on the joined ledger.
+        /// This joining device's shared name in the ledger (required).
         #[arg(long)]
-        label: Option<String>,
+        label: String,
     },
 }
 

@@ -62,7 +62,7 @@ impl AsymChannel for LocalAsymChannel {
         self.service.create_invitation(ledger_id).await
     }
 
-    async fn join_ledger(&self, url: String, label: Option<String>) -> Result<()> {
+    async fn join_ledger(&self, url: String, label: unbill_model::DeviceLabel) -> Result<()> {
         self.service.join_ledger(&url, label).await
     }
 
@@ -86,21 +86,6 @@ impl AsymChannel for LocalAsymChannel {
         self.service
             .store()
             .save_ledger_meta(meta)
-            .await
-            .map_err(UnbillError::Storage)
-    }
-
-    async fn list_device_labels(&self) -> Result<std::collections::HashMap<String, String>> {
-        self.service
-            .store()
-            .list_device_labels()
-            .await
-            .map_err(UnbillError::Storage)
-    }
-    async fn set_device_label(&self, node_id: &NodeId, label: Option<String>) -> Result<()> {
-        self.service
-            .store()
-            .set_device_label(node_id, label.as_deref())
             .await
             .map_err(UnbillError::Storage)
     }

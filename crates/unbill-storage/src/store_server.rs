@@ -20,7 +20,6 @@ use unbill_model::{
 use unbill_model::LedgerDoc;
 
 use crate::{LedgerStore, StorageResult};
-use std::collections::HashMap;
 
 // sirno:witness:unbill-storage:begin
 enum StoreCommand {
@@ -43,14 +42,6 @@ enum StoreCommand {
         ledger_id: String,
         doc: Box<LedgerDoc>,
         reply: oneshot::Sender<StorageResult<LedgerDoc>>,
-    },
-    ListDeviceLabels {
-        reply: oneshot::Sender<StorageResult<HashMap<String, String>>>,
-    },
-    SetDeviceLabel {
-        node_id: NodeId,
-        label: Option<String>,
-        reply: oneshot::Sender<StorageResult<()>>,
     },
     CreateSecretKey {
         reply: oneshot::Sender<StorageResult<()>>,
@@ -86,13 +77,11 @@ enum StoreCommand {
     },
     AddDeviceToLedger {
         ledger_id: String,
-        peer_node_id: NodeId,
+        device: NewDevice,
         reply: oneshot::Sender<DeviceResult<Option<Vec<u8>>>>,
     },
     PersistJoinedLedger {
         doc_bytes: Vec<u8>,
-        host_node_id: NodeId,
-        label: Option<String>,
         reply: oneshot::Sender<DeviceResult<()>>,
     },
     MergeAndSaveLedger {
@@ -160,7 +149,6 @@ impl StoreServer {
                         Err(error) => warn!(%error, "could not refresh ledger notifications"),
                     }
                     let _ = events.send(ServiceEvent::DeviceIdentityInitialized);
-                    let _ = events.send(ServiceEvent::DeviceLabelsUpdated);
                     let _ = events.send(ServiceEvent::PendingInvitationsUpdated);
                 }
                 StoreCommand::SaveLedgerMeta { meta, reply } => {
@@ -186,23 +174,6 @@ impl StoreServer {
                     let result = store.save_ledger(&ledger_id, &mut doc).await;
                     if reply.send(result.map(|()| *doc)).is_err() {
                         warn!(ledger_id, "SaveLedger reply dropped (caller cancelled)");
-                    }
-                }
-                StoreCommand::ListDeviceLabels { reply } => {
-                    if reply.send(store.list_device_labels().await).is_err() {
-                        warn!("ListDeviceLabels reply dropped (caller cancelled)");
-                    }
-                }
-                StoreCommand::SetDeviceLabel {
-                    node_id,
-                    label,
-                    reply,
-                } => {
-                    if reply
-                        .send(store.set_device_label(&node_id, label.as_deref()).await)
-                        .is_err()
-                    {
-                        warn!("SetDeviceLabel reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::CreateSecretKey { reply } => {
@@ -267,13 +238,11 @@ impl StoreServer {
                 }
                 StoreCommand::AddDeviceToLedger {
                     ledger_id,
-                    peer_node_id,
+                    device,
                     reply,
                 } => {
                     if reply
-                        .send(
-                            Self::do_add_device_to_ledger(&*store, &ledger_id, peer_node_id).await,
-                        )
+                        .send(Self::do_add_device_to_ledger(&*store, &ledger_id, device).await)
                         .is_err()
                     {
                         warn!(
@@ -282,17 +251,9 @@ impl StoreServer {
                         );
                     }
                 }
-                StoreCommand::PersistJoinedLedger {
-                    doc_bytes,
-                    host_node_id,
-                    label,
-                    reply,
-                } => {
+                StoreCommand::PersistJoinedLedger { doc_bytes, reply } => {
                     if reply
-                        .send(
-                            Self::do_persist_joined_ledger(&*store, doc_bytes, host_node_id, label)
-                                .await,
-                        )
+                        .send(Self::do_persist_joined_ledger(&*store, doc_bytes).await)
                         .is_err()
                     {
                         warn!("PersistJoinedLedger reply dropped (caller cancelled)");
@@ -402,17 +363,12 @@ impl StoreServer {
     async fn do_add_device_to_ledger(
         store: &dyn LedgerStore,
         ledger_id: &str,
-        peer_node_id: NodeId,
+        device: NewDevice,
     ) -> DeviceResult<Option<Vec<u8>>> {
         let Some(mut doc) = store.load_ledger(ledger_id).await? else {
             return Ok(None);
         };
-        doc.add_device(
-            NewDevice {
-                node_id: peer_node_id,
-            },
-            Timestamp::now()?,
-        )?;
+        doc.add_device(device, Timestamp::now()?)?;
         store.save_ledger(ledger_id, &mut doc).await?;
         Ok(Some(doc.save()))
     }
@@ -437,8 +393,6 @@ impl StoreServer {
     async fn do_persist_joined_ledger(
         store: &dyn LedgerStore,
         doc_bytes: Vec<u8>,
-        host_node_id: NodeId,
-        label: Option<String>,
     ) -> DeviceResult<()> {
         let mut doc = LedgerDoc::from_bytes(&doc_bytes)?;
         let ledger = doc.get_ledger()?;
@@ -453,9 +407,6 @@ impl StoreServer {
         store
             .save_ledger(&meta.ledger_id.to_string(), &mut doc)
             .await?;
-        if let Some(label) = label {
-            store.set_device_label(&host_node_id, Some(&label)).await?;
-        }
         Ok(())
     }
 
@@ -516,31 +467,6 @@ impl StoreServer {
             }
             Err(e) => Err(e),
         }
-    }
-
-    pub async fn list_device_labels(&self) -> StorageResult<HashMap<String, String>> {
-        let (tx, rx) = oneshot::channel();
-        self.tx
-            .send(StoreCommand::ListDeviceLabels { reply: tx })
-            .await
-            .map_err(|_| StorageError::ChannelClosed)?;
-        rx.await.map_err(|_| StorageError::ChannelClosed)?
-    }
-    pub async fn set_device_label(
-        &self,
-        node_id: &NodeId,
-        label: Option<&str>,
-    ) -> StorageResult<()> {
-        let (tx, rx) = oneshot::channel();
-        self.tx
-            .send(StoreCommand::SetDeviceLabel {
-                node_id: node_id.clone(),
-                label: label.map(str::to_owned),
-                reply: tx,
-            })
-            .await
-            .map_err(|_| StorageError::ChannelClosed)?;
-        rx.await.map_err(|_| StorageError::ChannelClosed)?
     }
 
     pub async fn create_secret_key(&self) -> StorageResult<()> {
@@ -649,13 +575,13 @@ impl StoreServer {
     pub async fn add_device_to_ledger(
         &self,
         ledger_id: &str,
-        peer_node_id: NodeId,
+        device: NewDevice,
     ) -> DeviceResult<Option<Vec<u8>>> {
         let (tx, rx) = oneshot::channel();
         self.tx
             .send(StoreCommand::AddDeviceToLedger {
                 ledger_id: ledger_id.to_owned(),
-                peer_node_id,
+                device,
                 reply: tx,
             })
             .await
@@ -678,18 +604,11 @@ impl StoreServer {
             .map_err(|_| UnbillError::Storage(StorageError::ChannelClosed))?
     }
 
-    pub async fn persist_joined_ledger(
-        &self,
-        doc_bytes: Vec<u8>,
-        host_node_id: NodeId,
-        label: Option<String>,
-    ) -> DeviceResult<()> {
+    pub async fn persist_joined_ledger(&self, doc_bytes: Vec<u8>) -> DeviceResult<()> {
         let (tx, rx) = oneshot::channel();
         self.tx
             .send(StoreCommand::PersistJoinedLedger {
                 doc_bytes,
-                host_node_id,
-                label,
                 reply: tx,
             })
             .await

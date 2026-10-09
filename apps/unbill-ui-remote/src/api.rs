@@ -251,8 +251,7 @@ async fn load_ledger_detail_from_service(
 
     let summary = summarize_ledger(svc, meta).await?;
     let local_node_id = svc.device_id().to_string();
-    let device_labels = svc.list_device_labels().await.map_err(|e| e.to_string())?;
-    let devices = load_devices_for_ledger(svc, lid, &local_node_id, &device_labels).await?;
+    let devices = load_devices_for_ledger(svc, lid, &local_node_id).await?;
     let users = svc.list_users(lid).await.map_err(|e| e.to_string())?;
     let bills = svc.list_bills(lid).await.map_err(|e| e.to_string())?;
     let conflicts = svc.detect_conflicts(lid).await.map_err(|e| e.to_string())?;
@@ -347,11 +346,14 @@ pub async fn create_invitation(ledger_id: &str) -> Result<String, String> {
         .map_err(|e| e.to_string())
 }
 
-pub async fn join_ledger(url: String, label: Option<String>) -> Result<(), String> {
+pub async fn join_ledger(url: String, label: String) -> Result<(), String> {
     let svc = get_service()?;
-    svc.join_ledger(&url, label)
-        .await
-        .map_err(|e| e.to_string())
+    svc.join_ledger(
+        &url,
+        unbill_console::model::DeviceLabel::new(label).map_err(|e| e.to_string())?,
+    )
+    .await
+    .map_err(|e| e.to_string())
 }
 
 pub async fn sync_device(node_id: String) -> Result<(), String> {
@@ -516,14 +518,24 @@ pub async fn write_clipboard_text(text: &str) -> Result<(), String> {
 // Helpers
 // ---------------------------------------------------------------------------
 
+pub async fn load_sync_devices() -> Result<Vec<SyncDevice>, String> {
+    let svc = get_service()?;
+    let metas = svc
+        .list_ledgers()
+        .await
+        .map_err(|error| error.to_string())?;
+    load_all_sync_devices(&svc, &metas).await
+}
+
 async fn load_all_sync_devices(
     svc: &Arc<UnbillConsole>,
     metas: &[unbill_console::model::LedgerMeta],
 ) -> Result<Vec<SyncDevice>, String> {
     use std::collections::BTreeMap;
     let local_node_id = svc.device_id().to_string();
-    let device_labels = svc.list_device_labels().await.map_err(|e| e.to_string())?;
     let mut by_node_id: BTreeMap<String, SyncDevice> = BTreeMap::new();
+    let mut metas = metas.iter().collect::<Vec<_>>();
+    metas.sort_by_key(|meta| meta.ledger_id);
     for meta in metas {
         let ledger_name = meta.name.clone();
         let devices = svc
@@ -541,7 +553,7 @@ async fn load_all_sync_devices(
                 by_node_id.insert(
                     node_id.clone(),
                     SyncDevice {
-                        label: device_labels.get(&node_id).cloned().unwrap_or_default(),
+                        label: device.label.to_string(),
                         node_id,
                         ledger_names: vec![ledger_name.clone()],
                     },
@@ -585,7 +597,6 @@ async fn load_devices_for_ledger(
     svc: &Arc<UnbillConsole>,
     ledger_id: LedgerId,
     local_node_id: &str,
-    device_labels: &HashMap<String, String>,
 ) -> Result<Vec<SyncDevice>, String> {
     let devices = svc
         .list_devices(ledger_id)
@@ -598,7 +609,7 @@ async fn load_devices_for_ledger(
                 return None;
             }
             Some(SyncDevice {
-                label: device_labels.get(&node_id).cloned().unwrap_or_default(),
+                label: device.label.to_string(),
                 node_id,
                 ledger_names: vec![],
             })

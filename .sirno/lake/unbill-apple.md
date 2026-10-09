@@ -71,3 +71,6 @@ Ledger detail DTOs include the console-generated emoji fingerprint. A Ledger
 Settings sheet shows it with wrapping, text selection, and a copy action.
 The Swift console boundary exposes ledger-update events through AsyncStream;
 ledger detail reloads on matching updates and resync notifications.
+
+Joining requires the name of this joining device in the ledger. Device names
+are read from the ledger device records, without a local label lookup.

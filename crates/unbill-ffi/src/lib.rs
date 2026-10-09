@@ -163,9 +163,9 @@ impl From<ServiceEvent> for FfiServiceEvent {
     fn from(e: ServiceEvent) -> Self {
         match e {
             ServiceEvent::LedgerUpdated { ledger_id } => Self::LedgerUpdated { ledger_id },
-            ServiceEvent::DeviceIdentityInitialized
-            | ServiceEvent::DeviceLabelsUpdated
-            | ServiceEvent::PendingInvitationsUpdated => Self::ResyncNeeded,
+            ServiceEvent::DeviceIdentityInitialized | ServiceEvent::PendingInvitationsUpdated => {
+                Self::ResyncNeeded
+            }
             ServiceEvent::PeerConnected { ledger_id, peer } => {
                 Self::PeerConnected { ledger_id, peer }
             }
@@ -356,9 +356,12 @@ impl FfiConsole {
             .map_err(err)
     }
 
-    pub fn join_ledger(&self, url: String, label: Option<String>) -> Result<(), FfiError> {
+    pub fn join_ledger(&self, url: String, label: String) -> Result<(), FfiError> {
         self.rt
-            .block_on(self.inner.join_ledger(&url, label))
+            .block_on(self.inner.join_ledger(
+                &url,
+                unbill_console::model::DeviceLabel::new(label).map_err(err)?,
+            ))
             .map_err(err)
     }
 
@@ -417,8 +420,7 @@ async fn ledger_detail(service: &Arc<UnbillConsole>, ledger_id: LedgerId) -> R<F
     let meta = find_meta(service, ledger_id).await?;
     let summary = summarize_ledger(service, meta).await?;
     let local = service.device_id().to_string();
-    let labels = service.list_device_labels().await?;
-    let devices = devices_for_ledger(service, ledger_id, &summary.name, &local, &labels).await?;
+    let devices = devices_for_ledger(service, ledger_id, &summary.name, &local).await?;
     let users = service.list_users(ledger_id).await?;
     let bills = service.list_bills(ledger_id).await?;
     let conflicts = service.detect_conflicts(ledger_id).await?;
@@ -557,11 +559,12 @@ async fn find_meta(service: &Arc<UnbillConsole>, ledger_id: LedgerId) -> R<Ledge
 
 async fn load_sync_devices(service: &Arc<UnbillConsole>) -> R<Vec<FfiSyncDevice>> {
     let local = service.device_id().to_string();
-    let labels = service.list_device_labels().await?;
     let mut by_node = BTreeMap::<String, FfiSyncDevice>::new();
-    for meta in service.list_ledgers().await? {
+    let mut metas = service.list_ledgers().await?;
+    metas.sort_by_key(|meta| meta.ledger_id);
+    for meta in metas {
         let name = meta.name.clone();
-        for d in devices_for_ledger(service, meta.ledger_id, &name, &local, &labels).await? {
+        for d in devices_for_ledger(service, meta.ledger_id, &name, &local).await? {
             let entry = by_node
                 .entry(d.node_id.clone())
                 .or_insert_with(|| FfiSyncDevice {
@@ -589,7 +592,6 @@ async fn devices_for_ledger(
     ledger_id: LedgerId,
     ledger_name: &str,
     local_node_id: &str,
-    labels: &HashMap<String, String>,
 ) -> R<Vec<FfiSyncDevice>> {
     let mut devices = service
         .list_devices(ledger_id)
@@ -601,7 +603,7 @@ async fn devices_for_ledger(
                 return None;
             }
             Some(FfiSyncDevice {
-                label: labels.get(&node_id).cloned().unwrap_or_default(),
+                label: d.label.to_string(),
                 node_id,
                 ledger_names: vec![ledger_name.to_owned()],
             })
