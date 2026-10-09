@@ -57,6 +57,28 @@ impl LedgerDoc {
         self.doc.get_heads()
     }
 
+    /// Return a SHA-256 fingerprint of the current CRDT state as 32 raw bytes.
+    ///
+    /// Hashes the concatenation of lexicographically sorted, raw 32-byte
+    /// document heads. Like `heads`, this commits any pending transaction.
+    /// The result is stable across save/load and converged replicas, and an
+    /// empty document returns SHA-256 of the empty byte sequence.
+    ///
+    /// This includes change history: independently created documents with
+    /// identical visible ledger values may have different fingerprints.
+    /// Device-local metadata is excluded.
+    pub fn state_hash(&mut self) -> [u8; 32] {
+        use sha2::{Digest, Sha256};
+
+        let mut heads = self.doc.get_heads();
+        heads.sort_unstable();
+        let mut hasher = Sha256::new();
+        for head in heads {
+            hasher.update(head.0);
+        }
+        hasher.finalize().into()
+    }
+
     /// Serialize the full document to bytes for storage.
     pub fn save(&mut self) -> Vec<u8> {
         self.doc.save()
@@ -152,4 +174,94 @@ impl LedgerDoc {
         Ok(ledger.devices.iter().any(|d| &d.node_id == node_id))
     }
     // sirno:witness:users-and-devices:end
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::UserId;
+
+    fn ledger() -> LedgerDoc {
+        LedgerDoc::new(
+            LedgerId::from_u128(1),
+            "Shared expenses".into(),
+            Currency::from_code("USD").unwrap(),
+            Timestamp::from_millis(1000),
+        )
+        .unwrap()
+    }
+
+    fn add_user(doc: &mut LedgerDoc, id: u128) {
+        doc.add_user(
+            NewUser {
+                user_id: UserId::from_u128(id),
+                display_name: format!("User {id}"),
+            },
+            Timestamp::from_millis(2000),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn empty_state_hash_is_sha256_of_empty_bytes() {
+        assert_eq!(
+            LedgerDoc::empty().state_hash(),
+            [
+                0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f,
+                0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b,
+                0x78, 0x52, 0xb8, 0x55,
+            ]
+        );
+    }
+
+    #[test]
+    fn state_hash_is_stable_across_reads_and_save_load() {
+        let mut doc = ledger();
+        add_user(&mut doc, 1);
+        let hash = doc.state_hash();
+        assert_eq!(doc.state_hash(), hash);
+        let bytes = doc.save();
+        let mut loaded = LedgerDoc::from_bytes(&bytes).unwrap();
+        assert_eq!(loaded.state_hash(), hash);
+        assert_eq!(doc.state_hash(), hash);
+        assert_eq!(loaded.list_users().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn state_hash_changes_after_a_pending_write() {
+        let mut doc = ledger();
+        let before = doc.state_hash();
+        add_user(&mut doc, 1);
+        assert_ne!(doc.state_hash(), before);
+    }
+
+    #[test]
+    fn state_hash_converges_after_concurrent_changes_in_any_merge_order() {
+        let mut base = ledger();
+        let bytes = base.save();
+        let mut left = LedgerDoc::from_bytes(&bytes).unwrap();
+        let mut right = LedgerDoc::from_bytes(&bytes).unwrap();
+        add_user(&mut left, 1);
+        add_user(&mut right, 2);
+        assert_ne!(left.state_hash(), right.state_hash());
+
+        let mut forward = LedgerDoc::from_bytes(&bytes).unwrap();
+        let mut reverse = LedgerDoc::from_bytes(&bytes).unwrap();
+        forward.merge(&mut left).unwrap();
+        forward.merge(&mut right).unwrap();
+        reverse.merge(&mut right).unwrap();
+        reverse.merge(&mut left).unwrap();
+        assert_eq!(forward.heads().len(), 2);
+        assert_eq!(forward.state_hash(), reverse.state_hash());
+        let merged_hash = forward.state_hash();
+        assert_eq!(
+            LedgerDoc::from_bytes(&forward.save()).unwrap().state_hash(),
+            merged_hash
+        );
+
+        left.merge(&mut right).unwrap();
+        right.merge(&mut left).unwrap();
+        assert_eq!(left.state_hash(), merged_hash);
+        assert_eq!(right.state_hash(), merged_hash);
+    }
 }
