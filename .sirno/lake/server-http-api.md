@@ -37,7 +37,7 @@ and join ledgers from invitation URLs.
 Peer endpoints trigger one-shot sync to a known peer `NodeId`.
 
 Device endpoints expose the current device ID
-and list or set/remove individual device labels.
+only; device names are fields in ledger sync data.
 No arbitrary-key endpoint or secret-key access is exposed.
 
 The events endpoint streams server-sent events.
@@ -53,8 +53,6 @@ The route surface is:
 `POST /ledgers/join`,
 `POST /peers/{node_id}/sync`,
 `GET /device/id`,
-`GET /device/labels`,
-`PUT /device/labels/{node_id}`,
 and `GET /events`.
 
 `POST /ledgers/{id}/sync` is the data-plane endpoint.
@@ -66,14 +64,13 @@ and returns either response bytes or no content.
 
 The server rejects unparseable sync bodies as bad requests.
 It maps unauthorized tokens to unauthorized responses.
-The labels GET returns a JSON object mapping node IDs to labels.
-The label PUT accepts a JSON string to set the label or JSON null to remove it.
 The removed generic `/device/{key}` routes return `404`.
 Other non-success statuses map to storage or channel errors on the client side.
 
 `GET /ledgers` returns a JSON array of ledger metadata objects.
 `PUT /ledgers/{id}/meta` accepts and returns ledger metadata as JSON.
 `POST /ledgers/{id}/invitations` returns `201` with `{"url": "..."}`.
-`POST /ledgers/join` accepts `{"url": "...", "label": "..."}` and returns `204`.
+`POST /ledgers/join` requires `{"url": "...", "label": "..."}` and returns `204`.
+The label is the joining device's shared ledger name, not an alias for the host.
 `GET /device/id` returns the node ID as `text/plain`.
 SSE data fields carry `{"type": "LedgerUpdated", "ledger_id": "..."}`.

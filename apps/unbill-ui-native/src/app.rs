@@ -601,7 +601,7 @@ pub fn App() -> impl IntoView {
                     <JoinLedgerSheet
                         initial_url=url
                         on_cancel=Callback::new(move |_| overlay.set(None))
-                        on_submit=Callback::new(move |(url, label): (String, Option<String>)| {
+                        on_submit=Callback::new(move |(url, label): (String, String)| {
                             #[allow(
                                 clippy::arithmetic_side_effects,
                                 reason = "The UI cannot realistically have usize::MAX operations in flight"

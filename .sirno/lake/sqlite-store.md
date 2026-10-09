@@ -29,16 +29,16 @@ Successful saves return merged state to the caller; failed saves preserve the ca
 Standalone metadata saves retain document-derived fields and never reduce updated_at.
 Metadata-only rows remain supported before document creation.
 
-Dedicated identity, labels, and invitations tables expose only typed operations.
-Identity initialization inserts only if absent; competing changes to a label follow commit order.
+Dedicated identity and invitations tables expose only typed operations.
+Identity initialization inserts only if absent. Device names persist only inside ledger snapshots.
 Invitation creation generates a new token inside the backend, and consumption removes and returns one row atomically.
 Existing migrations import supported legacy metadata and reject malformed or unknown rows without discarding them.
 
-A new migration adds a singleton storage revision clock and explicit identity, labels, and invitations revisions,
+A new migration adds a singleton storage revision clock and explicit identity and invitations revisions,
 plus a revision per ledger. Triggers update these within the mutation transaction, including deletions of metadata records.
 A dedicated connection polls every 500 ms, reading revisions in one snapshot. The cursor advances only after
 successful processing. Remote notifications may coalesce; duplicates are allowed. Local notifications follow commits.
 The watcher stops when its store closes. Revision storage is bounded by ledger count and has no generic metadata fallback.
 
-Tests use synchronized child processes for concurrent startup, merges, metadata, identity, label conflicts,
+Tests use synchronized child processes for concurrent startup, merges, metadata, identity, ledger device-name conflicts,
 invitation consumption, notifications, lock timeouts, writer crashes, and reopening durable data.

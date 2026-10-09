@@ -48,7 +48,7 @@ pub struct MetaJson {
 #[derive(Debug, Deserialize)]
 struct JoinBody {
     url: String,
-    label: Option<String>,
+    label: unbill_model::DeviceLabel,
 }
 
 #[derive(Debug, Serialize)]
@@ -71,8 +71,6 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/peers/{node_id}/sync", post(sync_with_peer))
         .route("/events", get(stream_events))
         .route("/device/id", get(get_device_id))
-        .route("/device/labels", get(list_device_labels))
-        .route("/device/labels/{node_id}", put(set_device_label))
         .layer(middleware::from_fn_with_state(state.clone(), auth))
         .with_state(state);
 
@@ -191,28 +189,6 @@ async fn get_device_id(State(state): State<Arc<AppState>>) -> Response {
         state.service.device_id().to_string(),
     )
         .into_response()
-}
-
-async fn list_device_labels(State(state): State<Arc<AppState>>) -> Response {
-    match state.service.store().list_device_labels().await {
-        Ok(labels) => Json(labels).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-    }
-}
-async fn set_device_label(
-    State(state): State<Arc<AppState>>,
-    Path(node_id): Path<String>,
-    Json(label): Json<Option<String>>,
-) -> Response {
-    match state
-        .service
-        .store()
-        .set_device_label(&NodeId::new(node_id), label.as_deref())
-        .await
-    {
-        Ok(()) => StatusCode::NO_CONTENT.into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
-    }
 }
 
 /// `POST /ledgers/{id}/invitations` — Create a join invitation for a ledger.
@@ -493,41 +469,53 @@ mod tests {
         assert_eq!(client_doc.get_ledger().unwrap().name, "Groceries");
     }
 
-    // --- typed device labels ------------------------------------------------
-
     #[tokio::test]
-    async fn test_device_labels_round_trip_and_remove() {
+    async fn local_device_label_routes_are_not_exposed() {
         let dir = tempfile::tempdir().unwrap();
         let app = make_app(dir.path()).await;
-        for (node, label) in [("peer-a", "Laptop"), ("peer-b", "Phone")] {
-            let resp = app
-                .clone()
-                .oneshot(auth_put(
-                    &format!("/api/v1/device/labels/{node}"),
-                    "application/json",
-                    serde_json::to_vec(label).unwrap(),
-                ))
+        assert_eq!(
+            app.clone()
+                .oneshot(auth_get("/api/v1/device/labels"))
                 .await
-                .unwrap();
-            assert_eq!(resp.status(), StatusCode::NO_CONTENT);
-        }
-        let resp = app
-            .clone()
-            .oneshot(auth_put(
-                "/api/v1/device/labels/peer-a",
+                .unwrap()
+                .status(),
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            app.oneshot(auth_put(
+                "/api/v1/device/labels/peer",
                 "application/json",
-                b"null".to_vec(),
+                br#""Local alias""#.to_vec()
             ))
             .await
-            .unwrap();
-        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
-        let resp = app
-            .oneshot(auth_get("/api/v1/device/labels"))
-            .await
-            .unwrap();
-        assert_eq!(resp.status(), StatusCode::OK);
-        let labels: serde_json::Value = serde_json::from_slice(&body_bytes(resp).await).unwrap();
-        assert_eq!(labels, serde_json::json!({"peer-b": "Phone"}));
+            .unwrap()
+            .status(),
+            StatusCode::NOT_FOUND
+        );
+    }
+
+    #[tokio::test]
+    async fn join_requires_a_valid_joining_device_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = make_app(dir.path()).await;
+        for body in [
+            serde_json::json!({"url":"invalid"}),
+            serde_json::json!({"url":"invalid", "label":null}),
+            serde_json::json!({"url":"invalid", "label":"  "}),
+        ] {
+            let request = Request::builder()
+                .method("POST")
+                .uri("/api/v1/ledgers/join")
+                .header("authorization", format!("Bearer {API_KEY}"))
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&body).unwrap()))
+                .unwrap();
+            let response = app.clone().oneshot(request).await.unwrap();
+            assert!(matches!(
+                response.status(),
+                StatusCode::UNPROCESSABLE_ENTITY | StatusCode::BAD_REQUEST
+            ));
+        }
     }
 
     #[tokio::test]

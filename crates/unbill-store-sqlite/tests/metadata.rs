@@ -13,21 +13,6 @@ fn invitation() -> Result<Invitation, rand::rngs::SysError> {
     })
 }
 async fn metadata_contract(store: &dyn LedgerStore) -> Result<(), rand::rngs::SysError> {
-    assert!(store.list_device_labels().await.unwrap().is_empty());
-    let a = NodeId::new("peer-a".into());
-    let b = NodeId::new("peer-b".into());
-    let (x, y) = tokio::join!(
-        store.set_device_label(&a, Some("Laptop")),
-        store.set_device_label(&b, Some("Phone"))
-    );
-    x.unwrap();
-    y.unwrap();
-    store.set_device_label(&a, Some("Desktop")).await.unwrap();
-    assert_eq!(store.list_device_labels().await.unwrap().len(), 2);
-    store.set_device_label(&a, None).await.unwrap();
-    let labels = store.list_device_labels().await.unwrap();
-    assert_eq!(labels.len(), 1);
-    assert_eq!(labels["peer-b"], "Phone");
     assert!(store.list_pending_invitations().await.unwrap().is_empty());
     let template = invitation()?;
     let (x, y) = tokio::join!(
@@ -92,7 +77,6 @@ async fn sqlite_metadata_contract() -> Result<(), rand::rngs::SysError> {
     drop(store);
     let store = SqliteStore::open(dir.path().into()).await.unwrap();
     assert_eq!(store.get_device_id().await.unwrap(), id);
-    assert_eq!(store.list_device_labels().await.unwrap()["peer-b"], "Phone");
     assert_eq!(store.list_pending_invitations().await.unwrap().len(), 1);
     Ok(())
 }
@@ -118,7 +102,6 @@ async fn legacy_flat_files_are_left_untouched_by_sqlite() -> Result<(), rand::rn
     std::fs::write(dir.path().join("device_key.bin"), [7u8; 32]).unwrap();
     let store = SqliteStore::open(dir.path().into()).await.unwrap();
     assert!(!store.is_device_initialized().await.unwrap());
-    assert!(store.list_device_labels().await.unwrap().is_empty());
     assert!(store.list_pending_invitations().await.unwrap().is_empty());
     assert_eq!(
         std::fs::read(dir.path().join("device_key.bin")).unwrap(),
@@ -170,11 +153,6 @@ async fn migration_preserves_existing_metadata_and_removes_generic_table()
     legacy_insert(&mut conn, "device_key.bin", &[9; 32]);
     legacy_insert(
         &mut conn,
-        "device_labels.json",
-        br#"{"old-node":"Old laptop"}"#,
-    );
-    legacy_insert(
-        &mut conn,
         "pending_invitations.json",
         &serde_json::to_vec(&std::collections::HashMap::from([(
             inv.token.to_string(),
@@ -185,10 +163,6 @@ async fn migration_preserves_existing_metadata_and_removes_generic_table()
     drop(conn);
     let store = SqliteStore::open(dir.path().into()).await.unwrap();
     assert_eq!(store.get_secret_key().await.unwrap().as_bytes(), &[9; 32]);
-    assert_eq!(
-        store.list_device_labels().await.unwrap()["old-node"],
-        "Old laptop"
-    );
     let restored = store
         .consume_invitation(inv.token.as_str())
         .await

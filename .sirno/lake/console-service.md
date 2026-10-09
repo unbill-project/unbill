@@ -77,3 +77,7 @@ A system clock error is returned before the mutation starts.
 
 Shells receive user-facing results and events.
 They do not receive direct persistence or raw Automerge handles.
+
+`set_device_label` requires a ledger ID, NodeId, and validated `DeviceLabel`.
+It updates that ledger document, syncs it back, and preserves the document cache
+on a missing-device error. Device listings return their shared names directly.

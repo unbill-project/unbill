@@ -17,8 +17,9 @@ not on any concrete device process or transport.
 The trait has four planes plus identity.
 The control plane creates invitations, joins ledgers, and triggers peer sync.
 The data plane runs one Automerge sync round per `asym_sync` call.
-The metadata plane lists ledgers, reads and writes ledger metadata,
-and lists device labels or sets/removes a single label.
+The metadata plane lists ledgers and reads and writes ledger metadata.
+Device names travel only in ledger CRDT data; joining requires a typed name
+for the joining device.
 It does not expose arbitrary metadata, secret keys, or pending invitation storage.
 The subscription plane returns device-originated `AsymChannelEvent` values.
 

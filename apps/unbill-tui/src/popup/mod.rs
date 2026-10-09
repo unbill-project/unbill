@@ -62,6 +62,7 @@ pub enum PopupAction {
     },
     JoinLedger {
         url: String,
+        label: unbill_console::model::DeviceLabel,
     },
     SyncOnce {
         peer_node_id: String,

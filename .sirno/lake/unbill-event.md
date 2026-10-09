@@ -20,7 +20,7 @@ whether the write path was local mutation, remote sync, or join.
 `PeerDisconnected { ledger_id, peer }` means that connection closed.
 `SyncError { ledger_id, peer, error }` means a sync session failed.
 
-`DeviceIdentityInitialized`, `DeviceLabelsUpdated`, and `PendingInvitationsUpdated` invalidate their typed local records.
+`DeviceIdentityInitialized` and `PendingInvitationsUpdated` invalidate their typed local records.
 SQLite emits these and ledger notifications for committed changes by other processes; notifications can coalesce or duplicate.
 
 Events are informational.

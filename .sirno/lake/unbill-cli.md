@@ -57,3 +57,6 @@ and one-shot peer sync flows.
 
 Ledger show includes the console-generated emoji fingerprint beneath the ledger
 name and exposes it as emoji_fingerprint in JSON output.
+
+Joining requires `--label`, the joining device's shared name in that ledger.
+The ledger devices command includes each device's shared label in text and JSON.

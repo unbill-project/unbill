@@ -55,6 +55,7 @@ one async task subscribes to service events.
 On `LedgerUpdated`,
 it refreshes the matching ledger summary,
 all users,
+known peer devices and their shared names,
 selected ledger detail when no editor is open,
 and settings ledger detail when the popup is viewing that ledger.
 The task reads signals without creating reactive subscriptions.
@@ -96,3 +97,6 @@ Pure DTO mapping and navigation helper tests live beside `api.rs` and `app.rs`.
 Ledger detail DTOs include the console-generated emoji fingerprint. Ledger
 Settings displays the six-emoji fingerprint with wrapping and a clipboard action;
 the existing ledger-detail event refresh keeps it current.
+
+Joining requires the name of this joining device in the ledger. Device names
+are read from the ledger device records, without a local label lookup.

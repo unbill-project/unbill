@@ -7,6 +7,7 @@ pub use error::{AddBillOpError, AddDeviceOpError, AddUserOpError, StorageError, 
 mod amendment;
 mod bill;
 mod currency;
+mod device_label;
 mod id;
 mod invite_token;
 mod node_id;
@@ -21,6 +22,7 @@ pub mod verified_bridge;
 pub use amendment::EffectiveBills;
 pub use bill::{Bill, NewBill, Share};
 pub use currency::Currency;
+pub use device_label::DeviceLabel;
 pub use doc::LedgerDoc;
 pub use id::{BillId, LedgerId, UserId};
 pub use invite_token::{InvalidInviteToken, InviteToken};

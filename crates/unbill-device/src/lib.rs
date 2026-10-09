@@ -62,14 +62,14 @@ impl UnbillDevice {
             .await
     }
 
-    /// Dial the host in `url` and join the ledger. `label` is an optional
-    /// device-local nickname for the host stored after a successful join.
-    pub async fn join_ledger(&self, url: &str, label: Option<String>) -> Result<()> {
+    /// Join with this device's shared name in the target ledger.
+    pub async fn join_ledger(&self, url: &str, label: unbill_model::DeviceLabel) -> Result<()> {
         let (ledger_id, host, token) = parse_join_url(url)?;
         let mut conn = self.endpoint.connect_bi_join(host.clone()).await?;
 
         let request = JoinRequest {
             token,
+            label,
             ledger_id: ledger_id.clone(),
         };
         write_msg(&mut conn.send, &request).await?;
@@ -80,7 +80,7 @@ impl UnbillDevice {
         match reply {
             JoinReply::Ok(response) => {
                 self.server
-                    .persist_joined_ledger(response.ledger_bytes, host, label)
+                    .persist_joined_ledger(response.ledger_bytes)
                     .await
             }
             JoinReply::Err(e) => Err(UnbillError::Network(format!(
@@ -212,7 +212,13 @@ where
 
     // Atomically add the device to the ledger and get the snapshot.
     let snapshot = server
-        .add_device_to_ledger(&req.ledger_id, peer_node_id)
+        .add_device_to_ledger(
+            &req.ledger_id,
+            unbill_model::NewDevice {
+                node_id: peer_node_id,
+                label: req.label,
+            },
+        )
         .await?;
 
     match snapshot {
@@ -279,6 +285,7 @@ mod tests {
         doc1.add_device(
             NewDevice {
                 node_id: self_id.clone(),
+                label: unbill_model::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             Timestamp::now()?,
         )
@@ -286,6 +293,7 @@ mod tests {
         doc1.add_device(
             NewDevice {
                 node_id: peer_a.clone(),
+                label: unbill_model::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             Timestamp::now()?,
         )
@@ -309,6 +317,7 @@ mod tests {
         doc2.add_device(
             NewDevice {
                 node_id: self_id.clone(),
+                label: unbill_model::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             Timestamp::now()?,
         )
@@ -316,6 +325,7 @@ mod tests {
         doc2.add_device(
             NewDevice {
                 node_id: peer_a.clone(),
+                label: unbill_model::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             Timestamp::now()?,
         )
@@ -323,6 +333,7 @@ mod tests {
         doc2.add_device(
             NewDevice {
                 node_id: peer_b.clone(),
+                label: unbill_model::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             Timestamp::now()?,
         )

@@ -12,7 +12,7 @@ core.refines:
 `unbill-model` contains shared domain types and the Automerge document layer.
 
 The crate defines typed identifiers, timestamps, currencies, device identities,
-secret keys, invite tokens, bills, shares, effective bill wrappers,
+secret keys, typed device labels, invite tokens, bills, shares, effective bill wrappers,
 ledger records, users, devices, invitations,
 input structs (`NewBill`, `NewUser`, `NewUserName`, `NewDevice`, `NewLedger`),
 `LedgerMeta` for lightweight ledger summaries without Automerge bytes,

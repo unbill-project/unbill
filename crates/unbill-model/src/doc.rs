@@ -130,6 +130,10 @@ impl LedgerDoc {
         ops::add_device(&mut self.doc, input, now)
     }
 
+    pub fn set_device_label(&mut self, node_id: &NodeId, label: crate::DeviceLabel) -> Result<()> {
+        ops::set_device_label(&mut self.doc, node_id, label)
+    }
+
     pub fn list_devices(&self) -> Result<Vec<Device>> {
         ops::list_devices(&self.doc)
     }
@@ -263,5 +267,110 @@ mod tests {
         right.merge(&mut left).unwrap();
         assert_eq!(left.state_hash(), merged_hash);
         assert_eq!(right.state_hash(), merged_hash);
+    }
+}
+
+#[cfg(test)]
+mod device_label_tests {
+    use crate::{
+        Currency, DeviceLabel, LedgerDoc, LedgerId, NewDevice, NewUser, NodeId, Timestamp,
+        UnbillError, UserId,
+    };
+    fn doc() -> LedgerDoc {
+        let mut doc = LedgerDoc::new(
+            LedgerId::from_u128(1),
+            "Trip".into(),
+            Currency::from_code("USD").unwrap(),
+            Timestamp::from_millis(1),
+        )
+        .unwrap();
+        doc.add_device(
+            NewDevice {
+                node_id: NodeId::new("peer".into()),
+                label: DeviceLabel::new("Phone".into()).unwrap(),
+            },
+            Timestamp::from_millis(2),
+        )
+        .unwrap();
+        doc
+    }
+    #[test]
+    fn names_are_validated_at_wire_and_document_boundaries() {
+        assert!(DeviceLabel::new("  ".into()).is_err());
+        assert!(DeviceLabel::new("x".repeat(101)).is_err());
+        assert!(serde_json::from_str::<DeviceLabel>(r#""  ""#).is_err());
+        assert_eq!(
+            DeviceLabel::new("  Phone  ".into()).unwrap().as_str(),
+            "Phone"
+        );
+    }
+    #[test]
+    fn rename_changes_hash_and_survives_other_mutations_roundtrip_and_merge() {
+        let mut local = doc();
+        let mut peer = LedgerDoc::from_bytes(&local.save()).unwrap();
+        let before = local.state_hash();
+        local
+            .set_device_label(
+                &NodeId::new("peer".into()),
+                DeviceLabel::new("Kitchen iPad".into()).unwrap(),
+            )
+            .unwrap();
+        assert_ne!(local.state_hash(), before);
+        local
+            .add_user(
+                NewUser {
+                    user_id: UserId::from_u128(2),
+                    display_name: "Alice".into(),
+                },
+                Timestamp::from_millis(3),
+            )
+            .unwrap();
+        peer.merge(&mut local).unwrap();
+        let restored = LedgerDoc::from_bytes(&peer.save()).unwrap();
+        assert_eq!(
+            restored.list_devices().unwrap()[0].label.as_str(),
+            "Kitchen iPad"
+        );
+        assert_eq!(restored.list_users().unwrap().len(), 1);
+    }
+    #[test]
+    fn rename_is_ledger_scoped_and_cannot_authorize_a_new_device() {
+        let mut first = doc();
+        let second = doc();
+        first
+            .set_device_label(
+                &NodeId::new("peer".into()),
+                DeviceLabel::new("Laptop".into()).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(second.list_devices().unwrap()[0].label.as_str(), "Phone");
+        let before = first.state_hash();
+        assert!(matches!(
+            first.set_device_label(
+                &NodeId::new("stranger".into()),
+                DeviceLabel::new("Unknown".into()).unwrap()
+            ),
+            Err(UnbillError::DeviceNotFound(_))
+        ));
+        assert_eq!(first.state_hash(), before);
+        assert_eq!(first.list_devices().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn documents_reject_missing_or_invalid_device_names() {
+        use automerge::{ReadDoc, transaction::Transactable};
+        for invalid in [None, Some("  ")] {
+            let mut original = doc();
+            let mut raw = automerge::AutoCommit::load(&original.save()).unwrap();
+            let devices = raw.get(automerge::ROOT, "devices").unwrap().unwrap().1;
+            let device = raw.get(&devices, 0).unwrap().unwrap().1;
+            if let Some(name) = invalid {
+                raw.put(&device, "label", name).unwrap();
+            } else {
+                raw.delete(&device, "label").unwrap();
+            }
+            let loaded = LedgerDoc::from_bytes(&raw.save()).unwrap();
+            assert!(loaded.list_devices().is_err());
+        }
     }
 }

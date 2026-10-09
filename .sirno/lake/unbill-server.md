@@ -25,7 +25,6 @@ invitation creation,
 ledger join,
 peer sync triggers,
 device ID,
-device labels,
 and server-sent events.
 
 The ledger sync endpoint accepts binary Automerge sync message bytes.
@@ -38,7 +37,7 @@ The server subscribes to device events and forwards ledger updates as JSON data 
 The stream has no terminal event.
 Clients reconnect when it drops.
 
-Device labels use dedicated typed endpoints; generic device metadata access is not exposed.
+Device labels are shared ledger fields carried by sync; no local label endpoints or generic device metadata access are exposed.
 
 Configuration comes from environment variables.
 `API_KEY` is required.
@@ -63,7 +62,6 @@ Existing flat-file data remains untouched and is not automatically imported.
 `router.rs` owns routes,
 handlers,
 auth middleware,
-device label operations,
 and SSE streaming.
 `lib.rs` exports router construction so tests can call it without TCP.
 

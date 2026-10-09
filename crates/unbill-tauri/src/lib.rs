@@ -135,7 +135,7 @@ struct AddUserInput {
 #[serde(rename_all = "camelCase")]
 struct JoinLedgerInput {
     url: String,
-    label: Option<String>,
+    label: String,
 }
 
 #[derive(Clone, Deserialize)]
@@ -332,7 +332,10 @@ async fn join_ledger(
 ) -> std::result::Result<(), String> {
     state
         .service
-        .join_ledger(&input.url, input.label)
+        .join_ledger(
+            &input.url,
+            unbill_console::model::DeviceLabel::new(input.label).map_err(stringify_error)?,
+        )
         .await
         .map_err(stringify_error)
 }
@@ -528,20 +531,15 @@ async fn add_user_inner(service: &Arc<UnbillConsole>, input: AddUserInput) -> Re
 
 async fn load_sync_devices(service: &Arc<UnbillConsole>) -> Result<Vec<SyncDeviceDto>> {
     let local_node_id = service.device_id().to_string();
-    let device_labels = service.list_device_labels().await?;
     let mut by_node_id = BTreeMap::<String, SyncDeviceDto>::new();
 
-    for meta in service.list_ledgers().await? {
+    let mut metas = service.list_ledgers().await?;
+    metas.sort_by_key(|meta| meta.ledger_id);
+    for meta in metas {
         let ledger_id = meta.ledger_id;
         let ledger_name = meta.name.clone();
-        for device in load_sync_devices_for_ledger(
-            service,
-            ledger_id,
-            &ledger_name,
-            &local_node_id,
-            &device_labels,
-        )
-        .await?
+        for device in
+            load_sync_devices_for_ledger(service, ledger_id, &ledger_name, &local_node_id).await?
         {
             let entry = by_node_id
                 .entry(device.node_id.clone())
@@ -571,7 +569,6 @@ async fn load_sync_devices_for_ledger(
     ledger_id: LedgerId,
     ledger_name: &str,
     local_node_id: &str,
-    device_labels: &std::collections::HashMap<String, String>,
 ) -> Result<Vec<SyncDeviceDto>> {
     let mut devices = service
         .list_devices(ledger_id)
@@ -584,7 +581,7 @@ async fn load_sync_devices_for_ledger(
             }
 
             Some(SyncDeviceDto {
-                label: device_labels.get(&node_id).cloned().unwrap_or_default(),
+                label: device.label.to_string(),
                 node_id,
                 ledger_names: vec![ledger_name.to_owned()],
             })
@@ -613,15 +610,8 @@ async fn load_ledger_detail_inner(
 
     let summary = summarize_ledger(service, meta).await?;
     let local_node_id = service.device_id().to_string();
-    let device_labels = service.list_device_labels().await?;
-    let devices = load_sync_devices_for_ledger(
-        service,
-        ledger_id,
-        &summary.name,
-        &local_node_id,
-        &device_labels,
-    )
-    .await?;
+    let devices =
+        load_sync_devices_for_ledger(service, ledger_id, &summary.name, &local_node_id).await?;
     let users = service.list_users(ledger_id).await?;
     let bills = service.list_bills(ledger_id).await?;
     let conflicts = service.detect_conflicts(ledger_id).await?;
@@ -1126,6 +1116,7 @@ mod tests {
             groceries,
             NewDevice {
                 node_id: kitchen.device_id(),
+                label: unbill_console::model::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
         )
         .await
@@ -1134,13 +1125,18 @@ mod tests {
             trip,
             NewDevice {
                 node_id: travel.device_id(),
+                label: unbill_console::model::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
         )
         .await
         .unwrap();
-        host.set_device_label(kitchen.device_id(), "Kitchen iPad".to_owned())
-            .await
-            .unwrap();
+        host.set_device_label(
+            groceries,
+            kitchen.device_id(),
+            unbill_console::model::DeviceLabel::new("Kitchen iPad".to_owned()).unwrap(),
+        )
+        .await
+        .unwrap();
 
         let detail = super::load_ledger_detail_inner(&host, groceries)
             .await

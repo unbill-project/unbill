@@ -111,6 +111,7 @@ impl UnbillConsole {
         doc.add_device(
             NewDevice {
                 node_id: self.channel.device_id(),
+                label: unbill_model::DeviceLabel::new("Unnamed device".into())?,
             },
             now,
         )?;
@@ -265,6 +266,24 @@ impl UnbillConsole {
         }
         Ok(result)
     }
+    pub async fn set_device_label(
+        &self,
+        ledger_id: LedgerId,
+        node_id: NodeId,
+        label: unbill_model::DeviceLabel,
+    ) -> Result<()> {
+        let now = Timestamp::now()?;
+        let mut doc = self.take_doc(ledger_id).await?;
+        let result = doc.set_device_label(&node_id, label);
+        if let Err(error) = result {
+            self.put_doc(ledger_id, doc).await;
+            return Err(error);
+        }
+        let result = sync_doc(&*self.channel, ledger_id, &mut doc).await;
+        self.put_doc(ledger_id, doc).await;
+        result?;
+        self.touch_meta(ledger_id, now).await
+    }
     // sirno:witness:users-and-devices:end
 
     // -----------------------------------------------------------------------
@@ -289,23 +308,6 @@ impl UnbillConsole {
         result
     }
 
-    pub async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
-        self.channel.list_device_labels().await
-    }
-
-    pub async fn set_device_label(&self, node_id: NodeId, label: String) -> Result<()> {
-        let trimmed = label.trim();
-        self.channel
-            .set_device_label(
-                &node_id,
-                if trimmed.is_empty() {
-                    None
-                } else {
-                    Some(trimmed.to_owned())
-                },
-            )
-            .await
-    }
     // sirno:witness:users-and-devices:end
 
     // -----------------------------------------------------------------------
@@ -456,7 +458,7 @@ impl UnbillConsole {
         self.channel.create_invitation(ledger_id).await
     }
 
-    pub async fn join_ledger(&self, url: &str, label: Option<String>) -> Result<()> {
+    pub async fn join_ledger(&self, url: &str, label: unbill_model::DeviceLabel) -> Result<()> {
         self.channel.join_ledger(url.to_owned(), label).await
     }
 
@@ -586,7 +588,7 @@ mod tests {
         async fn create_invitation(&self, _: LedgerId) -> Result<String> {
             unimplemented!()
         }
-        async fn join_ledger(&self, _: String, _: Option<String>) -> Result<()> {
+        async fn join_ledger(&self, _: String, _: unbill_model::DeviceLabel) -> Result<()> {
             unimplemented!()
         }
         async fn trigger_peer_sync(&self, _: NodeId) -> Result<()> {
@@ -619,15 +621,6 @@ mod tests {
         }
         async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
             Ok(self.store.save_ledger_meta(meta).await?)
-        }
-        async fn list_device_labels(&self) -> Result<HashMap<String, String>> {
-            Ok(self.store.list_device_labels().await?)
-        }
-        async fn set_device_label(&self, node_id: &NodeId, label: Option<String>) -> Result<()> {
-            Ok(self
-                .store
-                .set_device_label(node_id, label.as_deref())
-                .await?)
         }
 
         fn subscribe_to_server(&self) -> broadcast::Receiver<AsymChannelEvent> {
@@ -1106,22 +1099,86 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_device_labels_survive_restart() {
+    async fn test_device_labels_survive_restart_and_are_ledger_scoped() {
         let store = mem_store();
         let peer = NodeId::from_seed(9);
-        {
-            let channel = MockAsymChannel::new(Arc::clone(&store)).await;
-            let svc = UnbillConsole::open(channel).await;
-            svc.set_device_label(peer.clone(), "Kitchen iPad".into())
-                .await
-                .unwrap();
+        let channel = MockAsymChannel::new(Arc::clone(&store)).await;
+        let svc = UnbillConsole::open(channel).await;
+        let first = svc
+            .create_ledger(NewLedger {
+                name: "First".into(),
+                currency: Currency::from_code("USD").unwrap(),
+            })
+            .await
+            .unwrap();
+        let second = svc
+            .create_ledger(NewLedger {
+                name: "Second".into(),
+                currency: Currency::from_code("USD").unwrap(),
+            })
+            .await
+            .unwrap();
+        for ledger_id in [first, second] {
+            svc.add_device(
+                ledger_id,
+                NewDevice {
+                    node_id: peer.clone(),
+                    label: unbill_model::DeviceLabel::new("Phone".into()).unwrap(),
+                },
+            )
+            .await
+            .unwrap();
         }
-        let channel2 = MockAsymChannel::new(Arc::clone(&store)).await;
-        let svc2 = UnbillConsole::open(channel2).await;
-        let labels = svc2.list_device_labels().await.unwrap();
+        svc.set_device_label(
+            first,
+            peer.clone(),
+            unbill_model::DeviceLabel::new("Kitchen iPad".into()).unwrap(),
+        )
+        .await
+        .unwrap();
+        assert!(
+            svc.set_device_label(
+                first,
+                NodeId::from_seed(99),
+                unbill_model::DeviceLabel::new("Unknown".into()).unwrap()
+            )
+            .await
+            .is_err()
+        );
         assert_eq!(
-            labels.get(&peer.to_string()).map(String::as_str),
-            Some("Kitchen iPad")
+            svc.list_devices(first)
+                .await
+                .unwrap()
+                .iter()
+                .find(|d| d.node_id == peer)
+                .unwrap()
+                .label
+                .as_str(),
+            "Kitchen iPad"
+        );
+        drop(svc);
+        let svc = UnbillConsole::open(MockAsymChannel::new(Arc::clone(&store)).await).await;
+        assert_eq!(
+            svc.list_devices(first)
+                .await
+                .unwrap()
+                .iter()
+                .find(|d| d.node_id == peer)
+                .unwrap()
+                .label
+                .as_str(),
+            "Kitchen iPad"
+        );
+        assert_eq!(
+            svc.list_devices(second)
+                .await
+                .unwrap()
+                .iter()
+                .find(|d| d.node_id == peer)
+                .unwrap()
+                .label
+                .as_str(),
+            "Phone"
         );
     }
 

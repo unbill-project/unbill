@@ -66,3 +66,7 @@ and dispatches incoming connections by ALPN.
 Tests use in-process streams rather than real network endpoints.
 Coverage includes framing, convergence, authorization filtering,
 and join success and failure paths.
+
+The join request includes a required typed name for the joining device. The host
+adds it to the shared ledger device record. The requester persists the returned
+snapshot without creating a local alias.

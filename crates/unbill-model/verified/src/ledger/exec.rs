@@ -34,6 +34,7 @@ pub struct User {
 
 pub struct Device {
     pub node_id: Vec<u8>,
+    pub label: Vec<u8>,
     pub added_at: i64,
 }
 
@@ -163,6 +164,7 @@ impl View for Device {
     open spec fn view(&self) -> spec::DeviceSpec {
         spec::DeviceSpec {
             node_id: self.node_id@,
+            label: self.label@,
             added_at: self.added_at,
         }
     }

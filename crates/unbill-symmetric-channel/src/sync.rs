@@ -339,6 +339,7 @@ mod tests {
             .add_device(
                 NewDevice {
                     node_id: node_b.clone(),
+                    label: unbill_model::DeviceLabel::new("Unnamed device".into()).unwrap(),
                 },
                 Timestamp::now()?,
             )
@@ -366,6 +367,7 @@ mod tests {
         base.add_device(
             NewDevice {
                 node_id: node_a.clone(),
+                label: unbill_model::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             Timestamp::now()?,
         )
@@ -373,6 +375,7 @@ mod tests {
         base.add_device(
             NewDevice {
                 node_id: node_b.clone(),
+                label: unbill_model::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             Timestamp::now()?,
         )

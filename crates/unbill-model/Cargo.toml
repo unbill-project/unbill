@@ -22,3 +22,6 @@ rand.workspace = true
 serde.workspace = true
 sha2 = "0.10"
 web-time = "1"
+
+[dev-dependencies]
+serde_json.workspace = true

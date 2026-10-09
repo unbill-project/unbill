@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use std::collections::HashMap;
 use tokio::sync::broadcast;
 use unbill_event::ServiceEvent;
 use unbill_model::Invitation;
@@ -26,9 +25,6 @@ pub trait LedgerStore: Send + Sync {
     /// authoritative merged state after a successful call.
     async fn save_ledger(&self, ledger_id: &str, doc: &mut LedgerDoc) -> StorageResult<()>;
 
-    async fn list_device_labels(&self) -> StorageResult<HashMap<String, String>>;
-    /// Set one label, or remove it when `label` is None.
-    async fn set_device_label(&self, node_id: &NodeId, label: Option<&str>) -> StorageResult<()>;
     async fn list_pending_invitations(&self) -> StorageResult<Vec<Invitation>>;
     /// Persist a new invitation with a freshly generated token; existing tokens cannot be resubmitted.
     /// RNG failures return `StorageError::Io` before persisting or emitting an event.

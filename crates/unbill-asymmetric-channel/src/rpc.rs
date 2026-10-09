@@ -69,7 +69,10 @@ impl WireLedgerMeta {
 pub trait AsymChannelService {
     async fn get_device_id() -> String;
     async fn create_invitation(ledger_id: LedgerId) -> std::result::Result<String, String>;
-    async fn join_ledger(url: String, label: Option<String>) -> std::result::Result<(), String>;
+    async fn join_ledger(
+        url: String,
+        label: unbill_model::DeviceLabel,
+    ) -> std::result::Result<(), String>;
     async fn trigger_peer_sync(peer: NodeId) -> std::result::Result<(), String>;
     async fn asym_sync(
         ledger_id: LedgerId,
@@ -77,12 +80,7 @@ pub trait AsymChannelService {
     ) -> std::result::Result<Option<Vec<u8>>, String>;
     async fn list_ledgers() -> std::result::Result<Vec<WireLedgerMeta>, String>;
     async fn save_ledger_meta(meta: WireLedgerMeta) -> std::result::Result<(), String>;
-    async fn list_device_labels()
-    -> std::result::Result<std::collections::HashMap<String, String>, String>;
-    async fn set_device_label(
-        node_id: NodeId,
-        label: Option<String>,
-    ) -> std::result::Result<(), String>;
+
     /// Poll and drain pending device events for this connection.
     async fn poll_events() -> Vec<WireEvent>;
 }
@@ -155,7 +153,7 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
         self,
         _ctx: tarpc::context::Context,
         url: String,
-        label: Option<String>,
+        label: unbill_model::DeviceLabel,
     ) -> std::result::Result<(), String> {
         self.channel
             .join_ledger(url, label)
@@ -205,27 +203,6 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
         let meta = meta.into_meta().map_err(|e| e.to_string())?;
         self.channel
             .save_ledger_meta(&meta)
-            .await
-            .map_err(|e| e.to_string())
-    }
-
-    async fn list_device_labels(
-        self,
-        _ctx: tarpc::context::Context,
-    ) -> std::result::Result<std::collections::HashMap<String, String>, String> {
-        self.channel
-            .list_device_labels()
-            .await
-            .map_err(|e| e.to_string())
-    }
-    async fn set_device_label(
-        self,
-        _ctx: tarpc::context::Context,
-        node_id: NodeId,
-        label: Option<String>,
-    ) -> std::result::Result<(), String> {
-        self.channel
-            .set_device_label(&node_id, label)
             .await
             .map_err(|e| e.to_string())
     }
@@ -384,7 +361,7 @@ impl AsymChannel for RpcAsymChannel {
             .map_err(UnbillError::Network)
     }
 
-    async fn join_ledger(&self, url: String, label: Option<String>) -> Result<()> {
+    async fn join_ledger(&self, url: String, label: unbill_model::DeviceLabel) -> Result<()> {
         self.client
             .join_ledger(tarpc::context::current(), url, label)
             .await
@@ -422,21 +399,6 @@ impl AsymChannel for RpcAsymChannel {
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
         self.client
             .save_ledger_meta(tarpc::context::current(), WireLedgerMeta::from_meta(meta))
-            .await
-            .map_err(|e| UnbillError::Network(e.to_string()))?
-            .map_err(UnbillError::Network)
-    }
-
-    async fn list_device_labels(&self) -> Result<std::collections::HashMap<String, String>> {
-        self.client
-            .list_device_labels(tarpc::context::current())
-            .await
-            .map_err(|e| UnbillError::Network(e.to_string()))?
-            .map_err(UnbillError::Network)
-    }
-    async fn set_device_label(&self, node_id: &NodeId, label: Option<String>) -> Result<()> {
-        self.client
-            .set_device_label(tarpc::context::current(), node_id.clone(), label)
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?
             .map_err(UnbillError::Network)

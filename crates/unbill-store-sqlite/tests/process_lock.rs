@@ -16,13 +16,24 @@ fn id() -> String {
     LedgerId::from_u128(1).to_string()
 }
 fn document() -> LedgerDoc {
-    LedgerDoc::new(
+    let mut doc = LedgerDoc::new(
         LedgerId::from_u128(1),
         "Shared".into(),
         Currency::from_code("USD").unwrap(),
         Timestamp::from_millis(1000),
     )
-    .unwrap()
+    .unwrap();
+    for name in ["1", "2", "shared-label"] {
+        doc.add_device(
+            unbill_model::NewDevice {
+                node_id: NodeId::new(name.into()),
+                label: unbill_model::DeviceLabel::new("Initial".into()).unwrap(),
+            },
+            Timestamp::from_millis(1000),
+        )
+        .unwrap();
+    }
+    doc
 }
 fn signal(message: &str) {
     println!("MP:{message}");
@@ -46,7 +57,7 @@ async fn worker() {
         let mut conn =
             SqliteConnection::establish(Path::new(&root).join("unbill.sqlite3").to_str().unwrap())
                 .unwrap();
-        conn.batch_execute("BEGIN IMMEDIATE; INSERT INTO device_labels (node_id, label) VALUES ('uncommitted', 'bad');").unwrap();
+        conn.batch_execute("BEGIN IMMEDIATE; INSERT INTO device_identity (id, secret_key) VALUES (1, zeroblob(32));").unwrap();
         signal("locked");
         proceed();
         conn.batch_execute("ROLLBACK;").unwrap();
@@ -77,6 +88,16 @@ async fn worker() {
                 Timestamp::from_millis(2000),
             )
             .unwrap();
+            doc.set_device_label(
+                &NodeId::new(role.clone()),
+                unbill_model::DeviceLabel::new(role.clone()).unwrap(),
+            )
+            .unwrap();
+            doc.set_device_label(
+                &NodeId::new("shared-label".into()),
+                unbill_model::DeviceLabel::new(role.clone()).unwrap(),
+            )
+            .unwrap();
             store.save_ledger(&id(), doc).await.unwrap();
             assert!(
                 doc.list_users()
@@ -94,14 +115,6 @@ async fn worker() {
                 })
                 .await
                 .unwrap();
-            store
-                .set_device_label(&NodeId::new(role.clone()), Some(&role))
-                .await
-                .unwrap();
-            store
-                .set_device_label(&NodeId::new("shared-label".into()), Some(&role))
-                .await
-                .unwrap();
             signal("done");
         }
         "consume" => {
@@ -110,10 +123,6 @@ async fn worker() {
         }
         "notify" => {
             store.create_secret_key().await.unwrap();
-            store
-                .set_device_label(&NodeId::new("peer".into()), Some("label"))
-                .await
-                .unwrap();
             let inv = store
                 .create_invitation(
                     LedgerId::from_u128(1),
@@ -236,10 +245,19 @@ async fn stale_documents_merge_and_metadata_never_reverts() {
     assert_eq!(meta.currency.code(), "USD");
     assert_eq!(meta.created_at.as_millis(), 1000);
     assert!(meta.updated_at >= before);
-    let labels = store.list_device_labels().await.unwrap();
+    let labels = store
+        .load_ledger(&id())
+        .await
+        .unwrap()
+        .unwrap()
+        .list_devices()
+        .unwrap()
+        .into_iter()
+        .map(|d| (d.node_id.to_string(), d.label.to_string()))
+        .collect::<std::collections::HashMap<_, _>>();
     assert_eq!(labels["1"], "1");
     assert_eq!(labels["2"], "2");
-    assert_eq!(labels["shared-label"], "2");
+    assert!(["1", "2"].contains(&labels["shared-label"].as_str()));
 }
 
 #[tokio::test]
@@ -282,7 +300,7 @@ async fn other_process_commits_notify_every_record_type() {
     process.go();
     assert_eq!(process.read(), "done");
     process.finish();
-    let mut seen = [false; 4];
+    let mut seen = [false; 3];
     tokio::time::timeout(Duration::from_secs(5), async {
         while seen.contains(&false) {
             match events.recv().await.unwrap() {
@@ -291,8 +309,7 @@ async fn other_process_commits_notify_every_record_type() {
                     seen[0] = true;
                 }
                 ServiceEvent::DeviceIdentityInitialized => seen[1] = true,
-                ServiceEvent::DeviceLabelsUpdated => seen[2] = true,
-                ServiceEvent::PendingInvitationsUpdated => seen[3] = true,
+                ServiceEvent::PendingInvitationsUpdated => seen[2] = true,
                 _ => {}
             }
         }
@@ -337,17 +354,11 @@ async fn timeout_preserves_caller_and_crashed_writer_rolls_back() {
             .is_empty()
     );
     while let Ok(event) = events.try_recv() {
-        assert!(!matches!(event, ServiceEvent::DeviceLabelsUpdated));
+        assert!(!matches!(event, ServiceEvent::DeviceIdentityInitialized));
     }
     process.child.kill().unwrap();
     let _ = process.child.wait();
-    assert!(
-        !store
-            .list_device_labels()
-            .await
-            .unwrap()
-            .contains_key("uncommitted")
-    );
+    assert!(!store.is_device_initialized().await.unwrap());
     server.save_ledger(&id(), &mut doc).await.unwrap();
     assert_eq!(
         store
@@ -402,7 +413,16 @@ async fn overlapping_writers_preserve_both_documents_and_independent_labels() {
             .len(),
         2
     );
-    let labels = store.list_device_labels().await.unwrap();
+    let labels = store
+        .load_ledger(&id())
+        .await
+        .unwrap()
+        .unwrap()
+        .list_devices()
+        .unwrap()
+        .into_iter()
+        .map(|d| (d.node_id.to_string(), d.label.to_string()))
+        .collect::<std::collections::HashMap<_, _>>();
     assert_eq!(labels["1"], "1");
     assert_eq!(labels["2"], "2");
 }

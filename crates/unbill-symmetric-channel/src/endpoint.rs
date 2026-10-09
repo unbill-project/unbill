@@ -288,7 +288,6 @@ impl UnbillEndpoint {
     pub async fn join_ledger_inner(
         &self,
         host: NodeId,
-        local_label: Option<String>,
         request: JoinRequest,
         store: &StoreServer,
     ) -> Result<()> {
@@ -302,7 +301,7 @@ impl UnbillEndpoint {
             .open_bi()
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?;
-        run_join_requester(host, local_label, request, store, recv, send).await?;
+        run_join_requester(request, store, recv, send).await?;
         conn.close(0u32.into(), b"done");
         Ok(())
     }

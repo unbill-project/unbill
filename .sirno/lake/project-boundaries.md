@@ -12,7 +12,7 @@ core.refines:
 Unbill records obligations but does not move money.
 It has no payment rail, no bank integration layer, and no general accounting scope.
 
-Synced state excludes UI state, caches, device labels, pending invitation tokens,
+Synced state excludes UI state, caches, pending invitation tokens,
 and other machine-local metadata.
 Those facts stay local so peers do not have to converge on personal preferences
 or device-specific convenience data.

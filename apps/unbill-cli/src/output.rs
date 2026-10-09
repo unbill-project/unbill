@@ -48,6 +48,7 @@ pub struct UserOut {
 #[derive(serde::Serialize)]
 pub struct DeviceOut {
     pub node_id: String,
+    pub label: String,
     pub added_at_ms: i64,
 }
 
@@ -103,6 +104,7 @@ pub fn bill_out(b: &Bill) -> BillOut {
 pub fn device_out(d: &Device) -> DeviceOut {
     DeviceOut {
         node_id: d.node_id.to_string(),
+        label: d.label.to_string(),
         added_at_ms: d.added_at.as_millis(),
     }
 }
