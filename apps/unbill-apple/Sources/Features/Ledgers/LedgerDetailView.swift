@@ -5,6 +5,7 @@ struct LedgerDetailView: View {
     let ledgerID: String
 
     @State private var detail: LedgerDetail?
+    @State private var archiveError: String?
     @State private var loadError: String?
     @State private var showingAddBill = false
     @State private var showingAddPerson = false
@@ -122,6 +123,22 @@ struct LedgerDetailView: View {
         }
     }
 
+    private func personRow(_ user: User) -> some View {
+        HStack {
+            Label(user.displayName, systemImage: "person")
+            Spacer()
+            Button(user.archived ? "Restore" : "Archive") {
+                Task {
+                    do {
+                        try await console.setUserArchived(ledgerID: ledgerID, userID: user.userID, archived: !user.archived)
+                        archiveError = nil
+                        await load()
+                    } catch { archiveError = error.localizedDescription }
+                }
+            }.buttonStyle(.borderless)
+        }
+    }
+
     private func content(_ detail: LedgerDetail) -> some View {
         let currency = detail.summary.currency
         return List {
@@ -129,9 +146,15 @@ struct LedgerDetailView: View {
                 if detail.users.isEmpty {
                     Text("No people yet").foregroundStyle(.secondary)
                 }
-                ForEach(detail.users) { user in
-                    Label(user.displayName, systemImage: "person")
+                ForEach(detail.users.filter { !$0.archived }) { user in
+                    personRow(user)
                 }
+                if detail.users.contains(where: { $0.archived }) {
+                    DisclosureGroup("Archived") {
+                        ForEach(detail.users.filter { $0.archived }) { user in personRow(user) }
+                    }
+                }
+                if let archiveError { Text(archiveError).foregroundStyle(.red) }
             }
 
             if !detail.conflicts.isEmpty {

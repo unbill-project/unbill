@@ -47,25 +47,19 @@ struct AddBillView: View {
                 }
 
                 Section("Paid by") {
-                    Picker("Paid by", selection: $payerID) {
-                        ForEach(users) { user in Text(user.displayName).tag(user.userID) }
+                    ForEach(users.filter { !$0.archived }) { user in payerRow(user) }
+                    if users.contains(where: { $0.archived }) {
+                        DisclosureGroup("Archived") {
+                            ForEach(users.filter { $0.archived }) { user in payerRow(user) }
+                        }
                     }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
                 }
 
                 Section("Split between") {
-                    ForEach(users) { user in
-                        Button {
-                            toggle(user.userID)
-                        } label: {
-                            HStack {
-                                Text(user.displayName).foregroundStyle(.primary)
-                                Spacer()
-                                if splitIDs.contains(user.userID) {
-                                    Image(systemName: "checkmark").foregroundStyle(.tint)
-                                }
-                            }
+                    ForEach(users.filter { !$0.archived }) { user in payeeRow(user) }
+                    if users.contains(where: { $0.archived }) {
+                        DisclosureGroup("Archived") {
+                            ForEach(users.filter { $0.archived }) { user in payeeRow(user) }
                         }
                     }
                 }
@@ -84,9 +78,29 @@ struct AddBillView: View {
                 }
             }
             .onAppear {
-                // Default: first user paid, split among everyone.
-                if payerID.isEmpty { payerID = users.first?.userID ?? "" }
-                if splitIDs.isEmpty { splitIDs = Set(users.map(\.userID)) }
+                // Default to active users; archived users require explicit selection.
+                if payerID.isEmpty { payerID = users.first(where: { !$0.archived })?.userID ?? "" }
+                if splitIDs.isEmpty { splitIDs = Set(users.filter { !$0.archived }.map(\.userID)) }
+            }
+        }
+    }
+
+    private func payerRow(_ user: User) -> some View {
+        Button { payerID = user.userID } label: {
+            HStack {
+                Text(user.displayName).foregroundStyle(.primary)
+                Spacer()
+                if payerID == user.userID { Image(systemName: "checkmark").foregroundStyle(.tint) }
+            }
+        }
+    }
+
+    private func payeeRow(_ user: User) -> some View {
+        Button { toggle(user.userID) } label: {
+            HStack {
+                Text(user.displayName).foregroundStyle(.primary)
+                Spacer()
+                if splitIDs.contains(user.userID) { Image(systemName: "checkmark").foregroundStyle(.tint) }
             }
         }
     }

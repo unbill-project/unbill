@@ -32,6 +32,7 @@ pub struct BillSpec {
 pub struct UserSpec {
     pub user_id: u128,
     pub display_name: Seq<u8>,
+    pub archived: bool,
     pub added_at: i64,
 }
 

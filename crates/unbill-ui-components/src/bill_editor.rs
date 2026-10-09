@@ -17,6 +17,7 @@ pub enum ShareMode {
 pub struct BillEditorUser {
     pub user_id: String,
     pub display_name: String,
+    pub archived: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -24,6 +25,7 @@ pub struct BillEditorUser {
 pub struct BillShareDraft {
     pub user_id: String,
     pub display_name: String,
+    pub archived: bool,
     pub included: bool,
     pub shares: String,
 }
@@ -94,6 +96,7 @@ pub struct BillSaveRequest {
 }
 
 pub fn new_bill_seed(currency: String, users: &[BillEditorUser]) -> BillEditorSeed {
+    let first_payer = users.iter().position(|user| !user.archived);
     BillEditorSeed {
         currency,
         prev_bill_id: None,
@@ -105,7 +108,8 @@ pub fn new_bill_seed(currency: String, users: &[BillEditorUser]) -> BillEditorSe
             .map(|(i, user)| BillShareDraft {
                 user_id: user.user_id.clone(),
                 display_name: user.display_name.clone(),
-                included: i == 0,
+                archived: user.archived,
+                included: first_payer == Some(i),
                 shares: "1".to_owned(),
             })
             .collect(),
@@ -116,7 +120,8 @@ pub fn new_bill_seed(currency: String, users: &[BillEditorUser]) -> BillEditorSe
             .map(|user| BillShareDraft {
                 user_id: user.user_id.clone(),
                 display_name: user.display_name.clone(),
-                included: true,
+                archived: user.archived,
+                included: !user.archived,
                 shares: "1".to_owned(),
             })
             .collect(),
@@ -160,6 +165,7 @@ pub fn amend_bill_seed(
             .map(|user| BillShareDraft {
                 user_id: user.user_id.clone(),
                 display_name: user.display_name.clone(),
+                archived: user.archived,
                 included: payers_by_user.contains_key(&user.user_id),
                 shares: payers_by_user
                     .get(&user.user_id)
@@ -175,6 +181,7 @@ pub fn amend_bill_seed(
             .map(|user| BillShareDraft {
                 user_id: user.user_id.clone(),
                 display_name: user.display_name.clone(),
+                archived: user.archived,
                 included: payees_by_user.contains_key(&user.user_id),
                 shares: payees_by_user
                     .get(&user.user_id)
@@ -332,8 +339,10 @@ where
     let amount_text = RwSignal::new(seed.amount_text);
     let payer_mode = RwSignal::new(seed.payer_mode);
     let payer_rows = RwSignal::new(seed.payer_rows);
+    let payer_archived_open = RwSignal::new(false);
     let share_mode = RwSignal::new(seed.share_mode);
     let share_rows = RwSignal::new(seed.share_rows);
+    let share_archived_open = RwSignal::new(false);
     let validation_error = RwSignal::new(None::<String>);
     let currency_field_value = currency.clone();
     let payer_currency = currency.clone();
@@ -486,8 +495,10 @@ where
                             let current_mode = payer_mode.get();
                             let current_rows = payer_rows.get();
 
-                            current_rows
-                                .into_iter()
+                            [false, true].into_iter().map(|archived| {
+                                let count = current_rows.iter().filter(|row| row.archived == archived).count();
+                            let rendered = current_rows.iter()
+                                .filter(|row| row.archived == archived)
                                 .map(|row| {
                                     let user_id = row.user_id.clone();
                                     let toggle_user_id = user_id.clone();
@@ -547,7 +558,11 @@ where
                                         </div>
                                     }
                                 })
-                                .collect_view()
+                                .collect_view();
+                                if archived {
+                                    view! { <details hidden=count == 0 prop:open=payer_archived_open.get()><summary on:click=move |event| { event.prevent_default(); payer_archived_open.update(|open| *open = !*open); }>{format!("Archived ({count})")}</summary>{rendered}</details> }.into_any()
+                                } else { view! { <div>{rendered}</div> }.into_any() }
+                            }).collect_view()
                         }}
                     </div>
                 </SectionCard>
@@ -589,8 +604,10 @@ where
                             let current_mode = share_mode.get();
                             let current_rows = share_rows.get();
 
-                            current_rows
-                                .into_iter()
+                            [false, true].into_iter().map(|archived| {
+                                let count = current_rows.iter().filter(|row| row.archived == archived).count();
+                            let rendered = current_rows.iter()
+                                .filter(|row| row.archived == archived)
                                 .map(|share_row| {
                                     let user_id = share_row.user_id.clone();
                                     let toggle_user_id = user_id.clone();
@@ -650,7 +667,11 @@ where
                                         </div>
                                     }
                                 })
-                                .collect_view()
+                                .collect_view();
+                                if archived {
+                                    view! { <details hidden=count == 0 prop:open=share_archived_open.get()><summary on:click=move |event| { event.prevent_default(); share_archived_open.update(|open| *open = !*open); }>{format!("Archived ({count})")}</summary>{rendered}</details> }.into_any()
+                                } else { view! { <div>{rendered}</div> }.into_any() }
+                            }).collect_view()
                         }}
                     </div>
                 </SectionCard>
@@ -781,6 +802,7 @@ mod tests {
         BillEditorUser {
             user_id: user_id.to_owned(),
             display_name: display_name.to_owned(),
+            archived: false,
         }
     }
 
@@ -788,9 +810,61 @@ mod tests {
         BillShareDraft {
             user_id: user_id.to_owned(),
             display_name: user_id.to_owned(),
+            archived: false,
             included,
             shares: shares.to_owned(),
         }
+    }
+
+    #[test]
+    fn archived_users_are_available_but_not_selected_for_new_bills() {
+        let mut archived = user("alice", "Alice");
+        archived.archived = true;
+        let users = vec![archived, user("bob", "Bob")];
+        let seed = new_bill_seed("USD".into(), &users);
+        assert_eq!(
+            seed.payer_rows
+                .iter()
+                .filter(|row| row.included)
+                .map(|row| row.user_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["bob"]
+        );
+        assert_eq!(
+            seed.share_rows
+                .iter()
+                .filter(|row| row.included)
+                .map(|row| row.user_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["bob"]
+        );
+        assert_eq!(seed.share_rows.len(), 2);
+        let bill = BillEditorExistingBill {
+            id: "bill".into(),
+            amount_cents: 100,
+            description: "Dinner".into(),
+            payers: vec![BillShareInput {
+                user_id: "alice".into(),
+                shares: 2,
+            }],
+            payees: vec![BillShareInput {
+                user_id: "alice".into(),
+                shares: 3,
+            }],
+        };
+        let amended = amend_bill_seed(&bill, "USD".into(), &users);
+        assert!(
+            amended
+                .payer_rows
+                .iter()
+                .any(|row| row.archived && row.included && row.shares == "2")
+        );
+        assert!(
+            amended
+                .share_rows
+                .iter()
+                .any(|row| row.archived && row.included && row.shares == "3")
+        );
     }
 
     #[test]
@@ -806,6 +880,31 @@ mod tests {
                 Err("Amount is too large.".to_owned())
             );
         }
+    }
+
+    #[test]
+    fn all_archived_users_need_explicit_selection_and_restoring_changes_defaults() {
+        let mut users = vec![user("alice", "Alice")];
+        users.iter_mut().for_each(|user| user.archived = true);
+        let seed = new_bill_seed("USD".into(), &users);
+        assert!(seed.payer_rows.iter().all(|row| !row.included));
+        assert!(seed.share_rows.iter().all(|row| !row.included));
+        assert!(
+            build_bill_save_request(
+                None,
+                "Dinner".into(),
+                seed.payer_mode,
+                &seed.payer_rows,
+                "1.00",
+                seed.share_mode,
+                &seed.share_rows
+            )
+            .is_err()
+        );
+        users.iter_mut().for_each(|user| user.archived = false);
+        let restored = new_bill_seed("USD".into(), &users);
+        assert!(restored.payer_rows.iter().all(|row| row.included));
+        assert!(restored.share_rows.iter().all(|row| row.included));
     }
 
     #[test]

@@ -40,6 +40,10 @@ actor RustConsoleClient: ConsoleClient {
     }
 
     @discardableResult
+    func setUserArchived(ledgerID: String, userID: String, archived: Bool) async throws {
+        try console.setUserArchived(ledgerId: ledgerID, userId: userID, archived: archived)
+    }
+
     func createUser(ledgerID: String, displayName: String) async throws -> User {
         Self.user(try console.createUser(ledgerId: ledgerID, displayName: displayName))
     }
@@ -204,7 +208,7 @@ actor RustConsoleClient: ConsoleClient {
     }
 
     private static func user(_ u: FfiUser) -> User {
-        User(userID: u.userId, displayName: u.displayName, addedAtMs: u.addedAtMs)
+        User(userID: u.userId, displayName: u.displayName, archived: u.archived, addedAtMs: u.addedAtMs)
     }
 }
 

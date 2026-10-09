@@ -90,6 +90,7 @@ pub struct SyncDevice {
 pub struct User {
     pub user_id: String,
     pub display_name: String,
+    pub archived: bool,
     pub added_at_ms: i64,
 }
 
@@ -307,6 +308,21 @@ pub async fn create_user(input: CreateUserInput) -> Result<User, String> {
     .await
     .map(user_to_dto)
     .map_err(|e| e.to_string())
+}
+
+pub async fn set_user_archived(
+    ledger_id: &str,
+    user_id: &str,
+    archived: bool,
+) -> Result<(), String> {
+    get_service()?
+        .set_user_archived(
+            parse_ledger_id(ledger_id)?,
+            parse_user_id(user_id)?,
+            archived,
+        )
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn add_user(input: AddUserInput) -> Result<User, String> {
@@ -680,6 +696,7 @@ fn user_to_dto(user: unbill_console::model::User) -> User {
     User {
         user_id: user.user_id.to_string(),
         display_name: user.display_name,
+        archived: user.archived,
         added_at_ms: user.added_at.as_millis(),
     }
 }

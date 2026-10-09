@@ -67,6 +67,7 @@ pub struct FfiLedgerSummary {
 pub struct FfiUser {
     pub user_id: String,
     pub display_name: String,
+    pub archived: bool,
     pub added_at_ms: i64,
 }
 
@@ -291,6 +292,19 @@ impl FfiConsole {
     }
 
     /// Add an already-known user (by id) to a ledger.
+    pub fn set_user_archived(
+        &self,
+        ledger_id: String,
+        user_id: String,
+        archived: bool,
+    ) -> Result<(), FfiError> {
+        let lid = parse_ledger_id(&ledger_id)?;
+        let uid = parse_user_id(&user_id)?;
+        self.rt
+            .block_on(self.inner.set_user_archived(lid, uid, archived))
+            .map_err(err)
+    }
+
     pub fn add_user(&self, ledger_id: String, user_id: String) -> Result<FfiUser, FfiError> {
         let lid = parse_ledger_id(&ledger_id)?;
         let uid = parse_user_id(&user_id)?;
@@ -661,6 +675,7 @@ fn user_to_dto(u: User) -> FfiUser {
     FfiUser {
         user_id: u.user_id.to_string(),
         display_name: u.display_name,
+        archived: u.archived,
         added_at_ms: u.added_at.as_millis(),
     }
 }

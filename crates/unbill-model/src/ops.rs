@@ -132,11 +132,30 @@ pub(super) fn add_user(
         v::User {
             user_id: input.user_id.to_u128(),
             display_name: input.display_name.into_bytes(),
+            archived: false,
             added_at: now.as_millis(),
         },
     )?;
     let ledger = model_to_ledger(&model).map_err(|e| AddUserOpError::Reconcile(e.0))?;
     reconcile(doc, &ledger).map_err(|e| AddUserOpError::Reconcile(e.to_string()))
+}
+
+pub(super) fn set_user_archived(
+    doc: &mut AutoCommit,
+    user_id: &crate::UserId,
+    archived: bool,
+) -> Result<()> {
+    let mut ledger = get_ledger(doc)?;
+    let user = ledger
+        .users
+        .iter_mut()
+        .find(|user| &user.user_id == user_id)
+        .ok_or_else(|| UnbillError::UserNotFound(user_id.to_string()))?;
+    if user.archived == archived {
+        return Ok(());
+    }
+    user.archived = archived;
+    reconcile(doc, &ledger).map_err(|error| UnbillError::Reconcile(error.to_string()))
 }
 
 pub(super) fn list_users(doc: &AutoCommit) -> Result<Vec<User>> {
@@ -243,6 +262,7 @@ mod tests {
             ledger.users.push(User {
                 user_id,
                 display_name: user_id.to_string(),
+                archived: false,
                 added_at: ts(0),
             });
         }

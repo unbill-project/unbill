@@ -66,7 +66,7 @@ share preview,
 share mode handling,
 raw draft input,
 and save-time validation feedback.
-New bills seed from ledger users with equal shares.
+New bills seed from active ledger users with equal shares; archived users remain available for explicit selection.
 Amend mode seeds from the selected bill and preserves its effective participant set.
 Payers and payees use positive integer share weights with live per-participant amount preview.
 
@@ -107,3 +107,9 @@ come from UnbillConsole::ledger_emojis through ledger-detail DTOs and refresh
 with ledger updates and sync. Apple exposes the same information in a Ledger
 Settings sheet; the terminal UI provides a copy shortcut. CLI ledger show includes
 the fingerprint in both human-readable and JSON output.
+
+User lists and bill participant selectors group archived users under a
+collapsed Archived section. Users can archive and restore ledger members.
+New bill defaults exclude archived users, including the default payer.
+Archived users remain available through explicit selection.
+Amending a bill preserves its existing participants, including archived users.

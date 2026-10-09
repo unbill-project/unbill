@@ -142,6 +142,20 @@ pub enum BillCmd {
 
 #[derive(clap::Subcommand)]
 pub enum UserCmd {
+    /// Archive a user in this ledger without changing historical bills.
+    Archive {
+        #[arg(long)]
+        ledger_id: String,
+        #[arg(long)]
+        user_id: String,
+    },
+    /// Restore an archived user to new bill defaults.
+    Restore {
+        #[arg(long)]
+        ledger_id: String,
+        #[arg(long)]
+        user_id: String,
+    },
     /// Create a new user and add them to a ledger.
     Create {
         #[arg(long)]
@@ -267,6 +281,12 @@ async fn run() -> anyhow::Result<()> {
             }
         },
         Command::User { sub } => match sub {
+            UserCmd::Archive { ledger_id, user_id } => {
+                commands::user_archive(&svc, &ledger_id, &user_id, true).await
+            }
+            UserCmd::Restore { ledger_id, user_id } => {
+                commands::user_archive(&svc, &ledger_id, &user_id, false).await
+            }
             UserCmd::Create {
                 ledger_id,
                 display_name,

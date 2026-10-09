@@ -53,6 +53,11 @@ pub enum PopupAction {
         ledger_id: LedgerId,
         user: NewUser,
     },
+    SetUserArchived {
+        ledger_id: LedgerId,
+        user_id: unbill_console::model::UserId,
+        archived: bool,
+    },
     CreateUser {
         ledger_id: LedgerId,
         input: NewUserName,

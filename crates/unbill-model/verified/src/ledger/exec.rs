@@ -29,6 +29,7 @@ pub struct Bill {
 pub struct User {
     pub user_id: u128,
     pub display_name: Vec<u8>,
+    pub archived: bool,
     pub added_at: i64,
 }
 
@@ -154,6 +155,7 @@ impl View for User {
         spec::UserSpec {
             user_id: self.user_id,
             display_name: self.display_name@,
+            archived: self.archived,
             added_at: self.added_at,
         }
     }

@@ -22,6 +22,7 @@ fn user_to_model(user: &User) -> v::User {
     v::User {
         user_id: user.user_id.to_u128(),
         display_name: user.display_name.clone().into_bytes(),
+        archived: user.archived,
         added_at: user.added_at.as_millis(),
     }
 }
@@ -101,6 +102,7 @@ fn model_to_user(user: &v::User) -> Result<User, BridgeError> {
     Ok(User {
         user_id: u128_to_user_id(user.user_id),
         display_name: bytes_to_string(&user.display_name)?,
+        archived: user.archived,
         added_at: Timestamp::from_millis(user.added_at),
     })
 }
@@ -217,11 +219,13 @@ mod tests {
                 User {
                     user_id: uid(10),
                     display_name: "Alice".into(),
+                    archived: false,
                     added_at: ts(100),
                 },
                 User {
                     user_id: uid(20),
                     display_name: "Bob".into(),
+                    archived: true,
                     added_at: ts(200),
                 },
             ],
@@ -260,6 +264,8 @@ mod tests {
         assert_eq!(recovered.users[0].user_id, uid(10));
         assert_eq!(recovered.users[0].display_name, "Alice");
         assert_eq!(recovered.users[1].user_id, uid(20));
+        assert!(!recovered.users[0].archived);
+        assert!(recovered.users[1].archived);
         assert_eq!(recovered.bills.len(), 1);
         assert_eq!(recovered.bills[0].id, BillId::from_u128(99));
         assert_eq!(recovered.bills[0].amount_cents, 5000);

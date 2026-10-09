@@ -45,6 +45,7 @@ enum LedgerFocus {
 
 #[derive(PartialEq, Eq)]
 enum LedgerSubTab {
+    Manage,
     Users,
     Invite,
 }
@@ -70,6 +71,7 @@ pub struct SettingsPopup {
     ledger_focus: LedgerFocus,
     ledger_sub_tab: LedgerSubTab,
     add_cursor: usize,
+    show_archived: bool,
     creating_new_user: bool,
     create_user_input: TextInput,
 
@@ -97,8 +99,9 @@ impl SettingsPopup {
             all_users,
             ledger_cursor: initial_ledger_cursor,
             ledger_focus: LedgerFocus::Selector,
-            ledger_sub_tab: LedgerSubTab::Users,
+            ledger_sub_tab: LedgerSubTab::Manage,
             add_cursor: 0,
+            show_archived: false,
             creating_new_user: false,
             create_user_input: TextInput::new("Name"),
             error: None,
@@ -119,6 +122,17 @@ impl SettingsPopup {
             .filter(|u| !ledger_ids.contains(&u.user_id))
             .cloned()
             .collect()
+    }
+
+    fn manageable_users(&self) -> Vec<User> {
+        let mut users = self
+            .ledger_users_map
+            .get(self.ledger_cursor)
+            .cloned()
+            .unwrap_or_default();
+        users.sort_by_key(|user| user.archived);
+        users.retain(|user| self.show_archived || !user.archived);
+        users
     }
 
     fn current_ledger_id(&self) -> Option<LedgerId> {
@@ -355,7 +369,8 @@ impl SettingsPopup {
 
         // Content box — title shows active sub-tab
         let content_title = match self.ledger_sub_tab {
-            LedgerSubTab::Users => "Users",
+            LedgerSubTab::Manage => "Manage users [m]",
+            LedgerSubTab::Users => "Users [m] manage",
             LedgerSubTab::Invite => "Invite",
         };
         let content_block = Block::bordered()
@@ -408,6 +423,41 @@ impl SettingsPopup {
         let list_area = inner_rows[1];
 
         match self.ledger_sub_tab {
+            LedgerSubTab::Manage => {
+                let users = self.manageable_users();
+                let archived = ledger_users.iter().filter(|user| user.archived).count();
+                let mut lines = users
+                    .iter()
+                    .enumerate()
+                    .map(|(i, user)| {
+                        let style = if i == self.add_cursor {
+                            Style::default().add_modifier(Modifier::REVERSED)
+                        } else {
+                            Style::default()
+                        };
+                        Line::styled(
+                            format!(
+                                "{}{} [{}]",
+                                if user.archived { "  " } else { "" },
+                                user.display_name,
+                                if user.archived { "Restore" } else { "Archive" }
+                            ),
+                            style,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                let active = users.iter().filter(|user| !user.archived).count();
+                if archived > 0 {
+                    lines.insert(
+                        active,
+                        Line::raw(format!(
+                            "{} Archived ({archived}) [a]",
+                            if self.show_archived { "v" } else { ">" }
+                        )),
+                    );
+                }
+                frame.render_widget(Paragraph::new(lines), list_area);
+            }
             LedgerSubTab::Users => {
                 let half = list_area.height / 2;
                 let user_rows =
@@ -421,7 +471,11 @@ impl SettingsPopup {
                         user_rows[0],
                     );
                 } else {
-                    for (user, row) in ledger_users.iter().zip(user_rows[0].rows()) {
+                    for (user, row) in ledger_users
+                        .iter()
+                        .filter(|user| !user.archived)
+                        .zip(user_rows[0].rows())
+                    {
                         let short_id: String = user.user_id.to_string().chars().take(8).collect();
                         frame.render_widget(
                             Paragraph::new(format!("  {} ({})", user.display_name, short_id)),
@@ -481,7 +535,7 @@ impl SettingsPopup {
             let hint = if selector_focused {
                 "[j/k] select ledger  [Tab] to content  [Esc] close"
             } else {
-                "[j/k] move  [Enter] confirm  [h/l] sub-tab  [Tab] next tab  [Esc] close"
+                "[j/k] move  [Enter] confirm  [h] add  [l] invite  [m] manage  [a] archived  [Tab] next tab  [Esc] close"
             };
             frame.render_widget(
                 Paragraph::new(hint).style(Style::default().fg(Color::DarkGray)),
@@ -525,6 +579,48 @@ impl SettingsPopup {
                 _ => {}
             }
             return PopupOutcome::Pending;
+        }
+
+        if self.ledger_focus == LedgerFocus::Content {
+            if key.code == KeyCode::Char('m') {
+                self.ledger_sub_tab = LedgerSubTab::Manage;
+                self.add_cursor = 0;
+                return PopupOutcome::Pending;
+            }
+            if self.ledger_sub_tab == LedgerSubTab::Manage {
+                match key.code {
+                    KeyCode::Char('a') => {
+                        self.show_archived = !self.show_archived;
+                        self.add_cursor = 0;
+                        return PopupOutcome::Pending;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        self.add_cursor = self
+                            .add_cursor
+                            .saturating_add(1)
+                            .min(self.manageable_users().len().saturating_sub(1));
+                        return PopupOutcome::Pending;
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        self.add_cursor = self.add_cursor.saturating_sub(1);
+                        return PopupOutcome::Pending;
+                    }
+                    KeyCode::Enter => {
+                        if let (Some(ledger_id), Some(user)) = (
+                            self.current_ledger_id(),
+                            self.manageable_users().get(self.add_cursor),
+                        ) {
+                            return PopupOutcome::Action(PopupAction::SetUserArchived {
+                                ledger_id,
+                                user_id: user.user_id,
+                                archived: !user.archived,
+                            });
+                        }
+                        return PopupOutcome::Pending;
+                    }
+                    _ => {}
+                }
+            }
         }
 
         match key.code {
@@ -617,6 +713,7 @@ impl SettingsPopup {
                 PopupOutcome::Pending
             }
             KeyCode::Enter => match self.ledger_sub_tab {
+                LedgerSubTab::Manage => PopupOutcome::Pending,
                 LedgerSubTab::Users => {
                     let addable = self.addable_users();
                     let Some(ledger_id) = self.current_ledger_id() else {
@@ -689,6 +786,67 @@ fn fingerprint_lines(text: &str, width: u16) -> Vec<Line<'static>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn archived_people_are_folded_until_expanded_and_can_be_restored() {
+        let ledger_id = LedgerId::from_u128(1);
+        let user_id = unbill_console::model::UserId::from_u128(1);
+        let now = unbill_console::model::Timestamp::from_millis(0);
+        let user = User {
+            user_id,
+            display_name: "Archived Alice".into(),
+            archived: true,
+            added_at: now,
+        };
+        let mut popup = SettingsPopup::new(
+            TopTab::Ledger,
+            String::new(),
+            vec![],
+            vec![LedgerMeta {
+                ledger_id,
+                name: "Trip".into(),
+                currency: unbill_console::model::Currency::from_code("USD").unwrap(),
+                created_at: now,
+                updated_at: now,
+            }],
+            vec![vec![user]],
+            0,
+        );
+        popup.ledger_focus = LedgerFocus::Content;
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(80, 30)).unwrap();
+        terminal
+            .draw(|frame| popup.render(frame, frame.area()))
+            .unwrap();
+        let text = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+        assert!(text.contains("Archived (1)"));
+        assert!(!text.contains("Archived Alice"));
+        assert!(matches!(
+            popup.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)),
+            PopupOutcome::Pending
+        ));
+        popup.handle_key(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE));
+        terminal
+            .draw(|frame| popup.render(frame, frame.area()))
+            .unwrap();
+        let text = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+        assert!(text.contains("Archived Alice"));
+        assert!(
+            matches!(popup.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)), PopupOutcome::Action(PopupAction::SetUserArchived { ledger_id: lid, user_id: uid, archived: false }) if lid == ledger_id && uid == user_id)
+        );
+    }
 
     #[test]
     fn settings_displays_and_copies_the_full_selected_ledger_fingerprint() {

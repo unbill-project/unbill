@@ -13,7 +13,9 @@ A ledger is an independent shared workspace with a fixed currency.
 It is backed by an Automerge document and carries the durable group record.
 
 A user is a named person or role inside one ledger.
-Users are append-only shared records and are not login identities.
+User membership is append-only; users are not login identities.
+Each user has a shared ledger-scoped archived flag, initially false.
+Archiving changes presentation and new-bill defaults without removing history or balances.
 
 A device is an authorized sync peer identified by a `NodeId`.
 Device membership is append-only, ledger-scoped, and separate from users.

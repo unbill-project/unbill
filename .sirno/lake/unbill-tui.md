@@ -109,3 +109,8 @@ Ledger Settings shows each selected ledger's six-emoji fingerprint and a
 copy shortcut. Fingerprints are obtained from the console when opening settings
 and refreshed on ledger-update events. Copy uses the terminal OSC 52 clipboard
 protocol; clipboard support depends on the terminal.
+
+Ledger Settings opens user management; Enter archives or restores the selected
+member, and a expands the Archived group. h opens user creation/import and l invitations.
+Bill editors use a to expand archived participants, with active members selected
+for new bills and original membership preserved for amendments.

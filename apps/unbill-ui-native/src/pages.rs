@@ -303,6 +303,7 @@ pub fn SettingsPopup(
     on_select_ledger: Callback<String>,
     on_join_ledger: Callback<()>,
     on_add_ledger_user: Callback<()>,
+    on_set_user_archived: Callback<(String, bool)>,
     on_sync_device: Callback<(String, Callback<()>)>,
     on_create_invitation: Callback<()>,
     on_copy_invitation: Callback<()>,
@@ -465,21 +466,25 @@ pub fn SettingsPopup(
                                                 {if detail.users.is_empty() {
                                                     view! { <div class="empty-copy">"No users."</div> }.into_any()
                                                 } else {
-                                                    detail
-                                                        .users
-                                                        .iter()
-                                                        .map(|user| {
+                                                    [false, true].into_iter().map(|archived| {
+                                                        let users = detail.users.iter().filter(|user| user.archived == archived).collect::<Vec<_>>();
+                                                        let count = users.len();
+                                                        let rows = users.into_iter().map(|user| {
+                                                            let user_id = user.user_id.clone();
                                                             view! {
-                                                                <div class="data-row">
+                                                                <div class="data-row split-row">
                                                                     <div class="row-copy">
                                                                         <p class="row-title">{user.display_name.clone()}</p>
                                                                         <p class="row-meta mono-copy">{user.user_id.clone()}</p>
                                                                     </div>
+                                                                    <ActionButton label=if archived { "Restore" } else { "Archive" }.to_owned() tone=ButtonTone::Quiet on_press=Callback::new(move |_| on_set_user_archived.run((user_id.clone(), !archived))) />
                                                                 </div>
                                                             }
-                                                        })
-                                                        .collect_view()
-                                                        .into_any()
+                                                        }).collect_view();
+                                                        if archived {
+                                                            view! { <details hidden=count == 0><summary>{format!("Archived ({count})")}</summary>{rows}</details> }.into_any()
+                                                        } else { view! { <div>{rows}</div> }.into_any() }
+                                                    }).collect_view().into_any()
                                                 }}
 
                                                 <ActionButton
