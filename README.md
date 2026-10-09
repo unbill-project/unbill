@@ -157,8 +157,8 @@ Unbill is a Rust workspace built from focused crates and thin applications.
 | Path | Role |
 |------|------|
 | `crates/unbill-model` | Domain data types |
-| `crates/unbill-storage` | Automerge documents and store traits |
-| `crates/unbill-store-fs`, `crates/unbill-store-memory` | Store backends |
+| `crates/unbill-storage` | Store traits, actor, and application paths |
+| `crates/unbill-store-sqlite`, `crates/unbill-store-memory` | Store backends |
 | `crates/unbill-device` | Device role |
 | `crates/unbill-console` | Console-side service projection |
 | `crates/unbill-symmetric-channel` | Device-to-device Iroh sync and join |

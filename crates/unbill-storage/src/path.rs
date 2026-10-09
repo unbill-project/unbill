@@ -1,3 +1,4 @@
+// sirno:witness:unbill-storage:begin
 use std::path::PathBuf;
 
 use directories::ProjectDirs;
@@ -59,3 +60,5 @@ impl UnbillPath {
         Ok(path)
     }
 }
+
+// sirno:witness:unbill-storage:end

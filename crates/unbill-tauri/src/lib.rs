@@ -938,7 +938,7 @@ pub fn run() {
 
             #[cfg(not(mobile))]
             let service = tauri::async_runtime::block_on(async {
-                let socket = unbill_store_fs::UNBILL_PATH
+                let socket = unbill_storage::UNBILL_PATH
                     .socket_path()
                     .map_err(|e| std::io::Error::other(e.to_string()))?;
                 let channel = RpcAsymChannel::connect(&socket).await?;

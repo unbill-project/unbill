@@ -17,7 +17,6 @@ members = [
     "crates/unbill-model",
     "crates/unbill-model/verified",
     "crates/unbill-storage",
-    "crates/unbill-store-fs",
     "crates/unbill-store-memory",
     "crates/unbill-store-sqlite",
     "crates/unbill-tauri",

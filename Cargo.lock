@@ -8417,7 +8417,7 @@ dependencies = [
  "tracing-subscriber",
  "unbill-asymmetric-channel",
  "unbill-console",
- "unbill-store-fs",
+ "unbill-storage",
 ]
 
 [[package]]
@@ -8467,7 +8467,7 @@ dependencies = [
  "tracing-subscriber",
  "unbill-asymmetric-channel",
  "unbill-device",
- "unbill-store-fs",
+ "unbill-storage",
  "unbill-store-sqlite",
 ]
 
@@ -8548,7 +8548,6 @@ dependencies = [
  "unbill-device",
  "unbill-model",
  "unbill-storage",
- "unbill-store-fs",
  "unbill-store-sqlite",
 ]
 
@@ -8558,29 +8557,12 @@ version = "0.0.5"
 dependencies = [
  "async-trait",
  "automerge",
- "serde_json",
- "tokio",
- "tracing",
- "unbill-event",
- "unbill-model",
-]
-
-[[package]]
-name = "unbill-store-fs"
-version = "0.0.5"
-dependencies = [
- "async-trait",
  "directories",
- "iroh",
- "rand 0.10.3",
- "serde",
  "serde_json",
- "tempfile",
  "tokio",
  "tracing",
  "unbill-event",
  "unbill-model",
- "unbill-storage",
 ]
 
 [[package]]
@@ -8614,7 +8596,6 @@ dependencies = [
  "unbill-event",
  "unbill-model",
  "unbill-storage",
- "unbill-store-fs",
  "unbill-store-memory",
 ]
 
@@ -8652,7 +8633,7 @@ dependencies = [
  "tracing-subscriber",
  "unbill-asymmetric-channel",
  "unbill-console",
- "unbill-store-fs",
+ "unbill-storage",
  "unbill-store-memory",
  "unbill-store-sqlite",
  "url",
@@ -8671,7 +8652,7 @@ dependencies = [
  "tracing-subscriber",
  "unbill-asymmetric-channel",
  "unbill-console",
- "unbill-store-fs",
+ "unbill-storage",
 ]
 
 [[package]]

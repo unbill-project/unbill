@@ -130,7 +130,13 @@ async fn sqlite_does_not_create_or_acquire_the_directory_lock() {
     let dir = tempfile::tempdir().unwrap();
     let first = SqliteStore::open(dir.path().into()).await.unwrap();
     assert!(!dir.path().join("unbill.lock").exists());
-    let fs = unbill_store_fs::FsStore::open(dir.path().into()).unwrap();
+    let lock = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(dir.path().join("unbill.lock"))
+        .unwrap();
+    lock.try_lock().unwrap();
     let second = SqliteStore::open(dir.path().into()).await.unwrap();
     first
         .save_ledger(&meta("Test").ledger_id.to_string(), &mut doc("Test"))
@@ -139,9 +145,16 @@ async fn sqlite_does_not_create_or_acquire_the_directory_lock() {
     assert_eq!(second.list_ledgers().await.unwrap()[0].name, "Test");
     drop(second);
     drop(first);
-    // SQLite did not release the filesystem backend's exclusive lock.
-    assert!(unbill_store_fs::FsStore::open(dir.path().into()).is_err());
-    drop(fs);
+    // SQLite did not release the unrelated file's exclusive lock.
+    let competing_lock = std::fs::OpenOptions::new()
+        .write(true)
+        .open(dir.path().join("unbill.lock"))
+        .unwrap();
+    assert!(matches!(
+        competing_lock.try_lock(),
+        Err(std::fs::TryLockError::WouldBlock)
+    ));
+    drop(lock);
 }
 
 #[tokio::test]

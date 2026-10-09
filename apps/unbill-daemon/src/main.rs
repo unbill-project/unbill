@@ -4,7 +4,7 @@ use std::time::Duration;
 use anyhow::Result;
 use unbill_asymmetric_channel::local::LocalAsymChannel;
 use unbill_asymmetric_channel::rpc;
-use unbill_store_fs::UNBILL_PATH;
+use unbill_storage::UNBILL_PATH;
 use unbill_store_sqlite::SqliteStore;
 
 #[tokio::main]

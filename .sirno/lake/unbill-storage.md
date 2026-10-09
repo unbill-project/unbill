@@ -54,9 +54,14 @@ regardless of whether the write came from a local operation, remote sync, or joi
 Modules:
 `store` defines the trait and result alias.
 `store_server` provides the MPSC actor (native targets only).
+`path` provides native application data-directory and daemon socket-path resolution.
+`UnbillPath` and `UNBILL_PATH` preserve the platform defaults and the
+`UNBILL_DATA_DIR` and `UNBILL_SOCKET` environment overrides.
+SQLite is the persistent backend; the memory backend supports tests.
 
-`LedgerDoc` and `ops` live in `unbill-model`,
-not here — only `unbill-device` should depend on `unbill-storage`.
+`LedgerDoc` and `ops` live in `unbill-model`.
+Device services and store backends use the persistence interface; native
+application entry points also use the shared path helpers.
 The `LedgerStore` trait references `LedgerDoc` from `unbill-model`.
 
 Store implementations live in separate crates.
