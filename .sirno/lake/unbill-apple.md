@@ -74,3 +74,6 @@ ledger detail reloads on matching updates and resync notifications.
 
 Joining requires the name of this joining device in the ledger. Device names
 are read from the ledger device records, without a local label lookup.
+
+People offers Archive and Restore actions. Archived people and bill participant
+choices appear in collapsed disclosure groups; new bill defaults use active people.

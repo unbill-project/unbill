@@ -43,3 +43,10 @@ The ledger creator initially uses the shared name "Unnamed device".
 Ledger-scoped device views use the selected ledger's label. Across-ledger peer
 views choose the label from the lowest ledger ID, deterministically.
 Old schemas and unlabeled documents are not supported by this change.
+
+Each user has a ledger-scoped shared `archived` boolean, initially false.
+Archiving is reversible presentation metadata, not removal from ledger membership.
+Archived users retain historical bills, balances, and settlement participation.
+The console changes this flag for an existing user in a specified ledger;
+an unknown user is an error and cannot change the document.
+Importing a known identity into another ledger creates an active membership.

@@ -40,6 +40,7 @@ pub struct BillEditor {
     pub payees: Vec<ParticipantRow>,
     pub payer_cursor: usize,
     pub payee_cursor: usize,
+    pub show_archived: bool,
     pub section: EditorSection,
     pub error: Option<String>,
 }
@@ -240,23 +241,14 @@ fn render_editor(
     frame.render_widget(Paragraph::new("Payers:").style(payers_label_style), rows[2]);
 
     // Payers list.
-    for ((i, row_data), row) in editor.payers.iter().enumerate().zip(rows[3].rows()) {
-        let is_cursor = editor.section == EditorSection::Payers && i == editor.payer_cursor;
-        let style = if is_cursor {
-            Style::default().add_modifier(Modifier::REVERSED)
-        } else {
-            Style::default()
-        };
-        let check = if row_data.selected { "x" } else { " " };
-        frame.render_widget(
-            Paragraph::new(format!(
-                "[{}] {}  ×{}",
-                check, row_data.user.display_name, row_data.weight
-            ))
-            .style(style),
-            row,
-        );
-    }
+    render_participants(
+        frame,
+        rows[3],
+        &editor.payers,
+        editor.payer_cursor,
+        editor.section == EditorSection::Payers,
+        editor.show_archived,
+    );
 
     // Payees label.
     let payees_label_style = if editor.section == EditorSection::Payees {
@@ -267,23 +259,14 @@ fn render_editor(
     frame.render_widget(Paragraph::new("Payees:").style(payees_label_style), rows[4]);
 
     // Payees list.
-    for ((i, row_data), row) in editor.payees.iter().enumerate().zip(rows[5].rows()) {
-        let is_cursor = editor.section == EditorSection::Payees && i == editor.payee_cursor;
-        let style = if is_cursor {
-            Style::default().add_modifier(Modifier::REVERSED)
-        } else {
-            Style::default()
-        };
-        let check = if row_data.selected { "x" } else { " " };
-        frame.render_widget(
-            Paragraph::new(format!(
-                "[{}] {}  ×{}",
-                check, row_data.user.display_name, row_data.weight
-            ))
-            .style(style),
-            row,
-        );
-    }
+    render_participants(
+        frame,
+        rows[5],
+        &editor.payees,
+        editor.payee_cursor,
+        editor.section == EditorSection::Payees,
+        editor.show_archived,
+    );
 
     // Live preview or error.
     if let Some(err) = &editor.error {
@@ -306,11 +289,49 @@ fn render_editor(
     // Hint.
     frame.render_widget(
         Paragraph::new(
-            "[Tab] next  [j/k] move  [Space] toggle  [0-9] weight  [Enter] confirm  [Esc] cancel",
+            "[Tab] next  [j/k] move  [Space] toggle  [a] archived  [0-9] weight  [Enter] confirm  [Esc] cancel",
         )
         .style(Style::default().fg(Color::DarkGray)),
         rows[7],
     );
+}
+
+fn render_participants(
+    frame: &mut Frame,
+    area: Rect,
+    participants: &[ParticipantRow],
+    cursor: usize,
+    focused: bool,
+    expanded: bool,
+) {
+    let active = participants.iter().filter(|row| !row.user.archived).count();
+    let archived = participants.len().saturating_sub(active);
+    let mut lines = Vec::new();
+    for (i, row) in participants.iter().enumerate() {
+        if i == active && archived > 0 {
+            lines.push(ratatui::text::Line::raw(format!(
+                "{} Archived ({archived}) [a]",
+                if expanded { "v" } else { ">" }
+            )));
+        }
+        if row.user.archived && !expanded {
+            continue;
+        }
+        let text = format!(
+            "{}[{}] {} ×{}",
+            if row.user.archived { "  " } else { "" },
+            if row.selected { "x" } else { " " },
+            row.user.display_name,
+            row.weight
+        );
+        let style = if focused && cursor == i {
+            Style::default().add_modifier(Modifier::REVERSED)
+        } else {
+            Style::default()
+        };
+        lines.push(ratatui::text::Line::styled(text, style));
+    }
+    frame.render_widget(Paragraph::new(lines), area);
 }
 
 // sirno:witness:unbill-tui:begin

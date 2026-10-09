@@ -209,6 +209,28 @@ impl UnbillConsole {
         Ok(())
     }
 
+    pub async fn set_user_archived(
+        &self,
+        ledger_id: LedgerId,
+        user_id: UserId,
+        archived: bool,
+    ) -> Result<()> {
+        let now = Timestamp::now()?;
+        let mut doc = self.take_doc(ledger_id).await?;
+        if let Err(error) = doc.set_user_archived(&user_id, archived) {
+            self.put_doc(ledger_id, doc).await;
+            return Err(error);
+        }
+        let result = sync_doc(&*self.channel, ledger_id, &mut doc).await;
+        self.put_doc(ledger_id, doc).await;
+        result?;
+        self.touch_meta(ledger_id, now).await?;
+        let _ = self.events.send(ServiceEvent::LedgerUpdated {
+            ledger_id: ledger_id.to_string(),
+        });
+        Ok(())
+    }
+
     pub async fn list_users(&self, ledger_id: LedgerId) -> Result<Vec<User>> {
         let doc = self.take_doc(ledger_id).await?;
         let result = doc.list_users();
@@ -246,6 +268,7 @@ impl UnbillConsole {
         Ok(User {
             user_id,
             display_name: input.display_name,
+            archived: false,
             added_at: now,
         })
     }
@@ -1183,6 +1206,116 @@ mod tests {
     }
 
     // --- create_user / list_all_users ---
+
+    #[tokio::test]
+    async fn archived_users_keep_history_and_status_is_ledger_scoped() {
+        let store = mem_store();
+        let svc = UnbillConsole::open(MockAsymChannel::new(store.clone()).await).await;
+        let first = svc
+            .create_ledger(NewLedger {
+                name: "First".into(),
+                currency: usd(),
+            })
+            .await
+            .unwrap();
+        let second = svc
+            .create_ledger(NewLedger {
+                name: "Second".into(),
+                currency: usd(),
+            })
+            .await
+            .unwrap();
+        seed_users(&svc, first).await;
+        let user = svc
+            .list_users(first)
+            .await
+            .unwrap()
+            .first()
+            .unwrap()
+            .clone();
+        svc.add_user(
+            second,
+            NewUser {
+                user_id: user.user_id,
+                display_name: user.display_name,
+            },
+        )
+        .await
+        .unwrap();
+        svc.add_bill(first, two_way_bill(1200)).await.unwrap();
+        let history = svc.list_bills(first).await.unwrap();
+        let settlement = svc.settle_ledger(first).await.unwrap();
+        let before = svc.ledger_emojis(first).await.unwrap();
+        let mut events = svc.subscribe();
+        svc.set_user_archived(first, user.user_id, true)
+            .await
+            .unwrap();
+        assert!(
+            matches!(events.try_recv().unwrap(), ServiceEvent::LedgerUpdated { ledger_id } if ledger_id == first.to_string())
+        );
+        let reopened = UnbillConsole::open(MockAsymChannel::new(store).await).await;
+        assert!(
+            reopened
+                .list_users(first)
+                .await
+                .unwrap()
+                .iter()
+                .any(|user| user.archived)
+        );
+        assert!(
+            svc.list_users(first)
+                .await
+                .unwrap()
+                .iter()
+                .find(|u| u.user_id == user.user_id)
+                .unwrap()
+                .archived
+        );
+        assert!(
+            !svc.list_users(second)
+                .await
+                .unwrap()
+                .first()
+                .unwrap()
+                .archived
+        );
+        assert_eq!(
+            svc.list_bills(first)
+                .await
+                .unwrap()
+                .iter()
+                .map(|bill| bill.id)
+                .collect::<Vec<_>>(),
+            history.iter().map(|bill| bill.id).collect::<Vec<_>>()
+        );
+        let after = svc.settle_ledger(first).await.unwrap();
+        assert_eq!(after.transactions, settlement.transactions);
+        // Explicitly including archived users is allowed by the accounting layer.
+        svc.add_bill(first, two_way_bill(600)).await.unwrap();
+        assert_ne!(svc.ledger_emojis(first).await.unwrap(), before);
+        assert!(
+            svc.set_user_archived(first, UserId::from_u128(999), true)
+                .await
+                .is_err()
+        );
+        assert!(
+            svc.list_users(first)
+                .await
+                .unwrap()
+                .iter()
+                .any(|u| u.archived)
+        );
+        svc.set_user_archived(first, user.user_id, false)
+            .await
+            .unwrap();
+        assert!(
+            svc.list_users(first)
+                .await
+                .unwrap()
+                .iter()
+                .all(|u| !u.archived)
+        );
+    }
 
     #[tokio::test]
     async fn test_create_user_appears_in_ledger() {

@@ -28,6 +28,7 @@ pub struct Ledger {
 pub struct User {
     pub user_id: UserId,
     pub display_name: String,
+    pub archived: bool,
     pub added_at: Timestamp,
 }
 

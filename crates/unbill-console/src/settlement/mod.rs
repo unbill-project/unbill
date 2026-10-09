@@ -170,6 +170,7 @@ mod tests {
         User {
             user_id: id,
             display_name: String::new(),
+            archived: false,
             added_at: Timestamp::from_millis(0),
         }
     }

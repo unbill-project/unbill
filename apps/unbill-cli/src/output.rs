@@ -43,6 +43,7 @@ pub struct ShareOut {
 pub struct UserOut {
     pub user_id: String,
     pub display_name: String,
+    pub archived: bool,
 }
 
 #[derive(serde::Serialize)]
@@ -113,6 +114,7 @@ pub fn user_out(user: &User) -> UserOut {
     UserOut {
         user_id: user.user_id.to_string(),
         display_name: user.display_name.clone(),
+        archived: user.archived,
     }
 }
 

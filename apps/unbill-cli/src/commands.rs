@@ -257,6 +257,21 @@ pub async fn bill_amend(
 // Users
 // ---------------------------------------------------------------------------
 
+pub async fn user_archive(
+    svc: &UnbillConsole,
+    ledger_id: &str,
+    user_id: &str,
+    archived: bool,
+) -> anyhow::Result<()> {
+    svc.set_user_archived(
+        parse_ledger_id(ledger_id)?,
+        parse_user_id(user_id)?,
+        archived,
+    )
+    .await?;
+    Ok(())
+}
+
 pub async fn user_create(
     svc: &UnbillConsole,
     ledger_id: &str,
@@ -285,7 +300,12 @@ pub async fn all_user_list(svc: &UnbillConsole, json: bool) -> anyhow::Result<()
             return Ok(());
         }
         for user in &users {
-            println!("{:26}  {}", user.user_id, user.display_name);
+            println!(
+                "{:26}  {}{}",
+                user.user_id,
+                user.display_name,
+                if user.archived { " [archived]" } else { "" }
+            );
         }
     }
     Ok(())
@@ -322,7 +342,12 @@ pub async fn ledger_user_list(
             return Ok(());
         }
         for user in &users {
-            println!("{:26}  {}", user.user_id, user.display_name);
+            println!(
+                "{:26}  {}{}",
+                user.user_id,
+                user.display_name,
+                if user.archived { " [archived]" } else { "" }
+            );
         }
     }
     Ok(())

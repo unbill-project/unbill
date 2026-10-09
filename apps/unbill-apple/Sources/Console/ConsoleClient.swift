@@ -13,6 +13,7 @@ protocol ConsoleClient {
     func createLedger(name: String, currency: String) async throws -> LedgerSummary
     // Create a new named user in a ledger.
     @discardableResult
+    func setUserArchived(ledgerID: String, userID: String, archived: Bool) async throws
     func createUser(ledgerID: String, displayName: String) async throws -> User
     // All users known on this device (across ledgers) — for importing.
     func knownUsers() async throws -> [User]

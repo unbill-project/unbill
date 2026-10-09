@@ -336,6 +336,17 @@ async fn handle_editor_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
             None => return,
         };
 
+        if key.code == KeyCode::Char('a')
+            && matches!(
+                editor.section,
+                EditorSection::Payers | EditorSection::Payees
+            )
+        {
+            editor.show_archived = !editor.show_archived;
+            editor.payer_cursor = 0;
+            editor.payee_cursor = 0;
+            return;
+        }
         match key.code {
             KeyCode::Esc => {
                 let _ = editor;
@@ -350,16 +361,24 @@ async fn handle_editor_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
             }
             KeyCode::Down => match editor.section {
                 EditorSection::Payers if !editor.payers.is_empty() => {
-                    editor.payer_cursor = editor
-                        .payer_cursor
-                        .saturating_add(1)
-                        .min(editor.payers.len().saturating_sub(1));
+                    editor.payer_cursor = editor.payer_cursor.saturating_add(1).min(
+                        editor
+                            .payers
+                            .iter()
+                            .filter(|row| editor.show_archived || !row.user.archived)
+                            .count()
+                            .saturating_sub(1),
+                    );
                 }
                 EditorSection::Payees if !editor.payees.is_empty() => {
-                    editor.payee_cursor = editor
-                        .payee_cursor
-                        .saturating_add(1)
-                        .min(editor.payees.len().saturating_sub(1));
+                    editor.payee_cursor = editor.payee_cursor.saturating_add(1).min(
+                        editor
+                            .payees
+                            .iter()
+                            .filter(|row| editor.show_archived || !row.user.archived)
+                            .count()
+                            .saturating_sub(1),
+                    );
                 }
                 _ => {}
             },
@@ -378,24 +397,36 @@ async fn handle_editor_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
                 EditorSection::Amount => {}
                 EditorSection::Payers => match c {
                     'j' if !editor.payers.is_empty() => {
-                        editor.payer_cursor = editor
-                            .payer_cursor
-                            .saturating_add(1)
-                            .min(editor.payers.len().saturating_sub(1));
+                        editor.payer_cursor = editor.payer_cursor.saturating_add(1).min(
+                            editor
+                                .payers
+                                .iter()
+                                .filter(|row| editor.show_archived || !row.user.archived)
+                                .count()
+                                .saturating_sub(1),
+                        );
                     }
                     'k' => {
                         editor.payer_cursor = editor.payer_cursor.saturating_sub(1);
                     }
                     ' ' => {
                         let cur = editor.payer_cursor;
-                        if let Some(row) = editor.payers.get_mut(cur) {
+                        if let Some(row) = editor
+                            .payers
+                            .get_mut(cur)
+                            .filter(|row| editor.show_archived || !row.user.archived)
+                        {
                             row.selected = !row.selected;
                         }
                     }
                     c if c.is_ascii_digit() => {
                         let digit = c.to_digit(10).unwrap_or(1).max(1);
                         let cur = editor.payer_cursor;
-                        if let Some(row) = editor.payers.get_mut(cur) {
+                        if let Some(row) = editor
+                            .payers
+                            .get_mut(cur)
+                            .filter(|row| editor.show_archived || !row.user.archived)
+                        {
                             row.weight = digit;
                         }
                     }
@@ -403,24 +434,36 @@ async fn handle_editor_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
                 },
                 EditorSection::Payees => match c {
                     'j' if !editor.payees.is_empty() => {
-                        editor.payee_cursor = editor
-                            .payee_cursor
-                            .saturating_add(1)
-                            .min(editor.payees.len().saturating_sub(1));
+                        editor.payee_cursor = editor.payee_cursor.saturating_add(1).min(
+                            editor
+                                .payees
+                                .iter()
+                                .filter(|row| editor.show_archived || !row.user.archived)
+                                .count()
+                                .saturating_sub(1),
+                        );
                     }
                     'k' => {
                         editor.payee_cursor = editor.payee_cursor.saturating_sub(1);
                     }
                     ' ' => {
                         let cur = editor.payee_cursor;
-                        if let Some(row) = editor.payees.get_mut(cur) {
+                        if let Some(row) = editor
+                            .payees
+                            .get_mut(cur)
+                            .filter(|row| editor.show_archived || !row.user.archived)
+                        {
                             row.selected = !row.selected;
                         }
                     }
                     c if c.is_ascii_digit() => {
                         let digit = c.to_digit(10).unwrap_or(1).max(1);
                         let cur = editor.payee_cursor;
-                        if let Some(row) = editor.payees.get_mut(cur) {
+                        if let Some(row) = editor
+                            .payees
+                            .get_mut(cur)
+                            .filter(|row| editor.show_archived || !row.user.archived)
+                        {
                             row.weight = digit;
                         }
                     }
@@ -436,13 +479,21 @@ async fn handle_editor_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
                 }
                 EditorSection::Payers => {
                     let cur = editor.payer_cursor;
-                    if let Some(row) = editor.payers.get_mut(cur) {
+                    if let Some(row) = editor
+                        .payers
+                        .get_mut(cur)
+                        .filter(|row| editor.show_archived || !row.user.archived)
+                    {
                         row.weight = 1;
                     }
                 }
                 EditorSection::Payees => {
                     let cur = editor.payee_cursor;
-                    if let Some(row) = editor.payees.get_mut(cur) {
+                    if let Some(row) = editor
+                        .payees
+                        .get_mut(cur)
+                        .filter(|row| editor.show_archived || !row.user.archived)
+                    {
                         row.weight = 1;
                     }
                 }
@@ -589,6 +640,16 @@ async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<Unb
             Err(e) => state.status_message = Some(format!("add user: {e}")),
         },
 
+        PopupAction::SetUserArchived {
+            ledger_id,
+            user_id,
+            archived,
+        } => match svc.set_user_archived(ledger_id, user_id, archived).await {
+            Ok(()) => {
+                refresh_users(svc, state).await;
+            }
+            Err(error) => state.status_message = Some(format!("archive user: {error}")),
+        },
         PopupAction::CreateUser { ledger_id, input } => {
             match svc.create_user(ledger_id, input).await {
                 Ok(_) => {
@@ -768,12 +829,13 @@ pub async fn refresh_settlement(svc: &Arc<UnbillConsole>, state: &mut AppState) 
 // Editor builder helpers
 // ---------------------------------------------------------------------------
 
-fn build_new_editor(ledger_id: LedgerId, users: Vec<User>) -> BillEditor {
+fn build_new_editor(ledger_id: LedgerId, mut users: Vec<User>) -> BillEditor {
+    users.sort_by_key(|user| user.archived);
     let payers = users
         .iter()
         .map(|u| ParticipantRow {
             user: u.clone(),
-            selected: true,
+            selected: !u.archived,
             weight: 1,
         })
         .collect();
@@ -781,7 +843,7 @@ fn build_new_editor(ledger_id: LedgerId, users: Vec<User>) -> BillEditor {
         .iter()
         .map(|u| ParticipantRow {
             user: u.clone(),
-            selected: true,
+            selected: !u.archived,
             weight: 1,
         })
         .collect();
@@ -795,12 +857,14 @@ fn build_new_editor(ledger_id: LedgerId, users: Vec<User>) -> BillEditor {
         payees,
         payer_cursor: 0,
         payee_cursor: 0,
+        show_archived: false,
         section: EditorSection::Description,
         error: None,
     }
 }
 
-fn build_amend_editor(ledger_id: LedgerId, bill: &Bill, users: Vec<User>) -> BillEditor {
+fn build_amend_editor(ledger_id: LedgerId, bill: &Bill, mut users: Vec<User>) -> BillEditor {
+    users.sort_by_key(|user| user.archived);
     let payer_ids: std::collections::HashSet<_> = bill.payers.iter().map(|s| s.user_id).collect();
     let payer_weights: std::collections::HashMap<_, _> =
         bill.payers.iter().map(|s| (s.user_id, s.shares)).collect();
@@ -841,6 +905,7 @@ fn build_amend_editor(ledger_id: LedgerId, bill: &Bill, users: Vec<User>) -> Bil
         payees,
         payer_cursor: 0,
         payee_cursor: 0,
+        show_archived: false,
         section: EditorSection::Description,
         error: None,
     }
@@ -873,7 +938,75 @@ pub(crate) fn parse_amount_cents(s: &str) -> Option<i64> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_amount_cents;
+    use super::*;
+    use unbill_console::model::UserId;
+
+    #[test]
+    fn editor_excludes_archived_defaults_but_keeps_amendment_participants() {
+        let archived_id = UserId::from_u128(1);
+        let active_id = UserId::from_u128(2);
+        let users = vec![
+            User {
+                user_id: archived_id,
+                display_name: "Alice".into(),
+                archived: true,
+                added_at: unbill_console::model::Timestamp::from_millis(0),
+            },
+            User {
+                user_id: active_id,
+                display_name: "Bob".into(),
+                archived: false,
+                added_at: unbill_console::model::Timestamp::from_millis(0),
+            },
+        ];
+        let new = build_new_editor(LedgerId::from_u128(1), users.clone());
+        assert!(!new.show_archived);
+        assert_eq!(
+            new.payers
+                .iter()
+                .filter(|row| row.selected)
+                .map(|row| row.user.user_id)
+                .collect::<Vec<_>>(),
+            vec![active_id]
+        );
+        assert_eq!(
+            new.payees
+                .iter()
+                .filter(|row| row.selected)
+                .map(|row| row.user.user_id)
+                .collect::<Vec<_>>(),
+            vec![active_id]
+        );
+        let bill = Bill {
+            id: BillId::from_u128(1),
+            amount_cents: 100,
+            description: "Dinner".into(),
+            payers: vec![Share {
+                user_id: archived_id,
+                shares: 2,
+            }],
+            payees: vec![Share {
+                user_id: archived_id,
+                shares: 3,
+            }],
+            prev: vec![],
+            created_at: unbill_console::model::Timestamp::from_millis(0),
+            created_by_device: unbill_console::model::NodeId::from_seed(1),
+        };
+        let amended = build_amend_editor(LedgerId::from_u128(1), &bill, users);
+        assert!(
+            amended
+                .payers
+                .iter()
+                .any(|row| row.user.archived && row.selected && row.weight == 2)
+        );
+        assert!(
+            amended
+                .payees
+                .iter()
+                .any(|row| row.user.archived && row.selected && row.weight == 3)
+        );
+    }
 
     #[test]
     fn amount_parsing_handles_cent_boundaries() {

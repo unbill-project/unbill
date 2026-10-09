@@ -25,7 +25,7 @@ using the same underlying ISO currency definitions.
 Callers propagate that error through the domain or storage error boundary.
 
 `LedgerDoc` wraps an Automerge document and provides typed read and write operations
-such as `add_bill`, `add_user`, `add_device`, `merge`, and sync helpers.
+such as `add_bill`, `add_user`, `set_user_archived`, `add_device`, `merge`, and sync helpers.
 
 Types that appear in Automerge documents implement `autosurgeon::Reconcile` and `Hydrate`.
 `InviteToken` is memory-only and is never synced across devices.

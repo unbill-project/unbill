@@ -122,6 +122,10 @@ impl LedgerDoc {
         ops::add_user(&mut self.doc, input, now)
     }
 
+    pub fn set_user_archived(&mut self, user_id: &crate::UserId, archived: bool) -> Result<()> {
+        ops::set_user_archived(&mut self.doc, user_id, archived)
+    }
+
     pub fn add_device(
         &mut self,
         input: NewDevice,
@@ -204,6 +208,33 @@ mod tests {
             Timestamp::from_millis(2000),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn archiving_is_shared_reversible_and_preserved_by_other_mutations() {
+        let mut doc = ledger();
+        add_user(&mut doc, 1);
+        assert!(!doc.list_users().unwrap().first().unwrap().archived);
+        let before = doc.state_hash();
+        let mut replica = LedgerDoc::from_bytes(&doc.save()).unwrap();
+        doc.set_user_archived(&UserId::from_u128(1), true).unwrap();
+        assert_ne!(before, doc.state_hash());
+        add_user(&mut doc, 2);
+        replica.merge(&mut doc).unwrap();
+        assert!(replica.list_users().unwrap().first().unwrap().archived);
+        let mut loaded = LedgerDoc::from_bytes(&replica.save()).unwrap();
+        assert!(loaded.list_users().unwrap().first().unwrap().archived);
+        let before = loaded.state_hash();
+        assert!(
+            loaded
+                .set_user_archived(&UserId::from_u128(99), true)
+                .is_err()
+        );
+        assert_eq!(before, loaded.state_hash());
+        loaded
+            .set_user_archived(&UserId::from_u128(1), false)
+            .unwrap();
+        assert!(!loaded.list_users().unwrap().first().unwrap().archived);
     }
 
     #[test]

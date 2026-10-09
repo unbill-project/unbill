@@ -79,6 +79,7 @@ pub struct SyncDevice {
 pub struct User {
     pub user_id: String,
     pub display_name: String,
+    pub archived: bool,
     pub added_at_ms: i64,
 }
 
@@ -174,6 +175,18 @@ pub async fn load_ledger_detail(ledger_id: &str) -> Result<LedgerDetail, String>
 
 pub async fn create_user(input: CreateUserInput) -> Result<User, String> {
     invoke("create_user", &serde_json::json!({ "input": input })).await
+}
+
+pub async fn set_user_archived(
+    ledger_id: &str,
+    user_id: &str,
+    archived: bool,
+) -> Result<(), String> {
+    invoke(
+        "set_user_archived",
+        &serde_json::json!({"ledgerId": ledger_id, "userId": user_id, "archived": archived}),
+    )
+    .await
 }
 
 pub async fn add_user(input: AddUserInput) -> Result<User, String> {

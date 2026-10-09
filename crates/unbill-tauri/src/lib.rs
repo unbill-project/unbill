@@ -72,6 +72,7 @@ struct TransactionDto {
 struct UserDto {
     user_id: String,
     display_name: String,
+    archived: bool,
     added_at_ms: i64,
 }
 
@@ -300,6 +301,22 @@ async fn create_user(
         .await
         .map(UserDto::from)
         .map_err(stringify_error)
+}
+
+#[tauri::command]
+async fn set_user_archived(
+    state: State<'_, AppState>,
+    ledger_id: String,
+    user_id: String,
+    archived: bool,
+) -> std::result::Result<(), String> {
+    let lid = LedgerId::from_string(&ledger_id).map_err(|e| e.to_string())?;
+    let uid = UserId::from_string(&user_id).map_err(|e| e.to_string())?;
+    state
+        .service
+        .set_user_archived(lid, uid, archived)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -824,6 +841,7 @@ impl From<unbill_console::model::User> for UserDto {
         Self {
             user_id: value.user_id.to_string(),
             display_name: value.display_name,
+            archived: value.archived,
             added_at_ms: value.added_at.as_millis(),
         }
     }
@@ -945,6 +963,7 @@ pub fn run() {
             load_ledger_detail,
             create_user,
             add_user,
+            set_user_archived,
             create_invitation,
             join_ledger,
             save_bill,

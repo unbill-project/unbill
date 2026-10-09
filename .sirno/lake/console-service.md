@@ -81,3 +81,7 @@ They do not receive direct persistence or raw Automerge handles.
 `set_device_label` requires a ledger ID, NodeId, and validated `DeviceLabel`.
 It updates that ledger document, syncs it back, and preserves the document cache
 on a missing-device error. Device listings return their shared names directly.
+
+`set_user_archived` changes an existing user in a ledger document, syncs it,
+updates ledger metadata, and emits LedgerUpdated. Missing-user errors preserve
+the document cache. Ledger queries include both active and archived users.

@@ -140,3 +140,8 @@ Component rendering is covered by consuming frontend crates.
 `LedgerFingerprint` displays the backend-provided six-emoji string and
 a copy callback. It wraps at symbol boundaries, preserving combined emoji
 sequences, and explains matching ledger state without computing any hash.
+
+Bill editor users and draft rows carry the ledger archived flag. New drafts
+exclude archived users and select the first active payer. Archived choices are
+collapsed; expansion persists while editing share selection and weights.
+Amendment seeds preserve archived participants and original share weights.

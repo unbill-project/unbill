@@ -767,6 +767,17 @@ pub fn App() -> impl IntoView {
                     on_select_ledger=Callback::new(select_settings_ledger)
                     on_join_ledger=Callback::new(move |_| open_join_from_clipboard())
                     on_add_ledger_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddUser)))
+                    on_set_user_archived=Callback::new(move |(user_id, archived): (String, bool)| {
+                        if let Some(detail) = settings_ledger_detail.get() {
+                            let ledger_id = detail.summary.ledger_id;
+                            spawn_local(async move {
+                                match api::set_user_archived(&ledger_id, &user_id, archived).await {
+                                    Ok(()) => reload_bootstrap(),
+                                    Err(error) => toast.error(error),
+                                }
+                            });
+                        }
+                    })
                     on_sync_device=Callback::new(sync_device)
                     on_create_invitation=Callback::new(move |_| create_invitation())
                     on_copy_invitation=Callback::new(move |_| copy_invitation_url())
@@ -947,6 +958,7 @@ fn bill_editor_users(users: &[User]) -> Vec<BillEditorUser> {
         .map(|user| BillEditorUser {
             user_id: user.user_id.clone(),
             display_name: user.display_name.clone(),
+            archived: user.archived,
         })
         .collect()
 }

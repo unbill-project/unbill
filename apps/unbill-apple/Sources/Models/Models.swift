@@ -20,6 +20,7 @@ struct LedgerSummary: Identifiable, Hashable {
 struct User: Identifiable, Hashable {
     let userID: String
     let displayName: String
+    let archived: Bool
     let addedAtMs: Int64
 
     var id: String { userID }
