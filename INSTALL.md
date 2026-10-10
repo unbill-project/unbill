@@ -18,6 +18,8 @@ ______________________________________________________________________
 **Homebrew cask** (recommended):
 
 ```sh
+brew install unbill-project/tap/unbill-daemon
+brew services start unbill-project/tap/unbill-daemon
 brew install --cask unbill-project/tap/unbill
 ```
 
@@ -36,6 +38,8 @@ nix profile install github:unbill-project/unbill#unbill-tauri
 **Homebrew:**
 
 ```sh
+brew install unbill-project/tap/unbill-daemon
+brew services start unbill-project/tap/unbill-daemon
 brew install unbill-project/tap/unbill-cli
 brew install unbill-project/tap/unbill-tui
 ```
@@ -105,6 +109,8 @@ nix profile install github:unbill-project/unbill#unbill-tauri
 **Homebrew:**
 
 ```sh
+brew install unbill-project/tap/unbill-daemon
+brew services start unbill-project/tap/unbill-daemon
 brew install unbill-project/tap/unbill-cli
 brew install unbill-project/tap/unbill-tui
 ```
