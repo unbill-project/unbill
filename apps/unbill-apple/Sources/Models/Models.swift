@@ -2,7 +2,7 @@ import Foundation
 
 // Plain Swift value types mirroring the Rust DTOs projected by `UnbillConsole`
 // (see apps/unbill-ui-native/src/api.rs). These are intentionally UI-facing and
-// will map 1:1 to the eventual FFI-generated types behind `ConsoleClient`.
+// are mapped to the generated FFI types behind `ConsoleClient`.
 
 struct LedgerSummary: Identifiable, Hashable {
     let ledgerID: String
@@ -70,7 +70,18 @@ struct LedgerDetail: Hashable {
     let summary: LedgerSummary
     let emojiFingerprint: String
     let users: [User]
+    let devices: [SyncDevice]
     let bills: [Bill]
     let conflicts: [ConflictGroup]
     let settlement: [Transaction]
+}
+
+struct BillShareInput: Hashable {
+    let userID: String
+    let shares: UInt32
+}
+
+struct BillSplitPreview {
+    let payers: [String: Int64]
+    let payees: [String: Int64]
 }

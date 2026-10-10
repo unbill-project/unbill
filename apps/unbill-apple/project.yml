@@ -44,7 +44,10 @@ targets:
     info:
       path: Info.plist
       properties:
-        CFBundleDisplayName: unbill
+        CFBundleURLTypes:
+          - CFBundleURLName: computer.unbill.apple
+            CFBundleURLSchemes: [unbill]
+        CFBundleDisplayName: Unbill
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}

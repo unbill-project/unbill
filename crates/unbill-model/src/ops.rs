@@ -56,9 +56,9 @@ pub(super) fn add_bill(
     input: NewBill,
     created_by_device: NodeId,
     now: Timestamp,
+    bill_id: BillId,
 ) -> std::result::Result<BillId, AddBillOpError> {
     let ledger = get_ledger(doc).map_err(|e| AddBillOpError::Reconcile(e.to_string()))?;
-    let bill_id = BillId::new();
     let mut model = ledger_to_model(&ledger);
     v::try_add_bill(
         &mut model,
@@ -310,6 +310,7 @@ mod tests {
             simple_bill(alice, &[alice, bob], 3000),
             device(),
             ts(1),
+            BillId::new(),
         )
         .unwrap();
         let bills = list_bills(&doc).unwrap();
@@ -328,6 +329,7 @@ mod tests {
             simple_bill(stranger, &[alice], 1000),
             device(),
             ts(1),
+            BillId::new(),
         );
         assert!(
             matches!(
@@ -349,6 +351,7 @@ mod tests {
             simple_bill(alice, &[alice], 1000),
             device(),
             ts(1),
+            BillId::new(),
         )
         .unwrap();
         add_bill(
@@ -359,6 +362,7 @@ mod tests {
             },
             device(),
             ts(2),
+            BillId::new(),
         )
         .unwrap();
         let bills = list_bills(&doc).unwrap();

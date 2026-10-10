@@ -21,14 +21,8 @@ protocol ConsoleClient {
     // Add an already-known user (by id) to a ledger.
     @discardableResult
     func addUser(ledgerID: String, userID: String) async throws -> User
-    // Save a bill split equally among the given payer(s) and payee(s).
-    func saveBill(
-        ledgerID: String,
-        description: String,
-        amountCents: Int64,
-        payerUserIDs: [String],
-        payeeUserIDs: [String]
-    ) async throws
+    func previewBill(amountCents: Int64, payers: [BillShareInput], payees: [BillShareInput], previewID: String) async throws -> BillSplitPreview
+    func saveBill(ledgerID: String, description: String, amountCents: Int64, payers: [BillShareInput], payees: [BillShareInput], previousBillIDs: [String], billID: String) async throws
     // Resolve a conflict group: keep `selectedBillID`, supersede all `conflictingBillIDs`.
     func resolveConflict(
         ledgerID: String,

@@ -6,6 +6,7 @@ struct DevicesView: View {
     var onSynced: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @State private var loadGeneration = 0
     @State private var deviceID = ""
     @State private var peers: [SyncDevice] = []
     @State private var syncingNodeID: String?
@@ -86,10 +87,19 @@ struct DevicesView: View {
     }
 
     private func load() async {
+        loadGeneration += 1
+        let generation = loadGeneration
         do {
-            deviceID = try await console.deviceID()
-            peers = try await console.syncDevices()
+            let id = try await console.deviceID()
+            let devices = try await console.syncDevices()
+            guard generation == loadGeneration, !Task.isCancelled else { return }
+            deviceID = id
+            peers = devices
+            error = nil
         } catch {
+            guard generation == loadGeneration, !Task.isCancelled else { return }
+            peers = []
+            deviceID = ""
             self.error = error.localizedDescription
         }
     }

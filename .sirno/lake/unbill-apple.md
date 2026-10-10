@@ -57,6 +57,11 @@ The app is ad-hoc signed; Developer ID signing and notarization are not configur
 
 The screens follow the shared UI model adapted to Apple idioms.
 A `NavigationSplitView` shell shows a ledger list and, on selection, ledger detail with people, conflicts, bills, and settlement.
+Mac Catalyst uses three columns: ledgers, ledger content, and the bill editor.
+The ledger sidebar uses native split-view resizing with a requested width range
+of 180–360 points and a 240-point default; available window space may constrain it.
+New bills and amendments open inline in the third column; iOS presents the editor as a sheet.
+Changing ledgers clears the editor; saving refreshes ledger content and the ledger list.
 Wired flows: create ledger; add and import known people; add a bill with Rust-computed settlement; resolve amendment conflicts;
 create an invitation as a QR code; join by pasting or scanning a code; and a devices screen with manual per-peer sync.
 Live QR scanning uses VisionKit only on supported iOS hardware.
@@ -94,3 +99,30 @@ The workflow packages `Payload/unbill.app` as `unbill-apple-ios.ipa` in a
 Users sign the IPA themselves for sideloading. No signing secrets are required.
 
 The XcodeGen Info.plist version fields expand MARKETING_VERSION and CURRENT_PROJECT_VERSION, so release IPA metadata matches the workspace version.
+
+Apple's shared bill editor supports new bills and amendments, multiple payers,
+equal or custom positive integer weights on both sides, and live amounts from
+UnbillConsole's verified splitting algorithm through UniFFI.
+Explicit Equal shares / Custom shares segmented controls select each side's mode;
+custom weights use labeled, bordered numeric inputs and survive mode changes.
+UniFFI allocates a real bill ID when a draft opens; preview and save use that same ID,
+so displayed amounts match saved amounts. Amendments allocate a new ID rather than
+reusing the original bill ID. Amendments preserve archived
+participants and original weights. Decimal input rejects excess precision,
+nonpositive amounts, and overflow rather than truncating it.
+Bill rows show participants and timestamps with neutral text styling. On iOS,
+swiping left reveals an Edit action. Mac Catalyst bill rows are selectable across
+the whole row and show a large neutral trailing chevron that opens the third column;
+a context menu also opens the editor. Native `List(selection:)` tracks the open
+bill and provides the system selection highlight and keyboard selection. Closing
+the editor clears selection; people, conflicts, and settlement rows are not selectable.
+The editor omits explanatory save and amendment notices. Conflict choices show
+weights, timestamps, and ancestor summaries. Ledger Settings includes authorized
+peer devices and sync actions. Appearance supports system, light, and dark modes.
+
+Ledger lists and detail subscribe to service updates, refresh on foreground entry,
+and expose manual refresh/retry. Failed reloads clear prior data and display errors;
+request generations prevent older responses from overwriting newer results.
+The app registers the unbill URL scheme and opens invitation links in the join sheet.
+The sheet requires this joining device's ledger name. Startup errors offer retry.
+Apple CI runs Foundation-only amount boundary tests before building Rust and Swift.

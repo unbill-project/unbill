@@ -3,6 +3,7 @@ import SwiftUI
 // Join a ledger from an invitation: scan a QR code or paste the URL.
 struct JoinLedgerView: View {
     let console: ConsoleClient
+    var invitationURL: String = ""
     var onJoined: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -40,6 +41,9 @@ struct JoinLedgerView: View {
                 #endif
 
                 Section {
+                    PasteButton(payloadType: String.self) { values in
+                        if let pasted = values.first { url = pasted }
+                    }
                     TextField("unbill://join/…", text: $url, axis: .vertical)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -63,6 +67,8 @@ struct JoinLedgerView: View {
                     Section { Text(error).foregroundStyle(.red) }
                 }
             }
+            .onAppear { if url.isEmpty { url = invitationURL } }
+            .onChange(of: invitationURL) { _, incoming in url = incoming }
             .navigationTitle("Join Ledger")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

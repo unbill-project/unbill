@@ -21,7 +21,7 @@ fingerprint = "sha256:51dd3784166a4888e35be9e6c0ac693208110cfb5548b860594acd2222
 "core.refines" = ["device-console-split"]
 
 [entries.bill-amendment]
-fingerprint = "sha256:4de7271679676dedd3f34ec058b8f46a77cf89998d3ec0c71f78c5514cb8d8ee"
+fingerprint = "sha256:fc6dd6405f9ac50679e13f092c4831ad2dd5618d7794b9d08b1fde391bb2074c"
 "core.belongs" = ["unbill"]
 "core.refines" = [
     "data-model",
@@ -287,7 +287,7 @@ fingerprint = "sha256:9c3608de4f327ab9b4d8c08e87b1bb044b0ac9a6b5ba06e3baf6691046
 fingerprint = "sha256:4e55d4de86988da589d6b17d66d2e4c85e16b56d58a84ef34b76588b24a37c34"
 
 [entries.unbill-apple]
-fingerprint = "sha256:c9afdb5d80ad818454e8954e5997655de005ebeff3deeaabf944c67746c1f82d"
+fingerprint = "sha256:da51e7a0121ad7c7c6fdf1df8d852b94160ca824c63625eb2ca667d23b65ea0f"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -300,7 +300,7 @@ fingerprint = "sha256:25e93e5a775ac32a70f23c52954b7a18f1a403883fc187714491ebf798
 "core.refines" = ["device-console-split"]
 
 [entries.unbill-console]
-fingerprint = "sha256:452511c3ee19dc2e562d49a1095fdb8f8c45a03bdcf9da2f4739645df32ffd20"
+fingerprint = "sha256:15a56a5664939d0f90b42abb857b95bcd180efa45ab0ae75d4b3701c3615a878"
 "core.belongs" = ["workspace-layout"]
 "core.refines" = ["device-console-split"]
 
@@ -323,7 +323,7 @@ fingerprint = "sha256:23bf8421cd46fba5ee8f1b0c4995c7ee4a1579afea376b532d551c00de
 "core.refines" = ["sync-behavior"]
 
 [entries.unbill-model]
-fingerprint = "sha256:4323bdc74fb8439e16d507ba05326b55a7678486b4246dd2fd4f5df8f2921d50"
+fingerprint = "sha256:d9a36b05b39eca4d89e4a5b97da71d04a6cea7785d351767113ebd068d4a3736"
 "core.belongs" = ["workspace-layout"]
 "core.refines" = ["data-model"]
 

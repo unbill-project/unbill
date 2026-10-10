@@ -3,17 +3,21 @@ import SwiftUI
 struct LedgerListView: View {
     let console: ConsoleClient
     @Binding var selection: String?
+    var onJoin: () -> Void
 
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var loadGeneration = 0
+    @State private var loading = true
     @State private var ledgers: [LedgerSummary] = []
     @State private var loadError: String?
     @State private var showingNew = false
-    @State private var showingJoin = false
     @State private var showingDevices = false
 
     var body: some View {
         List(selection: $selection) {
             if let loadError {
-                Text(loadError).foregroundStyle(.secondary)
+                Text(loadError).foregroundStyle(.red)
+                Button("Retry") { Task { await load() } }
             }
             ForEach(ledgers) { ledger in
                 NavigationLink(value: ledger.id) {
@@ -29,9 +33,9 @@ struct LedgerListView: View {
                         showingNew = true
                     } label: {
                         Label("New Ledger", systemImage: "plus")
-                    }
+                    }.keyboardShortcut("n", modifiers: .command)
                     Button {
-                        showingJoin = true
+                        onJoin()
                     } label: {
                         Label("Join Ledger", systemImage: "qrcode.viewfinder")
                     }
@@ -49,16 +53,12 @@ struct LedgerListView: View {
         }
         .overlay {
             if ledgers.isEmpty && loadError == nil {
-                ContentUnavailableView("No Ledgers", systemImage: "tray")
+                if loading { ProgressView() }
+                else { ContentUnavailableView("No Ledgers", systemImage: "tray") }
             }
         }
         .sheet(isPresented: $showingNew) {
             NewLedgerView(console: console) { _ in
-                Task { await load() }
-            }
-        }
-        .sheet(isPresented: $showingJoin) {
-            JoinLedgerView(console: console) {
                 Task { await load() }
             }
         }
@@ -67,15 +67,35 @@ struct LedgerListView: View {
                 Task { await load() }
             }
         }
-        .task { await load() }
+        .refreshable { await load() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await load() } }
+        }
+        .task {
+            let updates = await console.ledgerUpdates()
+            await load()
+            for await _ in updates {
+                if Task.isCancelled { break }
+                await load()
+            }
+        }
     }
 
     private func load() async {
+        loadGeneration += 1
+        let generation = loadGeneration
+        loading = true
         do {
-            ledgers = try await console.ledgers()
+            let loaded = try await console.ledgers()
+            guard generation == loadGeneration, !Task.isCancelled else { return }
+            ledgers = loaded
             loadError = nil
+            loading = false
         } catch {
+            guard generation == loadGeneration, !Task.isCancelled else { return }
+            ledgers = []
             loadError = error.localizedDescription
+            loading = false
         }
     }
 }
@@ -92,10 +112,14 @@ private struct LedgerRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Text(ledger.userNames.joined(separator: ", "))
+            Text(ledger.userNames.prefix(3).joined(separator: ", ") + (ledger.userCount > 3 ? " +\(ledger.userCount - 3)" : ""))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+            if let timestamp = ledger.latestBillAtMs {
+                Text(Date(timeIntervalSince1970: Double(timestamp) / 1000), format: .dateTime.year().month().day().hour().minute())
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Label("\(ledger.userCount)", systemImage: "person.2")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
