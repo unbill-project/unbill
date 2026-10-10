@@ -79,7 +79,9 @@ Individual operations (list, load, save) and compound operations
 merge_and_save_ledger, persist_joined_ledger, collect_peers)
 are all public methods on `StoreServer`.
 Compound operations execute as single MPSC commands,
-preventing interleaving within that actor. SQLite additionally merges and persists each document atomically across processes.
+preventing interleaving within that actor. SQLite additionally merges and persists each document atomically across its internal connections.
+On desktop, opening a SQLite Store acquires the data-directory ownership lock;
+mobile targets skip that lock. The Store retains ownership while database operations finish.
 
 Invitations expire 24 hours after creation.
 The expiry calculation has a local Clippy arithmetic allowance based on the assumption

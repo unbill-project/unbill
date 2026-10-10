@@ -13,7 +13,8 @@ core.refines:
 It exposes that state to other processes on the same machine.
 
 The daemon opens `SqliteStore` at `unbill.sqlite3` in the configured data directory,
-using SQLite transactions and database locks without acquiring `unbill.lock`.
+acquiring the desktop data-directory lock through `SqliteStore::open`
+before creating its device service and RPC listener.
 Existing flat-file data is left untouched and is not automatically imported.
 It runs the Iroh endpoint accept loop for peer sync and join requests.
 It serves the local RPC socket so CLI, TUI, and other local clients can issue commands

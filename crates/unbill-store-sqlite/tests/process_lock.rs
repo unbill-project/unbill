@@ -1,42 +1,19 @@
-//! Real-process concurrency tests. Stdin/stdout barriers deliberately overlap reads and writes.
-use diesel::{connection::SimpleConnection, prelude::*};
+//! Cross-process directory ownership, including release after a crashed owner.
+#![cfg(not(any(
+    target_os = "android",
+    all(target_os = "ios", not(target_abi = "macabi"))
+)))]
 use std::{
     io::{BufRead, BufReader, Write},
     path::Path,
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
-    sync::Arc,
-    time::Duration,
 };
-use unbill_event::ServiceEvent;
-use unbill_model::{Currency, LedgerDoc, LedgerId, LedgerMeta, NewUser, NodeId, Timestamp, UserId};
-use unbill_storage::{LedgerStore, StoreServer};
+use unbill_model::StorageError;
+use unbill_storage::LedgerStore;
 use unbill_store_sqlite::SqliteStore;
 
-fn id() -> String {
-    LedgerId::from_u128(1).to_string()
-}
-fn document() -> LedgerDoc {
-    let mut doc = LedgerDoc::new(
-        LedgerId::from_u128(1),
-        "Shared".into(),
-        Currency::from_code("USD").unwrap(),
-        Timestamp::from_millis(1000),
-    )
-    .unwrap();
-    for name in ["1", "2", "shared-label"] {
-        doc.add_device(
-            unbill_model::NewDevice {
-                node_id: NodeId::new(name.into()),
-                label: unbill_model::DeviceLabel::new("Initial".into()).unwrap(),
-            },
-            Timestamp::from_millis(1000),
-        )
-        .unwrap();
-    }
-    doc
-}
 fn signal(message: &str) {
-    println!("MP:{message}");
+    println!("LOCK:{message}");
     std::io::stdout().flush().unwrap();
 }
 fn proceed() {
@@ -46,97 +23,35 @@ fn proceed() {
 
 #[tokio::test]
 async fn worker() {
-    let Ok(root) = std::env::var("UNBILL_MP_ROOT") else {
+    let Ok(root) = std::env::var("UNBILL_LOCK_TEST_ROOT") else {
         return;
     };
-    let action = std::env::var("UNBILL_MP_ACTION").unwrap();
-    let role = std::env::var("UNBILL_MP_ROLE").unwrap();
     signal("boot");
     proceed();
-    if action == "lock" {
-        let mut conn =
-            SqliteConnection::establish(Path::new(&root).join("unbill.sqlite3").to_str().unwrap())
-                .unwrap();
-        conn.batch_execute("BEGIN IMMEDIATE; INSERT INTO device_identity (id, secret_key) VALUES (1, zeroblob(32));").unwrap();
-        signal("locked");
+    if std::env::var("UNBILL_LOCK_TEST_ACTION").as_deref() == Ok("sql_writer") {
+        use diesel::{Connection, connection::SimpleConnection};
+        let mut connection = diesel::SqliteConnection::establish(
+            Path::new(&root).join("unbill.sqlite3").to_str().unwrap(),
+        )
+        .unwrap();
+        connection.batch_execute("BEGIN IMMEDIATE; INSERT INTO device_identity (id, secret_key) VALUES (1, zeroblob(32));").unwrap();
+        signal("sql_locked");
         proceed();
-        conn.batch_execute("ROLLBACK;").unwrap();
-        signal("done");
+        connection.batch_execute("ROLLBACK;").unwrap();
         return;
     }
-    let store = SqliteStore::open(root.into()).await.unwrap();
-    if action == "init" {
-        store.create_secret_key().await.unwrap();
-        signal(&format!("id:{}", store.get_device_id().await.unwrap()));
-        return;
-    }
-    let mut doc = if action == "merge" {
-        Some(store.load_ledger(&id()).await.unwrap().unwrap())
-    } else {
-        None
-    };
-    signal("ready");
-    proceed();
-    match action.as_str() {
-        "merge" => {
-            let doc = doc.as_mut().unwrap();
-            doc.add_user(
-                NewUser {
-                    user_id: UserId::from_u128(role.parse().unwrap()),
-                    display_name: role.clone(),
-                },
-                Timestamp::from_millis(2000),
-            )
-            .unwrap();
-            doc.set_device_label(
-                &NodeId::new(role.clone()),
-                unbill_model::DeviceLabel::new(role.clone()).unwrap(),
-            )
-            .unwrap();
-            doc.set_device_label(
-                &NodeId::new("shared-label".into()),
-                unbill_model::DeviceLabel::new(role.clone()).unwrap(),
-            )
-            .unwrap();
-            store.save_ledger(&id(), doc).await.unwrap();
-            assert!(
-                doc.list_users()
-                    .unwrap()
-                    .iter()
-                    .any(|user| user.display_name == role)
-            );
-            store
-                .save_ledger_meta(&LedgerMeta {
-                    ledger_id: LedgerId::from_u128(1),
-                    name: "Stale".into(),
-                    currency: Currency::from_code("EUR").unwrap(),
-                    created_at: Timestamp::from_millis(0),
-                    updated_at: Timestamp::from_millis(1),
-                })
-                .await
-                .unwrap();
-            signal("done");
-        }
-        "consume" => {
-            let invitation = store.consume_invitation(&role).await.unwrap();
-            signal(if invitation.is_some() { "some" } else { "none" });
-        }
-        "notify" => {
+    match SqliteStore::open(root.into()).await {
+        Ok(store) => {
             store.create_secret_key().await.unwrap();
-            let inv = store
-                .create_invitation(
-                    LedgerId::from_u128(1),
-                    &NodeId::new("host".into()),
-                    Timestamp::from_millis(1),
-                    Timestamp::from_millis(2),
-                )
-                .await
-                .unwrap();
-            store.consume_invitation(inv.token.as_str()).await.unwrap();
-            store.save_ledger(&id(), &mut document()).await.unwrap();
-            signal("done");
+            signal(&format!("owner:{}", store.get_device_id().await.unwrap()));
+            proceed();
+            drop(store);
+            signal("released");
         }
-        _ => panic!("unknown worker action"),
+        Err(StorageError::Io(error)) if error.kind() == std::io::ErrorKind::WouldBlock => {
+            signal("busy")
+        }
+        Err(error) => panic!("unexpected startup error: {error}"),
     }
 }
 
@@ -146,12 +61,14 @@ struct Process {
     output: BufReader<ChildStdout>,
 }
 impl Process {
-    fn spawn(root: &Path, action: &str, role: &str) -> Self {
+    fn spawn(root: &Path) -> Self {
+        Self::spawn_action(root, "owner")
+    }
+    fn spawn_action(root: &Path, action: &str) -> Self {
         let mut child = Command::new(std::env::current_exe().unwrap())
             .args(["--exact", "worker", "--nocapture"])
-            .env("UNBILL_MP_ROOT", root)
-            .env("UNBILL_MP_ACTION", action)
-            .env("UNBILL_MP_ROLE", role)
+            .env("UNBILL_LOCK_TEST_ROOT", root)
+            .env("UNBILL_LOCK_TEST_ACTION", action)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
@@ -178,7 +95,7 @@ impl Process {
                 self.output.read_line(&mut line).unwrap() > 0,
                 "worker exited before signalling"
             );
-            if let Some(value) = line.trim().strip_prefix("MP:") {
+            if let Some(value) = line.trim().strip_prefix("LOCK:") {
                 return value.to_owned();
             }
         }
@@ -194,158 +111,101 @@ impl Drop for Process {
     }
 }
 
-#[tokio::test]
-async fn simultaneous_first_open_and_identity_initialization() {
+#[test]
+fn simultaneous_startup_has_exactly_one_owner() {
     let dir = tempfile::tempdir().unwrap();
-    let mut a = Process::spawn(dir.path(), "init", "a");
-    let mut b = Process::spawn(dir.path(), "init", "b");
+    let mut a = Process::spawn(dir.path());
+    let mut b = Process::spawn(dir.path());
     a.go();
     b.go();
     let first = a.read();
     let second = b.read();
-    assert!(first.starts_with("id:"));
-    assert_eq!(first, second);
-    a.finish();
-    b.finish();
-    let store = SqliteStore::open(dir.path().into()).await.unwrap();
-    assert_eq!(
-        format!("id:{}", store.get_device_id().await.unwrap()),
-        first
-    );
-}
-
-#[tokio::test]
-async fn stale_documents_merge_and_metadata_never_reverts() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = SqliteStore::open(dir.path().into()).await.unwrap();
-    store.save_ledger(&id(), &mut document()).await.unwrap();
-    let before = store.list_ledgers().await.unwrap()[0].updated_at;
-    let mut a = Process::spawn(dir.path(), "merge", "1");
-    let mut b = Process::spawn(dir.path(), "merge", "2");
-    a.go();
-    b.go();
-    assert_eq!(a.read(), "ready");
-    assert_eq!(b.read(), "ready");
-    a.go();
-    assert_eq!(a.read(), "done");
-    a.finish();
-    b.go();
-    assert_eq!(b.read(), "done");
-    b.finish();
-    let users = store
-        .load_ledger(&id())
-        .await
-        .unwrap()
-        .unwrap()
-        .list_users()
-        .unwrap();
-    assert_eq!(users.len(), 2);
-    let meta = &store.list_ledgers().await.unwrap()[0];
-    assert_eq!(meta.name, "Shared");
-    assert_eq!(meta.currency.code(), "USD");
-    assert_eq!(meta.created_at.as_millis(), 1000);
-    assert!(meta.updated_at >= before);
-    let labels = store
-        .load_ledger(&id())
-        .await
-        .unwrap()
-        .unwrap()
-        .list_devices()
-        .unwrap()
-        .into_iter()
-        .map(|d| (d.node_id.to_string(), d.label.to_string()))
-        .collect::<std::collections::HashMap<_, _>>();
-    assert_eq!(labels["1"], "1");
-    assert_eq!(labels["2"], "2");
-    assert!(["1", "2"].contains(&labels["shared-label"].as_str()));
-}
-
-#[tokio::test]
-async fn only_one_process_consumes_an_invitation() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = SqliteStore::open(dir.path().into()).await.unwrap();
-    let inv = store
-        .create_invitation(
-            LedgerId::from_u128(1),
-            &NodeId::new("host".into()),
-            Timestamp::from_millis(1),
-            Timestamp::from_millis(2),
+    let (owner, loser, identity) = if let Some(identity) = first.strip_prefix("owner:") {
+        assert_eq!(second, "busy");
+        (&mut a, &mut b, identity.to_owned())
+    } else {
+        assert_eq!(first, "busy");
+        (
+            &mut b,
+            &mut a,
+            second.strip_prefix("owner:").unwrap().to_owned(),
         )
-        .await
-        .unwrap();
-    let mut a = Process::spawn(dir.path(), "consume", inv.token.as_str());
-    let mut b = Process::spawn(dir.path(), "consume", inv.token.as_str());
-    a.go();
-    b.go();
-    assert_eq!(a.read(), "ready");
-    assert_eq!(b.read(), "ready");
-    a.go();
-    b.go();
-    let mut results = [a.read(), b.read()];
-    results.sort();
-    assert_eq!(results, ["none", "some"]);
-    a.finish();
-    b.finish();
-    assert!(store.list_pending_invitations().await.unwrap().is_empty());
+    };
+    loser.finish();
+    owner.go();
+    assert_eq!(owner.read(), "released");
+    owner.finish();
+    let mut next = Process::spawn(dir.path());
+    next.go();
+    assert_eq!(next.read(), format!("owner:{identity}"));
+    next.go();
+    assert_eq!(next.read(), "released");
+    next.finish();
+}
+
+#[test]
+fn crashed_owner_releases_lock_without_deleting_lock_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut owner = Process::spawn(dir.path());
+    owner.go();
+    let identity = owner.read();
+    assert!(identity.starts_with("owner:"));
+    let mut contender = Process::spawn(dir.path());
+    contender.go();
+    assert_eq!(contender.read(), "busy");
+    contender.finish();
+    owner.child.kill().unwrap();
+    owner.child.wait().unwrap();
+    assert!(dir.path().join("unbill.lock").exists());
+    let mut next = Process::spawn(dir.path());
+    next.go();
+    assert_eq!(next.read(), identity);
+    next.go();
+    assert_eq!(next.read(), "released");
+    next.finish();
 }
 
 #[tokio::test]
-async fn other_process_commits_notify_every_record_type() {
+async fn sqlite_writer_timeout_preserves_state_and_crashed_transaction_rolls_back() {
+    use unbill_model::{Currency, LedgerDoc, LedgerId, NewUser, Timestamp, UserId};
     let dir = tempfile::tempdir().unwrap();
     let store = SqliteStore::open(dir.path().into()).await.unwrap();
-    let mut events = store.subscribe();
-    let mut process = Process::spawn(dir.path(), "notify", "");
-    process.go();
-    assert_eq!(process.read(), "ready");
-    process.go();
-    assert_eq!(process.read(), "done");
-    process.finish();
-    let mut seen = [false; 3];
-    tokio::time::timeout(Duration::from_secs(5), async {
-        while seen.contains(&false) {
-            match events.recv().await.unwrap() {
-                ServiceEvent::LedgerUpdated { ledger_id } => {
-                    assert!(store.load_ledger(&ledger_id).await.unwrap().is_some());
-                    seen[0] = true;
-                }
-                ServiceEvent::DeviceIdentityInitialized => seen[1] = true,
-                ServiceEvent::PendingInvitationsUpdated => seen[2] = true,
-                _ => {}
-            }
-        }
-    })
-    .await
-    .expect("missing cross-process event");
-}
-
-#[tokio::test]
-async fn timeout_preserves_caller_and_crashed_writer_rolls_back() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = Arc::new(SqliteStore::open(dir.path().into()).await.unwrap());
-    store.save_ledger(&id(), &mut document()).await.unwrap();
-    let mut process = Process::spawn(dir.path(), "lock", "");
-    process.go();
-    assert_eq!(process.read(), "locked");
-    // An uncommitted trigger update must not notify other readers.
-    let mut events = store.subscribe();
-    while events.try_recv().is_ok() {}
-    let server = StoreServer::spawn(store.clone());
-    let mut doc = store.load_ledger(&id()).await.unwrap().unwrap();
-    doc.add_user(
-        NewUser {
-            user_id: UserId::from_u128(3),
-            display_name: "unsaved".into(),
-        },
-        Timestamp::from_millis(2000),
+    let id = LedgerId::from_u128(1);
+    let mut document = LedgerDoc::new(
+        id,
+        "Shared".into(),
+        Currency::from_code("USD").unwrap(),
+        Timestamp::from_millis(1000),
     )
     .unwrap();
+    store
+        .save_ledger(&id.to_string(), &mut document)
+        .await
+        .unwrap();
+    let mut writer = Process::spawn_action(dir.path(), "sql_writer");
+    writer.go();
+    assert_eq!(writer.read(), "sql_locked");
+    document
+        .add_user(
+            NewUser {
+                user_id: UserId::from_u128(1),
+                display_name: "Alice".into(),
+            },
+            Timestamp::from_millis(2000),
+        )
+        .unwrap();
     let started = std::time::Instant::now();
-    assert!(server.save_ledger(&id(), &mut doc).await.is_err());
-    assert!(started.elapsed() >= Duration::from_secs(4));
-    assert_eq!(doc.list_users().unwrap().len(), 1);
     assert!(
         store
-            .load_ledger(&id())
+            .save_ledger(&id.to_string(), &mut document)
+            .await
+            .is_err()
+    );
+    assert!(started.elapsed() >= std::time::Duration::from_secs(4));
+    assert_eq!(document.list_users().unwrap().len(), 1);
+    assert!(
+        store
+            .load_ledger(&id.to_string())
             .await
             .unwrap()
             .unwrap()
@@ -353,28 +213,18 @@ async fn timeout_preserves_caller_and_crashed_writer_rolls_back() {
             .unwrap()
             .is_empty()
     );
-    while let Ok(event) = events.try_recv() {
-        assert!(!matches!(event, ServiceEvent::DeviceIdentityInitialized));
-    }
-    process.child.kill().unwrap();
-    let _ = process.child.wait();
+    writer.child.kill().unwrap();
+    writer.child.wait().unwrap();
     assert!(!store.is_device_initialized().await.unwrap());
-    server.save_ledger(&id(), &mut doc).await.unwrap();
-    assert_eq!(
-        store
-            .load_ledger(&id())
-            .await
-            .unwrap()
-            .unwrap()
-            .list_users()
-            .unwrap()
-            .len(),
-        1
-    );
+    store
+        .save_ledger(&id.to_string(), &mut document)
+        .await
+        .unwrap();
+    drop(store);
     let reopened = SqliteStore::open(dir.path().into()).await.unwrap();
     assert_eq!(
         reopened
-            .load_ledger(&id())
+            .load_ledger(&id.to_string())
             .await
             .unwrap()
             .unwrap()
@@ -383,46 +233,4 @@ async fn timeout_preserves_caller_and_crashed_writer_rolls_back() {
             .len(),
         1
     );
-}
-
-#[tokio::test]
-async fn overlapping_writers_preserve_both_documents_and_independent_labels() {
-    let dir = tempfile::tempdir().unwrap();
-    let store = SqliteStore::open(dir.path().into()).await.unwrap();
-    store.save_ledger(&id(), &mut document()).await.unwrap();
-    let mut a = Process::spawn(dir.path(), "merge", "1");
-    let mut b = Process::spawn(dir.path(), "merge", "2");
-    a.go();
-    b.go();
-    assert_eq!(a.read(), "ready");
-    assert_eq!(b.read(), "ready");
-    a.go();
-    b.go();
-    assert_eq!(a.read(), "done");
-    assert_eq!(b.read(), "done");
-    a.finish();
-    b.finish();
-    assert_eq!(
-        store
-            .load_ledger(&id())
-            .await
-            .unwrap()
-            .unwrap()
-            .list_users()
-            .unwrap()
-            .len(),
-        2
-    );
-    let labels = store
-        .load_ledger(&id())
-        .await
-        .unwrap()
-        .unwrap()
-        .list_devices()
-        .unwrap()
-        .into_iter()
-        .map(|d| (d.node_id.to_string(), d.label.to_string()))
-        .collect::<std::collections::HashMap<_, _>>();
-    assert_eq!(labels["1"], "1");
-    assert_eq!(labels["2"], "2");
 }

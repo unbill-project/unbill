@@ -1,4 +1,4 @@
-//! Multi-process SQLite storage. Opening a store does not import flat-file data.
+//! SQLite storage with exclusive desktop data-directory ownership. Opening a store does not import flat-file data.
 mod meta;
 mod notifications;
 mod schema;
@@ -32,6 +32,8 @@ fn serialization(error: impl std::fmt::Display) -> StorageError {
 // sirno:witness:sqlite-store:begin
 struct Database {
     connection: Mutex<SqliteConnection>,
+    // Blocking operations retain this owner even if their caller is cancelled.
+    _directory_lock: Option<std::fs::File>,
 }
 
 pub struct SqliteStore {
@@ -40,13 +42,38 @@ pub struct SqliteStore {
     watcher: tokio::task::JoinHandle<()>,
 }
 
+fn acquire_directory_lock(root: &std::path::Path) -> Result<Option<std::fs::File>> {
+    if cfg!(any(
+        target_os = "android",
+        all(target_os = "ios", not(target_abi = "macabi"))
+    )) {
+        return Ok(None);
+    }
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(root.join("unbill.lock"))?;
+    file.try_lock().map_err(|error| match error {
+        std::fs::TryLockError::WouldBlock => std::io::Error::new(
+            std::io::ErrorKind::WouldBlock,
+            format!("data directory is already in use: {}", root.display()),
+        ),
+        std::fs::TryLockError::Error(error) => error,
+    })?;
+    Ok(Some(file))
+}
+
 impl SqliteStore {
     /// Open `root/unbill.sqlite3`, applying embedded migrations.
-    /// Uses SQLite database locking without acquiring `unbill.lock`.
+    /// Acquires `root/unbill.lock` on desktop; Android and non-Catalyst iOS skip it.
+    /// A competing desktop owner returns an I/O WouldBlock error.
     pub async fn open(root: PathBuf) -> Result<Self> {
         let (database, observer, cursor) = tokio::task::spawn_blocking(move || {
             std::fs::create_dir_all(&root)?;
-            let path = std::fs::canonicalize(root)?.join("unbill.sqlite3");
+            let root = std::fs::canonicalize(root)?;
+            let directory_lock = acquire_directory_lock(&root)?;
+            let path = root.join("unbill.sqlite3");
             let path = path
                 .to_str()
                 .ok_or_else(|| io_error("database path is not UTF-8"))?;
@@ -62,6 +89,7 @@ impl SqliteStore {
             Ok::<_, StorageError>((
                 Arc::new(Database {
                     connection: Mutex::new(connection),
+                    _directory_lock: directory_lock,
                 }),
                 observer,
                 cursor,
@@ -421,4 +449,57 @@ fn stored(conn: &mut SqliteConnection, id: &str) -> Result<(Option<LedgerMeta>, 
         })
         .transpose()?;
     Ok((meta, doc))
+}
+
+#[cfg(all(
+    test,
+    not(any(
+        target_os = "android",
+        all(target_os = "ios", not(target_abi = "macabi"))
+    ))
+))]
+mod ownership_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn cancelled_caller_keeps_lock_until_blocking_operation_finishes() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Arc::new(SqliteStore::open(dir.path().into()).await.unwrap());
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (finish_tx, finish_rx) = std::sync::mpsc::channel();
+        let owner = Arc::clone(&store);
+        let task = tokio::spawn(async move {
+            owner
+                .run(move |_| {
+                    started_tx.send(()).unwrap();
+                    finish_rx.recv().unwrap();
+                    Ok(())
+                })
+                .await
+        });
+        started_rx.await.unwrap();
+        task.abort();
+        assert!(task.await.unwrap_err().is_cancelled());
+        drop(store);
+        let competing = SqliteStore::open(dir.path().into()).await;
+        assert!(
+            matches!(competing, Err(StorageError::Io(error)) if error.kind() == std::io::ErrorKind::WouldBlock)
+        );
+        finish_tx.send(()).unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                match SqliteStore::open(dir.path().into()).await {
+                    Ok(store) => break store,
+                    Err(StorageError::Io(error))
+                        if error.kind() == std::io::ErrorKind::WouldBlock =>
+                    {
+                        tokio::task::yield_now().await
+                    }
+                    Err(error) => panic!("unexpected reopen error: {error}"),
+                }
+            }
+        })
+        .await
+        .unwrap();
+    }
 }

@@ -15,10 +15,14 @@ actor RustConsoleClient: ConsoleClient {
     private let console: FfiConsole
 
     init() throws {
+        #if targetEnvironment(macCatalyst) || os(macOS)
+        console = try FfiConsole.open(dir: defaultDataDirectory())
+        #else
         let base = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = base.appendingPathComponent("unbill", isDirectory: true)
         console = try FfiConsole.open(dir: dir.path)
+        #endif
     }
 
     func supportedCurrencies() async -> [String] {

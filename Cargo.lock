@@ -8499,6 +8499,7 @@ dependencies = [
  "tokio",
  "unbill-asymmetric-channel",
  "unbill-console",
+ "unbill-storage",
  "unbill-store-sqlite",
  "uniffi",
 ]

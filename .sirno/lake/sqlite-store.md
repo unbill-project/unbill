@@ -1,5 +1,5 @@
 ---
-core.desc: The multi-process Diesel SQLite implementation of LedgerStore.
+core.desc: The Diesel SQLite implementation of LedgerStore with desktop directory ownership.
 core.name: SQLite Store
 core.category:
   - core.concept
@@ -10,12 +10,20 @@ core.refines:
   - unbill-storage
 ---
 
-The `unbill-store-sqlite` crate provides `SqliteStore::open(root)` for concurrent processes on one machine.
-Data lives in `root/unbill.sqlite3`. SQLite never creates or acquires `root/unbill.lock`;
-concurrent access is coordinated entirely by SQLite database locks and transactions. All local application hosts use SQLite: the daemon, HTTP server, Apple bridge, and mobile Tauri.
-CLI, TUI, desktop Tauri, and browser clients access their host through existing RPC or HTTP channels.
-Each host keeps its existing data-directory choice. Flat-file data is not automatically imported.
-Use matching application versions and stop writers before schema upgrades; network identity ownership and UI wiring are separate work.
+`SqliteStore::open(root)` acquires an exclusive nonblocking `root/unbill.lock`
+before opening SQLite on desktop, including Mac Catalyst. A competing Store
+returns an I/O WouldBlock error. The lock handle lives with the shared database
+so outstanding blocking operations retain ownership after the Store is dropped.
+Failed startup releases the lock; normal exit and process crashes release it too.
+The lock file is retained rather than unlinked. Android and non-Catalyst iOS
+skip the file lock and use in-process device services.
+
+Data lives in `root/unbill.sqlite3`. One Store owns multiple SQLite connections
+for operations and revision observation. SQLite transactions still coordinate
+those connections, and document saves merge the latest persisted snapshot.
+Desktop CLI, TUI, Tauri, and Apple connect to the daemon through RPC.
+The HTTP server owns its own locked data directory; browsers connect via HTTP.
+Flat-file data is not automatically imported.
 
 Connections use WAL, synchronous FULL, and a five-second busy timeout. Migration discovery and execution
 run in one immediate transaction. Initial WAL-mode contention is retried for up to five seconds.
@@ -40,5 +48,5 @@ A dedicated connection polls every 500 ms, reading revisions in one snapshot. Th
 successful processing. Remote notifications may coalesce; duplicates are allowed. Local notifications follow commits.
 The watcher stops when its store closes. Revision storage is bounded by ledger count and has no generic metadata fallback.
 
-Tests use synchronized child processes for concurrent startup, merges, metadata, identity, ledger device-name conflicts,
-invitation consumption, notifications, lock timeouts, writer crashes, and reopening durable data.
+Tests cover desktop exclusion, competing process startup, crash release, failed startup,
+outstanding-operation lock lifetime, stale-document merges, notifications, and durable reopening.

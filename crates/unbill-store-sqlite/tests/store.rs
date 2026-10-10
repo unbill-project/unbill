@@ -140,36 +140,32 @@ async fn save_emits_event_after_persistence() {
     assert!(store.load_ledger(&id).await.unwrap().is_some());
 }
 
+#[cfg(not(any(
+    target_os = "android",
+    all(target_os = "ios", not(target_abi = "macabi"))
+)))]
 #[tokio::test]
-async fn sqlite_does_not_create_or_acquire_the_directory_lock() {
+async fn directory_has_one_owner_and_can_reopen_after_drop() {
     let dir = tempfile::tempdir().unwrap();
     let first = SqliteStore::open(dir.path().into()).await.unwrap();
-    assert!(!dir.path().join("unbill.lock").exists());
-    let lock = std::fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .open(dir.path().join("unbill.lock"))
-        .unwrap();
-    lock.try_lock().unwrap();
-    let second = SqliteStore::open(dir.path().into()).await.unwrap();
+    assert!(dir.path().join("unbill.lock").exists());
+    let error = match SqliteStore::open(dir.path().into()).await {
+        Err(error) => error,
+        Ok(_) => panic!("second store must not acquire an owned directory"),
+    };
+    assert!(
+        matches!(error, unbill_model::StorageError::Io(ref error) if error.kind() == std::io::ErrorKind::WouldBlock)
+    );
     first
         .save_ledger(&meta("Test").ledger_id.to_string(), &mut doc("Test"))
         .await
         .unwrap();
-    assert_eq!(second.list_ledgers().await.unwrap()[0].name, "Test");
-    drop(second);
     drop(first);
-    // SQLite did not release the unrelated file's exclusive lock.
-    let competing_lock = std::fs::OpenOptions::new()
-        .write(true)
-        .open(dir.path().join("unbill.lock"))
-        .unwrap();
-    assert!(matches!(
-        competing_lock.try_lock(),
-        Err(std::fs::TryLockError::WouldBlock)
-    ));
-    drop(lock);
+    let reopened = SqliteStore::open(dir.path().into()).await.unwrap();
+    assert_eq!(
+        reopened.list_ledgers().await.unwrap().first().unwrap().name,
+        "Test"
+    );
 }
 
 #[tokio::test]
@@ -257,4 +253,50 @@ async fn actor_forwarding_survives_no_listeners_and_recovers_lag() {
     })
     .await
     .unwrap();
+}
+
+#[tokio::test]
+async fn stale_document_saves_merge_inside_one_store() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = SqliteStore::open(dir.path().into()).await.unwrap();
+    let id = meta("Shared").ledger_id.to_string();
+    store.save_ledger(&id, &mut doc("Shared")).await.unwrap();
+    let mut left = store.load_ledger(&id).await.unwrap().unwrap();
+    let mut right = store.load_ledger(&id).await.unwrap().unwrap();
+    for (document, number) in [(&mut left, 1), (&mut right, 2)] {
+        document
+            .add_user(
+                unbill_model::NewUser {
+                    user_id: unbill_model::UserId::from_u128(number),
+                    display_name: number.to_string(),
+                },
+                Timestamp::from_millis(2000),
+            )
+            .unwrap();
+    }
+    let (left_result, right_result) = tokio::join!(
+        store.save_ledger(&id, &mut left),
+        store.save_ledger(&id, &mut right)
+    );
+    left_result.unwrap();
+    right_result.unwrap();
+    let users = store
+        .load_ledger(&id)
+        .await
+        .unwrap()
+        .unwrap()
+        .list_users()
+        .unwrap();
+    assert_eq!(users.len(), 2);
+}
+
+#[tokio::test]
+async fn failed_open_releases_directory_ownership() {
+    let dir = tempfile::tempdir().unwrap();
+    let database = dir.path().join("unbill.sqlite3");
+    std::fs::write(&database, b"invalid database").unwrap();
+    assert!(SqliteStore::open(dir.path().into()).await.is_err());
+    std::fs::remove_file(database).unwrap();
+    let store = SqliteStore::open(dir.path().into()).await.unwrap();
+    store.create_secret_key().await.unwrap();
 }
