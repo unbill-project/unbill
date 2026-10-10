@@ -12,6 +12,7 @@ jobs:
     with:
       tag: ${{ github.ref_name }}
       build_apple_dmg: true
+      build_apple_ios: true
     permissions:
       contents: read
       packages: write

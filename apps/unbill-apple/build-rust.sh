@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Build the Rust core (unbill-ffi) into UnbillCore.xcframework + Swift bindings
 # for the SwiftUI app. Run from inside the devenv shell (needs the Apple Rust
-# targets added in devenv.nix). Spike scope: iOS Simulator + Mac Catalyst.
+# targets added in devenv.nix). Supports iOS device, Simulator, and Mac Catalyst.
 #
 #   devenv shell -- ./apps/unbill-apple/build-rust.sh
 #   ./apps/unbill-apple/build-rust.sh --catalyst-only
+#   ./apps/unbill-apple/build-rust.sh --ios-only
 #
 # Outputs (all git-ignored — regenerate with this script):
 #   Generated/UnbillCore.xcframework   static libs + headers, per slice
@@ -22,8 +23,10 @@ PROFILE="release"
 TARGETS=(aarch64-apple-ios aarch64-apple-ios-sim aarch64-apple-ios-macabi)
 if [[ $# -eq 1 && "$1" == "--catalyst-only" ]]; then
   TARGETS=(aarch64-apple-ios-macabi)
+elif [[ $# -eq 1 && "$1" == "--ios-only" ]]; then
+  TARGETS=(aarch64-apple-ios)
 elif [[ $# -ne 0 ]]; then
-  echo "Usage: $0 [--catalyst-only]" >&2
+  echo "Usage: $0 [--catalyst-only | --ios-only]" >&2
   exit 2
 fi
 

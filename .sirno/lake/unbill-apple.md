@@ -84,3 +84,13 @@ People offers Archive and Restore actions. Archived people and bill participant
 choices appear in collapsed disclosure groups; new bill defaults use active people.
 
 Application Settings displays client version and UTC build timestamp alongside the connected daemon or in-process service build, obtained through UniFFI, as a compact footer at the bottom.
+
+The Swift Apple iOS app is built unsigned by `build-apple-ios.yml` on macOS CI.
+Nightly and version releases enable `build_apple_ios`; manual builds can opt in.
+The Rust build script's `--ios-only` option builds the device slice and generates
+Swift bindings. Xcode builds Release for generic iOS with signing disabled.
+The workflow packages `Payload/unbill.app` as `unbill-apple-ios.ipa` in a
+`binaries-apple-ios-aarch64` artifact, collected by the GitHub release workflow.
+Users sign the IPA themselves for sideloading. No signing secrets are required.
+
+The XcodeGen Info.plist version fields expand MARKETING_VERSION and CURRENT_PROJECT_VERSION, so release IPA metadata matches the workspace version.

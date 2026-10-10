@@ -140,3 +140,11 @@ alongside CLI and TUI; nightly releases do not update the Homebrew tap.
 Homebrew CLI, TUI, and Apple App packages depend on the daemon formula.
 Installation does not start the service. Caveats explain that an existing
 Nix-managed daemon can be used instead of starting a second daemon.
+
+The Swift Apple iOS app is built unsigned by `build-apple-ios.yml` on macOS CI.
+Nightly and version releases enable `build_apple_ios`; manual builds can opt in.
+The Rust build script's `--ios-only` option builds the device slice and generates
+Swift bindings. Xcode builds Release for generic iOS with signing disabled.
+The workflow packages `Payload/unbill.app` as `unbill-apple-ios.ipa` in a
+`binaries-apple-ios-aarch64` artifact, collected by the GitHub release workflow.
+Users sign the IPA themselves for sideloading. No signing secrets are required.
