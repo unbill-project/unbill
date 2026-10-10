@@ -82,6 +82,38 @@ jobs:
             end
           end
           EOF
+          if [[ "$PKG" == "unbill-daemon" ]]; then
+            # Insert before the final class end; keep Ruby interpolation literal.
+            sed -i '$d' "Formula/${PKG}.rb"
+            cat >> "Formula/${PKG}.rb" << 'RUBY'
+            service do
+              run opt_bin/"unbill-daemon"
+              keep_alive true
+              log_path var/"log/unbill-daemon.log"
+              error_log_path var/"log/unbill-daemon.log"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/unbill-daemon --version")
+            end
+          end
+          RUBY
+          else
+            sed -i '$d' "Formula/${PKG}.rb"
+            cat >> "Formula/${PKG}.rb" << 'RUBY'
+            depends_on "unbill-project/tap/unbill-daemon"
+
+            def caveats
+              <<~EOS
+                A running unbill-daemon is required. If your daemon is already managed by
+                Nix or another installation, keep using it and do not start a second service.
+                Otherwise, start the Homebrew service with:
+                  brew services start unbill-daemon
+              EOS
+            end
+          end
+          RUBY
+          fi
 
       - name: Push formula to tap
         env:
@@ -133,7 +165,16 @@ jobs:
             desc "Split bills with friends — offline-first, peer-to-peer"
             homepage "https://github.com/${{ github.repository }}"
 
+            depends_on formula: "unbill-project/tap/unbill-daemon"
+
             app "Unbill.app"
+
+            caveats <<~EOS
+              A running unbill-daemon is required. If your daemon is already managed by
+              Nix or another installation, keep using it and do not start a second service.
+              Otherwise, start the Homebrew service with:
+                brew services start unbill-daemon
+            EOS
           end
           CASK
 

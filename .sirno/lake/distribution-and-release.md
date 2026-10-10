@@ -27,7 +27,7 @@ User-friendly installation includes:
   (CLI, TUI, daemon for Linux x86_64, macOS aarch64, Windows x86_64).
 - **Desktop app installers** per platform
   (.dmg for macOS, .deb/.rpm/.AppImage for Linux, .msi/.exe for Windows).
-- **Homebrew** formulas for CLI and TUI, plus a cask for the macOS desktop app.
+- **Homebrew** formulas for CLI, TUI, and daemon, plus a cask for the macOS desktop app.
 - **AUR** binary packages for Arch Linux (CLI, TUI, daemon, desktop app).
 - **Nix** flake packages via Cachix (CLI, TUI, daemon, desktop app).
 - **AltStore source** for iOS sideloading.
@@ -131,3 +131,12 @@ Current repository status:
 the Rust model, storage, console, device, channel crates,
 CLI, TUI, daemon, server, Tauri boundary,
 and Leptos native and remote frontends exist in the workspace.
+
+The Homebrew daemon formula supports a per-user `brew services start unbill-daemon`
+service, using the same default data directory as desktop clients. It does not
+start automatically on installation. Stable version releases update this formula
+alongside CLI and TUI; nightly releases do not update the Homebrew tap.
+
+Homebrew CLI, TUI, and Apple App packages depend on the daemon formula.
+Installation does not start the service. Caveats explain that an existing
+Nix-managed daemon can be used instead of starting a second daemon.
