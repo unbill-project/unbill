@@ -1,5 +1,5 @@
 {
-  "name": "unbill",
+  "name": "Unbill",
   "subtitle": "Offline-first bill splitting for small trusted groups.",
   "description": "Unbill keeps shared expense ledgers on member devices and syncs them peer-to-peer. There is no hosted source of truth, hosted account system, or telemetry surface. The app records who paid and who owes whom. It does not move money.",
   "iconURL": "https://raw.githubusercontent.com/unbill-project/unbill/main/crates/unbill-tauri/icons/icon.png",
@@ -11,9 +11,9 @@
   ],
   "apps": [
     {
-      "name": "unbill Apple",
+      "name": "Unbill",
       "bundleIdentifier": "computer.unbill.apple",
-      "developerName": "unbill contributors",
+      "developerName": "Unbill contributors",
       "subtitle": "Offline-first bill splitting for small trusted groups.",
       "localizedDescription": "Unbill keeps shared expense ledgers on member devices and syncs them peer-to-peer. There is no hosted source of truth, hosted account system, or telemetry surface. The app records who paid and who owes whom. It does not move money.\n\nUnbill is meant for households, trips, couples, and similar groups that already trust each other. The system stores data where that trust already lives: on the devices of the people who share the ledger.",
       "iconURL": "https://raw.githubusercontent.com/unbill-project/unbill/main/crates/unbill-tauri/icons/icon.png",
@@ -32,49 +32,9 @@
       "appPermissions": {
         "entitlements": [],
         "privacy": {
-          "NSCameraUsageDescription": "unbill uses the camera to scan invitation QR codes.",
-          "NSLocalNetworkUsageDescription": "unbill syncs your ledgers directly between your devices over the local network."
+          "NSCameraUsageDescription": "Unbill uses the camera to scan invitation QR codes.",
+          "NSLocalNetworkUsageDescription": "Unbill syncs your ledgers directly between your devices over the local network."
         }
-      }
-    },
-    {
-      "name": "unbill",
-      "bundleIdentifier": "computer.unbill",
-      "developerName": "unbill contributors",
-      "subtitle": "Offline-first bill splitting for small trusted groups.",
-      "localizedDescription": "Unbill keeps shared expense ledgers on member devices and syncs them peer-to-peer. There is no hosted source of truth, hosted account system, or telemetry surface. The app records who paid and who owes whom. It does not move money.\n\nUnbill is meant for households, trips, couples, and similar groups that already trust each other. The system stores data where that trust already lives: on the devices of the people who share the ledger.",
-      "iconURL": "https://raw.githubusercontent.com/unbill-project/unbill/main/crates/unbill-tauri/icons/icon.png",
-      "tintColor": "#0f766e",
-      "category": "utilities",
-      "versions": [
-        {
-          "version": "0.0.5",
-          "date": "2026-06-12",
-          "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.5/unbill-ios.ipa",
-          "localizedDescription": "Deep link support, Windows auto-updater, single-instance desktop, Android DNS fix.",
-          "size": 9878938,
-          "minOSVersion": "14.0"
-        },
-        {
-          "version": "0.0.4",
-          "date": "2026-06-08",
-          "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.4/unbill-ios.ipa",
-          "localizedDescription": "Formally verified settlement pipeline — 0 assumes, 96 verified properties.",
-          "size": 9878938,
-          "minOSVersion": "14.0"
-        },
-        {
-          "version": "0.0.3",
-          "date": "2026-05-18",
-          "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.3/unbill-ios.ipa",
-          "localizedDescription": "Initial AltStore release.",
-          "size": 9878938,
-          "minOSVersion": "14.0"
-        }
-      ],
-      "appPermissions": {
-        "entitlements": [],
-        "privacy": {}
       }
     }
   ],

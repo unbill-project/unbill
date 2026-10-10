@@ -18,12 +18,10 @@ The source is publicly accessible at the raw GitHub URL:
 https://raw.githubusercontent.com/unbill-project/unbill/main/altstore-source.json
 ```
 
-The source lists the native SwiftUI Apple app as `unbill Apple`, with bundle
-identifier `computer.unbill.apple`, and retains the legacy Tauri app
-`computer.unbill` with its historical releases. The native app is featured.
-Native release URLs pin `unbill-apple-ios.ipa` to a GitHub release tag; legacy
-versions retain their `unbill-ios.ipa` URLs. The apps have separate version
-histories because their bundle identifiers differ.
+The source and its single native SwiftUI Apple app are named `Unbill`.
+The app uses bundle identifier `computer.unbill.apple` and is featured.
+Release URLs pin `unbill-apple-ios.ipa` to a GitHub release tag.
+The legacy Tauri app and its historical versions are no longer listed.
 
 The source-level and app-level `tintColor` is `#0f766e`,
 derived from the `--bg-accent` CSS custom property used by the native UI.
@@ -39,7 +37,7 @@ bundle identifier, minimum iOS version, and privacy usage descriptions from the
 IPA, and use the actual download size and release date. Native version 0.0.6
 requires iOS 17.0 and declares camera and local-network usage. Its IPA is unsigned
 and has no embedded provisioning profile or signing entitlements.
-Keep previous versions and the legacy app entry for compatible older systems.
+Keep previous native app versions when adding subsequent releases.
 
 ## AltStore source format summary
 

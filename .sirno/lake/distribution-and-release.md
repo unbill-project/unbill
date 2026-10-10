@@ -126,8 +126,7 @@ Application version sources that must stay in sync on every release:
 
 After the IPA is published, update `altstore-source.json` from the actual asset,
 including its version, bundle identifier, pinned URL, minimum iOS version,
-permissions, release date, and exact size. Native Swift and legacy Tauri apps
-have separate source entries and version histories.
+permissions, release date, and exact size. The source lists only the native Swift Apple app as Unbill.
 
 AltStore verifies that the source JSON `version` exactly matches
 `CFBundleShortVersionString` in the IPA and refuses to install on mismatch.
