@@ -943,7 +943,11 @@ pub fn run() {
                     .path()
                     .app_data_dir()
                     .map_err(|e| std::io::Error::other(e.to_string()))?;
-                let store = Arc::new(SqliteStore::open(root).await?);
+                let store = Arc::new(
+                    SqliteStore::open(root)
+                        .await
+                        .map_err(std::io::Error::other)?,
+                );
                 let channel = LocalAsymChannel::open(
                     store,
                     unbill_build_info::BuildInfo::from(crate::compiled_build_info()),
