@@ -3,6 +3,8 @@ mod app;
 mod components;
 mod pages;
 
+build_info::build_info!(fn compiled_build_info);
+
 use crate::components::ToastProvider;
 use crate::components::{apply_theme, load_theme};
 use leptos::prelude::*;

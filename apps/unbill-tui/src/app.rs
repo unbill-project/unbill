@@ -698,6 +698,7 @@ async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<Unb
 // ---------------------------------------------------------------------------
 
 async fn open_settings_popup(tab: TopTab, state: &mut AppState, svc: &Arc<UnbillConsole>) {
+    let service_build = svc.service_build_info().await.ok();
     let device_id = svc.device_id().to_string();
     let all_users = match svc.list_all_users().await {
         Ok(u) => u,
@@ -712,14 +713,17 @@ async fn open_settings_popup(tab: TopTab, state: &mut AppState, svc: &Arc<Unbill
         let users = svc.list_users(ledger.ledger_id).await.unwrap_or_default();
         ledger_users_map.push(users);
     }
-    state.popup = Some(Box::new(SettingsPopup::new(
-        tab,
-        device_id,
-        all_users,
-        ledgers,
-        ledger_users_map,
-        state.ledger_cursor,
-    )));
+    state.popup = Some(Box::new(
+        SettingsPopup::new(
+            tab,
+            device_id,
+            all_users,
+            ledgers,
+            ledger_users_map,
+            state.ledger_cursor,
+        )
+        .with_service_build(service_build),
+    ));
     refresh_fingerprints(svc, state).await;
 }
 

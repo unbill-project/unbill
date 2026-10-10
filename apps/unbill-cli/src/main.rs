@@ -1,6 +1,8 @@
 // unbill-cli: command-line frontend for UnbillConsole.
 // All business logic lives in unbill-console; this file is pure dispatch + I/O.
 
+build_info::build_info!(fn compiled_build_info);
+
 use anyhow::bail;
 use clap::Parser;
 use unbill_asymmetric_channel::rpc::RpcAsymChannel;
@@ -15,7 +17,7 @@ mod output;
 // ---------------------------------------------------------------------------
 
 #[derive(Parser)]
-#[command(name = "unbill", about = "Peer-to-peer bill splitting.")]
+#[command(name = "unbill", about = "Peer-to-peer bill splitting.", version = build_info::format!("{} (built {})", $.crate_info.version, $.timestamp.format("%Y-%m-%dT%H:%M:%SZ")))]
 // sirno:witness:unbill-cli:begin
 pub struct Cli {
     /// Output results as JSON (useful for scripting and e2e tests).
@@ -308,4 +310,23 @@ async fn run() -> anyhow::Result<()> {
         Command::Settlement { user_id } => commands::settlement(&svc, &user_id, json).await,
     }
     // sirno:witness:unbill-cli:end
+}
+
+#[cfg(test)]
+mod build_info_tests {
+    use clap::{Parser, error::ErrorKind};
+
+    #[test]
+    fn version_is_available_without_a_daemon() {
+        let error = super::Cli::try_parse_from(["unbill", "--version"])
+            .err()
+            .unwrap();
+        assert_eq!(error.kind(), ErrorKind::DisplayVersion);
+        let output = error.to_string();
+        assert!(output.contains(env!("CARGO_PKG_VERSION")));
+        assert!(output.contains("built"));
+        assert!(output.contains(
+            &unbill_build_info::BuildInfo::from(super::compiled_build_info()).built_at_utc
+        ));
+    }
 }

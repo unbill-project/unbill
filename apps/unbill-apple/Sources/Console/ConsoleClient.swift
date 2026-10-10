@@ -4,6 +4,7 @@ import Foundation
 // Async to match the console's async orchestration API.
 // sirno:witness:unbill-apple:begin
 protocol ConsoleClient {
+    func serviceBuildInfo() async throws -> FfiBuildInfo
     func supportedCurrencies() async -> [String]
     func ledgers() async throws -> [LedgerSummary]
     func ledgerDetail(id: String) async throws -> LedgerDetail

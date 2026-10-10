@@ -1,4 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
+build_info::build_info!(fn compiled_build_info);
+
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
@@ -27,6 +29,9 @@ struct PendingDeepLinks(Mutex<Vec<String>>);
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AppBootstrapDto {
+    client_build: unbill_build_info::BuildInfo,
+    service_build: Option<unbill_build_info::BuildInfo>,
+    service_label: String,
     device_id: String,
     ledgers: Vec<LedgerSummaryDto>,
     all_users: Vec<UserDto>,
@@ -509,6 +514,14 @@ async fn bootstrap_app_inner(service: &Arc<UnbillConsole>) -> Result<AppBootstra
     let devices = load_sync_devices(service).await?;
 
     Ok(AppBootstrapDto {
+        client_build: unbill_build_info::BuildInfo::from(crate::compiled_build_info()),
+        service_build: service.service_build_info().await.ok(),
+        service_label: if cfg!(mobile) {
+            "In-process service"
+        } else {
+            "Daemon"
+        }
+        .to_owned(),
         device_id: service.device_id().to_string(),
         ledgers,
         all_users,
@@ -931,9 +944,12 @@ pub fn run() {
                     .app_data_dir()
                     .map_err(|e| std::io::Error::other(e.to_string()))?;
                 let store = Arc::new(SqliteStore::open(root).await?);
-                let channel = LocalAsymChannel::open(store)
-                    .await
-                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+                let channel = LocalAsymChannel::open(
+                    store,
+                    unbill_build_info::BuildInfo::from(crate::compiled_build_info()),
+                )
+                .await
+                .map_err(|e| std::io::Error::other(e.to_string()))?;
                 let accept = Arc::clone(&channel);
                 tauri::async_runtime::spawn(async move {
                     if let Err(e) = accept.accept_loop().await {
@@ -991,9 +1007,12 @@ mod tests {
     use unbill_store_memory::InMemoryStore;
 
     async fn open_console() -> Arc<UnbillConsole> {
-        let channel = LocalAsymChannel::open(Arc::new(InMemoryStore::default()))
-            .await
-            .unwrap();
+        let channel = LocalAsymChannel::open(
+            Arc::new(InMemoryStore::default()),
+            unbill_build_info::BuildInfo::from(crate::compiled_build_info()),
+        )
+        .await
+        .unwrap();
         UnbillConsole::open(channel as Arc<dyn AsymChannel>).await
     }
 

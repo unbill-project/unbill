@@ -63,3 +63,7 @@ The ledger devices command includes each device's shared label in text and JSON.
 
 Ledger-scoped user archive and restore commands change shared user metadata.
 User JSON includes archived, and text listings mark archived memberships.
+
+`--version` prints the CLI version and UTC build timestamp without connecting to
+the daemon. Device show displays independent client and daemon build information,
+including both records in JSON; unavailable daemon metadata is reported as unavailable.

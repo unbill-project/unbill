@@ -143,6 +143,11 @@ pub fn App() -> impl IntoView {
     // sirno:witness:unbill-ui-remote:begin
     let surface_mode = RwSignal::new(surface_mode_from_window());
     install_surface_mode_resize_listener(surface_mode);
+    let client_build = RwSignal::new(unbill_build_info::BuildInfo::from(
+        crate::compiled_build_info(),
+    ));
+    let service_build = RwSignal::new(None::<unbill_build_info::BuildInfo>);
+    let service_label = RwSignal::new("Service".to_owned());
     let device_id = RwSignal::new(String::new());
     let ledgers = RwSignal::new(Vec::<LedgerSummary>::new());
     let all_users = RwSignal::new(Vec::<User>::new());
@@ -205,6 +210,9 @@ pub fn App() -> impl IntoView {
         spawn_local(async move {
             match api::bootstrap_app().await {
                 Ok(mut data) => {
+                    client_build.set(data.client_build);
+                    service_build.set(data.service_build);
+                    service_label.set(data.service_label);
                     sort_ledgers(&mut data.ledgers);
                     let selected = selected_ledger_id.get_untracked();
                     let selection_exists = selected
@@ -710,6 +718,9 @@ pub fn App() -> impl IntoView {
         settings_popup.get().map(|popup| {
             view! {
                 <SettingsPopup
+                    client_build=client_build.get()
+                    service_build=service_build.get()
+                    service_label=service_label.get()
                     device_id=device_id.get()
                     ledgers=ledgers.get()
                     devices=devices.get()

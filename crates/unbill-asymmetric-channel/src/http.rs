@@ -121,6 +121,20 @@ impl AsymChannel for HttpAsymChannel {
         self.device_node_id.clone()
     }
 
+    async fn build_info(&self) -> Result<unbill_build_info::BuildInfo> {
+        self.client
+            .get(self.url("/build-info"))
+            .bearer_auth(&self.api_key)
+            .send()
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .error_for_status()
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .json()
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))
+    }
+
     async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String> {
         let resp = self
             .auth(
@@ -341,6 +355,26 @@ mod tests {
             // Dropping `stream` closes the connection → EOF for the client.
         });
         port
+    }
+
+    #[tokio::test]
+    async fn build_info_preserves_remote_version_and_timestamp() {
+        use crate::{AsymChannel, http::HttpAsymChannel};
+        let port = serve_sse_once(
+            r#"{"version":"remote-service","builtAtUtc":"2025-01-01T00:00:00Z"}"#.to_owned(),
+        )
+        .await;
+        let (events, _) = broadcast::channel(1);
+        let channel = HttpAsymChannel {
+            client: Client::new(),
+            base_url: format!("http://127.0.0.1:{port}"),
+            api_key: "test-token".to_owned(),
+            device_node_id: unbill_model::NodeId::new("1".repeat(64)),
+            events,
+        };
+        let info = channel.build_info().await.unwrap();
+        assert_eq!(info.version, "remote-service");
+        assert_eq!(info.built_at_utc, "2025-01-01T00:00:00Z");
     }
 
     #[tokio::test]

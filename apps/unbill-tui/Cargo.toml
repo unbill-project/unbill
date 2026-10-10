@@ -13,6 +13,8 @@ description = "Terminal UI for unbill."
 path = "src/main.rs"
 
 [dependencies]
+build-info.workspace = true
+unbill-build-info = { path = "../../crates/unbill-build-info" }
 unbill-console = { path = "../../crates/unbill-console" }
 unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["rpc"] }
 unbill-storage = { path = "../../crates/unbill-storage" }
@@ -23,3 +25,7 @@ anyhow = { workspace = true }
 tracing-subscriber = { workspace = true }
 futures = "0.3"
 base64 = "0.22"
+
+[build-dependencies]
+chrono.workspace = true
+build-info-build.workspace = true

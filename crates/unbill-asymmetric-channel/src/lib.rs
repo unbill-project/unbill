@@ -52,6 +52,9 @@ pub trait AsymChannel: MaybeSend + MaybeSync {
     /// Return the device's node ID.
     fn device_id(&self) -> NodeId;
 
+    /// Build information from the connected device service.
+    async fn build_info(&self) -> Result<unbill_build_info::BuildInfo>;
+
     // --- Control plane ---
 
     async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String>;

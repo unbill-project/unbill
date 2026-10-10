@@ -494,6 +494,10 @@ impl UnbillConsole {
     // Events and identity
     // -----------------------------------------------------------------------
 
+    pub async fn service_build_info(&self) -> Result<unbill_build_info::BuildInfo> {
+        self.channel.build_info().await
+    }
+
     pub fn device_id(&self) -> NodeId {
         self.channel.device_id()
     }
@@ -604,6 +608,12 @@ mod tests {
 
     #[async_trait::async_trait]
     impl AsymChannel for MockAsymChannel {
+        async fn build_info(&self) -> Result<unbill_build_info::BuildInfo> {
+            Ok(unbill_build_info::BuildInfo {
+                version: "test-service".to_owned(),
+                built_at_utc: "2026-10-09T21:45:00Z".to_owned(),
+            })
+        }
         fn device_id(&self) -> NodeId {
             self.device_id.clone()
         }
@@ -706,6 +716,15 @@ mod tests {
     }
 
     // --- create / list ledger ---
+
+    #[tokio::test]
+    async fn service_build_info_comes_from_the_connected_channel() {
+        let svc = open().await;
+        assert_eq!(
+            svc.service_build_info().await.unwrap().version,
+            "test-service"
+        );
+    }
 
     #[tokio::test]
     async fn test_create_ledger_appears_in_list() {

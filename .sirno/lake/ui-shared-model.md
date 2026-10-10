@@ -113,3 +113,7 @@ collapsed Archived section. Users can archive and restore ledger members.
 New bill defaults exclude archived users, including the default payer.
 Archived users remain available through explicit selection.
 Amending a bill preserves its existing participants, including archived users.
+
+Device Settings displays client version and UTC build timestamp separately from the connected daemon or server build. Service query failures show version information as unavailable.
+
+Version information appears as a compact footer at the bottom of settings, after the settings controls.

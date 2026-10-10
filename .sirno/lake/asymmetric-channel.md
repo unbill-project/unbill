@@ -43,3 +43,5 @@ It also runs an SSE task that connects to the events endpoint,
 parses `data:` lines as JSON events,
 ignores other SSE fields,
 and reconnects after drops.
+
+The identity surface also exposes service build information; RPC and HTTP return the connected service build, while Local returns the in-process build.

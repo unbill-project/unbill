@@ -71,6 +71,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/peers/{node_id}/sync", post(sync_with_peer))
         .route("/events", get(stream_events))
         .route("/device/id", get(get_device_id))
+        .route("/build-info", get(get_build_info))
         .layer(middleware::from_fn_with_state(state.clone(), auth))
         .with_state(state);
 
@@ -180,6 +181,12 @@ async fn sync_ledger(
         }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
+}
+
+async fn get_build_info() -> Json<unbill_build_info::BuildInfo> {
+    Json(unbill_build_info::BuildInfo::from(
+        crate::compiled_build_info(),
+    ))
 }
 
 async fn get_device_id(State(state): State<Arc<AppState>>) -> Response {
@@ -318,6 +325,32 @@ mod tests {
             .header("content-type", content_type)
             .body(Body::from(body))
             .unwrap()
+    }
+
+    #[tokio::test]
+    async fn build_info_returns_server_metadata_and_requires_auth() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = make_app(dir.path()).await;
+        let resp = app
+            .clone()
+            .oneshot(auth_get("/api/v1/build-info"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let info: unbill_build_info::BuildInfo =
+            serde_json::from_slice(&body_bytes(resp).await).unwrap();
+        assert_eq!(
+            info,
+            unbill_build_info::BuildInfo::from(crate::compiled_build_info())
+        );
+        let request = Request::builder()
+            .uri("/api/v1/build-info")
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(
+            app.oneshot(request).await.unwrap().status(),
+            StatusCode::UNAUTHORIZED
+        );
     }
 
     // --- auth ---------------------------------------------------------------

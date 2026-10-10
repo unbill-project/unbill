@@ -23,6 +23,10 @@ actor RustConsoleClient: ConsoleClient {
         #endif
     }
 
+    func serviceBuildInfo() async throws -> FfiBuildInfo {
+        try console.serviceBuildInfo()
+    }
+
     func supportedCurrencies() async -> [String] {
         supportedCurrencyCodes()
     }

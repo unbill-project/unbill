@@ -26,6 +26,9 @@ use wasm_bindgen::closure::Closure;
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppBootstrap {
+    pub client_build: unbill_build_info::BuildInfo,
+    pub service_build: Option<unbill_build_info::BuildInfo>,
+    pub service_label: String,
     pub device_id: String,
     pub ledgers: Vec<LedgerSummary>,
     pub all_users: Vec<User>,

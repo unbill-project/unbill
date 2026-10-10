@@ -53,6 +53,7 @@ The route surface is:
 `POST /ledgers/join`,
 `POST /peers/{node_id}/sync`,
 `GET /device/id`,
+`GET /build-info`,
 and `GET /events`.
 
 `POST /ledgers/{id}/sync` is the data-plane endpoint.
@@ -74,3 +75,5 @@ Other non-success statuses map to storage or channel errors on the client side.
 The label is the joining device's shared ledger name, not an alias for the host.
 `GET /device/id` returns the node ID as `text/plain`.
 SSE data fields carry `{"type": "LedgerUpdated", "ledger_id": "..."}`.
+
+`GET /build-info` returns the server version and UTC build timestamp as JSON behind the same bearer authentication.

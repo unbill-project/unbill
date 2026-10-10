@@ -1,4 +1,6 @@
 use std::sync::Arc;
+build_info::build_info!(fn compiled_build_info);
+
 use std::time::Duration;
 
 use anyhow::Result;
@@ -9,6 +11,13 @@ use unbill_store_sqlite::SqliteStore;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if std::env::args().any(|arg| arg == "--version" || arg == "-V") {
+        println!(
+            "unbill-daemon {}",
+            unbill_build_info::BuildInfo::from(crate::compiled_build_info())
+        );
+        return Ok(());
+    }
     // sirno:witness:unbill-daemon:begin
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -20,13 +29,22 @@ async fn main() -> Result<()> {
         .init();
     // sirno:witness:unbill-daemon:end
 
+    tracing::info!(
+        "unbill-daemon {}",
+        unbill_build_info::BuildInfo::from(crate::compiled_build_info())
+    );
+
     let sync_interval = parse_sync_interval();
 
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
     let socket = UNBILL_PATH.socket_path()?;
     // sirno:witness:unbill-daemon:begin
     let store = Arc::new(SqliteStore::open(data_dir).await?);
-    let channel = LocalAsymChannel::open(store).await?;
+    let channel = LocalAsymChannel::open(
+        store,
+        unbill_build_info::BuildInfo::from(crate::compiled_build_info()),
+    )
+    .await?;
 
     tracing::info!("unbill-daemon listening on {}", socket.display());
 
