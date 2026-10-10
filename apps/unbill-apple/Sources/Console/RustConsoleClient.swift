@@ -9,16 +9,18 @@ import Foundation
 // async UniFFI later removes the blocking entirely.
 //
 // Maps the aggregated FFI DTOs (bootstrap / ledger detail) to the app's models.
-// On first run it seeds one ledger with users and bills so the detail screen
-// shows real, Rust-computed settlement. Persisted to SQLite.
 actor RustConsoleClient: ConsoleClient {
     private let console: FfiConsole
 
     init() throws {
+        #if targetEnvironment(macCatalyst) || os(macOS)
+        console = try FfiConsole.open(dir: defaultDataDirectory())
+        #else
         let base = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = base.appendingPathComponent("unbill", isDirectory: true)
         console = try FfiConsole.open(dir: dir.path)
+        #endif
     }
 
     func supportedCurrencies() async -> [String] {
@@ -26,12 +28,7 @@ actor RustConsoleClient: ConsoleClient {
     }
 
     func ledgers() async throws -> [LedgerSummary] {
-        var boot = try console.bootstrap()
-        if boot.ledgers.isEmpty {
-            try seed()
-            boot = try console.bootstrap()
-        }
-        return boot.ledgers.map(Self.summary)
+        try console.bootstrap().ledgers.map(Self.summary)
     }
 
     @discardableResult
@@ -130,58 +127,6 @@ actor RustConsoleClient: ConsoleClient {
 
     func syncOnce(peerNodeID: String) async throws {
         try console.syncOnce(peerNodeId: peerNodeID)
-    }
-
-    // MARK: - Seed (first run only)
-
-    private func seed() throws {
-        // A shared trip with a real split, so settlement is non-trivial.
-        let trip = try console.createLedger(name: "Iceland Trip", currency: "USD")
-        let alice = try console.createUser(ledgerId: trip.ledgerId, displayName: "Alice")
-        let bob = try console.createUser(ledgerId: trip.ledgerId, displayName: "Bob")
-        let carol = try console.createUser(ledgerId: trip.ledgerId, displayName: "Carol")
-
-        // Alice paid $120 groceries, split three ways.
-        _ = try console.saveBill(
-            ledgerId: trip.ledgerId, amountCents: 12_000, description: "Groceries",
-            payers: [FfiShareInput(userId: alice.userId, shares: 1)],
-            payees: [alice, bob, carol].map { FfiShareInput(userId: $0.userId, shares: 1) },
-            prevBillIds: []
-        )
-        // Bob paid $66 gas, split between Alice and Bob.
-        _ = try console.saveBill(
-            ledgerId: trip.ledgerId, amountCents: 6_600, description: "Gas",
-            payers: [FfiShareInput(userId: bob.userId, shares: 1)],
-            payees: [alice, bob].map { FfiShareInput(userId: $0.userId, shares: 1) },
-            prevBillIds: []
-        )
-
-        // A second, empty ledger.
-        _ = try console.createLedger(name: "Flat 4B", currency: "EUR")
-
-        // A ledger with a conflict to resolve: two competing amendments of the
-        // same original bill (both supersede it, neither supersedes the other).
-        let split = try console.createLedger(name: "Split Disagreement", currency: "USD")
-        let dave = try console.createUser(ledgerId: split.ledgerId, displayName: "Dave")
-        let erin = try console.createUser(ledgerId: split.ledgerId, displayName: "Erin")
-        let dinner = try console.saveBill(
-            ledgerId: split.ledgerId, amountCents: 5_000, description: "Dinner",
-            payers: [FfiShareInput(userId: dave.userId, shares: 1)],
-            payees: [dave, erin].map { FfiShareInput(userId: $0.userId, shares: 1) },
-            prevBillIds: []
-        )
-        _ = try console.saveBill(
-            ledgerId: split.ledgerId, amountCents: 5_000, description: "Dinner — split evenly",
-            payers: [FfiShareInput(userId: dave.userId, shares: 1)],
-            payees: [dave, erin].map { FfiShareInput(userId: $0.userId, shares: 1) },
-            prevBillIds: [dinner]
-        )
-        _ = try console.saveBill(
-            ledgerId: split.ledgerId, amountCents: 5_000, description: "Dinner — Erin's treat",
-            payers: [FfiShareInput(userId: erin.userId, shares: 1)],
-            payees: [dave, erin].map { FfiShareInput(userId: $0.userId, shares: 1) },
-            prevBillIds: [dinner]
-        )
     }
 
     // MARK: - Mapping (nonisolated: pure value transforms)

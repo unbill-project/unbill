@@ -14,13 +14,32 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use unbill_asymmetric_channel::AsymChannel;
+#[cfg(any(
+    test,
+    any(
+        target_os = "android",
+        all(target_os = "ios", not(target_abi = "macabi"))
+    )
+))]
 use unbill_asymmetric_channel::local::LocalAsymChannel;
+#[cfg(not(any(
+    target_os = "android",
+    all(target_os = "ios", not(target_abi = "macabi"))
+)))]
+use unbill_asymmetric_channel::rpc::RpcAsymChannel;
 use unbill_console::event::ServiceEvent;
 use unbill_console::model::{
     Bill, BillId, Currency, EffectiveBills, LedgerId, LedgerMeta, NewBill, NewLedger, NewUser,
     NewUserName, NodeId, Share, User, UserId,
 };
 use unbill_console::service::{ConflictGroup, UnbillConsole};
+#[cfg(any(
+    test,
+    any(
+        target_os = "android",
+        all(target_os = "ios", not(target_abi = "macabi"))
+    )
+))]
 use unbill_store_sqlite::SqliteStore;
 
 uniffi::setup_scaffolding!();
@@ -33,6 +52,15 @@ pub fn supported_currency_codes() -> Vec<String> {
         .collect();
     codes.sort_unstable();
     codes
+}
+
+/// Shared desktop data-directory default, including UNBILL_DATA_DIR overrides.
+#[uniffi::export]
+pub fn default_data_directory() -> Result<String, FfiError> {
+    let root = unbill_storage::UNBILL_PATH.data_dir().map_err(err)?;
+    root.into_os_string()
+        .into_string()
+        .map_err(|_| err("data directory is not UTF-8"))
 }
 
 // ---------- Errors ----------
@@ -222,7 +250,8 @@ pub struct FfiConsole {
 
 #[uniffi::export]
 impl FfiConsole {
-    /// Open a colocated device+console rooted at `dir` (the app's data dir).
+    /// On desktop, connect to the daemon socket in `dir` (or UNBILL_SOCKET).
+    /// On mobile, open a colocated device+console rooted at `dir`.
     #[uniffi::constructor]
     pub fn open(dir: String) -> Result<Arc<Self>, FfiError> {
         let rt = tokio::runtime::Builder::new_multi_thread()
@@ -230,14 +259,24 @@ impl FfiConsole {
             .build()
             .map_err(err)?;
         let inner = rt.block_on(async {
-            let store = Arc::new(SqliteStore::open(PathBuf::from(&dir)).await.map_err(err)?);
-            let channel = LocalAsymChannel::open(store).await.map_err(err)?;
-            // Start the P2P accept loop so peers can connect (join + sync).
-            let accept = Arc::clone(&channel);
-            tokio::spawn(async move {
-                let _ = accept.accept_loop().await;
-            });
-            Ok::<_, FfiError>(UnbillConsole::open(channel as Arc<dyn AsymChannel>).await)
+            #[cfg(any(target_os = "android", all(target_os = "ios", not(target_abi = "macabi"))))]
+            let channel: Arc<dyn AsymChannel> = {
+                let store = Arc::new(SqliteStore::open(PathBuf::from(&dir)).await.map_err(err)?);
+                let channel = LocalAsymChannel::open(store).await.map_err(err)?;
+                let accept = Arc::clone(&channel);
+                tokio::spawn(async move {
+                    let _ = accept.accept_loop().await;
+                });
+                channel
+            };
+            #[cfg(not(any(target_os = "android", all(target_os = "ios", not(target_abi = "macabi")))))]
+            let channel: Arc<dyn AsymChannel> = {
+                let socket = std::env::var_os("UNBILL_SOCKET").map(PathBuf::from)
+                    .unwrap_or_else(|| PathBuf::from(&dir).join("unbill.sock"));
+                RpcAsymChannel::connect(&socket).await.map_err(|error|
+                    err(format!("could not connect to unbill-daemon at {}: {error}; start unbill-daemon first", socket.display())))?
+            };
+            Ok::<_, FfiError>(UnbillConsole::open(channel).await)
         })?;
         Ok(Arc::new(Self { rt, inner }))
     }
@@ -708,15 +747,120 @@ fn parse_bill_id(v: &str) -> Result<BillId, FfiError> {
 mod tests {
     use super::*;
 
+    #[cfg(not(any(
+        target_os = "android",
+        all(target_os = "ios", not(target_abi = "macabi"))
+    )))]
+    struct TestDaemon {
+        stop: Option<tokio::sync::oneshot::Sender<()>>,
+        thread: Option<std::thread::JoinHandle<()>>,
+    }
+
+    #[cfg(not(any(
+        target_os = "android",
+        all(target_os = "ios", not(target_abi = "macabi"))
+    )))]
+    impl TestDaemon {
+        fn start(root: PathBuf) -> Self {
+            let (stop, stopped) = tokio::sync::oneshot::channel();
+            let (ready, wait_ready) = std::sync::mpsc::channel();
+            let thread = std::thread::spawn(move || {
+                let rt = tokio::runtime::Builder::new_multi_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
+                rt.block_on(async move {
+                    let store = Arc::new(SqliteStore::open(root.clone()).await.unwrap());
+                    let channel = LocalAsymChannel::open(store).await.unwrap();
+                    let socket = root.join("unbill.sock");
+                    let path = socket.clone();
+                    let serving = tokio::spawn(async move {
+                        unbill_asymmetric_channel::rpc::serve(channel, &path).await
+                    });
+                    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                        while !socket.exists() {
+                            assert!(!serving.is_finished(), "RPC listener failed to start");
+                            tokio::task::yield_now().await;
+                        }
+                    })
+                    .await
+                    .unwrap();
+                    ready.send(()).unwrap();
+                    stopped.await.unwrap();
+                    serving.abort();
+                    let _ = serving.await;
+                });
+            });
+            wait_ready
+                .recv_timeout(std::time::Duration::from_secs(10))
+                .unwrap();
+            Self {
+                stop: Some(stop),
+                thread: Some(thread),
+            }
+        }
+    }
+    #[cfg(not(any(
+        target_os = "android",
+        all(target_os = "ios", not(target_abi = "macabi"))
+    )))]
+    impl Drop for TestDaemon {
+        fn drop(&mut self) {
+            let _ = self.stop.take().unwrap().send(());
+            self.thread.take().unwrap().join().unwrap();
+        }
+    }
+
+    #[cfg(not(any(
+        target_os = "android",
+        all(target_os = "ios", not(target_abi = "macabi"))
+    )))]
+    #[test]
+    fn desktop_bridge_reports_missing_daemon_without_creating_storage() {
+        let parent = tempfile::tempdir().unwrap();
+        let root = parent.path().join("absent");
+        let error = match FfiConsole::open(root.to_str().unwrap().to_owned()) {
+            Err(error) => error,
+            Ok(_) => panic!("desktop must connect to an existing daemon"),
+        };
+        assert!(
+            error
+                .to_string()
+                .contains("could not connect to unbill-daemon")
+        );
+        assert!(!root.exists());
+    }
+
     #[test]
     fn sqlite_identity_and_ledger_survive_reopening_the_apple_bridge() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().to_str().unwrap().to_owned();
+        #[cfg(not(any(
+            target_os = "android",
+            all(target_os = "ios", not(target_abi = "macabi"))
+        )))]
+        let _daemon = TestDaemon::start(dir.path().into());
         let console = FfiConsole::open(path.clone()).unwrap();
         let device_id = console.device_id();
         let ledger = console
             .create_ledger("Shared dinner".into(), "USD".into())
             .unwrap();
+        #[cfg(not(any(
+            target_os = "android",
+            all(target_os = "ios", not(target_abi = "macabi"))
+        )))]
+        {
+            let second = FfiConsole::open(path.clone()).unwrap();
+            assert_eq!(second.device_id(), device_id);
+            assert_eq!(
+                second
+                    .ledger_detail(ledger.ledger_id.clone())
+                    .unwrap()
+                    .summary
+                    .name,
+                "Shared dinner"
+            );
+        }
         drop(console);
 
         let console = FfiConsole::open(path).unwrap();
@@ -725,7 +869,13 @@ mod tests {
         assert_eq!(detail.summary.name, "Shared dinner");
         assert_eq!(detail.emoji_fingerprint.split(' ').count(), 6);
         assert!(dir.path().join("unbill.sqlite3").is_file());
-        assert!(!dir.path().join("unbill.lock").exists());
+        assert_eq!(
+            dir.path().join("unbill.lock").exists(),
+            !cfg!(any(
+                target_os = "android",
+                all(target_os = "ios", not(target_abi = "macabi"))
+            ))
+        );
         assert!(!dir.path().join("device_key.bin").exists());
     }
 }

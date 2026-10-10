@@ -90,7 +90,7 @@ fingerprint = "sha256:859fa7b4360d5a7b9d33c846699241f7f1252d61e1792d851784337b8d
 "core.refines" = ["design-principles"]
 
 [entries.deployment-topologies]
-fingerprint = "sha256:928bd6aad603e28ea0becbe6adc819532600469b3ed40b53d9155ea0595db9f7"
+fingerprint = "sha256:a20cc991881a71af7467937b44ee4a77dd0e9d62d840f3a82244f481c19d2260"
 "core.belongs" = [
     "unbill",
     "applications",
@@ -233,7 +233,7 @@ fingerprint = "sha256:8add1bb07e02c234a7ba7aeb399bc13b284f666b5fe2fdf9c5280a3c12
 "core.refines" = ["data-model"]
 
 [entries.sqlite-store]
-fingerprint = "sha256:8c63cfe12e0bcc4f94aae6fa0c6faf5b062932de3de9c840d97f399b86532bab"
+fingerprint = "sha256:939197dc6b1f19cf26ab270ee71fd1092ecd389f1a200035bb303431a35edd9d"
 "core.belongs" = [
     "storage",
     "workspace-layout",
@@ -280,7 +280,7 @@ fingerprint = "sha256:3daf10d30698ab4d3e64070ac655d6dc12181d81f2aafbc83491e1d969
 fingerprint = "sha256:4e55d4de86988da589d6b17d66d2e4c85e16b56d58a84ef34b76588b24a37c34"
 
 [entries.unbill-apple]
-fingerprint = "sha256:cb5561137e9de90d6a53fb72020c1b8050519ad945ced5ded54ad085afd593af"
+fingerprint = "sha256:620b7289c66e3203081b5c3e1db622d7c50c09237f12e4f656a8726ef9fc4359"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -298,7 +298,7 @@ fingerprint = "sha256:452511c3ee19dc2e562d49a1095fdb8f8c45a03bdcf9da2f4739645df3
 "core.refines" = ["device-console-split"]
 
 [entries.unbill-daemon]
-fingerprint = "sha256:c64630d6939aa01936f46f309fe855ff728aae148b68b64de310adda70f6234b"
+fingerprint = "sha256:794d2f54c51620a17ba2b6de8edfccf3aa2da3fe5ce5031421a1be6df7ffaa9a"
 "core.belongs" = ["applications"]
 "core.refines" = ["deployment-topologies"]
 
@@ -326,7 +326,7 @@ fingerprint = "sha256:8ef13debb6650e93b280b47262a5dbf54f596e0b77730d3205697979c5
 "core.refines" = ["deployment-topologies"]
 
 [entries.unbill-storage]
-fingerprint = "sha256:7251e2aca331148bdc79a8df09c9d16c4a8047dcaffb069e9f27065a271fda1b"
+fingerprint = "sha256:f2d5036092bed790381593ac3c3bfe063e62edaf52e8d80146e9db38a6ddb65d"
 "core.belongs" = [
     "storage",
     "workspace-layout",
