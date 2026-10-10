@@ -1,0 +1,14 @@
+[package]
+name = "unbill-build-info"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+build-info.workspace = true
+chrono = { version = "0.4.45", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+tempfile = "3"

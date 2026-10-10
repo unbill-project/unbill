@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+build_info::build_info!(fn compiled_build_info);
+
 use anyhow::{Context, Result};
 use tokio::net::TcpListener;
 use tracing::info;
@@ -10,7 +12,18 @@ use unbill_store_sqlite::SqliteStore;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if std::env::args().any(|arg| arg == "--version" || arg == "-V") {
+        println!(
+            "unbill-server {}",
+            unbill_build_info::BuildInfo::from(crate::compiled_build_info())
+        );
+        return Ok(());
+    }
     tracing_subscriber::fmt::init();
+    info!(
+        "unbill-server {}",
+        unbill_build_info::BuildInfo::from(crate::compiled_build_info())
+    );
 
     let api_key = std::env::var("API_KEY").context("API_KEY must be set")?;
     let port: u16 = std::env::var("PORT")

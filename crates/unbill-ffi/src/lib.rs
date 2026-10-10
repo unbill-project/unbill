@@ -9,6 +9,8 @@
 //! (Swift) must invoke them off any tokio thread. The `ServiceEvent` stream is
 //! delivered through a callback interface driven by a spawned forwarding task.
 
+build_info::build_info!(fn compiled_build_info);
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -61,6 +63,26 @@ pub fn default_data_directory() -> Result<String, FfiError> {
     root.into_os_string()
         .into_string()
         .map_err(|_| err("data directory is not UTF-8"))
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiBuildInfo {
+    pub version: String,
+    pub built_at_utc: String,
+}
+
+impl From<unbill_build_info::BuildInfo> for FfiBuildInfo {
+    fn from(info: unbill_build_info::BuildInfo) -> Self {
+        Self {
+            version: info.version,
+            built_at_utc: info.built_at_utc,
+        }
+    }
+}
+
+#[uniffi::export]
+pub fn client_build_info() -> FfiBuildInfo {
+    unbill_build_info::BuildInfo::from(crate::compiled_build_info()).into()
 }
 
 // ---------- Errors ----------
@@ -262,7 +284,7 @@ impl FfiConsole {
             #[cfg(any(target_os = "android", all(target_os = "ios", not(target_abi = "macabi"))))]
             let channel: Arc<dyn AsymChannel> = {
                 let store = Arc::new(SqliteStore::open(PathBuf::from(&dir)).await.map_err(err)?);
-                let channel = LocalAsymChannel::open(store).await.map_err(err)?;
+                let channel = LocalAsymChannel::open(store, unbill_build_info::BuildInfo::from(crate::compiled_build_info())).await.map_err(err)?;
                 let accept = Arc::clone(&channel);
                 tokio::spawn(async move {
                     let _ = accept.accept_loop().await;
@@ -279,6 +301,13 @@ impl FfiConsole {
             Ok::<_, FfiError>(UnbillConsole::open(channel).await)
         })?;
         Ok(Arc::new(Self { rt, inner }))
+    }
+
+    pub fn service_build_info(&self) -> Result<FfiBuildInfo, FfiError> {
+        self.rt
+            .block_on(self.inner.service_build_info())
+            .map(FfiBuildInfo::from)
+            .map_err(err)
     }
 
     pub fn device_id(&self) -> String {
@@ -771,7 +800,15 @@ mod tests {
                     .unwrap();
                 rt.block_on(async move {
                     let store = Arc::new(SqliteStore::open(root.clone()).await.unwrap());
-                    let channel = LocalAsymChannel::open(store).await.unwrap();
+                    let channel = LocalAsymChannel::open(
+                        store,
+                        unbill_build_info::BuildInfo {
+                            version: "test-daemon".to_owned(),
+                            built_at_utc: "2025-01-01T00:00:00Z".to_owned(),
+                        },
+                    )
+                    .await
+                    .unwrap();
                     let socket = root.join("unbill.sock");
                     let path = socket.clone();
                     let serving = tokio::spawn(async move {
@@ -841,6 +878,16 @@ mod tests {
         )))]
         let _daemon = TestDaemon::start(dir.path().into());
         let console = FfiConsole::open(path.clone()).unwrap();
+        #[cfg(not(any(
+            target_os = "android",
+            all(target_os = "ios", not(target_abi = "macabi"))
+        )))]
+        {
+            let service = console.service_build_info().unwrap();
+            assert_eq!(service.version, "test-daemon");
+            assert_eq!(service.built_at_utc, "2025-01-01T00:00:00Z");
+            assert_ne!(service.version, client_build_info().version);
+        }
         let device_id = console.device_id();
         let ledger = console
             .create_ledger("Shared dinner".into(), "USD".into())

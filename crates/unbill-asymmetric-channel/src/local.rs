@@ -15,11 +15,15 @@ use crate::{AsymChannel, AsymChannelEvent};
 // sirno:witness:asymmetric-channel:begin
 pub struct LocalAsymChannel {
     service: Arc<UnbillDevice>,
+    build_info: unbill_build_info::BuildInfo,
     events: broadcast::Sender<AsymChannelEvent>,
 }
 
 impl LocalAsymChannel {
-    pub async fn open<S: LedgerStore + Send + Sync + 'static>(store: Arc<S>) -> Result<Arc<Self>> {
+    pub async fn open<S: LedgerStore + Send + Sync + 'static>(
+        store: Arc<S>,
+        build_info: unbill_build_info::BuildInfo,
+    ) -> Result<Arc<Self>> {
         let service = UnbillDevice::open(store).await?;
         let (events, _) = broadcast::channel(256);
 
@@ -40,7 +44,11 @@ impl LocalAsymChannel {
             }
         });
 
-        Ok(Arc::new(Self { service, events }))
+        Ok(Arc::new(Self {
+            service,
+            events,
+            build_info,
+        }))
     }
 
     pub fn service(&self) -> &Arc<UnbillDevice> {
@@ -56,6 +64,10 @@ impl LocalAsymChannel {
 impl AsymChannel for LocalAsymChannel {
     fn device_id(&self) -> NodeId {
         self.service.device_id()
+    }
+
+    async fn build_info(&self) -> Result<unbill_build_info::BuildInfo> {
+        Ok(self.build_info.clone())
     }
 
     async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String> {

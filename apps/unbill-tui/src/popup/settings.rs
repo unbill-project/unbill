@@ -59,6 +59,7 @@ pub struct SettingsPopup {
 
     // Device tab state
     device_id: String,
+    service_build: Option<unbill_build_info::BuildInfo>,
     peer_input: TextInput,
     device_field: DeviceField,
 
@@ -91,6 +92,7 @@ impl SettingsPopup {
         Self {
             top_tab: initial_tab,
             device_id,
+            service_build: None,
             peer_input: TextInput::new("Peer NodeId"),
             device_field: DeviceField::PeerSync,
             ledgers,
@@ -122,6 +124,11 @@ impl SettingsPopup {
             .filter(|u| !ledger_ids.contains(&u.user_id))
             .cloned()
             .collect()
+    }
+
+    pub fn with_service_build(mut self, info: Option<unbill_build_info::BuildInfo>) -> Self {
+        self.service_build = info;
+        self
     }
 
     fn manageable_users(&self) -> Vec<User> {
@@ -210,17 +217,34 @@ impl PopupView for SettingsPopup {
 impl SettingsPopup {
     fn render_device_tab(&self, frame: &mut Frame, content: Rect, hint_row: Rect) {
         let rows = Layout::vertical([
-            Constraint::Length(1), // device ID info line
+            Constraint::Length(1), // device ID
             Constraint::Length(3), // peer sync box
             Constraint::Min(0),
+            Constraint::Length(2), // build information footer
         ])
-        .areas::<3>(content);
+        .areas::<4>(content);
 
-        // Device ID info (no box — read-only)
         frame.render_widget(
             Paragraph::new(format!("Device: {}", self.device_id))
                 .style(Style::default().fg(Color::DarkGray)),
             rows[0],
+        );
+        frame.render_widget(
+            Paragraph::new(vec![
+                Line::from(format!(
+                    "Client: {}",
+                    unbill_build_info::BuildInfo::from(crate::compiled_build_info())
+                )),
+                Line::from(format!(
+                    "Daemon: {}",
+                    self.service_build
+                        .as_ref()
+                        .map(ToString::to_string)
+                        .unwrap_or_else(|| "Service version unavailable".to_owned())
+                )),
+            ])
+            .style(Style::default().fg(Color::DarkGray)),
+            rows[3],
         );
 
         // Peer Sync box

@@ -12,9 +12,13 @@ name = "unbill_tauri_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
+chrono.workspace = true
+build-info-build.workspace = true
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+build-info.workspace = true
+unbill-build-info = { path = "../unbill-build-info" }
 unbill-console = { path = "../unbill-console" }
 unbill-asymmetric-channel = { path = "../unbill-asymmetric-channel", features = ["local", "rpc"] }
 unbill-storage = { path = "../unbill-storage" }

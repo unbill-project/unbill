@@ -5,6 +5,7 @@ import SwiftUI
 struct RootView: View {
     let console: ConsoleClient
     @State private var selectedLedgerID: String?
+    @State private var showingSettings = false
 
     var body: some View {
         NavigationSplitView {
@@ -21,5 +22,65 @@ struct RootView: View {
                 )
             }
         }
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Button { showingSettings = true } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
+        }
+        .sheet(isPresented: $showingSettings) {
+            AppSettingsView(console: console)
+        }
     }
+}
+
+private struct AppSettingsView: View {
+    let console: ConsoleClient
+    private let client = clientBuildInfo()
+    @State private var service: FfiBuildInfo?
+    @State private var loading = true
+
+    private var serviceLabel: String {
+        #if targetEnvironment(macCatalyst) || os(macOS)
+        return "Daemon"
+        #else
+        return "In-process service"
+        #endif
+    }
+
+    var body: some View {
+        NavigationStack {
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Spacer(minLength: 24)
+                        Text("Client: \(client.version) (built \(client.builtAtUtc))")
+                        if let service {
+                            Text("\(serviceLabel): \(service.version) (built \(service.builtAtUtc))")
+                        } else {
+                            Text("\(serviceLabel): \(loading ? "Loading…" : "Service version unavailable")")
+                        }
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, minHeight: max(0, geometry.size.height - 32), alignment: .bottomLeading)
+                    .padding()
+                }
+            }
+            .navigationTitle("Settings")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .task {
+                service = try? await console.serviceBuildInfo()
+                loading = false
+            }
+        }
+    }
+
+    @Environment(\.dismiss) private var dismiss
 }

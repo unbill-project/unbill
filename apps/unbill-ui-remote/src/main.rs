@@ -3,6 +3,8 @@ mod app;
 mod components;
 mod pages;
 
+build_info::build_info!(fn compiled_build_info);
+
 use std::sync::Arc;
 
 use leptos::prelude::*;

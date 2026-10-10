@@ -12,6 +12,8 @@ name = "unbill-cli"
 path = "src/main.rs"
 
 [dependencies]
+build-info.workspace = true
+unbill-build-info = { path = "../../crates/unbill-build-info" }
 unbill-console = { path = "../../crates/unbill-console" }
 unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["rpc"] }
 unbill-storage = { path = "../../crates/unbill-storage" }
@@ -25,3 +27,7 @@ serde_json.workspace = true
 
 [dev-dependencies]
 tempfile = "3"
+
+[build-dependencies]
+chrono.workspace = true
+build-info-build.workspace = true

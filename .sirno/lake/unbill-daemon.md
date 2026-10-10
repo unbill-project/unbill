@@ -23,7 +23,8 @@ without touching storage directly.
 The device layer prints `listening on: <node_id>` to stdout
 inside `accept_loop` once the Iroh endpoint is ready.
 That line is the readiness signal for automated tooling.
-All other daemon output goes to stderr.
+All other daemon startup output goes to stderr.
+`--version` prints build information to stdout and exits before opening storage or networking.
 
 The daemon runs until killed or until a fatal network or storage error occurs.
 
@@ -40,3 +41,5 @@ The process exits cleanly when any task returns.
 
 Tracing goes to stderr so stdout remains reserved for the readiness line.
 Tracing directive parsing errors propagate through the startup result.
+
+Before opening storage or networking the daemon logs its version and UTC build timestamp to stderr. The RPC build-info query exposes the same compiled values.

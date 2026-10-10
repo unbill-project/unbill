@@ -68,6 +68,7 @@ impl WireLedgerMeta {
 #[tarpc::service]
 pub trait AsymChannelService {
     async fn get_device_id() -> String;
+    async fn build_info() -> std::result::Result<unbill_build_info::BuildInfo, String>;
     async fn create_invitation(ledger_id: LedgerId) -> std::result::Result<String, String>;
     async fn join_ledger(
         url: String,
@@ -136,6 +137,13 @@ impl<C: AsymChannel> Clone for AsymChannelServiceServer<C> {
 impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
     async fn get_device_id(self, _ctx: tarpc::context::Context) -> String {
         self.channel.device_id().to_string()
+    }
+
+    async fn build_info(
+        self,
+        _ctx: tarpc::context::Context,
+    ) -> std::result::Result<unbill_build_info::BuildInfo, String> {
+        self.channel.build_info().await.map_err(|e| e.to_string())
     }
 
     async fn create_invitation(
@@ -351,6 +359,14 @@ impl RpcAsymChannel {
 impl AsymChannel for RpcAsymChannel {
     fn device_id(&self) -> NodeId {
         self.device_node_id.clone()
+    }
+
+    async fn build_info(&self) -> Result<unbill_build_info::BuildInfo> {
+        self.client
+            .build_info(tarpc::context::current())
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)
     }
 
     async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String> {

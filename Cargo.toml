@@ -2,6 +2,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/unbill-build-info",
     "apps/unbill-cli",
     "apps/unbill-daemon",
     "apps/unbill-server",
@@ -37,6 +38,9 @@ publish = false
 # sirno:witness:distribution-and-release:end
 
 [workspace.dependencies]
+chrono = "0.4.45"
+build-info = "=0.0.46"
+build-info-build = { version = "=0.0.46", default-features = false }
 # CRDT
 automerge = "0.8"
 autosurgeon = "0.11"

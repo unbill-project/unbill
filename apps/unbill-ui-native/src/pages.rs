@@ -289,6 +289,9 @@ fn SyncDeviceRow(
 // sirno:witness:unbill-ui-native:begin
 #[component]
 pub fn SettingsPopup(
+    client_build: unbill_build_info::BuildInfo,
+    service_build: Option<unbill_build_info::BuildInfo>,
+    service_label: String,
     device_id: String,
     ledgers: Vec<LedgerSummary>,
     devices: Vec<SyncDevice>,
@@ -445,6 +448,10 @@ pub fn SettingsPopup(
                                         }}
                                     </div>
                                 </SectionCard>
+                                <footer class="row-meta" style="grid-column: 1 / -1; font-size: 0.75rem; overflow-wrap: anywhere;">
+                                    <div>{format!("Client: {}", client_build)}</div>
+                                    <div>{format!("{}: {}", service_label, service_build.map(|info| info.to_string()).unwrap_or_else(|| "Service version unavailable".to_owned()))}</div>
+                                </footer>
                             </div>
                         }
                             .into_any()

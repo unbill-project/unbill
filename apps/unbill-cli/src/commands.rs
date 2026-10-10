@@ -51,11 +51,22 @@ pub async fn device_show(
 ) -> anyhow::Result<()> {
     let id = svc.device_id().to_string();
     let dir = data_dir.display().to_string();
+    let client_build = unbill_build_info::BuildInfo::from(crate::compiled_build_info());
+    let service_build = svc.service_build_info().await.ok();
     if json {
-        print_json(&serde_json::json!({ "device_id": id, "data_dir": dir }))?;
+        print_json(
+            &serde_json::json!({ "device_id": id, "data_dir": dir, "client_build": client_build, "service_build": service_build }),
+        )?;
     } else {
         println!("device ID: {id}");
         println!("data dir:  {dir}");
+        println!("client:    {client_build}");
+        println!(
+            "daemon:    {}",
+            service_build
+                .map(|info| info.to_string())
+                .unwrap_or_else(|| "Service version unavailable".to_owned())
+        );
     }
     Ok(())
 }

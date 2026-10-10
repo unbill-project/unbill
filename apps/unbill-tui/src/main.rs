@@ -1,5 +1,7 @@
 use std::io;
 
+build_info::build_info!(fn compiled_build_info);
+
 use anyhow::Result;
 use crossterm::{
     execute,
@@ -17,6 +19,13 @@ mod ui;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if std::env::args().any(|arg| arg == "--version" || arg == "-V") {
+        println!(
+            "unbill-tui {}",
+            unbill_build_info::BuildInfo::from(crate::compiled_build_info())
+        );
+        return Ok(());
+    }
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()

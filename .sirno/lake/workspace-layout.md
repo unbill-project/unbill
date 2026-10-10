@@ -36,3 +36,5 @@ Applications:
 
 `apps/unbill-apple` holds the native SwiftUI Apple frontend; it consumes `unbill-ffi`
 and lives outside the Cargo workspace.
+
+`unbill-build-info` provides shared build-information types; each application embeds its own version and UTC build timestamp.

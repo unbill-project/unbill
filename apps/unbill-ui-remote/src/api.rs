@@ -37,6 +37,9 @@ fn get_service() -> Result<Arc<UnbillConsole>, String> {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppBootstrap {
+    pub client_build: unbill_build_info::BuildInfo,
+    pub service_build: Option<unbill_build_info::BuildInfo>,
+    pub service_label: String,
     pub device_id: String,
     pub ledgers: Vec<LedgerSummary>,
     pub all_users: Vec<User>,
@@ -209,6 +212,9 @@ pub async fn bootstrap_app() -> Result<AppBootstrap, String> {
         .map(user_to_dto)
         .collect();
     Ok(AppBootstrap {
+        client_build: unbill_build_info::BuildInfo::from(crate::compiled_build_info()),
+        service_build: svc.service_build_info().await.ok(),
+        service_label: "Server".to_owned(),
         device_id: svc.device_id().to_string(),
         ledgers,
         all_users,
@@ -754,9 +760,12 @@ mod tests {
     use unbill_store_memory::InMemoryStore;
 
     async fn open_console() -> Arc<UnbillConsole> {
-        let channel = LocalAsymChannel::open(Arc::new(InMemoryStore::default()))
-            .await
-            .unwrap();
+        let channel = LocalAsymChannel::open(
+            Arc::new(InMemoryStore::default()),
+            unbill_build_info::BuildInfo::from(crate::compiled_build_info()),
+        )
+        .await
+        .unwrap();
         UnbillConsole::open(channel as Arc<dyn AsymChannel>).await
     }
 

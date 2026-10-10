@@ -12,6 +12,8 @@ name = "unbill-daemon"
 path = "src/main.rs"
 
 [dependencies]
+build-info.workspace = true
+unbill-build-info = { path = "../../crates/unbill-build-info" }
 unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["local", "rpc"] }
 unbill-device = { path = "../../crates/unbill-device" }
 unbill-storage = { path = "../../crates/unbill-storage" }
@@ -20,3 +22,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+
+[build-dependencies]
+chrono.workspace = true
+build-info-build.workspace = true

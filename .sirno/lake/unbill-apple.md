@@ -82,3 +82,5 @@ are read from the ledger device records, without a local label lookup.
 
 People offers Archive and Restore actions. Archived people and bill participant
 choices appear in collapsed disclosure groups; new bill defaults use active people.
+
+Application Settings displays client version and UTC build timestamp alongside the connected daemon or in-process service build, obtained through UniFFI, as a compact footer at the bottom.

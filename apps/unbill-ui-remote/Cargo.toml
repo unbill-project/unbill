@@ -8,6 +8,8 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
+build-info.workspace = true
+unbill-build-info = { path = "../../crates/unbill-build-info" }
 console_error_panic_hook = "0.1"
 leptos = { version = "0.8.14", features = ["csr"] }
 unbill-ui-components = { path = "../../crates/unbill-ui-components" }
@@ -26,3 +28,7 @@ getrandom4 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
 [dev-dependencies]
 unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["local"] }
 unbill-store-memory = { path = "../../crates/unbill-store-memory" }
+
+[build-dependencies]
+chrono.workspace = true
+build-info-build.workspace = true
