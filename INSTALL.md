@@ -175,6 +175,13 @@ ______________________________________________________________________
 
 ## iOS
 
+**Native SwiftUI Apple app:** download `unbill-apple-ios.ipa` from a nightly or
+stable GitHub release, then sign and sideload it with your preferred tool.
+This app requires iOS 17.0 or later and includes its device service in process.
+The IPA is unsigned; CI does not require signing credentials.
+
+The AltStore source below is a separate distribution route.
+
 Unbill is distributed for iOS via **AltStore** sideloading.
 
 1. Install [AltStore](https://altstore.io) on your device.

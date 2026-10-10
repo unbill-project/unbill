@@ -1,0 +1,82 @@
+name: Build Apple iOS IPA
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-ios-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+# sirno:witness:unbill-apple:begin
+jobs:
+  ios:
+    name: Swift iOS (unsigned)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      DEVELOPER_DIR_OVERRIDE: /Applications/Xcode_26.6.app/Contents/Developer
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: apple-ios-macos-26-xcode-26.6-arm64
+
+      - name: Prepare Xcode tools
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          brew install xcodegen
+
+      - name: Build Rust core and Swift bindings
+        run: ./apps/unbill-apple/build-rust.sh --ios-only
+
+      - name: Build Release app
+        working-directory: apps/unbill-apple
+        run: |
+          ./xcbuild.sh xcodegen generate
+          APP_VERSION="$(python3 -c 'import tomllib; print(tomllib.load(open("../../Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
+          ./xcbuild.sh xcodebuild \
+            -project unbill.xcodeproj \
+            -scheme unbill \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64 \
+            MARKETING_VERSION="$APP_VERSION" \
+            build
+
+      - name: Package unsigned IPA
+        working-directory: apps/unbill-apple
+        run: |
+          mkdir -p build/ios-package/Payload
+          ditto build/ios/Build/Products/Release-iphoneos/unbill.app build/ios-package/Payload/unbill.app
+          ditto -c -k --keepParent build/ios-package/Payload build/unbill-apple-ios.ipa
+          unzip -t build/unbill-apple-ios.ipa
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries-apple-ios-aarch64
+          path: apps/unbill-apple/build/unbill-apple-ios.ipa
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+# sirno:witness:unbill-apple:end

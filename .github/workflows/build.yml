@@ -8,6 +8,11 @@ on:
         required: false
         type: boolean
         default: false
+      build_apple_ios:
+        description: 'Build the unsigned Swift iOS IPA'
+        required: false
+        type: boolean
+        default: false
       tag:
         description: 'Docker image tag (e.g. nightly-20260422-000000, v1.2.3)'
         required: false
@@ -15,6 +20,11 @@ on:
         default: 'latest'
   workflow_dispatch:
     inputs:
+      build_apple_ios:
+        description: 'Build the unsigned Swift iOS IPA'
+        required: false
+        type: boolean
+        default: false
       tag:
         description: 'Docker image tag'
         required: false
@@ -87,6 +97,11 @@ jobs:
     name: Build macOS app
     if: inputs.build_apple_dmg
     uses: ./.github/workflows/build-apple-dmg.yml
+
+  build-apple-ios:
+    name: Build unsigned iOS app
+    if: inputs.build_apple_ios
+    uses: ./.github/workflows/build-apple-ios.yml
 
   build-tauri:
     name: Build Tauri (${{ matrix.suffix }})
