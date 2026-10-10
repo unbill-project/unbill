@@ -18,12 +18,12 @@ The source is publicly accessible at the raw GitHub URL:
 https://raw.githubusercontent.com/unbill-project/unbill/main/altstore-source.json
 ```
 
-The file lists one app entry with bundle identifier `computer.unbill`.
-Each version object pins its `downloadURL` to a specific GitHub release tag:
-`https://github.com/unbill-project/unbill/releases/download/v{version}/unbill-ios.ipa`.
-The `version` field must exactly match the `CFBundleShortVersionString` in the IPA,
-which Tauri reads from the `version` key in `crates/unbill-tauri/tauri.conf.json`.
-AltStore verifies this match and refuses to install on mismatch.
+The source lists the native SwiftUI Apple app as `unbill Apple`, with bundle
+identifier `computer.unbill.apple`, and retains the legacy Tauri app
+`computer.unbill` with its historical releases. The native app is featured.
+Native release URLs pin `unbill-apple-ios.ipa` to a GitHub release tag; legacy
+versions retain their `unbill-ios.ipa` URLs. The apps have separate version
+histories because their bundle identifiers differ.
 
 The source-level and app-level `tintColor` is `#0f766e`,
 derived from the `--bg-accent` CSS custom property used by the native UI.
@@ -33,14 +33,13 @@ served through the raw GitHub content URL on the `main` branch.
 
 ## Updating for a new release
 
-Add a new version object at the top of the `versions` array.
-Set `version` to match the `version` in `tauri.conf.json` (which becomes `CFBundleShortVersionString`),
-`date` to the release date in ISO 8601,
-`downloadURL` to `https://github.com/unbill-project/unbill/releases/download/v{version}/unbill-ios.ipa`,
-`size` to the IPA file size in bytes,
-and `localizedDescription` to a short changelog summary.
-The topmost entry in `versions` is the one AltStore treats as the latest release.
-Keep previous version objects so users on older iOS versions can still find compatible releases.
+After the IPA is published, inspect the actual release asset and add a version
+object at the beginning of the matching app's `versions` array. Copy its version,
+bundle identifier, minimum iOS version, and privacy usage descriptions from the
+IPA, and use the actual download size and release date. Native version 0.0.6
+requires iOS 17.0 and declares camera and local-network usage. Its IPA is unsigned
+and has no embedded provisioning profile or signing entitlements.
+Keep previous versions and the legacy app entry for compatible older systems.
 
 ## AltStore source format summary
 

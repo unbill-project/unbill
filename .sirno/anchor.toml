@@ -5,7 +5,7 @@ schema = 1
 lake = ".sirno/lake"
 
 [entries.altstore-source]
-fingerprint = "sha256:d02144a4b9ab7f851bc86e5aa84aefaf90744ffdbaad75f122855eac087c13dc"
+fingerprint = "sha256:188676c964a22f79ba7239d6b5694b6f3852f94db29ef943768a9c9a24f44eb6"
 "core.belongs" = ["distribution-and-release"]
 
 [entries.applications]
@@ -118,7 +118,7 @@ fingerprint = "sha256:3f90bf67804a1024b5acde51ac1fcb064fe21ed40b8efa3605c88cf5d0
 "core.refines" = ["design-principles"]
 
 [entries.distribution-and-release]
-fingerprint = "sha256:9e35675bf1c58ce0030fcd39dbb7a238019f7e0969f849e26e5d24ec2afe91a2"
+fingerprint = "sha256:6be4af95d557764599d3fd09556231e7796761daa67af1a2ec586f72c0d7492a"
 "core.belongs" = ["unbill"]
 
 [entries.emoji-fingerprint]

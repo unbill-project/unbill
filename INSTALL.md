@@ -180,7 +180,7 @@ stable GitHub release, then sign and sideload it with your preferred tool.
 This app requires iOS 17.0 or later and includes its device service in process.
 The IPA is unsigned; CI does not require signing credentials.
 
-The AltStore source below is a separate distribution route.
+The same native app is also available through the AltStore source below.
 
 Unbill is distributed for iOS via **AltStore** sideloading.
 
@@ -189,9 +189,10 @@ Unbill is distributed for iOS via **AltStore** sideloading.
    ```
    https://raw.githubusercontent.com/unbill-project/unbill/main/altstore-source.json
    ```
-1. Browse the source and install **unbill**.
+1. Browse the source and install **unbill Apple** for the native SwiftUI app (iOS 17+),
+   or **unbill** for the legacy Tauri releases.
 
-Requires iOS 14.0 or later.
+Legacy Tauri releases require iOS 14.0 or later.
 The IPA is unsigned — AltStore re-signs it with your Apple ID.
 
 ______________________________________________________________________

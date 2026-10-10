@@ -7,9 +7,36 @@
   "website": "https://github.com/unbill-project/unbill",
   "tintColor": "#0f766e",
   "featuredApps": [
-    "computer.unbill"
+    "computer.unbill.apple"
   ],
   "apps": [
+    {
+      "name": "unbill Apple",
+      "bundleIdentifier": "computer.unbill.apple",
+      "developerName": "unbill contributors",
+      "subtitle": "Offline-first bill splitting for small trusted groups.",
+      "localizedDescription": "Unbill keeps shared expense ledgers on member devices and syncs them peer-to-peer. There is no hosted source of truth, hosted account system, or telemetry surface. The app records who paid and who owes whom. It does not move money.\n\nUnbill is meant for households, trips, couples, and similar groups that already trust each other. The system stores data where that trust already lives: on the devices of the people who share the ledger.",
+      "iconURL": "https://raw.githubusercontent.com/unbill-project/unbill/main/crates/unbill-tauri/icons/icon.png",
+      "tintColor": "#0f766e",
+      "category": "utilities",
+      "versions": [
+        {
+          "version": "0.0.6",
+          "date": "2026-10-10",
+          "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.6/unbill-apple-ios.ipa",
+          "localizedDescription": "Native SwiftUI app for iPhone and iPad, with an in-process device service, archived users, and ledger fingerprints.",
+          "size": 9162930,
+          "minOSVersion": "17.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSCameraUsageDescription": "unbill uses the camera to scan invitation QR codes.",
+          "NSLocalNetworkUsageDescription": "unbill syncs your ledgers directly between your devices over the local network."
+        }
+      }
+    },
     {
       "name": "unbill",
       "bundleIdentifier": "computer.unbill",
