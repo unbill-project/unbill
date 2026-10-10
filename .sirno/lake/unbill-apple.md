@@ -19,6 +19,8 @@ The app is backed by the real Rust core.
 `ConsoleClient` is the single Swift boundary, an async protocol over the `UnbillConsole` orchestration surface.
 `RustConsoleClient` is its only implementation: an actor that calls `unbill-ffi` and runs the synchronous bridge off the main thread.
 There is no mock backend.
+Listing ledgers only reads persisted state. A fresh installation starts with an empty
+ledger list; the app does not automatically create sample ledgers, users, or bills.
 On iOS and Simulator the Rust bridge opens an in-process SQLite device service
 in the app's data directory, skipping the desktop ownership lock.
 On macOS and Mac Catalyst it connects by RPC to an already-running daemon
