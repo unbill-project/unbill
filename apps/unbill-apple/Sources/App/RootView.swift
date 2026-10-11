@@ -1,9 +1,13 @@
 import SwiftUI
 
-// Mac uses ledgers, bills, and editor columns; iOS adapts a two-column split view.
+// Mac uses three columns; iPad uses two columns and iPhone uses explicit push navigation.
 struct RootView: View {
     let console: ConsoleClient
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var ledgerPath: [String] = []
     @State private var selectedLedgerID: String?
+    @State private var openedLedger: LedgerDetail?
+    @State private var openedLedgerName = "Ledger"
     @State private var sheet: AppSheet?
     @State private var listGeneration = 0
     @State private var detailGeneration = 0
@@ -13,7 +17,19 @@ struct RootView: View {
     var body: some View {
         navigation
         .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
-        .onChange(of: selectedLedgerID) { _, _ in billEditor = nil }
+        .onChange(of: selectedLedgerID) { _, id in
+            billEditor = nil
+            if usesCompactNavigation {
+                let path = id.map { [$0] } ?? []
+                if ledgerPath != path { ledgerPath = path }
+            }
+        }
+        .onChange(of: ledgerPath) { _, path in
+            if usesCompactNavigation { selectedLedgerID = path.last }
+        }
+        .onChange(of: horizontalSizeClass) { _, _ in
+            if usesCompactNavigation { ledgerPath = selectedLedgerID.map { [$0] } ?? [] }
+        }
         .onOpenURL { url in
             guard url.scheme?.lowercased() == "unbill", url.host?.lowercased() == "join" else { return }
             sheet = .join(url.absoluteString)
@@ -48,6 +64,7 @@ struct RootView: View {
                     currency: context.detail.summary.currency, users: context.detail.users,
                     bill: context.bill, embedded: true, onCancel: { billEditor = nil }) {
                         billEditor = nil
+                        openedLedger = nil
                         detailGeneration += 1
                         listGeneration += 1
                     }
@@ -60,24 +77,46 @@ struct RootView: View {
         }
         .navigationSplitViewStyle(.balanced)
         #else
-        NavigationSplitView { ledgerList } detail: { ledgerContent }
+        if usesCompactNavigation {
+            NavigationStack(path: $ledgerPath) {
+                ledgerList
+                    .navigationDestination(for: String.self) { id in
+                        LedgerDetailView(console: console, ledgerID: id, ledgerName: openedLedgerName, initialDetail: openedLedger?.summary.id == id ? openedLedger : nil)
+                            .id(id)
+                    }
+            }
+        } else {
+            NavigationSplitView { ledgerList } detail: { ledgerContent }
+        }
+        #endif
+    }
+
+    private var usesCompactNavigation: Bool {
+        #if targetEnvironment(macCatalyst)
+        false
+        #else
+        horizontalSizeClass == .compact
         #endif
     }
 
     private var ledgerList: some View {
-        LedgerListView(console: console, selection: $selectedLedgerID, onJoin: { sheet = .join("") })
+        LedgerListView(console: console, selection: $selectedLedgerID, onJoin: { sheet = .join("") }, onOpenLedger: { detail in
+            openedLedger = detail
+            openedLedgerName = detail.summary.name
+            selectedLedgerID = detail.summary.id
+        })
             .id(listGeneration)
     }
 
     @ViewBuilder private var ledgerContent: some View {
         if let id = selectedLedgerID {
             #if targetEnvironment(macCatalyst)
-            LedgerDetailView(console: console, ledgerID: id, selectedBillID: billEditor?.bill?.id, onOpenBillEditor: { bill, detail in
+            LedgerDetailView(console: console, ledgerID: id, ledgerName: openedLedgerName, initialDetail: openedLedger?.summary.id == id ? openedLedger : nil, selectedBillID: billEditor?.bill?.id, onOpenBillEditor: { bill, detail in
                 billEditor = BillEditorContext(bill: bill, detail: detail)
             }, onCloseBillEditor: { billEditor = nil })
                 .id("\(id):\(detailGeneration)")
             #else
-            LedgerDetailView(console: console, ledgerID: id).id(id)
+            LedgerDetailView(console: console, ledgerID: id, ledgerName: openedLedgerName, initialDetail: openedLedger?.summary.id == id ? openedLedger : nil).id(id)
             #endif
         } else {
             ContentUnavailableView("Select a ledger", systemImage: "list.bullet.rectangle",
