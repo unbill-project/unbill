@@ -93,6 +93,8 @@ pub struct Invitation {
 /// Lightweight summary for list views (no CRDT bytes needed).
 #[derive(Clone, Debug)]
 pub struct LedgerMeta {
+    /// Device-local list preference; never part of the ledger document.
+    pub archived: bool,
     pub ledger_id: LedgerId,
     pub name: String,
     pub currency: Currency,

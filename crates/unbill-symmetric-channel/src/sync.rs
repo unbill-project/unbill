@@ -272,6 +272,7 @@ mod tests {
         let ledger = doc.get_ledger().unwrap();
         let id = ledger.ledger_id.to_string();
         let meta = unbill_model::LedgerMeta {
+            archived: false,
             ledger_id: ledger.ledger_id,
             name: ledger.name.clone(),
             currency: ledger.currency,
@@ -352,7 +353,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_sync_converges_after_divergence() -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_sync_converges_after_divergence_with_device_local_archive()
+    -> Result<(), Box<dyn std::error::Error>> {
         let node_a = NodeId::from_seed(1);
         let node_b = NodeId::from_seed(2);
 
@@ -440,8 +442,31 @@ mod tests {
         let store_b = Arc::new(StoreServer::spawn(make_store()));
         save_doc(&store_a, &mut doc_a).await?;
         save_doc(&store_b, &mut doc_b).await?;
+        store_a
+            .set_ledger_archived(LedgerId::from_string(&ledger_id).unwrap(), true)
+            .await
+            .unwrap();
 
         sync_pair(Arc::clone(&store_a), Arc::clone(&store_b), node_a, node_b).await;
+
+        assert!(
+            store_a
+                .list_ledgers()
+                .await
+                .unwrap()
+                .first()
+                .unwrap()
+                .archived
+        );
+        assert!(
+            !store_b
+                .list_ledgers()
+                .await
+                .unwrap()
+                .first()
+                .unwrap()
+                .archived
+        );
 
         // Load final state from stores.
         let doc_a_final = store_a.load_ledger(&ledger_id).await.unwrap().unwrap();

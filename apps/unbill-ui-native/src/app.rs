@@ -250,13 +250,16 @@ pub fn App() -> impl IntoView {
                     let selection_exists = selected
                         .as_ref()
                         .map(|ledger_id| {
-                            data.ledgers.iter().any(|item| &item.ledger_id == ledger_id)
+                            data.ledgers
+                                .iter()
+                                .any(|item| &item.ledger_id == ledger_id && !item.archived)
                         })
                         .unwrap_or(false);
 
                     if !selection_exists {
                         selected_ledger_id.set(None);
                         ledger_detail.set(None);
+                        bill_editor.set(None);
                     }
 
                     if let Some(ledger_id) = selected
@@ -271,7 +274,7 @@ pub fn App() -> impl IntoView {
                             let settings_selection_exists = data
                                 .ledgers
                                 .iter()
-                                .any(|item| item.ledger_id == settings_ledger_id);
+                                .any(|item| item.ledger_id == settings_ledger_id && !item.archived);
 
                             if settings_selection_exists {
                                 match api::load_ledger_detail(&settings_ledger_id).await {
@@ -282,8 +285,11 @@ pub fn App() -> impl IntoView {
                                     }
                                 }
                             } else {
-                                popup.selected_ledger_id =
-                                    data.ledgers.first().map(|ledger| ledger.ledger_id.clone());
+                                popup.selected_ledger_id = data
+                                    .ledgers
+                                    .iter()
+                                    .find(|ledger| !ledger.archived)
+                                    .map(|ledger| ledger.ledger_id.clone());
                                 settings_popup.set(Some(popup.clone()));
 
                                 if let Some(next_id) = popup.selected_ledger_id {
@@ -315,6 +321,7 @@ pub fn App() -> impl IntoView {
     };
 
     reload_bootstrap();
+    api::on_ledger_updated(reload_bootstrap);
 
     // Handle deep link URLs: drain pending (cold start) and listen for runtime arrivals.
     let open_deep_link = move |url: String| {
@@ -706,6 +713,24 @@ pub fn App() -> impl IntoView {
         })
     };
 
+    let set_ledger_archived = move |(id, archived): (String, bool)| {
+        spawn_local(async move {
+            match api::set_ledger_archived(&id, archived).await {
+                Ok(()) => {
+                    if selected_ledger_id.get_untracked().as_deref() == Some(id.as_str()) {
+                        selected_ledger_id.set(None);
+                        ledger_detail.set(None);
+                        bill_editor.set(None);
+                    }
+                    settings_popup.set(None);
+                    settings_ledger_detail.set(None);
+                    reload_bootstrap();
+                }
+                Err(error) => toast.error(error),
+            }
+        });
+    };
+
     let render_compact_page = move || {
         if let Some(seed) = bill_editor.get() {
             return view! {
@@ -751,6 +776,7 @@ pub fn App() -> impl IntoView {
                 on_more=Callback::new(move |_| open_device_settings())
                 on_select_ledger=Callback::new(open_ledger)
                 on_new_ledger=Callback::new(move |_| overlay.set(Some(OverlayKind::CreateLedger)))
+                on_set_ledger_archived=Callback::new(set_ledger_archived)
             />
         }
         .into_any()
@@ -780,6 +806,7 @@ pub fn App() -> impl IntoView {
                     on_select_ledger=Callback::new(select_settings_ledger)
                     on_join_ledger=Callback::new(move |_| open_join_from_clipboard())
                     on_add_ledger_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddUser)))
+                    on_set_ledger_archived=Callback::new(set_ledger_archived)
                     on_set_user_archived=Callback::new(move |(user_id, archived): (String, bool)| {
                         if let Some(detail) = settings_ledger_detail.get() {
                             let ledger_id = detail.summary.ledger_id;
@@ -819,6 +846,7 @@ pub fn App() -> impl IntoView {
                                     })
                                     on_select_ledger=Callback::new(open_ledger)
                                     on_new_ledger=Callback::new(move |_| overlay.set(Some(OverlayKind::CreateLedger)))
+                on_set_ledger_archived=Callback::new(set_ledger_archived)
                                 />
                             }
                         }}
@@ -1007,6 +1035,7 @@ mod tests {
 
     fn ledger_summary(ledger_id: &str, name: &str) -> LedgerSummary {
         LedgerSummary {
+            archived: false,
             ledger_id: ledger_id.to_owned(),
             name: name.to_owned(),
             currency: "USD".to_owned(),

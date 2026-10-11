@@ -39,6 +39,7 @@ impl Default for InMemoryStore {
 struct Inner {
     ledgers: HashMap<String, StoredLedger>,
     invitations: HashMap<String, Invitation>,
+    archived: HashMap<String, bool>,
     secret: Option<[u8; 32]>,
 }
 
@@ -63,9 +64,36 @@ impl LedgerStore for InMemoryStore {
         Ok(())
     }
 
+    async fn set_ledger_archived(&self, ledger_id: LedgerId, archived: bool) -> Result<()> {
+        let id = ledger_id.to_string();
+        {
+            let mut inner = self.lock_inner();
+            if !inner.ledgers.contains_key(&id) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("ledger not found: {id}"),
+                )
+                .into());
+            }
+            inner.archived.insert(id.clone(), archived);
+        }
+        let _ = self
+            .events
+            .send(ServiceEvent::LedgerUpdated { ledger_id: id });
+        Ok(())
+    }
+
     async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
         let inner = self.lock_inner();
-        Ok(inner.ledgers.values().map(|s| s.meta.clone()).collect())
+        Ok(inner
+            .ledgers
+            .iter()
+            .map(|(id, s)| {
+                let mut meta = s.meta.clone();
+                meta.archived = inner.archived.get(id).copied().unwrap_or(false);
+                meta
+            })
+            .collect())
     }
 
     async fn load_ledger(&self, ledger_id: &str) -> Result<Option<LedgerDoc>> {
@@ -89,6 +117,7 @@ impl LedgerStore for InMemoryStore {
                 .and_modify(|s| s.bytes = bytes.clone())
                 .or_insert_with(|| StoredLedger {
                     meta: LedgerMeta {
+                        archived: false,
                         ledger_id: LedgerId::from_u128(0),
                         name: String::new(),
                         #[allow(

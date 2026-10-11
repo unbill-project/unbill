@@ -38,6 +38,7 @@ pub struct AppBootstrap {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LedgerSummary {
+    pub archived: bool,
     pub ledger_id: String,
     pub name: String,
     pub currency: String,
@@ -180,6 +181,14 @@ pub async fn create_user(input: CreateUserInput) -> Result<User, String> {
     invoke("create_user", &serde_json::json!({ "input": input })).await
 }
 
+pub async fn set_ledger_archived(ledger_id: &str, archived: bool) -> Result<(), String> {
+    invoke(
+        "set_ledger_archived",
+        &serde_json::json!({"ledgerId": ledger_id, "archived": archived}),
+    )
+    .await
+}
+
 pub async fn set_user_archived(
     ledger_id: &str,
     user_id: &str,
@@ -244,6 +253,12 @@ pub async fn install_update() -> Result<(), String> {
 
 pub async fn drain_pending_deep_links() -> Result<Vec<String>, String> {
     invoke("drain_pending_deep_links", &()).await
+}
+
+pub fn on_ledger_updated(mut callback: impl FnMut() + 'static) {
+    let closure = Closure::new(move |_: JsValue| callback());
+    listen_event_js("ledger-updated", &closure);
+    closure.forget();
 }
 
 pub fn on_deep_link_open(mut callback: impl FnMut(String) + 'static) {

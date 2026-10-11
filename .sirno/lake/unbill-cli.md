@@ -67,3 +67,5 @@ User JSON includes archived, and text listings mark archived memberships.
 `--version` prints the CLI version and UTC build timestamp without connecting to
 the daemon. Device show displays independent client and daemon build information,
 including both records in JSON; unavailable daemon metadata is reported as unavailable.
+
+ledger list defaults to active ledgers; --archived lists only archived ledgers and --all lists both, with the archived flag in JSON and an archived marker in text. ledger archive <ledger_id> and ledger restore <ledger_id> change the device-local preference without changing the document or synchronization.

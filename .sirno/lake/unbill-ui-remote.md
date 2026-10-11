@@ -100,3 +100,5 @@ the existing ledger-detail event refresh keeps it current.
 
 Joining requires the name of this joining device in the ledger. Device names
 are read from the ledger device records, without a local label lookup.
+
+The browser UI groups archived ledgers in a collapsed Archived disclosure with Restore actions; Ledger Settings exposes Archive Ledger. Archive mutations use the console HTTP channel and persist on the server device. Ledger update events refresh the flag and clear archived selections and bill editors.

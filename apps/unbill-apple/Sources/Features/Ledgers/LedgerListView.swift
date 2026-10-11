@@ -10,6 +10,8 @@ struct LedgerListView: View {
     @State private var loading = true
     @State private var ledgers: [LedgerSummary] = []
     @State private var loadError: String?
+    @State private var archivedExpanded = false
+    @State private var restoringID: String?
     @State private var showingNew = false
     @State private var showingDevices = false
 
@@ -19,9 +21,33 @@ struct LedgerListView: View {
                 Text(loadError).foregroundStyle(.red)
                 Button("Retry") { Task { await load() } }
             }
-            ForEach(ledgers) { ledger in
+            ForEach(ledgers.filter { !$0.archived }) { ledger in
                 NavigationLink(value: ledger.id) {
                     LedgerRow(ledger: ledger)
+                }
+            }
+            let archived = ledgers.filter { $0.archived }
+            if !archived.isEmpty {
+                DisclosureGroup("Archived (\(archived.count))", isExpanded: $archivedExpanded) {
+                    ForEach(archived) { ledger in
+                        HStack {
+                            NavigationLink(value: ledger.id) {
+                                LedgerRow(ledger: ledger)
+                            }
+                            Button("Restore") {
+                                Task {
+                                    restoringID = ledger.id
+                                    defer { restoringID = nil }
+                                    do {
+                                        try await console.setLedgerArchived(ledgerID: ledger.id, archived: false)
+                                        await load()
+                                    } catch { loadError = error.localizedDescription }
+                                }
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(restoringID != nil)
+                        }
+                    }
                 }
             }
         }
@@ -83,6 +109,13 @@ struct LedgerListView: View {
         do {
             let loaded = try await console.ledgers()
             guard generation == loadGeneration, !Task.isCancelled else { return }
+            if let selection {
+                let previous = ledgers.first { $0.id == selection }
+                let current = loaded.first { $0.id == selection }
+                if current == nil || (previous?.archived == false && current?.archived == true) {
+                    self.selection = nil
+                }
+            }
             ledgers = loaded
             loadError = nil
             loading = false

@@ -47,3 +47,5 @@ flowchart TB
         Ui["Runtime UI state"]
     end
 ```
+
+Ledger archiving is a persistent device-local preference. It is separate from the replicated ledger document and does not change ledger fingerprints. Archiving retains the document, identity, authorization and synchronization; restoring makes the ledger visible again. Clients of the same daemon share the preference. Browser clients use the server device preference, rather than browser storage.

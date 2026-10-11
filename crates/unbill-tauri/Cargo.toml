@@ -17,6 +17,7 @@ build-info-build.workspace = true
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+tokio = { workspace = true, features = ["sync"] }
 build-info.workspace = true
 unbill-build-info = { path = "../unbill-build-info" }
 unbill-console = { path = "../unbill-console" }

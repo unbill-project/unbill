@@ -41,6 +41,7 @@ struct AppBootstrapDto {
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct LedgerSummaryDto {
+    archived: bool,
     ledger_id: String,
     name: String,
     currency: String,
@@ -306,6 +307,20 @@ async fn create_user(
         .await
         .map(UserDto::from)
         .map_err(stringify_error)
+}
+
+#[tauri::command]
+async fn set_ledger_archived(
+    state: tauri::State<'_, AppState>,
+    ledger_id: String,
+    archived: bool,
+) -> std::result::Result<(), String> {
+    let lid = LedgerId::from_string(&ledger_id).map_err(|e| e.to_string())?;
+    state
+        .service
+        .set_ledger_archived(lid, archived)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -750,6 +765,7 @@ async fn summarize_ledger(
     let user_names = users.iter().map(|u| u.display_name.clone()).collect();
 
     Ok(LedgerSummaryDto {
+        archived: meta.archived,
         ledger_id: meta.ledger_id.to_string(),
         name: meta.name,
         currency: meta.currency.code().to_owned(),
@@ -974,6 +990,22 @@ pub fn run() {
             })
             .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
 
+            let mut events = service.subscribe();
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    match events.recv().await {
+                        Ok(unbill_console::service::ServiceEvent::LedgerUpdated { ledger_id }) => {
+                            let _ = handle.emit("ledger-updated", ledger_id);
+                        }
+                        Ok(_) => {}
+                        Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                            let _ = handle.emit("ledger-updated", "");
+                        }
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                    }
+                }
+            });
             app.manage(AppState { service });
             Ok(())
         })
@@ -984,6 +1016,7 @@ pub fn run() {
             create_user,
             add_user,
             set_user_archived,
+            set_ledger_archived,
             create_invitation,
             join_ledger,
             save_bill,

@@ -39,6 +39,8 @@ pub(crate) fn configure(conn: &mut SqliteConnection) -> Result<()> {
             Err(error) => return Err(io_error(error)),
         }
     }
+    conn.batch_execute("PRAGMA foreign_keys = ON;")
+        .map_err(io_error)?;
     conn.batch_execute("PRAGMA synchronous = FULL;")
         .map_err(io_error)?;
     Ok(())

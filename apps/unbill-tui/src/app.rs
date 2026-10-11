@@ -37,6 +37,8 @@ pub struct AppState {
     pub ledger_cursor: usize,
     pub bill_cursor: usize,
     pub ledgers: Vec<LedgerMeta>,
+    pub archived_count: usize,
+    pub show_archived: bool,
     pub ledger_user_names: HashMap<LedgerId, Vec<String>>,
     pub users: Vec<User>,
     pub bills: Vec<Bill>,
@@ -56,6 +58,8 @@ impl AppState {
             ledger_cursor: 0,
             bill_cursor: 0,
             ledgers: vec![],
+            archived_count: 0,
+            show_archived: false,
             ledger_user_names: HashMap::new(),
             users: vec![],
             bills: vec![],
@@ -246,8 +250,25 @@ async fn handle_ledger_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
         KeyCode::Char('a') => {
             state.popup = Some(Box::new(CreateLedgerPopup::new()));
         }
-        KeyCode::Char('d') => {
-            // delete ledger removed
+        KeyCode::Char('A') => {
+            state.show_archived = !state.show_archived;
+            refresh_ledgers(svc, state).await;
+            refresh_bills(svc, state).await;
+            refresh_users(svc, state).await;
+            refresh_settlement(svc, state).await;
+        }
+        KeyCode::Char('x') => {
+            if let Some(meta) = state.ledgers.get(state.ledger_cursor) {
+                execute_action(
+                    PopupAction::SetLedgerArchived {
+                        ledger_id: meta.ledger_id,
+                        archived: !meta.archived,
+                    },
+                    state,
+                    svc,
+                )
+                .await;
+            }
         }
         KeyCode::Char('S') => {
             open_settings_popup(TopTab::Device, state, svc).await;
@@ -606,6 +627,21 @@ async fn try_confirm_editor(state: &mut AppState, svc: &Arc<UnbillConsole>) {
 
 async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<UnbillConsole>) {
     match action {
+        PopupAction::SetLedgerArchived {
+            ledger_id,
+            archived,
+        } => match svc.set_ledger_archived(ledger_id, archived).await {
+            Ok(()) => {
+                state.bill_editor = None;
+                state.focused_pane = Pane::Ledgers;
+                refresh_ledgers(svc, state).await;
+                state.ledger_cursor = state.ledgers.len();
+                state.bills.clear();
+                state.users.clear();
+                state.settlement.clear();
+            }
+            Err(error) => state.status_message = Some(format!("archive ledger: {error}")),
+        },
         PopupAction::CreateLedger { name, currency } => {
             let result = Currency::from_code(&currency)
                 .ok_or_else(|| anyhow::anyhow!("unknown currency code: {currency}"))
@@ -770,9 +806,33 @@ pub async fn refresh_ledgers(svc: &Arc<UnbillConsole>, state: &mut AppState) {
                 }
             }
             state.ledger_user_names = names;
-            state.ledgers = ledgers;
-            if state.ledger_cursor >= state.ledgers.len() && !state.ledgers.is_empty() {
-                state.ledger_cursor = state.ledgers.len().saturating_sub(1);
+            let selected = state.current_ledger_id();
+            let selected_was_active = state
+                .ledgers
+                .get(state.ledger_cursor)
+                .is_some_and(|meta| !meta.archived);
+            let became_archived = selected_was_active
+                && ledgers
+                    .iter()
+                    .any(|meta| Some(meta.ledger_id) == selected && meta.archived);
+            state.archived_count = ledgers.iter().filter(|meta| meta.archived).count();
+            state.ledgers = ledgers
+                .into_iter()
+                .filter(|meta| !meta.archived || state.show_archived)
+                .collect();
+            state.ledgers.sort_by_key(|meta| meta.archived);
+            if became_archived {
+                state.ledger_cursor = state.ledgers.len();
+                state.bill_editor = None;
+            } else if let Some(selected) = selected {
+                state.ledger_cursor = state
+                    .ledgers
+                    .iter()
+                    .position(|meta| meta.ledger_id == selected)
+                    .unwrap_or(state.ledgers.len());
+                if state.current_ledger_id().is_none() {
+                    state.bill_editor = None;
+                }
             }
         }
         Err(e) => state.status_message = Some(format!("list ledgers: {e}")),

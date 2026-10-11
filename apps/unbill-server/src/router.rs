@@ -34,6 +34,8 @@ pub struct AppState {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MetaJson {
+    #[serde(default)]
+    pub archived: bool,
     pub ledger_id: String,
     pub name: String,
     pub currency: String,
@@ -65,6 +67,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     let protected = Router::new()
         .route("/ledgers", get(list_ledgers))
         .route("/ledgers/{id}/meta", put(save_ledger_meta))
+        .route("/ledgers/{id}/archive", put(set_ledger_archived))
         .route("/ledgers/{id}/sync", post(sync_ledger))
         .route("/ledgers/{id}/invitations", post(create_invitation))
         .route("/ledgers/join", post(join_ledger))
@@ -122,6 +125,34 @@ async fn list_ledgers(State(state): State<Arc<AppState>>) -> Response {
     }
 }
 
+#[derive(Deserialize)]
+struct ArchiveBody {
+    archived: bool,
+}
+
+async fn set_ledger_archived(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    Json(body): Json<ArchiveBody>,
+) -> Response {
+    let ledger_id = match LedgerId::from_string(&id) {
+        Ok(id) => id,
+        Err(e) => return (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
+    };
+    match state
+        .service
+        .store()
+        .set_ledger_archived(ledger_id, body.archived)
+        .await
+    {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(unbill_model::StorageError::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => {
+            (StatusCode::NOT_FOUND, e.to_string()).into_response()
+        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
 async fn save_ledger_meta(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -145,6 +176,7 @@ async fn save_ledger_meta(
         }
     };
     let meta = LedgerMeta {
+        archived: false,
         ledger_id,
         name: body.name,
         currency,
@@ -253,6 +285,7 @@ async fn stream_events(State(state): State<Arc<AppState>>) -> impl IntoResponse 
 
 fn meta_to_json(m: LedgerMeta) -> MetaJson {
     MetaJson {
+        archived: m.archived,
         ledger_id: m.ledger_id.to_string(),
         name: m.name,
         currency: m.currency.code().to_owned(),
@@ -425,6 +458,82 @@ mod tests {
         let list: Vec<serde_json::Value> = serde_json::from_slice(&body).unwrap();
         assert_eq!(list.len(), 1);
         assert_eq!(list[0]["name"], "Groceries");
+    }
+
+    #[tokio::test]
+    async fn archive_route_restores_and_rejects_missing_ledgers() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = make_app(dir.path()).await;
+        let route = "/api/v1/ledgers/00000000000000000000000001/archive";
+        assert_eq!(
+            app.clone()
+                .oneshot(auth_put(
+                    route,
+                    "application/json",
+                    br#"{"archived":true}"#.to_vec()
+                ))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NOT_FOUND
+        );
+        let meta = br#"{"ledger_id":"00000000000000000000000001","name":"Trip","currency":"USD","created_at_ms":1000,"updated_at_ms":2000}"#;
+        assert_eq!(
+            app.clone()
+                .oneshot(auth_put(
+                    "/api/v1/ledgers/00000000000000000000000001/meta",
+                    "application/json",
+                    meta.to_vec()
+                ))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NO_CONTENT
+        );
+        for archived in [true, false] {
+            assert_eq!(
+                app.clone()
+                    .oneshot(auth_put(
+                        route,
+                        "application/json",
+                        serde_json::to_vec(&serde_json::json!({"archived":archived})).unwrap()
+                    ))
+                    .await
+                    .unwrap()
+                    .status(),
+                StatusCode::NO_CONTENT
+            );
+            // Ordinary metadata saves must never overwrite this preference.
+            app.clone()
+                .oneshot(auth_put(
+                    "/api/v1/ledgers/00000000000000000000000001/meta",
+                    "application/json",
+                    meta.to_vec(),
+                ))
+                .await
+                .unwrap();
+            let list: Vec<serde_json::Value> = serde_json::from_slice(
+                &body_bytes(
+                    app.clone()
+                        .oneshot(auth_get("/api/v1/ledgers"))
+                        .await
+                        .unwrap(),
+                )
+                .await,
+            )
+            .unwrap();
+            assert_eq!(list.first().unwrap()["archived"], archived);
+        }
+        let request = Request::builder()
+            .method("PUT")
+            .uri(route)
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"archived":true}"#))
+            .unwrap();
+        assert_eq!(
+            app.oneshot(request).await.unwrap().status(),
+            StatusCode::UNAUTHORIZED
+        );
     }
 
     // --- sync ---------------------------------------------------------------

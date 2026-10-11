@@ -94,6 +94,14 @@ impl AsymChannel for LocalAsymChannel {
             .map_err(UnbillError::Storage)
     }
 
+    async fn set_ledger_archived(&self, ledger_id: LedgerId, archived: bool) -> Result<()> {
+        Ok(self
+            .service
+            .store()
+            .set_ledger_archived(ledger_id, archived)
+            .await?)
+    }
+
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
         self.service
             .store()

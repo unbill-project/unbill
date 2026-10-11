@@ -299,6 +299,7 @@ mod tests {
         )
         .unwrap();
         let meta1 = unbill_model::LedgerMeta {
+            archived: false,
             ledger_id: doc1.get_ledger().unwrap().ledger_id,
             name: "L1".to_string(),
             currency: usd(),
@@ -339,6 +340,7 @@ mod tests {
         )
         .unwrap();
         let meta2 = unbill_model::LedgerMeta {
+            archived: false,
             ledger_id: doc2.get_ledger().unwrap().ledger_id,
             name: "L2".to_string(),
             currency: usd(),

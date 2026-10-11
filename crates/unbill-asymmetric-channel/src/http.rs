@@ -31,6 +31,8 @@ struct JoinBody {
 
 #[derive(Deserialize, Serialize)]
 struct MetaJson {
+    #[serde(default)]
+    archived: bool,
     ledger_id: String,
     name: String,
     currency: String,
@@ -218,6 +220,7 @@ impl AsymChannel for HttpAsymChannel {
                     UnbillError::Network(format!("unknown currency {:?}", m.currency))
                 })?;
                 Ok(LedgerMeta {
+                    archived: m.archived,
                     ledger_id,
                     name: m.name,
                     currency,
@@ -228,9 +231,24 @@ impl AsymChannel for HttpAsymChannel {
             .collect()
     }
 
+    async fn set_ledger_archived(&self, ledger_id: LedgerId, archived: bool) -> Result<()> {
+        let resp = self
+            .auth(
+                self.client
+                    .put(self.url(&format!("/ledgers/{ledger_id}/archive")))
+                    .json(&serde_json::json!({ "archived": archived })),
+            )
+            .send()
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
+        Self::check(resp).await?;
+        Ok(())
+    }
+
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
         let id = meta.ledger_id.to_string();
         let body = MetaJson {
+            archived: meta.archived,
             ledger_id: id.clone(),
             name: meta.name.clone(),
             currency: meta.currency.code().to_owned(),

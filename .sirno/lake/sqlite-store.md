@@ -50,3 +50,5 @@ The watcher stops when its store closes. Revision storage is bounded by ledger c
 
 Tests cover desktop exclusion, competing process startup, crash release, failed startup,
 outstanding-operation lock lifetime, stale-document merges, notifications, and durable reopening.
+
+Migration 00000000000003 adds a separate ledger_archives table, with false as the default when no preference row exists. It does not rewrite existing metadata, documents, identity or invitation rows. The migration and its bookkeeping run inside the existing immediate transaction; a failed schema operation rolls back partial schema and leaves existing data intact. Archive mutations update only this table and emit committed LedgerUpdated events. Archive triggers advance the ledger revision and storage clock. Normal metadata and document saves never overwrite archive preferences. Foreign-key enforcement is enabled on every connection. Upgrade tests compare existing metadata and document bytes, identity and invitations, verify rollback after a mid-migration failure, and exercise restoration and reopening.

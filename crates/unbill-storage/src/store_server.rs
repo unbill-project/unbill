@@ -31,6 +31,11 @@ enum StoreCommand {
         meta: LedgerMeta,
         reply: oneshot::Sender<StorageResult<()>>,
     },
+    SetLedgerArchived {
+        ledger_id: LedgerId,
+        archived: bool,
+        reply: oneshot::Sender<StorageResult<()>>,
+    },
     ListLedgers {
         reply: oneshot::Sender<StorageResult<Vec<LedgerMeta>>>,
     },
@@ -154,6 +159,18 @@ impl StoreServer {
                 StoreCommand::SaveLedgerMeta { meta, reply } => {
                     if reply.send(store.save_ledger_meta(&meta).await).is_err() {
                         warn!("SaveLedgerMeta reply dropped (caller cancelled)");
+                    }
+                }
+                StoreCommand::SetLedgerArchived {
+                    ledger_id,
+                    archived,
+                    reply,
+                } => {
+                    if reply
+                        .send(store.set_ledger_archived(ledger_id, archived).await)
+                        .is_err()
+                    {
+                        warn!("SetLedgerArchived reply dropped (caller cancelled)");
                     }
                 }
                 StoreCommand::ListLedgers { reply } => {
@@ -397,6 +414,7 @@ impl StoreServer {
         let mut doc = LedgerDoc::from_bytes(&doc_bytes)?;
         let ledger = doc.get_ledger()?;
         let meta = LedgerMeta {
+            archived: false,
             ledger_id: ledger.ledger_id,
             name: ledger.name.clone(),
             currency: ledger.currency,
@@ -419,6 +437,23 @@ impl StoreServer {
         self.tx
             .send(StoreCommand::SaveLedgerMeta {
                 meta: meta.clone(),
+                reply: tx,
+            })
+            .await
+            .map_err(|_| StorageError::ChannelClosed)?;
+        rx.await.map_err(|_| StorageError::ChannelClosed)?
+    }
+
+    pub async fn set_ledger_archived(
+        &self,
+        ledger_id: LedgerId,
+        archived: bool,
+    ) -> StorageResult<()> {
+        let (tx, rx) = oneshot::channel();
+        self.tx
+            .send(StoreCommand::SetLedgerArchived {
+                ledger_id,
+                archived,
                 reply: tx,
             })
             .await

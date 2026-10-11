@@ -5,6 +5,7 @@ import Foundation
 // are mapped to the generated FFI types behind `ConsoleClient`.
 
 struct LedgerSummary: Identifiable, Hashable {
+    let archived: Bool
     let ledgerID: String
     let name: String
     let currency: String

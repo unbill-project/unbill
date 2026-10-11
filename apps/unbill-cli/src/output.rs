@@ -15,6 +15,7 @@ use unbill_console::settlement::Settlement;
 // sirno:witness:unbill-cli:begin
 #[derive(serde::Serialize)]
 pub struct LedgerOut {
+    pub archived: bool,
     pub id: String,
     pub name: String,
     pub currency: String,
@@ -78,6 +79,7 @@ pub struct TransactionOut {
 
 pub fn ledger_out(m: &LedgerMeta) -> LedgerOut {
     LedgerOut {
+        archived: m.archived,
         id: m.ledger_id.to_string(),
         name: m.name.clone(),
         currency: m.currency.code().to_owned(),

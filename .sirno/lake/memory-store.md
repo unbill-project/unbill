@@ -36,3 +36,5 @@ The crate tests recovery after lock poisoning and is also exercised by higher-le
 
 Invitation creation generates a fresh token inside the backend; callers cannot resubmit consumed tokens.
 Typed metadata mutations emit process-local invalidation events after persistence.
+
+The memory store maintains ledger archive preferences in a separate map. Typed set_ledger_archived requires an existing ledger and emits LedgerUpdated. List results overlay the local flag; normal saves cannot overwrite it.

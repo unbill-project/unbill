@@ -48,6 +48,10 @@ actor RustConsoleClient: ConsoleClient {
     }
 
     @discardableResult
+    func setLedgerArchived(ledgerID: String, archived: Bool) async throws {
+        try console.setLedgerArchived(ledgerId: ledgerID, archived: archived)
+    }
+
     func setUserArchived(ledgerID: String, userID: String, archived: Bool) async throws {
         try console.setUserArchived(ledgerId: ledgerID, userId: userID, archived: archived)
     }
@@ -143,6 +147,7 @@ actor RustConsoleClient: ConsoleClient {
 
     private static func summary(_ s: FfiLedgerSummary) -> LedgerSummary {
         LedgerSummary(
+            archived: s.archived,
             ledgerID: s.ledgerId, name: s.name, currency: s.currency,
             createdAtMs: s.createdAtMs, updatedAtMs: s.updatedAtMs,
             userCount: Int(s.userCount), userNames: s.userNames,

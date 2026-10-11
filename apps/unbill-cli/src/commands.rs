@@ -92,8 +92,28 @@ pub async fn ledger_create(
     Ok(())
 }
 
-pub async fn ledger_list(svc: &UnbillConsole, json: bool) -> anyhow::Result<()> {
-    let ledgers = svc.list_ledgers().await?;
+pub async fn ledger_archive(
+    svc: &UnbillConsole,
+    ledger_id: &str,
+    archived: bool,
+) -> anyhow::Result<()> {
+    svc.set_ledger_archived(parse_ledger_id(ledger_id)?, archived)
+        .await?;
+    Ok(())
+}
+
+pub async fn ledger_list(
+    svc: &UnbillConsole,
+    json: bool,
+    all: bool,
+    archived: bool,
+) -> anyhow::Result<()> {
+    let ledgers = svc
+        .list_ledgers()
+        .await?
+        .into_iter()
+        .filter(|meta| all || meta.archived == archived)
+        .collect::<Vec<_>>();
     if json {
         print_json(&ledgers.iter().map(ledger_out).collect::<Vec<_>>())?;
     } else {
@@ -101,7 +121,13 @@ pub async fn ledger_list(svc: &UnbillConsole, json: bool) -> anyhow::Result<()> 
             println!("no ledgers");
         }
         for m in &ledgers {
-            println!("{:26}  {}  ({})", m.ledger_id, m.name, m.currency.code());
+            println!(
+                "{:26}  {}  ({}){}",
+                m.ledger_id,
+                m.name,
+                m.currency.code(),
+                if m.archived { " [archived]" } else { "" }
+            );
         }
     }
     Ok(())

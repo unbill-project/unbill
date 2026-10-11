@@ -557,7 +557,7 @@ impl SettingsPopup {
             );
         } else {
             let hint = if selector_focused {
-                "[j/k] select ledger  [Tab] to content  [Esc] close"
+                "[j/k] select ledger  [X] archive/restore ledger  [Tab] to content  [Esc] close"
             } else {
                 "[j/k] move  [Enter] confirm  [h] add  [l] invite  [m] manage  [a] archived  [Tab] next tab  [Esc] close"
             };
@@ -605,6 +605,14 @@ impl SettingsPopup {
             return PopupOutcome::Pending;
         }
 
+        if key.code == KeyCode::Char('X')
+            && let Some(meta) = self.ledgers.get(self.ledger_cursor)
+        {
+            return PopupOutcome::Action(PopupAction::SetLedgerArchived {
+                ledger_id: meta.ledger_id,
+                archived: !meta.archived,
+            });
+        }
         if self.ledger_focus == LedgerFocus::Content {
             if key.code == KeyCode::Char('m') {
                 self.ledger_sub_tab = LedgerSubTab::Manage;
@@ -827,6 +835,7 @@ mod tests {
             String::new(),
             vec![],
             vec![LedgerMeta {
+                archived: false,
                 ledger_id,
                 name: "Trip".into(),
                 currency: unbill_console::model::Currency::from_code("USD").unwrap(),
@@ -880,6 +889,7 @@ mod tests {
             String::new(),
             vec![],
             vec![LedgerMeta {
+                archived: false,
                 ledger_id,
                 name: "Shared expenses".into(),
                 currency: unbill_console::model::Currency::from_code("USD").unwrap(),

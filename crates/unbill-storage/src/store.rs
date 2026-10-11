@@ -16,6 +16,8 @@ pub trait LedgerStore: Send + Sync {
     /// Create or update the per-ledger metadata cache.
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> StorageResult<()>;
     async fn list_ledgers(&self) -> StorageResult<Vec<LedgerMeta>>;
+    /// Set only the device-local archive preference, preserving document bytes.
+    async fn set_ledger_archived(&self, ledger_id: LedgerId, archived: bool) -> StorageResult<()>;
 
     /// Load a ledger document. Returns `None` if the ledger has never been saved.
     async fn load_ledger(&self, ledger_id: &str) -> StorageResult<Option<LedgerDoc>>;

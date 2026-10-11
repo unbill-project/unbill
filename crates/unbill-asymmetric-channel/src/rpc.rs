@@ -30,6 +30,8 @@ use crate::{AsymChannel, AsymChannelEvent};
 /// Serializable mirror of `LedgerMeta` (Currency has no serde impl).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WireLedgerMeta {
+    #[serde(default)]
+    pub archived: bool,
     pub ledger_id: LedgerId,
     pub name: String,
     pub currency: String,
@@ -40,6 +42,7 @@ pub struct WireLedgerMeta {
 impl WireLedgerMeta {
     fn from_meta(m: &LedgerMeta) -> Self {
         Self {
+            archived: m.archived,
             ledger_id: m.ledger_id,
             name: m.name.clone(),
             currency: m.currency.code().to_owned(),
@@ -52,6 +55,7 @@ impl WireLedgerMeta {
         let currency = Currency::from_code(&self.currency)
             .ok_or_else(|| UnbillError::Network(format!("unknown currency {:?}", self.currency)))?;
         Ok(LedgerMeta {
+            archived: self.archived,
             ledger_id: self.ledger_id,
             name: self.name,
             currency,
@@ -80,6 +84,10 @@ pub trait AsymChannelService {
         bytes: Vec<u8>,
     ) -> std::result::Result<Option<Vec<u8>>, String>;
     async fn list_ledgers() -> std::result::Result<Vec<WireLedgerMeta>, String>;
+    async fn set_ledger_archived(
+        ledger_id: LedgerId,
+        archived: bool,
+    ) -> std::result::Result<(), String>;
     async fn save_ledger_meta(meta: WireLedgerMeta) -> std::result::Result<(), String>;
 
     /// Poll and drain pending device events for this connection.
@@ -211,6 +219,18 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
         let meta = meta.into_meta().map_err(|e| e.to_string())?;
         self.channel
             .save_ledger_meta(&meta)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    async fn set_ledger_archived(
+        self,
+        _ctx: tarpc::context::Context,
+        ledger_id: LedgerId,
+        archived: bool,
+    ) -> std::result::Result<(), String> {
+        self.channel
+            .set_ledger_archived(ledger_id, archived)
             .await
             .map_err(|e| e.to_string())
     }
@@ -420,6 +440,14 @@ impl AsymChannel for RpcAsymChannel {
             .into_iter()
             .map(WireLedgerMeta::into_meta)
             .collect()
+    }
+
+    async fn set_ledger_archived(&self, ledger_id: LedgerId, archived: bool) -> Result<()> {
+        self.client
+            .set_ledger_archived(tarpc::context::current(), ledger_id, archived)
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)
     }
 
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {

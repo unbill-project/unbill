@@ -32,3 +32,12 @@ diesel::table! {
         invitations_revision -> BigInt,
     }
 }
+
+diesel::table! {
+    ledger_archives (ledger_id) {
+        ledger_id -> Text,
+        archived -> Bool,
+    }
+}
+diesel::joinable!(ledger_archives -> ledgers (ledger_id));
+diesel::allow_tables_to_appear_in_same_query!(ledgers, ledger_archives);

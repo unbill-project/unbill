@@ -16,7 +16,7 @@ impl Pane {
     pub fn hints(&self) -> &'static str {
         match self {
             Pane::Ledgers => {
-                "[j/k] move  [g/G] first/last  [l/Tab] pane  [a] create  [d] delete  [S] device  [q] quit"
+                "[j/k] move  [g/G] first/last  [l/Tab] pane  [a] create  [x] archive/restore  [A] archived  [S] device  [q] quit"
             }
             Pane::Bills => {
                 "[j/k] move  [g/G] first/last  [h/Shift+Tab] pane  [l/Tab] pane  [a] add bill  [e] amend  [u] settings  [q] quit"

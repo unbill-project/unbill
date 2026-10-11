@@ -116,6 +116,7 @@ impl UnbillConsole {
             now,
         )?;
         let meta = LedgerMeta {
+            archived: false,
             ledger_id,
             name: input.name,
             currency: input.currency,
@@ -126,6 +127,11 @@ impl UnbillConsole {
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
         self.put_doc(ledger_id, doc).await;
         Ok(ledger_id)
+    }
+
+    /// Archive or restore only this device's ledger list preference.
+    pub async fn set_ledger_archived(&self, ledger_id: LedgerId, archived: bool) -> Result<()> {
+        self.channel.set_ledger_archived(ledger_id, archived).await
     }
 
     pub async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
@@ -661,6 +667,10 @@ mod tests {
         async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
             Ok(self.store.list_ledgers().await?)
         }
+        async fn set_ledger_archived(&self, ledger_id: LedgerId, archived: bool) -> Result<()> {
+            Ok(self.store.set_ledger_archived(ledger_id, archived).await?)
+        }
+
         async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
             Ok(self.store.save_ledger_meta(meta).await?)
         }

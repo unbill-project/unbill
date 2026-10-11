@@ -85,3 +85,5 @@ on a missing-device error. Device listings return their shared names directly.
 `set_user_archived` changes an existing user in a ledger document, syncs it,
 updates ledger metadata, and emits LedgerUpdated. Missing-user errors preserve
 the document cache. Ledger queries include both active and archived users.
+
+set_ledger_archived forwards a typed device-local preference mutation through the asymmetric channel. It does not mutate the cached ledger document or fingerprint. list_ledgers includes archived ledgers; shells choose their visible grouping. Archived documents remain eligible for synchronization and explicit ledger queries.

@@ -9,7 +9,7 @@ use diesel::prelude::*;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use meta::MetaJson;
 use rand::TryRng as _;
-use schema::{device_identity, ledgers, pending_invitations};
+use schema::{device_identity, ledger_archives, ledgers, pending_invitations};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -161,21 +161,57 @@ impl LedgerStore for SqliteStore {
         .await
     }
 
+    async fn set_ledger_archived(&self, ledger_id: LedgerId, archived: bool) -> Result<()> {
+        let id = ledger_id.to_string();
+        let events = self.events.clone();
+        self.run(move |conn| {
+            transaction::write(conn, |conn| {
+                let exists = diesel::select(diesel::dsl::exists(ledgers::table.find(&id)))
+                    .get_result::<bool>(conn)
+                    .map_err(io_error)?;
+                if !exists {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("ledger not found: {id}"),
+                    )
+                    .into());
+                }
+                diesel::insert_into(ledger_archives::table)
+                    .values((
+                        ledger_archives::ledger_id.eq(&id),
+                        ledger_archives::archived.eq(archived),
+                    ))
+                    .on_conflict(ledger_archives::ledger_id)
+                    .do_update()
+                    .set(ledger_archives::archived.eq(archived))
+                    .execute(conn)
+                    .map_err(io_error)?;
+                Ok(())
+            })?;
+            let _ = events.send(ServiceEvent::LedgerUpdated { ledger_id: id });
+            Ok(())
+        })
+        .await
+    }
+
     async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
         self.run(|conn| {
             let rows = ledgers::table
-                .select(ledgers::metadata)
+                .left_join(ledger_archives::table)
+                .select((ledgers::metadata, ledger_archives::archived.nullable()))
                 .filter(ledgers::metadata.is_not_null())
                 .order(ledgers::id)
-                .load::<Option<Vec<u8>>>(conn)
+                .load::<(Option<Vec<u8>>, Option<bool>)>(conn)
                 .map_err(io_error)?;
             rows.into_iter()
-                .flatten()
-                .map(|bytes| {
-                    serde_json::from_slice::<MetaJson>(&bytes)
+                .filter_map(|(bytes, archived)| bytes.map(|bytes| (bytes, archived)))
+                .map(|(bytes, archived)| {
+                    let mut meta = serde_json::from_slice::<MetaJson>(&bytes)
                         .map_err(serialization)?
                         .into_ledger_meta()
-                        .map_err(serialization)
+                        .map_err(serialization)?;
+                    meta.archived = archived.unwrap_or(false);
+                    Ok(meta)
                 })
                 .collect()
         })
@@ -425,6 +461,7 @@ impl InvitationRow {
 fn metadata(doc: &LedgerDoc, updated_at: Timestamp) -> Result<LedgerMeta> {
     let ledger = doc.get_ledger().map_err(serialization)?;
     Ok(LedgerMeta {
+        archived: false,
         ledger_id: ledger.ledger_id,
         name: ledger.name,
         currency: ledger.currency,

@@ -103,6 +103,7 @@ fn err(e: impl std::fmt::Display) -> FfiError {
 
 #[derive(uniffi::Record)]
 pub struct FfiLedgerSummary {
+    pub archived: bool,
     pub ledger_id: String,
     pub name: String,
     pub currency: String,
@@ -385,6 +386,13 @@ impl FfiConsole {
     }
 
     /// Add an already-known user (by id) to a ledger.
+    pub fn set_ledger_archived(&self, ledger_id: String, archived: bool) -> Result<(), FfiError> {
+        let lid = LedgerId::from_string(&ledger_id).map_err(err)?;
+        self.rt
+            .block_on(self.inner.set_ledger_archived(lid, archived))
+            .map_err(err)
+    }
+
     pub fn set_user_archived(
         &self,
         ledger_id: String,
@@ -685,6 +693,7 @@ async fn summarize_ledger(service: &Arc<UnbillConsole>, meta: LedgerMeta) -> R<F
     let bills = service.list_bills(meta.ledger_id).await?;
     let latest_bill_at_ms = bills.iter().map(|b| b.created_at.as_millis()).max();
     Ok(FfiLedgerSummary {
+        archived: meta.archived,
         ledger_id: meta.ledger_id.to_string(),
         name: meta.name,
         currency: meta.currency.code().to_owned(),

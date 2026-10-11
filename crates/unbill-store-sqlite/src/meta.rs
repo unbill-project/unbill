@@ -26,6 +26,7 @@ impl MetaJson {
         let currency = Currency::from_code(&self.currency)
             .ok_or_else(|| format!("unknown currency code {:?}", self.currency))?;
         Ok(LedgerMeta {
+            archived: false,
             ledger_id,
             name: self.name,
             currency,

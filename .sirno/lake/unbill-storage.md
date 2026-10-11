@@ -125,3 +125,5 @@ Dropped reply sends (caller cancelled before receiving the result)
 are logged at `warn` level.
 Event forwarding survives absent subscribers and requests a complete refresh through the actor after broadcast lag.
 Save errors preserve the caller document even if actor communication fails.
+
+LedgerStore and StoreServer expose set_ledger_archived(LedgerId, bool). LedgerMeta reports the local archive flag, while list_ledgers retains both active and archived records so synchronization and explicit queries continue to include them. Ordinary metadata persistence ignores this convenience field.

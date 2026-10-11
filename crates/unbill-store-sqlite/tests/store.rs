@@ -5,6 +5,7 @@ use unbill_store_sqlite::SqliteStore;
 
 fn meta(name: &str) -> LedgerMeta {
     LedgerMeta {
+        archived: false,
         ledger_id: LedgerId::from_u128(1),
         name: name.into(),
         currency: Currency::from_code("USD").unwrap(),

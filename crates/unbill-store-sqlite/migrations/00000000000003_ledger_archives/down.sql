@@ -1,0 +1,4 @@
+DROP TRIGGER ledger_archive_delete_revision;
+DROP TRIGGER ledger_archive_update_revision;
+DROP TRIGGER ledger_archive_insert_revision;
+DROP TABLE ledger_archives;

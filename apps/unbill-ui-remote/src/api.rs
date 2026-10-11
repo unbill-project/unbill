@@ -49,6 +49,7 @@ pub struct AppBootstrap {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LedgerSummary {
+    pub archived: bool,
     pub ledger_id: String,
     pub name: String,
     pub currency: String,
@@ -314,6 +315,13 @@ pub async fn create_user(input: CreateUserInput) -> Result<User, String> {
     .await
     .map(user_to_dto)
     .map_err(|e| e.to_string())
+}
+
+pub async fn set_ledger_archived(ledger_id: &str, archived: bool) -> Result<(), String> {
+    get_service()?
+        .set_ledger_archived(parse_ledger_id(ledger_id)?, archived)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn set_user_archived(
@@ -604,6 +612,7 @@ async fn summarize_ledger(
     let user_names = users.iter().map(|u| u.display_name.clone()).collect();
 
     Ok(LedgerSummary {
+        archived: meta.archived,
         ledger_id: lid.to_string(),
         name: meta.name,
         currency: meta.currency.code().to_owned(),

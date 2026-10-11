@@ -71,6 +71,7 @@ pub trait AsymChannel: MaybeSend + MaybeSync {
 
     async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>>;
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()>;
+    async fn set_ledger_archived(&self, ledger_id: LedgerId, archived: bool) -> Result<()>;
 
     // --- Event subscription ---
 

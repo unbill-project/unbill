@@ -157,3 +157,5 @@ Add Person always displays From Other Ledgers with explicit Import actions,
 excluding people already in the current ledger and sorting candidates by name.
 Loading, empty, and failed states remain visible; failed loads offer Retry and
 the sheet supports refresh. Saving guards repeat actions and prevents dismissal.
+
+Ledger Settings provides Archive Ledger, and the ledger sidebar groups archived ledgers in a collapsed native DisclosureGroup with Restore actions. The Swift console protocol exposes setLedgerArchived and summaries carry archived. Archived rows retain explicit navigation links so users can open their details without restoring them. Refresh or ledger update notifications clear selection and detail/editor context when an active ledger becomes archived, but retain an explicitly opened archived ledger across subsequent refreshes. Archive requests disable settings dismissal while in progress and report failures without clearing data.

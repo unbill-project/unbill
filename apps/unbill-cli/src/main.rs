@@ -74,7 +74,18 @@ pub enum LedgerCmd {
         name: String,
         currency: String,
     },
-    List,
+    List {
+        #[arg(long, conflicts_with = "archived")]
+        all: bool,
+        #[arg(long)]
+        archived: bool,
+    },
+    Archive {
+        ledger_id: String,
+    },
+    Restore {
+        ledger_id: String,
+    },
     Show {
         ledger_id: String,
     },
@@ -228,7 +239,15 @@ async fn run() -> anyhow::Result<()> {
             LedgerCmd::Create { name, currency } => {
                 commands::ledger_create(&svc, name, currency, json).await
             }
-            LedgerCmd::List => commands::ledger_list(&svc, json).await,
+            LedgerCmd::List { all, archived } => {
+                commands::ledger_list(&svc, json, all, archived).await
+            }
+            LedgerCmd::Archive { ledger_id } => {
+                commands::ledger_archive(&svc, &ledger_id, true).await
+            }
+            LedgerCmd::Restore { ledger_id } => {
+                commands::ledger_archive(&svc, &ledger_id, false).await
+            }
             LedgerCmd::Show { ledger_id } => commands::ledger_show(&svc, &ledger_id, json).await,
             LedgerCmd::Devices { ledger_id } => {
                 commands::ledger_devices(&svc, &ledger_id, json).await

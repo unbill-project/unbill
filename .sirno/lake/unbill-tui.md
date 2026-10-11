@@ -114,3 +114,5 @@ Ledger Settings opens user management; Enter archives or restores the selected
 member, and a expands the Archived group. h opens user creation/import and l invitations.
 Bill editors use a to expand archived participants, with active members selected
 for new bills and original membership preserved for amendments.
+
+The ledger pane defaults to active ledgers. [A] expands or collapses archived entries and reports their count; [x] archives or restores the selected ledger. Ledger Settings also exposes [X] archive/restore. Archive mutations clear the bill editor and selected detail; data and synchronization are retained.

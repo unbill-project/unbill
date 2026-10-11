@@ -28,7 +28,7 @@ pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
         .title("Ledgers")
         .border_style(border_style);
 
-    if state.ledgers.is_empty() {
+    if state.ledgers.is_empty() && state.archived_count == 0 {
         let inner = block.inner(area);
         frame.render_widget(block, area);
         frame.render_widget(
@@ -39,7 +39,7 @@ pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
         return;
     }
 
-    let items: Vec<ListItem> = state
+    let mut items: Vec<ListItem> = state
         .ledgers
         .iter()
         .map(|l| {
@@ -61,7 +61,8 @@ pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
                 _ => "No users".to_owned(),
             };
             ListItem::new(format!(
-                "{} ({} · {})",
+                "{}{} ({} · {})",
+                if l.archived { "  " } else { "" },
                 l.name,
                 user_part,
                 l.currency.code()
@@ -69,9 +70,26 @@ pub fn render(frame: &mut Frame, area: Rect, state: &AppState) {
         })
         .collect();
 
+    let active_count = state.ledgers.iter().filter(|meta| !meta.archived).count();
+    if state.archived_count > 0 {
+        items.insert(
+            active_count,
+            ListItem::new(format!(
+                "{} Archived ({}) [A]",
+                if state.show_archived { "▾" } else { "▸" },
+                state.archived_count
+            ))
+            .style(Style::default().fg(Color::DarkGray)),
+        );
+    }
     let mut list_state = ListState::default();
-    if !state.ledgers.is_empty() {
-        list_state.select(Some(state.ledger_cursor));
+    if state.ledger_cursor < state.ledgers.len() {
+        let cursor = if state.archived_count > 0 && state.ledger_cursor >= active_count {
+            state.ledger_cursor.saturating_add(1)
+        } else {
+            state.ledger_cursor
+        };
+        list_state.select(Some(cursor));
     }
 
     let list = List::new(items)

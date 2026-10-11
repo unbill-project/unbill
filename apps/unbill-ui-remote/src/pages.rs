@@ -53,6 +53,7 @@ pub fn LedgersPage(
     on_more: Callback<()>,
     on_select_ledger: Callback<String>,
     on_new_ledger: Callback<()>,
+    on_set_ledger_archived: Callback<(String, bool)>,
 ) -> impl IntoView {
     // sirno:witness:unbill-ui-remote:end
     view! {
@@ -71,7 +72,7 @@ pub fn LedgersPage(
         >
             <div class="stack-gap">
                 {ledgers
-                    .into_iter()
+                    .iter().filter(|ledger| !ledger.archived).cloned()
                     .map(|ledger| {
                         let ledger_id = ledger.ledger_id.clone();
                         let detail = ledger
@@ -92,6 +93,22 @@ pub fn LedgersPage(
                         }
                     })
                     .collect_view()}
+                {let archived = ledgers.into_iter().filter(|ledger| ledger.archived).collect::<Vec<_>>();
+                    let count = archived.len();
+                    (count > 0).then(|| view! {
+                        <details>
+                            <summary>{format!("Archived ({count})")}</summary>
+                            <div class="stack-gap">
+                                {archived.into_iter().map(|ledger| {
+                                    let id = ledger.ledger_id;
+                                    view! { <div class="data-row split-row">
+                                        <p class="row-title">{ledger.name}</p>
+                                        <ActionButton label="Restore".to_owned() tone=ButtonTone::Quiet on_press=Callback::new(move |_| on_set_ledger_archived.run((id.clone(), false))) />
+                                    </div> }
+                                }).collect_view()}
+                            </div>
+                        </details>
+                    })}
             </div>
         </ScreenFrame>
     }
@@ -307,6 +324,7 @@ pub fn SettingsPopup(
     on_join_ledger: Callback<()>,
     on_add_ledger_user: Callback<()>,
     on_set_user_archived: Callback<(String, bool)>,
+    on_set_ledger_archived: Callback<(String, bool)>,
     on_sync_device: Callback<(String, Callback<()>)>,
     on_create_invitation: Callback<()>,
     on_copy_invitation: Callback<()>,
@@ -357,7 +375,7 @@ pub fn SettingsPopup(
                         />
                         <SettingsNavGroup title="Ledgers">
                             {ledgers
-                                .into_iter()
+                                .into_iter().filter(|ledger| !ledger.archived)
                                 .map(move |ledger| {
                                     let ledger_id = ledger.ledger_id.clone();
                                     let is_active = active_tab == SettingsTab::Ledger
@@ -468,6 +486,12 @@ pub fn SettingsPopup(
                                             />
                                         </SectionCard>
                                         // sirno:witness:ui-shared-model:end
+                                        <SectionCard title="Archive".to_owned()>
+                                            <p class="row-meta">"Hide this ledger on this device. Its data and syncing are retained."</p>
+                                            {let id = detail.summary.ledger_id.clone(); let archived = detail.summary.archived;
+                                                view! { <ActionButton label=if archived { "Restore Ledger" } else { "Archive Ledger" }.to_owned() tone=ButtonTone::Quiet on_press=Callback::new(move |_| on_set_ledger_archived.run((id.clone(), !archived))) /> }
+                                            }
+                                        </SectionCard>
                                         <SectionCard title="Users".to_owned()>
                                             <div class="stack-gap">
                                                 {if detail.users.is_empty() {

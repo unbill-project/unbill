@@ -11,7 +11,10 @@ struct LedgerSettingsView: View {
     @State private var lastSyncedAt: [String: Date] = [:]
     @State private var syncErrors: [String: String] = [:]
 
-    private var busy: Bool { syncingNodeID != nil }
+    @State private var archiving = false
+    @State private var archiveError: String?
+
+    private var busy: Bool { syncingNodeID != nil || archiving }
 
     var body: some View {
         NavigationStack {
@@ -47,6 +50,23 @@ struct LedgerSettingsView: View {
                             Task { await sync(peer.nodeID) }
                         }
                     }
+                }
+                Section {
+                    Button(detail.summary.archived ? "Restore Ledger" : "Archive Ledger") {
+                        Task {
+                            guard !busy else { return }
+                            archiving = true
+                            defer { archiving = false }
+                            do {
+                                try await console.setLedgerArchived(ledgerID: detail.summary.ledgerID, archived: !detail.summary.archived)
+                                dismiss()
+                            } catch { archiveError = error.localizedDescription }
+                        }
+                    }
+                    .disabled(busy)
+                    if let archiveError { Text(archiveError).foregroundStyle(.red) }
+                } footer: {
+                    Text("Archiving hides this ledger on this device. Its data and syncing are retained.")
                 }
             }
             .navigationTitle("Ledger Settings")

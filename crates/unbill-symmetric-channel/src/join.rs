@@ -135,6 +135,7 @@ where
             let ledger = doc.get_ledger()?;
             let ledger_id = ledger.ledger_id.to_string();
             let meta = LedgerMeta {
+                archived: false,
                 ledger_id: ledger.ledger_id,
                 name: ledger.name.clone(),
                 currency: ledger.currency,
@@ -205,6 +206,7 @@ mod tests {
 
         // Save ledger doc and meta to the store.
         let meta = LedgerMeta {
+            archived: false,
             ledger_id,
             name: "Trip".to_string(),
             currency: usd(),
