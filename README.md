@@ -68,6 +68,11 @@ nix profile install github:unbill-project/unbill#unbill-tauri
 docker pull ghcr.io/unbill-project/unbill-server:latest
 ```
 
+**iPhone / iPad (iOS 17+):** install [AltStore Classic](https://altstore.io),
+add the [Unbill source](https://raw.githubusercontent.com/unbill-project/unbill/main/altstore-source.json),
+then install **Unbill**. See the [iOS installation steps](INSTALL.md#ios)
+for setup and app refresh instructions.
+
 Prebuilt binaries for all platforms are attached to each
 [GitHub release](https://github.com/unbill-project/unbill/releases/latest).
 

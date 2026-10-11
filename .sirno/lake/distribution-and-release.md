@@ -152,3 +152,8 @@ Swift bindings. Xcode builds Release for generic iOS with signing disabled.
 The workflow packages `Payload/unbill.app` as `unbill-apple-ios.ipa` in a
 `binaries-apple-ios-aarch64` artifact, collected by the GitHub release workflow.
 Users sign the IPA themselves for sideloading. No signing secrets are required.
+
+README explicitly mentions installing the iPhone/iPad app through AltStore Classic
+and links to the Unbill source and INSTALL's iOS instructions. INSTALL makes
+AltStore the first iOS installation method, including initial setup, source
+subscription, signing and refresh requirements, followed by direct IPA sideloading.

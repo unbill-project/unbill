@@ -50,3 +50,17 @@ Optional but recommended: `subtitle`, `tintColor`, `category`, `screenshots`, `n
 `appPermissions` must list all entitlements and privacy usage descriptions.
 AltStore checks them against the downloaded IPA
 and refuses to install apps whose declared permissions do not match.
+
+## User installation documentation
+
+README's Install section includes a concise iPhone/iPad AltStore Classic route,
+a clickable Unbill source URL, and a link to INSTALL's iOS section.
+INSTALL presents AltStore Classic first: install AltServer on macOS or Windows
+and AltStore Classic on the device using the official setup instructions, add
+Unbill's raw GitHub source URL in Sources, and install Unbill from Browse.
+The guide explains Apple ID signing, iOS 17 or later, and refreshing free-account
+installations before their seven-day expiry via My Apps / Refresh All. Standard
+AltServer setup requires the computer to remain reachable over Wi-Fi or USB.
+It links to the official AltStore setup and refresh documentation. A direct
+unsigned IPA download remains an alternative. iOS runs its device service in
+process and requires no separate Unbill daemon installation.
