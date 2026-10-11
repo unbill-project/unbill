@@ -88,6 +88,7 @@ const UNBILL_RELAY_URLS: &[&str] = &[
 pub struct UnbillEndpoint {
     inner: iroh::Endpoint,
     addr_cache: MemoryLookup,
+    incoming_tasks: tokio::sync::Mutex<tokio::task::JoinSet<Option<AcceptedBi>>>,
 }
 
 impl UnbillEndpoint {
@@ -123,7 +124,11 @@ impl UnbillEndpoint {
             .bind()
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?;
-        Ok(Self { inner, addr_cache })
+        Ok(Self {
+            inner,
+            addr_cache,
+            incoming_tasks: tokio::sync::Mutex::new(tokio::task::JoinSet::new()),
+        })
     }
 
     /// Cache the remote peer's direct addresses after a successful connection
@@ -174,45 +179,28 @@ impl UnbillEndpoint {
     // -----------------------------------------------------------------------
 
     pub async fn accept_bi(&self) -> Option<AcceptedBi> {
+        // Keep unfinished tasks across calls, including while callers handle a result.
+        let mut tasks = self.incoming_tasks.lock().await;
         loop {
-            let incoming = self.inner.accept().await?;
-            let mut connecting = match incoming.accept() {
-                Ok(c) => c,
-                Err(e) => {
-                    warn!("rejected incoming QUIC handshake: {e}");
-                    continue;
+            tokio::select! {
+                result = tasks.join_next(), if !tasks.is_empty() => {
+                    match result {
+                        Some(Ok(Some(accepted))) => {
+                            self.cache_peer(&accepted.handle.conn).await;
+                            return Some(accepted);
+                        }
+                        Some(Err(error)) => warn!("incoming connection task failed: {error}"),
+                        _ => {}
+                    }
                 }
-            };
-            let alpn = match connecting.alpn().await {
-                Ok(a) => a,
-                Err(e) => {
-                    warn!("could not read ALPN from incoming connection: {e}");
-                    continue;
+                incoming = self.inner.accept() => {
+                    let Some(incoming) = incoming else {
+                        tasks.abort_all();
+                        return None;
+                    };
+                    tasks.spawn(accept_incoming(incoming));
                 }
-            };
-            let conn = match connecting.await {
-                Ok(c) => c,
-                Err(e) => {
-                    warn!("incoming connection handshake failed: {e}");
-                    continue;
-                }
-            };
-            self.cache_peer(&conn).await;
-            let peer = conn.remote_id().to_node_id();
-            let (send, recv) = match conn.accept_bi().await {
-                Ok(s) => s,
-                Err(e) => {
-                    warn!("accept_bi failed: {e}");
-                    continue;
-                }
-            };
-            return Some(AcceptedBi {
-                peer,
-                alpn,
-                send: Box::new(send),
-                recv: Box::new(recv),
-                handle: ConnHandle { conn },
-            });
+            }
         }
     }
 
@@ -311,49 +299,15 @@ impl UnbillEndpoint {
     // -----------------------------------------------------------------------
 
     pub async fn accept_loop_inner(&self, store: Arc<StoreServer>) -> Result<()> {
-        loop {
-            let Some(incoming) = self.inner.accept().await else {
-                info!("endpoint closed, stopping accept loop");
-                break;
-            };
-            let endpoint = Self {
-                inner: self.inner.clone(),
-                addr_cache: self.addr_cache.clone(),
-            };
+        while let Some(accepted) = self.accept_bi().await {
             let store = Arc::clone(&store);
             tokio::spawn(async move {
-                let mut connecting = match incoming.accept() {
-                    Ok(c) => c,
-                    Err(e) => {
-                        warn!("rejected incoming QUIC handshake: {e}");
-                        return;
-                    }
-                };
-
-                // Read ALPN before completing the handshake so we can dispatch.
-                let alpn = match connecting.alpn().await {
-                    Ok(a) => a,
-                    Err(e) => {
-                        warn!("could not read ALPN from incoming connection: {e}");
-                        return;
-                    }
-                };
-
-                let conn = match connecting.await {
-                    Ok(c) => c,
-                    Err(e) => {
-                        warn!("incoming connection handshake failed: {e}");
-                        return;
-                    }
-                };
-
-                endpoint.cache_peer(&conn).await;
-                let peer = conn.remote_id().to_node_id();
-                if let Err(e) = dispatch(conn, peer, &alpn, store).await {
+                if let Err(e) = dispatch(accepted, store).await {
                     warn!("connection handler error: {e:#}");
                 }
             });
         }
+        info!("endpoint closed, stopping accept loop");
         Ok(())
     }
 }
@@ -363,25 +317,58 @@ impl UnbillEndpoint {
 // Dispatch incoming connection to the right protocol handler
 // ---------------------------------------------------------------------------
 
-async fn dispatch(
-    conn: iroh::endpoint::Connection,
-    peer: NodeId,
-    alpn: &[u8],
-    store: Arc<StoreServer>,
-) -> Result<()> {
-    match alpn {
+async fn accept_incoming(incoming: iroh::endpoint::Incoming) -> Option<AcceptedBi> {
+    let mut connecting = match incoming.accept() {
+        Ok(c) => c,
+        Err(e) => {
+            warn!("rejected incoming QUIC handshake: {e}");
+            return None;
+        }
+    };
+    let alpn = match connecting.alpn().await {
+        Ok(a) => a,
+        Err(e) => {
+            warn!("could not read ALPN from incoming connection: {e}");
+            return None;
+        }
+    };
+    let conn = match connecting.await {
+        Ok(c) => c,
+        Err(e) => {
+            warn!("incoming connection handshake failed: {e}");
+            return None;
+        }
+    };
+    let peer = conn.remote_id().to_node_id();
+    let (send, recv) = match conn.accept_bi().await {
+        Ok(s) => s,
+        Err(e) => {
+            warn!("accept_bi failed: {e}");
+            return None;
+        }
+    };
+    Some(AcceptedBi {
+        peer,
+        alpn,
+        send: Box::new(send),
+        recv: Box::new(recv),
+        handle: ConnHandle { conn },
+    })
+}
+
+async fn dispatch(accepted: AcceptedBi, store: Arc<StoreServer>) -> Result<()> {
+    let AcceptedBi {
+        peer,
+        alpn,
+        send,
+        recv,
+        handle,
+    } = accepted;
+    match alpn.as_slice() {
         ALPN_SYNC => {
-            let (send, recv) = conn
-                .accept_bi()
-                .await
-                .map_err(|e| UnbillError::Network(e.to_string()))?;
             run_sync_session(false, peer, &store, recv, send).await?;
         }
         ALPN_JOIN => {
-            let (send, recv) = conn
-                .accept_bi()
-                .await
-                .map_err(|e| UnbillError::Network(e.to_string()))?;
             run_join_host(peer, &store, recv, send).await?;
         }
         other => {
@@ -391,9 +378,78 @@ async fn dispatch(
             )));
         }
     }
-    // Wait for the initiator to close the connection.  The initiator calls
-    // conn.close() only after it has finished reading, which guarantees all
-    // stream data was delivered before we exit.
-    conn.closed().await;
+    // The initiator closes only after reading the response.
+    handle.wait_for_close().await;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    async fn local_endpoint() -> iroh::Endpoint {
+        iroh::Endpoint::builder(presets::Minimal)
+            .clear_ip_transports()
+            .bind_addr("127.0.0.1:0")
+            .expect("loopback address")
+            .alpns(vec![ALPN_SYNC.to_vec()])
+            .bind()
+            .await
+            .expect("bind local endpoint")
+    }
+
+    #[tokio::test]
+    async fn idle_connection_does_not_block_later_connections() {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            let host = Arc::new(UnbillEndpoint {
+                inner: local_endpoint().await,
+                addr_cache: MemoryLookup::new(),
+                incoming_tasks: tokio::sync::Mutex::new(tokio::task::JoinSet::new()),
+            });
+            let address = iroh::EndpointAddr::from_parts(
+                host.inner.id(),
+                host.inner
+                    .bound_sockets()
+                    .into_iter()
+                    .map(iroh::TransportAddr::Ip),
+            );
+            let accepting = Arc::clone(&host);
+            let mut first_accept = Some(tokio::spawn(async move { accepting.accept_bi().await }));
+            let idle_client = local_endpoint().await;
+            let idle_connection = idle_client
+                .connect(address.clone(), ALPN_SYNC)
+                .await
+                .expect("connect peer that never opens a stream");
+
+            for attempt in 0..2 {
+                let accept_task = if attempt == 0 {
+                    first_accept.take().expect("first accept task")
+                } else {
+                    let accepting = Arc::clone(&host);
+                    tokio::spawn(async move { accepting.accept_bi().await })
+                };
+                let client = local_endpoint().await;
+                let conn = client
+                    .connect(address.clone(), ALPN_SYNC)
+                    .await
+                    .expect("connect active peer");
+                let (mut send, _recv) = conn.open_bi().await.expect("open stream");
+                send.write_all(b"ready").await.expect("announce stream");
+                let accepted = accept_task
+                    .await
+                    .expect("accept task")
+                    .expect("accept active peer");
+                assert_eq!(accepted.peer, client.id().to_node_id());
+                accepted.handle.close();
+                conn.close(0u32.into(), b"done");
+                client.close().await;
+            }
+            idle_connection.close(0u32.into(), b"done");
+            idle_client.close().await;
+            host.close().await;
+        })
+        .await
+        .expect("idle connection must not stall acceptance");
+    }
 }

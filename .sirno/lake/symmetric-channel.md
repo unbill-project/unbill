@@ -63,7 +63,8 @@ binds with the device secret key,
 and dispatches incoming connections by ALPN.
 `node_id_ext.rs` converts between Unbill model types and Iroh types.
 
-Tests use in-process streams rather than real network endpoints.
+Protocol tests use in-process streams. A loopback endpoint regression test verifies
+that an idle connection cannot block later connections across accept calls.
 Coverage includes framing, convergence, authorization filtering,
 and join success and failure paths.
 
@@ -74,3 +75,10 @@ snapshot without creating a local alias.
 The responder accepts connections without waiting for earlier handshakes. Each
 handshake and session runs in its own task, without an application-level
 concurrent handshake limit.
+
+The device service uses `accept_bi`, which keeps a JoinSet of incoming handshakes
+and initial stream waits across calls. A stalled handshake or a connected peer
+that never opens a stream cannot block later connections. Endpoint closure aborts
+pending accept tasks.
+The higher-level `accept_loop_inner` delegates acceptance to `accept_bi`, so both
+entry points share one handshake and initial-stream implementation.
