@@ -252,7 +252,7 @@ fingerprint = "sha256:e64d033c5aafdbaf7ad2ce16eb75ab659f5ee60a5f32bd06e041336473
 "core.belongs" = ["unbill"]
 
 [entries.symmetric-channel]
-fingerprint = "sha256:246a9d7fb10611944a354ac3ffb5feb28ab6a6b5d467c567b3cfb218cded25bf"
+fingerprint = "sha256:7045883a3693d697aa3dd316c41ae5ec7ba732e81b8c66490093d8c64733d55b"
 "core.belongs" = [
     "channels",
     "workspace-layout",

@@ -37,7 +37,7 @@ pub const PROTOCOL_VERSION: u32 = 1;
 /// the TLS-verified Iroh connection.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct Hello {
-    /// ULIDs (as strings) of every ledger this device holds locally.
+    /// ULIDs (as strings) of local ledgers that authorize the remote device.
     pub ledger_ids: Vec<String>,
 }
 
