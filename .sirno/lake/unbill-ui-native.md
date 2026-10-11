@@ -124,4 +124,6 @@ The UI API layer formats them with the browser runtime's local calendar date and
 Pure UI state helpers are unit-tested in the Leptos crate.
 Tauri DTO assembly and command behavior are tested in the Tauri crate.
 
-The native UI groups archived ledgers in a collapsed Archived disclosure with Restore actions; Ledger Settings exposes Archive Ledger. The Tauri command forwards set_ledger_archived, and console ledger updates are emitted to the webview so other daemon clients also refresh the visible preference and clear archived selections.
+The native UI groups archived ledgers in a collapsed Archived disclosure with navigation rows; Ledger Settings exposes Archive Ledger and Restore Ledger. The Tauri command forwards set_ledger_archived, and console ledger updates are emitted to the webview so other daemon clients also refresh the visible preference and clear archived selections.
+
+Ledger list rows only open ledger details; restoration belongs in Ledger Settings. Explicitly opened archived ledgers remain selected across refreshes.

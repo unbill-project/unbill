@@ -118,4 +118,6 @@ Device Settings displays client version and UTC build timestamp separately from 
 
 Version information appears as a compact footer at the bottom of settings, after the settings controls.
 
-Active ledgers appear in the main list; a collapsed Archived group offers restoration. Ledger Settings offers Archive Ledger. Archiving hides a ledger locally while retaining data and synchronization. Archiving an open ledger clears its detail and bill editor selection. Browser archiving uses server state, and clients sharing a desktop daemon receive the same preference through update notifications.
+Active ledgers appear in the main list; a collapsed Archived group opens ledger details without row-level Restore buttons. Ledger Settings offers Archive Ledger and Restore Ledger. Archiving hides a ledger locally while retaining data and synchronization. Archiving an open ledger clears its detail and bill editor selection. Browser archiving uses server state, and clients sharing a desktop daemon receive the same preference through update notifications.
+
+Ledger list rows only open ledger details; restoration belongs in Ledger Settings. Explicitly opened archived ledgers remain selected across refreshes.

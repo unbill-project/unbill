@@ -54,7 +54,6 @@ pub fn LedgersPage(
     on_more: Callback<()>,
     on_select_ledger: Callback<String>,
     on_new_ledger: Callback<()>,
-    on_set_ledger_archived: Callback<(String, bool)>,
 ) -> impl IntoView {
     // sirno:witness:unbill-ui-native:end
     view! {
@@ -101,10 +100,15 @@ pub fn LedgersPage(
                             <div class="stack-gap">
                                 {archived.into_iter().map(|ledger| {
                                     let id = ledger.ledger_id;
-                                    view! { <div class="data-row split-row">
-                                        <p class="row-title">{ledger.name}</p>
-                                        <ActionButton label="Restore".to_owned() tone=ButtonTone::Quiet on_press=Callback::new(move |_| on_set_ledger_archived.run((id.clone(), false))) />
-                                    </div> }
+                                    view! {
+                                        <ListRow
+                                            title=ledger.name
+                                            meta=format_ledger_meta(&ledger.user_names, &ledger.currency)
+                                            detail=ledger.latest_bill_at_ms.map(api::format_timestamp).unwrap_or_else(|| "No bills yet".to_owned())
+                                            selected=selected_ledger_id.as_ref().is_some_and(|selected| selected == &id)
+                                            on_press=Callback::new(move |_| on_select_ledger.run(id.clone()))
+                                        />
+                                    }
                                 }).collect_view()}
                             </div>
                         </details>

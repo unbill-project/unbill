@@ -276,7 +276,7 @@ fingerprint = "sha256:39be3c410d87acdc29ba51f0e5c66c662e52f7a177b2978a2d9598c434
 "core.refines" = ["ui-shared-model"]
 
 [entries.ui-shared-model]
-fingerprint = "sha256:d795b55f1fa0bde06cd256ebff40f3e0ae9495205d51c9e161906ed837f34861"
+fingerprint = "sha256:e72e2e82fae8c1f00a5c35c1915f2a08e291c313bd4039492eff549a31b4e73d"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -287,7 +287,7 @@ fingerprint = "sha256:d795b55f1fa0bde06cd256ebff40f3e0ae9495205d51c9e161906ed837
 fingerprint = "sha256:4e55d4de86988da589d6b17d66d2e4c85e16b56d58a84ef34b76588b24a37c34"
 
 [entries.unbill-apple]
-fingerprint = "sha256:9802d5f8f6c44d626a54fbb642082804f73c61655e34d3c4cd0b77b65b025311"
+fingerprint = "sha256:f57f2d226145683771f6ea98daadc7fb135684976bd4c8d84896192f8cad30b6"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -349,7 +349,7 @@ fingerprint = "sha256:c1b4db081ed850ad2bffed7667a0025188af0fa504bac6ccbd3a28f744
 "core.refines" = ["unbill-ui-native"]
 
 [entries.unbill-tui]
-fingerprint = "sha256:d2fabf7d06fc4d1f4f9b631cb3ad7acec4d1c5dac57b19c000f00055862a43d2"
+fingerprint = "sha256:cd2380666bb79e4dc093af761f5675b93786c5af61c2d2632cf482230fbeed7f"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -357,7 +357,7 @@ fingerprint = "sha256:d2fabf7d06fc4d1f4f9b631cb3ad7acec4d1c5dac57b19c000f0005586
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-ui-native]
-fingerprint = "sha256:f7053b5ab7a4c2fbe4d8506d0f9c28fb37e8aa7930e3b43647e18e45dd0f2c74"
+fingerprint = "sha256:e630f31a86458e18e9dbc7b8991826d4c369a81f7d9d2d46bb3cc29ee92f2192"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -365,7 +365,7 @@ fingerprint = "sha256:f7053b5ab7a4c2fbe4d8506d0f9c28fb37e8aa7930e3b43647e18e45dd
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-ui-remote]
-fingerprint = "sha256:b02c9b03cd0fe9f5ea2d5a0562c8be1e6368cebcada1b603e8f062dd0e510ba2"
+fingerprint = "sha256:fab246f8dfad835cd7ff18054d90fc3382ae7c70a9feab4d93f0532932906be0"
 "core.belongs" = [
     "frontend-ui",
     "applications",
