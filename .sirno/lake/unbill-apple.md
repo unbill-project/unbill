@@ -127,6 +127,8 @@ and expose manual refresh/retry. Failed reloads clear prior data and display err
 request generations prevent older responses from overwriting newer results.
 The app registers the unbill URL scheme and opens invitation links in the join sheet.
 The sheet requires this joining device's ledger name. Startup errors offer retry.
+Startup failure uses ContentUnavailableView's actions area to keep a prominent
+system Retry button directly below the error description, with Return activation.
 Apple CI runs Foundation-only amount boundary tests before building Rust and Swift.
 
 Plus toolbar controls contain only creation actions: New Ledger, Add Person, and

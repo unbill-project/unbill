@@ -33,6 +33,9 @@ It translates `ServiceEvent` into `AsymChannelEvent` through a background task.
 
 `RpcAsymChannel` uses tarpc over a Unix local socket.
 The server side lives in `rpc::serve`.
+Peer-sync requests set a 120-second RPC deadline for connection, exchange, and
+persistence. Deadline expiry reports Peer sync timed out after 120 seconds.
+Other RPC operations retain their existing request deadlines.
 Event delivery is polled through per-connection queues.
 Poisoned queue locks reuse the contained event vector;
 appending or draining events requires no multi-step state repair.
