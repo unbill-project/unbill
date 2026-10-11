@@ -215,16 +215,24 @@ pub fn App() -> impl IntoView {
                     service_label.set(data.service_label);
                     sort_ledgers(&mut data.ledgers);
                     let selected = selected_ledger_id.get_untracked();
+                    let became_archived = selected.as_ref().is_some_and(|id| {
+                        ledgers
+                            .get_untracked()
+                            .iter()
+                            .any(|item| &item.ledger_id == id && !item.archived)
+                            && data
+                                .ledgers
+                                .iter()
+                                .any(|item| &item.ledger_id == id && item.archived)
+                    });
                     let selection_exists = selected
                         .as_ref()
                         .map(|ledger_id| {
-                            data.ledgers
-                                .iter()
-                                .any(|item| &item.ledger_id == ledger_id && !item.archived)
+                            data.ledgers.iter().any(|item| &item.ledger_id == ledger_id)
                         })
                         .unwrap_or(false);
 
-                    if !selection_exists {
+                    if !selection_exists || became_archived {
                         selected_ledger_id.set(None);
                         ledger_detail.set(None);
                         bill_editor.set(None);
@@ -232,6 +240,7 @@ pub fn App() -> impl IntoView {
 
                     if let Some(ledger_id) = selected
                         && selection_exists
+                        && !became_archived
                     {
                         match api::load_ledger_detail(&ledger_id).await {
                             Ok(detail) => ledger_detail.set(Some(detail)),
@@ -247,7 +256,7 @@ pub fn App() -> impl IntoView {
                             let settings_selection_exists = data
                                 .ledgers
                                 .iter()
-                                .any(|item| item.ledger_id == settings_ledger_id && !item.archived);
+                                .any(|item| item.ledger_id == settings_ledger_id);
 
                             if settings_selection_exists {
                                 match api::load_ledger_detail(&settings_ledger_id).await {
@@ -304,7 +313,12 @@ pub fn App() -> impl IntoView {
             match events.recv().await {
                 Ok(unbill_console::service::ServiceEvent::LedgerUpdated { ledger_id }) => {
                     if let Ok(summary) = api::load_ledger_summary(&ledger_id).await {
-                        if summary.archived {
+                        if summary.archived
+                            && ledgers
+                                .get_untracked()
+                                .iter()
+                                .any(|item| item.ledger_id == ledger_id && !item.archived)
+                        {
                             if selected_ledger_id.get_untracked().as_deref()
                                 == Some(ledger_id.as_str())
                             {
@@ -751,7 +765,6 @@ pub fn App() -> impl IntoView {
                 on_more=Callback::new(move |_| open_device_settings())
                 on_select_ledger=Callback::new(open_ledger)
                 on_new_ledger=Callback::new(move |_| overlay.set(Some(OverlayKind::CreateLedger)))
-                on_set_ledger_archived=Callback::new(set_ledger_archived)
             />
         }
         .into_any()
@@ -820,7 +833,6 @@ pub fn App() -> impl IntoView {
                                     })
                                     on_select_ledger=Callback::new(open_ledger)
                                     on_new_ledger=Callback::new(move |_| overlay.set(Some(OverlayKind::CreateLedger)))
-                on_set_ledger_archived=Callback::new(set_ledger_archived)
                                 />
                             }
                         }}

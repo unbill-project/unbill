@@ -257,18 +257,8 @@ async fn handle_ledger_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
             refresh_users(svc, state).await;
             refresh_settlement(svc, state).await;
         }
-        KeyCode::Char('x') => {
-            if let Some(meta) = state.ledgers.get(state.ledger_cursor) {
-                execute_action(
-                    PopupAction::SetLedgerArchived {
-                        ledger_id: meta.ledger_id,
-                        archived: !meta.archived,
-                    },
-                    state,
-                    svc,
-                )
-                .await;
-            }
+        KeyCode::Char('u') => {
+            open_settings_popup(TopTab::Ledger, state, svc).await;
         }
         KeyCode::Char('S') => {
             open_settings_popup(TopTab::Device, state, svc).await;
