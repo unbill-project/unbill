@@ -3,6 +3,7 @@ import SwiftUI
 struct LedgerDetailView: View {
     let console: ConsoleClient
     let ledgerID: String
+    let ledgerName: String
     var selectedBillID: String? = nil
     var onOpenBillEditor: ((Bill?, LedgerDetail) -> Void)? = nil
     var onCloseBillEditor: (() -> Void)? = nil
@@ -19,8 +20,21 @@ struct LedgerDetailView: View {
     @State private var showingSettings = false
     @State private var resolvingConflict: ConflictGroup?
 
+    init(console: ConsoleClient, ledgerID: String, ledgerName: String,
+         initialDetail: LedgerDetail? = nil, selectedBillID: String? = nil,
+         onOpenBillEditor: ((Bill?, LedgerDetail) -> Void)? = nil,
+         onCloseBillEditor: (() -> Void)? = nil) {
+        self.console = console
+        self.ledgerID = ledgerID
+        self.ledgerName = ledgerName
+        self.selectedBillID = selectedBillID
+        self.onOpenBillEditor = onOpenBillEditor
+        self.onCloseBillEditor = onCloseBillEditor
+        _detail = State(initialValue: initialDetail)
+    }
+
     var body: some View {
-        Group {
+        ZStack {
             if let detail {
                 content(detail)
             } else if let loadError {
@@ -32,7 +46,8 @@ struct LedgerDetailView: View {
                 ProgressView()
             }
         }
-        .navigationTitle(detail?.summary.name ?? "Ledger")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .navigationTitle(detail?.summary.name ?? ledgerName)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
@@ -124,7 +139,7 @@ struct LedgerDetailView: View {
         }
         .task {
             let updates = await console.ledgerUpdates()
-            await load()
+            if detail == nil { await load() }
             for await updatedID in updates {
                 if Task.isCancelled { break }
                 if updatedID == nil || updatedID == ledgerID {

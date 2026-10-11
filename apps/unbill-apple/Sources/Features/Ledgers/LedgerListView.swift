@@ -4,6 +4,10 @@ struct LedgerListView: View {
     let console: ConsoleClient
     @Binding var selection: String?
     var onJoin: () -> Void
+    var onOpenLedger: (LedgerDetail) -> Void
+    @State private var openingLedgerID: String?
+    @State private var openingTask: Task<Void, Never>?
+    @State private var openingError: String?
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var loadGeneration = 0
@@ -15,28 +19,34 @@ struct LedgerListView: View {
     @State private var showingDevices = false
 
     var body: some View {
-        List(selection: $selection) {
+        List(selection: Binding(get: { selection }, set: { _ in })) {
             if let loadError {
                 Text(loadError).foregroundStyle(.red)
                 Button("Retry") { Task { await load() } }
             }
             ForEach(ledgers.filter { !$0.archived }) { ledger in
-                NavigationLink(value: ledger.id) {
-                    LedgerRow(ledger: ledger)
-                }
+                ledgerButton(ledger)
             }
             let archived = ledgers.filter { $0.archived }
             if !archived.isEmpty {
                 DisclosureGroup("Archived (\(archived.count))", isExpanded: $archivedExpanded) {
                     ForEach(archived) { ledger in
-                        NavigationLink(value: ledger.id) {
-                            LedgerRow(ledger: ledger)
-                        }
+                        ledgerButton(ledger)
                     }
                 }
             }
         }
         .navigationTitle("Ledgers")
+        .alert("Couldn’t Open Ledger", isPresented: Binding(
+            get: { openingError != nil }, set: { if !$0 { openingError = nil } }
+        )) {
+            Button("OK", role: .cancel) { openingError = nil }
+        } message: {
+            Text(openingError ?? "")
+        }
+        .onDisappear {
+            openingTask?.cancel()
+        }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button { showingNew = true } label: {
@@ -85,6 +95,42 @@ struct LedgerListView: View {
                 await load()
             }
         }
+    }
+
+    private func ledgerButton(_ ledger: LedgerSummary) -> some View {
+        Button {
+            guard openingLedgerID == nil else { return }
+            openingLedgerID = ledger.id
+            openingTask = Task {
+                defer {
+                    openingLedgerID = nil
+                    openingTask = nil
+                }
+                do {
+                    let detail = try await console.ledgerDetail(id: ledger.id)
+                    guard !Task.isCancelled else { return }
+                    onOpenLedger(detail)
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    openingError = error.localizedDescription
+                }
+            }
+        } label: {
+            HStack {
+                LedgerRow(ledger: ledger)
+                if openingLedgerID == ledger.id {
+                    ProgressView().controlSize(.small)
+                        .accessibilityLabel("Loading ledger")
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .tag(ledger.id)
     }
 
     private func load() async {

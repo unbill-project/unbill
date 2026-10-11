@@ -158,6 +158,17 @@ excluding people already in the current ledger and sorting candidates by name.
 Loading, empty, and failed states remain visible; failed loads offer Retry and
 the sheet supports refresh. Saving guards repeat actions and prevents dismissal.
 
-Ledger Settings provides Archive Ledger, and the ledger sidebar groups archived ledgers in a collapsed native DisclosureGroup with navigation rows. The Swift console protocol exposes setLedgerArchived and summaries carry archived. Archived rows retain explicit navigation links so users can open their details without restoring them. Refresh or ledger update notifications clear selection and detail/editor context when an active ledger becomes archived, but retain an explicitly opened archived ledger across subsequent refreshes. Archive requests disable settings dismissal while in progress and report failures without clearing data.
+Ledger Settings provides Archive Ledger, and the ledger sidebar groups archived ledgers in a collapsed native DisclosureGroup with navigation rows. The Swift console protocol exposes setLedgerArchived and summaries carry archived. Archived rows retain explicit opening actions so users can open their details without restoring them. Refresh or ledger update notifications clear selection and detail/editor context when an active ledger becomes archived, but retain an explicitly opened archived ledger across subsequent refreshes. Archive requests disable settings dismissal while in progress and report failures without clearing data.
 
 Ledger list rows only open ledger details; restoration belongs in Ledger Settings. Explicitly opened archived ledgers remain selected across refreshes.
+
+Clicking a ledger row replaces its trailing chevron with a progress indicator and
+fetches the complete ledger detail through ConsoleClient and UniFFI before selecting
+or navigating. Duplicate opening requests are ignored while the fetch runs; failure
+keeps the list visible and presents the error. The destination starts with this
+loaded detail and skips a redundant initial fetch, while later updates and refreshes
+still reload it. Mac bill saves discard the initial snapshot before refreshing.
+Compact iPhone layouts use an explicit NavigationStack with ledger-ID destinations;
+iPad retains two-column navigation and Mac Catalyst retains three columns. The stack
+path and ledger selection stay synchronized for back navigation and archiving.
+The detail screen keeps a stable full-size container for content and reload errors.
