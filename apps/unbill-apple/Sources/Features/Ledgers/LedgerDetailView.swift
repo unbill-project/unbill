@@ -51,22 +51,21 @@ struct LedgerDetailView: View {
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                     .disabled(detail?.users.isEmpty ?? true)
 
-                    Divider()
-
-                    Button {
-                        showingSettings = true
-                    } label: {
-                        Label("Ledger Settings", systemImage: "gearshape")
-                    }
-
-                    Button {
-                        showingInvite = true
-                    } label: {
-                        Label("Invite via QR", systemImage: "qrcode")
-                    }
                 } label: {
                     Label("Add", systemImage: "plus")
                 }
+                .disabled(detail == nil)
+            }
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button { showingInvite = true } label: {
+                    Label("Invite via QR", systemImage: "qrcode")
+                }
+                .help("Invite via QR")
+                .disabled(detail == nil)
+                Button { showingSettings = true } label: {
+                    Label("Ledger Settings", systemImage: "gearshape")
+                }
+                .help("Ledger Settings")
                 .disabled(detail == nil)
             }
         }

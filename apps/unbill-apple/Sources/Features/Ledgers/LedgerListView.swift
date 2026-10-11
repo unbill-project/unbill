@@ -27,21 +27,16 @@ struct LedgerListView: View {
         }
         .navigationTitle("Ledgers")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Menu {
-                    Button {
-                        showingNew = true
-                    } label: {
-                        Label("New Ledger", systemImage: "plus")
-                    }.keyboardShortcut("n", modifiers: .command)
-                    Button {
-                        onJoin()
-                    } label: {
-                        Label("Join Ledger", systemImage: "qrcode.viewfinder")
-                    }
-                } label: {
-                    Label("Add", systemImage: "plus")
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button { showingNew = true } label: {
+                    Label("New Ledger", systemImage: "plus")
                 }
+                .keyboardShortcut("n", modifiers: .command)
+                .help("New Ledger")
+                Button { onJoin() } label: {
+                    Label("Join Ledger", systemImage: "qrcode.viewfinder")
+                }
+                .help("Join Ledger")
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button {

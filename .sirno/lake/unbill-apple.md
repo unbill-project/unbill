@@ -105,6 +105,8 @@ equal or custom positive integer weights on both sides, and live amounts from
 UnbillConsole's verified splitting algorithm through UniFFI.
 Explicit Equal shares / Custom shares segmented controls select each side's mode;
 custom weights use labeled, bordered numeric inputs and survive mode changes.
+Payer selection uses square checkboxes with whole-row activation and accessible
+selection state on iOS and Mac Catalyst, rather than switches.
 UniFFI allocates a real bill ID when a draft opens; preview and save use that same ID,
 so displayed amounts match saved amounts. Amendments allocate a new ID rather than
 reusing the original bill ID. Amendments preserve archived
@@ -126,3 +128,7 @@ request generations prevent older responses from overwriting newer results.
 The app registers the unbill URL scheme and opens invitation links in the join sheet.
 The sheet requires this joining device's ledger name. Startup errors offer retry.
 Apple CI runs Foundation-only amount boundary tests before building Rust and Swift.
+
+Plus toolbar controls contain only creation actions: New Ledger, Add Person, and
+Add Bill. Join Ledger, Invite via QR, and Ledger Settings have separate labeled
+toolbar controls with their own icons.

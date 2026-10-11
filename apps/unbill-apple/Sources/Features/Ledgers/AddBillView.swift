@@ -109,11 +109,17 @@ struct AddBillView: View {
     private func participant(_ user: User, payers: Bool) -> some View {
         let selected = (payers ? payerWeights : payeeWeights)[user.userID] != nil
         let custom = payers ? customPayers : customPayees
+        let selection = Binding(get: { selected }, set: { enabled in
+            if payers { payerWeights[user.userID] = enabled ? "1" : nil }
+            else { payeeWeights[user.userID] = enabled ? "1" : nil }
+        })
         return VStack(alignment: .leading) {
-            Toggle(user.displayName, isOn: Binding(get: { selected }, set: { enabled in
-                if payers { payerWeights[user.userID] = enabled ? "1" : nil }
-                else { payeeWeights[user.userID] = enabled ? "1" : nil }
-            }))
+            if payers {
+                Toggle(user.displayName, isOn: selection)
+                    .toggleStyle(PayerCheckboxStyle())
+            } else {
+                Toggle(user.displayName, isOn: selection)
+            }
             if selected {
                 HStack {
                     if custom {
@@ -191,5 +197,25 @@ struct AddBillView: View {
             if !embedded { dismiss() }
         } catch { self.error = error.localizedDescription }
         isSaving = false
+    }
+}
+
+private struct PayerCheckboxStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button { configuration.isOn.toggle() } label: {
+            HStack(spacing: 12) {
+                Image(systemName: configuration.isOn ? "checkmark.square.fill" : "square")
+                    .font(.title3)
+                    .foregroundStyle(configuration.isOn ? Color.accentColor : Color.secondary)
+                    .accessibilityHidden(true)
+                configuration.label.foregroundStyle(.primary)
+                Spacer()
+            }
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(configuration.isOn ? "Selected" : "Not selected")
+        .accessibilityAddTraits(configuration.isOn ? .isSelected : [])
     }
 }
