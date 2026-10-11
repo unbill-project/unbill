@@ -152,3 +152,8 @@ Global Devices and Ledger Settings reuse the same peer-device row, including
 name, truncated secondary Node ID, ledger names, bordered Sync/Retry button,
 in-place progress indicator, completion timestamp, and per-peer errors. Both
 sheets guard duplicate sync requests and disable dismissal while syncing.
+
+Add Person always displays From Other Ledgers with explicit Import actions,
+excluding people already in the current ledger and sorting candidates by name.
+Loading, empty, and failed states remain visible; failed loads offer Retry and
+the sheet supports refresh. Saving guards repeat actions and prevents dismissal.
