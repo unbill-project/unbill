@@ -11,6 +11,8 @@ struct DevicesView: View {
     @State private var peers: [SyncDevice] = []
     @State private var syncingNodeID: String?
     @State private var isSyncingAll = false
+    @State private var lastSyncedAt: [String: Date] = [:]
+    @State private var syncErrors: [String: String] = [:]
     @State private var status: String?
     @State private var error: String?
 
@@ -49,21 +51,41 @@ struct DevicesView: View {
                                         .font(.caption)
                                         .foregroundStyle(.tertiary)
                                 }
+                                if syncingNodeID != peer.nodeID, syncErrors[peer.nodeID] == nil,
+                                   let date = lastSyncedAt[peer.nodeID] {
+                                    Label {
+                                        Text("Sync complete · \(date, format: .dateTime.hour().minute())")
+                                    } icon: {
+                                        Image(systemName: "checkmark.circle")
+                                    }
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                }
+                                if let message = syncErrors[peer.nodeID] {
+                                    Text(message).font(.caption).foregroundStyle(.red)
+                                }
                             }
                             Spacer()
-                            if syncingNodeID == peer.nodeID {
-                                ProgressView()
-                            } else {
-                                Button("Sync") { Task { await sync(peer.nodeID) } }
-                                    .buttonStyle(.bordered)
-                                    .disabled(busy)
+                            Button {
+                                Task { await sync(peer.nodeID) }
+                            } label: {
+                                ZStack {
+                                    Text(syncErrors[peer.nodeID] == nil ? "Sync" : "Retry")
+                                        .opacity(syncingNodeID == peer.nodeID ? 0 : 1)
+                                    if syncingNodeID == peer.nodeID {
+                                        ProgressView().controlSize(.small)
+                                    }
+                                }
                             }
+                            .buttonStyle(.bordered)
+                            .disabled(busy)
+                            .accessibilityLabel(syncingNodeID == peer.nodeID ? "Syncing" : (syncErrors[peer.nodeID] == nil ? "Sync" : "Retry"))
                         }
                     }
                 }
 
                 if let status {
-                    Section { Label(status, systemImage: "checkmark.circle").foregroundStyle(.secondary) }
+                    Section { Text(status).foregroundStyle(.secondary) }
                 }
                 if let error {
                     Section { Text(error).foregroundStyle(.red) }
@@ -73,6 +95,7 @@ struct DevicesView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
+                        .disabled(busy)
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button { Task { await syncAll() } } label: {
@@ -84,6 +107,7 @@ struct DevicesView: View {
             .task { await load() }
             .refreshable { await load() }
         }
+        .interactiveDismissDisabled(busy)
     }
 
     private func load() async {
@@ -105,32 +129,37 @@ struct DevicesView: View {
     }
 
     private func sync(_ nodeID: String) async {
-        syncingNodeID = nodeID
-        error = nil
+        guard !busy else { return }
         status = nil
+        _ = await syncPeer(nodeID)
+        onSynced()
+    }
+
+    private func syncPeer(_ nodeID: String) async -> Bool {
+        syncingNodeID = nodeID
+        syncErrors[nodeID] = nil
+        defer { syncingNodeID = nil }
         do {
             try await console.syncOnce(peerNodeID: nodeID)
-            status = "Synced."
-            onSynced()
+            lastSyncedAt[nodeID] = Date()
+            return true
         } catch {
-            self.error = error.localizedDescription
+            syncErrors[nodeID] = error.localizedDescription
+            return false
         }
-        syncingNodeID = nil
     }
 
     private func syncAll() async {
+        guard !busy else { return }
+        let targets = peers
         isSyncingAll = true
-        error = nil
+        defer { isSyncingAll = false }
         status = nil
-        for peer in peers {
-            do {
-                try await console.syncOnce(peerNodeID: peer.nodeID)
-            } catch {
-                self.error = error.localizedDescription
-            }
+        var succeeded = 0
+        for peer in targets {
+            if await syncPeer(peer.nodeID) { succeeded += 1 }
         }
-        if error == nil { status = "Synced \(peers.count) peer(s)." }
+        status = "\(succeeded) synced, \(targets.count - succeeded) failed."
         onSynced()
-        isSyncingAll = false
     }
 }

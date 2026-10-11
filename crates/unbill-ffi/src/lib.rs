@@ -507,9 +507,15 @@ impl FfiConsole {
             .map_err(err)
     }
 
-    pub fn sync_once(&self, peer_node_id: String) -> Result<(), FfiError> {
+    /// Await network sync without blocking the caller's Swift actor executor.
+    pub async fn sync_once(&self, peer_node_id: String) -> Result<(), FfiError> {
         let peer = peer_node_id.parse::<NodeId>().map_err(err)?;
-        self.rt.block_on(self.inner.sync_once(peer)).map_err(err)
+        let inner = Arc::clone(&self.inner);
+        self.rt
+            .spawn(async move { inner.sync_once(peer).await })
+            .await
+            .map_err(err)?
+            .map_err(err)
     }
 
     /// Subscribe to service events. Delivery stops when the returned handle drops.

@@ -132,3 +132,16 @@ Apple CI runs Foundation-only amount boundary tests before building Rust and Swi
 Plus toolbar controls contain only creation actions: New Ledger, Add Person, and
 Add Bill. Join Ledger, Invite via QR, and Ledger Settings have separate labeled
 toolbar controls with their own icons.
+
+Peer sync uses an asynchronous UniFFI export, running network work on the FFI-owned
+Tokio runtime and yielding the Swift console actor while it waits. Local ledger
+queries remain available during sync. The Devices sheet disables Done and interactive
+dismissal while Sync or Sync All is running, restoring both after success or failure.
+Closing the sheet triggers a fresh ledger-list load; completion events refresh the UI.
+Each device row has one Sync/Retry button on the right, with an in-place spinner
+while active and an accessible Syncing label. Successful completion appears under
+the device name as a checkmark and Sync complete with its local completion time.
+This confirmation is hidden during retry or after failure; failures show their error
+under the device name. Results are scoped to this sheet session, without separate status
+badges beside the button. Sync All reports success/failure counts
+below the device list. Completion status follows the sync call's actual result.

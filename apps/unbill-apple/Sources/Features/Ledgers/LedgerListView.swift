@@ -57,7 +57,7 @@ struct LedgerListView: View {
                 Task { await load() }
             }
         }
-        .sheet(isPresented: $showingDevices) {
+        .sheet(isPresented: $showingDevices, onDismiss: { Task { await load() } }) {
             DevicesView(console: console) {
                 Task { await load() }
             }

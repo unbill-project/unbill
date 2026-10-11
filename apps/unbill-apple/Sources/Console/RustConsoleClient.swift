@@ -3,10 +3,11 @@ import Foundation
 // ConsoleClient backed by the real Rust core (unbill-ffi via UniFFI).
 //
 // An `actor` so its calls run OFF the main thread: the FFI methods are
-// synchronous (they block_on a tokio runtime in Rust), and blocking the main
+// mostly synchronous (they block_on a tokio runtime in Rust), and blocking the main
 // thread would freeze the UI (e.g. a navigation transition stalling on the old
 // title). Isolating to the actor's executor keeps SwiftUI responsive. Moving to
-// async UniFFI later removes the blocking entirely.
+// async UniFFI later removes the blocking entirely. Peer sync already uses an
+// async UniFFI call so network waits yield this actor to local ledger queries.
 //
 // Maps the aggregated FFI DTOs (bootstrap / ledger detail) to the app's models.
 actor RustConsoleClient: ConsoleClient {
@@ -135,7 +136,7 @@ actor RustConsoleClient: ConsoleClient {
     }
 
     func syncOnce(peerNodeID: String) async throws {
-        try console.syncOnce(peerNodeId: peerNodeID)
+        try await console.syncOnce(peerNodeId: peerNodeID)
     }
 
     // MARK: - Mapping (nonisolated: pure value transforms)
