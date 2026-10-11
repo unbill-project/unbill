@@ -181,6 +181,17 @@ uses one shared workspace version,
 and emits a single workspace tag `v{version}`.
 Workspace crates inherit the version from `[workspace.package]` in `Cargo.toml`.
 
+`python.yml` builds and tests the platform wheels described by `python-bindings`.
+It runs independently on the same `v*` tag pushes as `version.yml`, and checks
+that the tag matches the workspace version before building. Relevant main pushes,
+pull requests, and manual runs build and test without publishing.
+The Linux build uses manylinux_2_28; macOS and Windows use native hosted runners.
+Platform repair tools bundle external libraries before installed-wheel tests.
+All wheel jobs must succeed before the separate PyPI publishing job runs.
+Only that job has `id-token: write`; it uses the `pypi` environment and the
+official PyPA publishing action. Trusted Publishing runs in this top-level
+workflow rather than the reusable GitHub-release workflow.
+
 The Swift Apple iOS app is built unsigned by `build-apple-ios.yml` on macOS CI.
 Nightly and version releases enable `build_apple_ios`; manual builds can opt in.
 The Rust build script's `--ios-only` option builds the device slice and generates

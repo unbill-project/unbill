@@ -1,6 +1,6 @@
 [package]
 name = "unbill-ffi"
-description = "UniFFI bridge exposing UnbillConsole to Swift (spike surface)."
+description = "UniFFI bridge exposing UnbillConsole to Swift and Python."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,7 +9,9 @@ homepage.workspace = true
 publish = false
 
 [lib]
-crate-type = ["staticlib", "lib"]
+# sirno:witness:python-bindings:begin
+crate-type = ["staticlib", "cdylib", "lib"]
+# sirno:witness:python-bindings:end
 name = "unbill_ffi"
 
 [dependencies]

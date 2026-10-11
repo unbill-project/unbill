@@ -40,7 +40,7 @@ fingerprint = "sha256:fd3302642d25a1dbc341cd4954cce29d25ad7b8674cb91320ff080ed94
 "core.belongs" = ["unbill"]
 
 [entries.ci-cd-pipeline]
-fingerprint = "sha256:d15f0e8979a9458d118f9685566a3a45e2e9f62cda112485ea4c4530fce95713"
+fingerprint = "sha256:329f47a9625d06e69dde73e84cda4327234181c035a7a6ca5131450fcf94662e"
 "core.belongs" = ["distribution-and-release"]
 
 [entries.compiled-markdown-artifacts]
@@ -97,7 +97,7 @@ fingerprint = "sha256:859fa7b4360d5a7b9d33c846699241f7f1252d61e1792d851784337b8d
 "core.refines" = ["design-principles"]
 
 [entries.deployment-topologies]
-fingerprint = "sha256:a20cc991881a71af7467937b44ee4a77dd0e9d62d840f3a82244f481c19d2260"
+fingerprint = "sha256:a4de092199953832e224c66a4db97adf272bd50ead33ba8bf222ddb3514e8774"
 "core.belongs" = [
     "unbill",
     "applications",
@@ -118,7 +118,7 @@ fingerprint = "sha256:3f90bf67804a1024b5acde51ac1fcb064fe21ed40b8efa3605c88cf5d0
 "core.refines" = ["design-principles"]
 
 [entries.distribution-and-release]
-fingerprint = "sha256:8277aa600a7cb7e47cf19f9ad482e21ef91abc50fc08a73cfdc432f1427444fa"
+fingerprint = "sha256:53b4450b5cc42d64ff937cdce14df890fcddfed2ea0f34adbed8727d39fd656f"
 "core.belongs" = ["unbill"]
 
 [entries.emoji-fingerprint]
@@ -212,6 +212,10 @@ fingerprint = "sha256:691cdc7cfd5f9c1b93793f68b0d5bdee2d20396d2bdc24a8222571927c
 fingerprint = "sha256:0c64da9a6ea338bd7155dda22367dbb120a675c37eafbbfeb48e5b8ebe583bc4"
 "core.belongs" = ["unbill"]
 "core.refines" = ["design-principles"]
+
+[entries.python-bindings]
+fingerprint = "sha256:8bb07ee529d165815e722c4d80ea816389621271e8931d1ff95fe2743d0986bc"
+"core.belongs" = ["workspace-layout"]
 
 [entries.security-model]
 fingerprint = "sha256:220ab59e5a0a59de4ee57449d44edc651e705327ac0d222d6e1d0e6fc4769735"
@@ -378,5 +382,5 @@ fingerprint = "sha256:d511a3ae658f60c88a21a0f9d5940e31e54f648d658e013c63818a8f76
 "core.refines" = ["data-model"]
 
 [entries.workspace-layout]
-fingerprint = "sha256:c20ede856e93edf156cfaf1003139c9a5def558277fae6a966946a69417f12e5"
+fingerprint = "sha256:d965cea3b44c679800cfd92b6596d2305a864d654c931cd3d22079435bff4a41"
 "core.belongs" = ["unbill"]
