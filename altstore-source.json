@@ -21,6 +21,14 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.0.7",
+          "date": "2026-10-11",
+          "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.7/unbill-apple-ios.ipa",
+          "size": 9392180,
+          "minOSVersion": "17.0",
+          "localizedDescription": "Ledger archiving, improved bill editing and navigation, and more reliable device sync."
+        },
+        {
           "version": "0.0.6",
           "date": "2026-10-10",
           "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.6/unbill-apple-ios.ipa",
