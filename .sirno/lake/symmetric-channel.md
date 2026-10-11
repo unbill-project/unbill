@@ -70,3 +70,7 @@ and join success and failure paths.
 The join request includes a required typed name for the joining device. The host
 adds it to the shared ledger device record. The requester persists the returned
 snapshot without creating a local alias.
+
+The responder accepts connections without waiting for earlier handshakes. Each
+handshake and session runs in its own task, without an application-level
+concurrent handshake limit.

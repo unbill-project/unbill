@@ -312,44 +312,43 @@ impl UnbillEndpoint {
 
     pub async fn accept_loop_inner(&self, store: Arc<StoreServer>) -> Result<()> {
         loop {
-            let incoming = match self.inner.accept().await {
-                None => {
-                    info!("endpoint closed, stopping accept loop");
-                    break;
-                }
-                Some(inc) => inc,
+            let Some(incoming) = self.inner.accept().await else {
+                info!("endpoint closed, stopping accept loop");
+                break;
             };
-
-            let mut connecting = match incoming.accept() {
-                Ok(c) => c,
-                Err(e) => {
-                    warn!("rejected incoming QUIC handshake: {e}");
-                    continue;
-                }
+            let endpoint = Self {
+                inner: self.inner.clone(),
+                addr_cache: self.addr_cache.clone(),
             };
-
-            // Read ALPN before completing the handshake so we can dispatch.
-            let alpn = match connecting.alpn().await {
-                Ok(a) => a,
-                Err(e) => {
-                    warn!("could not read ALPN from incoming connection: {e}");
-                    continue;
-                }
-            };
-
-            let conn = match connecting.await {
-                Ok(c) => c,
-                Err(e) => {
-                    warn!("incoming connection handshake failed: {e}");
-                    continue;
-                }
-            };
-
-            self.cache_peer(&conn).await;
-            let peer = conn.remote_id().to_node_id();
             let store = Arc::clone(&store);
-
             tokio::spawn(async move {
+                let mut connecting = match incoming.accept() {
+                    Ok(c) => c,
+                    Err(e) => {
+                        warn!("rejected incoming QUIC handshake: {e}");
+                        return;
+                    }
+                };
+
+                // Read ALPN before completing the handshake so we can dispatch.
+                let alpn = match connecting.alpn().await {
+                    Ok(a) => a,
+                    Err(e) => {
+                        warn!("could not read ALPN from incoming connection: {e}");
+                        return;
+                    }
+                };
+
+                let conn = match connecting.await {
+                    Ok(c) => c,
+                    Err(e) => {
+                        warn!("incoming connection handshake failed: {e}");
+                        return;
+                    }
+                };
+
+                endpoint.cache_peer(&conn).await;
+                let peer = conn.remote_id().to_node_id();
                 if let Err(e) = dispatch(conn, peer, &alpn, store).await {
                     warn!("connection handler error: {e:#}");
                 }
