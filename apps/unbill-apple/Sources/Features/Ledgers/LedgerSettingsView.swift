@@ -7,8 +7,11 @@ struct LedgerSettingsView: View {
     let detail: LedgerDetail
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
-    @State private var syncing = false
-    @State private var syncError: String?
+    @State private var syncingNodeID: String?
+    @State private var lastSyncedAt: [String: Date] = [:]
+    @State private var syncErrors: [String: String] = [:]
+
+    private var busy: Bool { syncingNodeID != nil }
 
     var body: some View {
         NavigationStack {
@@ -34,34 +37,42 @@ struct LedgerSettingsView: View {
                 Section("Ledger Devices") {
                     if detail.devices.isEmpty { Text("No peer devices").foregroundStyle(.secondary) }
                     ForEach(detail.devices) { peer in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(peer.label.isEmpty ? "Unnamed device" : peer.label)
-                                Text(peer.nodeID).font(.caption.monospaced()).textSelection(.enabled)
-                            }
-                            Spacer()
-                            Button("Sync") {
-                                Task {
-                                    syncing = true
-                                    syncError = nil
-                                    do { try await console.syncOnce(peerNodeID: peer.nodeID) }
-                                    catch { syncError = error.localizedDescription }
-                                    syncing = false
-                                }
-                            }.disabled(syncing)
+                        PeerDeviceRow(
+                            peer: peer,
+                            syncing: syncingNodeID == peer.nodeID,
+                            disabled: busy,
+                            lastSyncedAt: lastSyncedAt[peer.nodeID],
+                            syncError: syncErrors[peer.nodeID]
+                        ) {
+                            Task { await sync(peer.nodeID) }
                         }
                     }
-                    if let syncError { Text(syncError).foregroundStyle(.red) }
                 }
             }
             .navigationTitle("Ledger Settings")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .disabled(busy)
                 }
             }
         }
+        .interactiveDismissDisabled(busy)
         .onChange(of: detail.emojiFingerprint) { _, _ in copied = false }
     }
+
+    private func sync(_ nodeID: String) async {
+        guard !busy else { return }
+        syncingNodeID = nodeID
+        syncErrors[nodeID] = nil
+        defer { syncingNodeID = nil }
+        do {
+            try await console.syncOnce(peerNodeID: nodeID)
+            lastSyncedAt[nodeID] = Date()
+        } catch {
+            syncErrors[nodeID] = error.localizedDescription
+        }
+    }
+
 }
 // sirno:witness:unbill-apple:end

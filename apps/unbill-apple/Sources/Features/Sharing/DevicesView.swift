@@ -37,49 +37,14 @@ struct DevicesView: View {
                             .foregroundStyle(.secondary)
                     }
                     ForEach(peers) { peer in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(peer.label.isEmpty ? "Unnamed device" : peer.label)
-                                Text(peer.nodeID)
-                                    .font(.caption2.monospaced())
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                                    .textSelection(.enabled)
-                                if !peer.ledgerNames.isEmpty {
-                                    Text(peer.ledgerNames.joined(separator: ", "))
-                                        .font(.caption)
-                                        .foregroundStyle(.tertiary)
-                                }
-                                if syncingNodeID != peer.nodeID, syncErrors[peer.nodeID] == nil,
-                                   let date = lastSyncedAt[peer.nodeID] {
-                                    Label {
-                                        Text("Sync complete · \(date, format: .dateTime.hour().minute())")
-                                    } icon: {
-                                        Image(systemName: "checkmark.circle")
-                                    }
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                }
-                                if let message = syncErrors[peer.nodeID] {
-                                    Text(message).font(.caption).foregroundStyle(.red)
-                                }
-                            }
-                            Spacer()
-                            Button {
-                                Task { await sync(peer.nodeID) }
-                            } label: {
-                                ZStack {
-                                    Text(syncErrors[peer.nodeID] == nil ? "Sync" : "Retry")
-                                        .opacity(syncingNodeID == peer.nodeID ? 0 : 1)
-                                    if syncingNodeID == peer.nodeID {
-                                        ProgressView().controlSize(.small)
-                                    }
-                                }
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(busy)
-                            .accessibilityLabel(syncingNodeID == peer.nodeID ? "Syncing" : (syncErrors[peer.nodeID] == nil ? "Sync" : "Retry"))
+                        PeerDeviceRow(
+                            peer: peer,
+                            syncing: syncingNodeID == peer.nodeID,
+                            disabled: busy,
+                            lastSyncedAt: lastSyncedAt[peer.nodeID],
+                            syncError: syncErrors[peer.nodeID]
+                        ) {
+                            Task { await sync(peer.nodeID) }
                         }
                     }
                 }
@@ -161,5 +126,62 @@ struct DevicesView: View {
         }
         status = "\(succeeded) synced, \(targets.count - succeeded) failed."
         onSynced()
+    }
+}
+
+// Shared by the global and ledger-scoped device lists.
+struct PeerDeviceRow: View {
+    let peer: SyncDevice
+    let syncing: Bool
+    let disabled: Bool
+    let lastSyncedAt: Date?
+    let syncError: String?
+    var onSync: () -> Void
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(peer.label.isEmpty ? "Unnamed device" : peer.label)
+                Text(peer.nodeID)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+                if !peer.ledgerNames.isEmpty {
+                    Text(peer.ledgerNames.joined(separator: ", "))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                if !syncing, syncError == nil,
+                   let date = lastSyncedAt {
+                    Label {
+                        Text("Sync complete · \(date, format: .dateTime.hour().minute())")
+                    } icon: {
+                        Image(systemName: "checkmark.circle")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                if let message = syncError {
+                    Text(message).font(.caption).foregroundStyle(.red)
+                }
+            }
+            Spacer()
+            Button {
+                onSync()
+            } label: {
+                ZStack {
+                    Text(syncError == nil ? "Sync" : "Retry")
+                        .opacity(syncing ? 0 : 1)
+                    if syncing {
+                        ProgressView().controlSize(.small)
+                    }
+                }
+            }
+            .buttonStyle(.bordered)
+            .disabled(disabled)
+            .accessibilityLabel(syncing ? "Syncing" : (syncError == nil ? "Sync" : "Retry"))
+        }
     }
 }

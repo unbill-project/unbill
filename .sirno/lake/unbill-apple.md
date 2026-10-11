@@ -147,3 +147,8 @@ This confirmation is hidden during retry or after failure; failures show their e
 under the device name. Results are scoped to this sheet session, without separate status
 badges beside the button. Sync All reports success/failure counts
 below the device list. Completion status follows the sync call's actual result.
+
+Global Devices and Ledger Settings reuse the same peer-device row, including
+name, truncated secondary Node ID, ledger names, bordered Sync/Retry button,
+in-place progress indicator, completion timestamp, and per-peer errors. Both
+sheets guard duplicate sync requests and disable dismissal while syncing.
