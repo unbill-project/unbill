@@ -3,7 +3,13 @@ import SwiftUI
 struct LedgerDetailView: View {
     let console: ConsoleClient
     let ledgerID: String
+    var selectedBillID: String? = nil
+    var onOpenBillEditor: ((Bill?, LedgerDetail) -> Void)? = nil
+    var onCloseBillEditor: (() -> Void)? = nil
 
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var loadGeneration = 0
+    @State private var editingBill: Bill?
     @State private var detail: LedgerDetail?
     @State private var archiveError: String?
     @State private var loadError: String?
@@ -18,7 +24,10 @@ struct LedgerDetailView: View {
             if let detail {
                 content(detail)
             } else if let loadError {
-                ContentUnavailableView("Couldn’t Load", systemImage: "exclamationmark.triangle", description: Text(loadError))
+                VStack {
+                    ContentUnavailableView("Couldn’t Load", systemImage: "exclamationmark.triangle", description: Text(loadError))
+                    Button("Retry") { Task { await load() } }
+                }
             } else {
                 ProgressView()
             }
@@ -33,29 +42,30 @@ struct LedgerDetailView: View {
                         Label("Add Person", systemImage: "person.badge.plus")
                     }
                     Button {
-                        showingAddBill = true
+                        if let detail, let onOpenBillEditor { onOpenBillEditor(nil, detail) }
+                        else { showingAddBill = true }
                     } label: {
                         Label("Add Bill", systemImage: "dollarsign.circle")
                     }
                     // A bill needs users to pay/split it.
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
                     .disabled(detail?.users.isEmpty ?? true)
 
-                    Divider()
-
-                    Button {
-                        showingSettings = true
-                    } label: {
-                        Label("Ledger Settings", systemImage: "gearshape")
-                    }
-
-                    Button {
-                        showingInvite = true
-                    } label: {
-                        Label("Invite via QR", systemImage: "qrcode")
-                    }
                 } label: {
                     Label("Add", systemImage: "plus")
                 }
+                .disabled(detail == nil)
+            }
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button { showingInvite = true } label: {
+                    Label("Invite via QR", systemImage: "qrcode")
+                }
+                .help("Invite via QR")
+                .disabled(detail == nil)
+                Button { showingSettings = true } label: {
+                    Label("Ledger Settings", systemImage: "gearshape")
+                }
+                .help("Ledger Settings")
                 .disabled(detail == nil)
             }
         }
@@ -69,6 +79,12 @@ struct LedgerDetailView: View {
                 ) {
                     Task { await load() }
                 }
+            }
+        }
+        .sheet(item: $editingBill) { bill in
+            if let detail {
+                AddBillView(console: console, ledgerID: ledgerID, currency: detail.summary.currency,
+                    users: detail.users, bill: bill) { Task { await load() } }
             }
         }
         .sheet(isPresented: $showingAddPerson) {
@@ -99,8 +115,12 @@ struct LedgerDetailView: View {
         }
         .sheet(isPresented: $showingSettings) {
             if let detail {
-                LedgerSettingsView(detail: detail)
+                LedgerSettingsView(console: console, detail: detail)
             }
+        }
+        .refreshable { await load() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await load() } }
         }
         .task {
             let updates = await console.ledgerUpdates()
@@ -115,10 +135,16 @@ struct LedgerDetailView: View {
     }
 
     private func load() async {
+        loadGeneration += 1
+        let generation = loadGeneration
         do {
-            detail = try await console.ledgerDetail(id: ledgerID)
+            let loaded = try await console.ledgerDetail(id: ledgerID)
+            guard generation == loadGeneration, !Task.isCancelled else { return }
+            detail = loaded
             loadError = nil
         } catch {
+            guard generation == loadGeneration, !Task.isCancelled else { return }
+            detail = nil
             loadError = error.localizedDescription
         }
     }
@@ -139,9 +165,22 @@ struct LedgerDetailView: View {
         }
     }
 
+    private func openBill(_ bill: Bill, detail: LedgerDetail) {
+        if let onOpenBillEditor { onOpenBillEditor(bill, detail) }
+        else { editingBill = bill }
+    }
+
     private func content(_ detail: LedgerDetail) -> some View {
         let currency = detail.summary.currency
-        return List {
+        let selection = Binding<String?>(get: { selectedBillID }, set: { id in
+            guard id != selectedBillID else { return }
+            if let id, let bill = detail.bills.first(where: { $0.id == id }) {
+                openBill(bill, detail: detail)
+            } else if id == nil {
+                onCloseBillEditor?()
+            }
+        })
+        return List(selection: onOpenBillEditor == nil ? nil : selection) {
             Section("People") {
                 if detail.users.isEmpty {
                     Text("No people yet").foregroundStyle(.secondary)
@@ -155,7 +194,7 @@ struct LedgerDetailView: View {
                     }
                 }
                 if let archiveError { Text(archiveError).foregroundStyle(.red) }
-            }
+            }.selectionDisabled()
 
             if !detail.conflicts.isEmpty {
                 Section("Conflicts") {
@@ -181,7 +220,7 @@ struct LedgerDetailView: View {
                             }
                         }
                     }
-                }
+                }.selectionDisabled()
             }
 
             Section("Settlement") {
@@ -200,7 +239,7 @@ struct LedgerDetailView: View {
                             .monospacedDigit()
                     }
                 }
-            }
+            }.selectionDisabled()
 
             Section("Bills") {
                 if detail.bills.isEmpty {
@@ -208,15 +247,39 @@ struct LedgerDetailView: View {
                 }
                 ForEach(detail.bills) { bill in
                     HStack {
-                        VStack(alignment: .leading) {
-                            Text(bill.description)
-                            Text(bill.payers.map(\.displayName).joined(separator: ", ") + " paid")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(bill.description)
+                                Spacer()
+                                Text(Money.string(cents: bill.amountCents, currency: currency)).monospacedDigit()
+                            }.foregroundStyle(.primary)
+                            Text("Paid: " + bill.payers.map { "\($0.displayName) (\($0.shares))" }.joined(separator: ", "))
+                            Text("Split: " + bill.payees.map { "\($0.displayName) (\($0.shares))" }.joined(separator: ", "))
+                            Text(Date(timeIntervalSince1970: Double(bill.createdAtMs) / 1000), format: .dateTime.year().month().day().hour().minute())
+                        }.font(.subheadline).foregroundStyle(.secondary)
+                        #if targetEnvironment(macCatalyst)
+                        Image(systemName: "chevron.right")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 8)
+                        #endif
+                    }
+                    .tag(bill.id)
+                    .contentShape(Rectangle())
+                    #if targetEnvironment(macCatalyst)
+                    .accessibilityAction { openBill(bill, detail: detail) }
+                    #endif
+                    #if !targetEnvironment(macCatalyst)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button { openBill(bill, detail: detail) } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }.tint(.gray)
+                    }
+                    #endif
+                    .contextMenu {
+                        Button { openBill(bill, detail: detail) } label: {
+                            Label("Edit", systemImage: "pencil")
                         }
-                        Spacer()
-                        Text(Money.string(cents: bill.amountCents, currency: currency))
-                            .monospacedDigit()
                     }
                 }
             }

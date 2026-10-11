@@ -153,12 +153,22 @@ impl UnbillConsole {
 
     // sirno:witness:bill-amendment:begin
     pub async fn add_bill(&self, ledger_id: LedgerId, input: NewBill) -> Result<BillId> {
+        self.add_bill_with_id(ledger_id, input, BillId::new()).await
+    }
+
+    /// Save using the same ID used to preview deterministic rounding.
+    pub async fn add_bill_with_id(
+        &self,
+        ledger_id: LedgerId,
+        input: NewBill,
+        bill_id: BillId,
+    ) -> Result<BillId> {
         input
             .validate()
             .map_err(|e| UnbillError::Validation(e.to_string()))?;
         let now = Timestamp::now()?;
         let mut doc = self.take_doc(ledger_id).await?;
-        let bill_id = doc.add_bill(input, self.channel.device_id(), now)?;
+        let bill_id = doc.add_bill_with_id(input, self.channel.device_id(), now, bill_id)?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
         self.put_doc(ledger_id, doc).await;
         self.touch_meta(ledger_id, now).await?;
@@ -348,8 +358,7 @@ impl UnbillConsole {
     /// descriptions, and the other requirements for saving a bill are not checked.
     ///
     /// `bill_id` seeds deterministic rounding. Keep it stable for repeated draft
-    /// previews; matching a saved bill requires that bill's actual ID, which
-    /// [`Self::add_bill`] currently generates during insertion.
+    /// previews and pass it to [`Self::add_bill_with_id`] when saving.
     pub fn calculate_bill_split(
         &self,
         payers: &[crate::model::Share],

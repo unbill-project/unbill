@@ -44,6 +44,12 @@ jobs:
           xcrun --sdk iphoneos --show-sdk-version
           brew install xcodegen
 
+      - name: Test amount input validation
+        working-directory: apps/unbill-apple
+        run: |
+          ./xcbuild.sh xcrun swiftc Sources/App/Money.swift Tests/MoneyTests.swift -o /tmp/unbill-money-tests
+          /tmp/unbill-money-tests
+
       - name: Build Rust core and Swift bindings
         run: ./apps/unbill-apple/build-rust.sh --ios-only
 

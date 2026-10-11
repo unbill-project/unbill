@@ -6,7 +6,7 @@
 
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
@@ -386,10 +386,20 @@ impl AsymChannel for RpcAsymChannel {
     }
 
     async fn trigger_peer_sync(&self, peer: NodeId) -> Result<()> {
+        // A peer connection and full exchange need more time than a local query.
+        let mut context = tarpc::context::current();
+        context.deadline = Instant::now()
+            .checked_add(Duration::from_secs(120))
+            .ok_or_else(|| UnbillError::Network("Could not set peer sync deadline".into()))?;
         self.client
-            .trigger_peer_sync(tarpc::context::current(), peer)
+            .trigger_peer_sync(context, peer)
             .await
-            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(|e| match e {
+                tarpc::client::RpcError::DeadlineExceeded => {
+                    UnbillError::Network("Peer sync timed out after 120 seconds".into())
+                }
+                other => UnbillError::Network(other.to_string()),
+            })?
             .map_err(UnbillError::Network)
     }
 

@@ -39,3 +39,7 @@ Callers decide how to handle that failure.
 validation, authorization, Automerge and reconciliation errors,
 network and URL errors, ID parsing, system clock errors, and configuration errors.
 `StorageError` covers store and transport failures so storage concerns do not bleed into domain code.
+
+Drafts may allocate a real `BillId` before insertion. `add_bill_with_id` preserves
+that ID when saving, so deterministic rounding matches the preview. The verified
+bill checks reject duplicate IDs; amendments use fresh IDs.

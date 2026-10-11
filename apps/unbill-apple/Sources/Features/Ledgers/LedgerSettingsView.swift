@@ -3,9 +3,15 @@ import UIKit
 
 // sirno:witness:unbill-apple:begin
 struct LedgerSettingsView: View {
+    let console: ConsoleClient
     let detail: LedgerDetail
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
+    @State private var syncingNodeID: String?
+    @State private var lastSyncedAt: [String: Date] = [:]
+    @State private var syncErrors: [String: String] = [:]
+
+    private var busy: Bool { syncingNodeID != nil }
 
     var body: some View {
         NavigationStack {
@@ -28,15 +34,45 @@ struct LedgerSettingsView: View {
                     }
                     .padding(.vertical, 4)
                 }
+                Section("Ledger Devices") {
+                    if detail.devices.isEmpty { Text("No peer devices").foregroundStyle(.secondary) }
+                    ForEach(detail.devices) { peer in
+                        PeerDeviceRow(
+                            peer: peer,
+                            syncing: syncingNodeID == peer.nodeID,
+                            disabled: busy,
+                            lastSyncedAt: lastSyncedAt[peer.nodeID],
+                            syncError: syncErrors[peer.nodeID]
+                        ) {
+                            Task { await sync(peer.nodeID) }
+                        }
+                    }
+                }
             }
             .navigationTitle("Ledger Settings")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .disabled(busy)
                 }
             }
         }
+        .interactiveDismissDisabled(busy)
         .onChange(of: detail.emojiFingerprint) { _, _ in copied = false }
     }
+
+    private func sync(_ nodeID: String) async {
+        guard !busy else { return }
+        syncingNodeID = nodeID
+        syncErrors[nodeID] = nil
+        defer { syncingNodeID = nil }
+        do {
+            try await console.syncOnce(peerNodeID: nodeID)
+            lastSyncedAt[nodeID] = Date()
+        } catch {
+            syncErrors[nodeID] = error.localizedDescription
+        }
+    }
+
 }
 // sirno:witness:unbill-apple:end

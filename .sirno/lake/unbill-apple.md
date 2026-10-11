@@ -57,6 +57,11 @@ The app is ad-hoc signed; Developer ID signing and notarization are not configur
 
 The screens follow the shared UI model adapted to Apple idioms.
 A `NavigationSplitView` shell shows a ledger list and, on selection, ledger detail with people, conflicts, bills, and settlement.
+Mac Catalyst uses three columns: ledgers, ledger content, and the bill editor.
+The ledger sidebar uses native split-view resizing with a requested width range
+of 180–360 points and a 240-point default; available window space may constrain it.
+New bills and amendments open inline in the third column; iOS presents the editor as a sheet.
+Changing ledgers clears the editor; saving refreshes ledger content and the ledger list.
 Wired flows: create ledger; add and import known people; add a bill with Rust-computed settlement; resolve amendment conflicts;
 create an invitation as a QR code; join by pasting or scanning a code; and a devices screen with manual per-peer sync.
 Live QR scanning uses VisionKit only on supported iOS hardware.
@@ -94,3 +99,61 @@ The workflow packages `Payload/unbill.app` as `unbill-apple-ios.ipa` in a
 Users sign the IPA themselves for sideloading. No signing secrets are required.
 
 The XcodeGen Info.plist version fields expand MARKETING_VERSION and CURRENT_PROJECT_VERSION, so release IPA metadata matches the workspace version.
+
+Apple's shared bill editor supports new bills and amendments, multiple payers,
+equal or custom positive integer weights on both sides, and live amounts from
+UnbillConsole's verified splitting algorithm through UniFFI.
+Explicit Equal shares / Custom shares segmented controls select each side's mode;
+custom weights use labeled, bordered numeric inputs and survive mode changes.
+Payer selection uses square checkboxes with whole-row activation and accessible
+selection state on iOS and Mac Catalyst, rather than switches.
+UniFFI allocates a real bill ID when a draft opens; preview and save use that same ID,
+so displayed amounts match saved amounts. Amendments allocate a new ID rather than
+reusing the original bill ID. Amendments preserve archived
+participants and original weights. Decimal input rejects excess precision,
+nonpositive amounts, and overflow rather than truncating it.
+Bill rows show participants and timestamps with neutral text styling. On iOS,
+swiping left reveals an Edit action. Mac Catalyst bill rows are selectable across
+the whole row and show a large neutral trailing chevron that opens the third column;
+a context menu also opens the editor. Native `List(selection:)` tracks the open
+bill and provides the system selection highlight and keyboard selection. Closing
+the editor clears selection; people, conflicts, and settlement rows are not selectable.
+The editor omits explanatory save and amendment notices. Conflict choices show
+weights, timestamps, and ancestor summaries. Ledger Settings includes authorized
+peer devices and sync actions. Appearance supports system, light, and dark modes.
+
+Ledger lists and detail subscribe to service updates, refresh on foreground entry,
+and expose manual refresh/retry. Failed reloads clear prior data and display errors;
+request generations prevent older responses from overwriting newer results.
+The app registers the unbill URL scheme and opens invitation links in the join sheet.
+The sheet requires this joining device's ledger name. Startup errors offer retry.
+Startup failure uses ContentUnavailableView's actions area to keep a prominent
+system Retry button directly below the error description, with Return activation.
+Apple CI runs Foundation-only amount boundary tests before building Rust and Swift.
+
+Plus toolbar controls contain only creation actions: New Ledger, Add Person, and
+Add Bill. Join Ledger, Invite via QR, and Ledger Settings have separate labeled
+toolbar controls with their own icons.
+
+Peer sync uses an asynchronous UniFFI export, running network work on the FFI-owned
+Tokio runtime and yielding the Swift console actor while it waits. Local ledger
+queries remain available during sync. The Devices sheet disables Done and interactive
+dismissal while Sync or Sync All is running, restoring both after success or failure.
+Closing the sheet triggers a fresh ledger-list load; completion events refresh the UI.
+Each device row has one Sync/Retry button on the right, with an in-place spinner
+while active and an accessible Syncing label. Successful completion appears under
+the device name as a checkmark and Sync complete with its local completion time.
+This confirmation is hidden during retry or after failure; failures show their error
+under the device name. Results are scoped to this sheet session, without separate status
+badges beside the button. Sync All reports success/failure counts
+below the device list. Completion status follows the sync call's actual result.
+
+Global Devices and Ledger Settings reuse the same peer-device row, including
+name, truncated secondary Node ID, ledger names, bordered Sync/Retry button,
+in-place progress indicator, completion timestamp, and per-peer errors. Both
+sheets guard duplicate sync requests and disable dismissal while syncing.
+
+Add Person always displays From Other Ledgers with explicit Import actions,
+excluding people already in the current ledger and sorting candidates by name.
+Loading, empty, and failed states remain visible; failed loads offer Retry and
+the sheet supports refresh. Saving guards repeat actions and prevents dismissal.

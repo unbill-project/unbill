@@ -3,10 +3,10 @@ import SwiftUI
 @main
 struct UnbillApp: App {
     // Backed by the real Rust core (unbill-ffi via UniFFI over UnbillConsole).
-    private let startup: Result<ConsoleClient, Error>
+    @State private var startup: Result<ConsoleClient, Error>
 
     init() {
-        startup = Result { try RustConsoleClient() }
+        _startup = State(initialValue: Result { try RustConsoleClient() })
     }
 
     var body: some Scene {
@@ -15,7 +15,7 @@ struct UnbillApp: App {
             case .success(let console):
                 RootView(console: console)
             case .failure(let error):
-                StartupFailureView(error: error)
+                StartupFailureView(error: error) { startup = Result { try RustConsoleClient() } }
             }
         }
     }
@@ -23,19 +23,30 @@ struct UnbillApp: App {
 
 private struct StartupFailureView: View {
     let error: Error
+    var onRetry: () -> Void
 
-    var body: some View {
+    private var failure: (title: String, icon: String, message: String) {
         switch error {
         case FfiError.DataDirectoryInUse(let path):
-            ContentUnavailableView(
-                "Data Directory Already in Use",
-                systemImage: "lock.fill",
-                description: Text("Another Unbill app or unbill-daemon is using this directory:\n\n\(path)\n\nQuit the other app or stop the daemon, then reopen Unbill.")
-            )
+            return ("Data Directory Already in Use", "lock.fill",
+                "Another Unbill app or unbill-daemon is using this directory:\n\n\(path)\n\nQuit the other app or stop the daemon, then reopen Unbill.")
         case FfiError.Message(let message):
-            ContentUnavailableView("Unable to Open Unbill", systemImage: "exclamationmark.triangle", description: Text(message))
+            return ("Unable to Open Unbill", "exclamationmark.triangle", message)
         default:
-            ContentUnavailableView("Unable to Open Unbill", systemImage: "exclamationmark.triangle", description: Text(error.localizedDescription))
+            return ("Unable to Open Unbill", "exclamationmark.triangle", error.localizedDescription)
+        }
+    }
+
+    var body: some View {
+        ContentUnavailableView {
+            Label(failure.title, systemImage: failure.icon)
+        } description: {
+            Text(failure.message)
+        } actions: {
+            Button("Retry", action: onRetry)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut(.defaultAction)
         }
     }
 }

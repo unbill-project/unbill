@@ -140,6 +140,31 @@ pub struct FfiBill {
 }
 
 #[derive(uniffi::Record)]
+pub struct FfiUserAmount {
+    pub user_id: String,
+    pub amount_cents: i64,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiBillSplit {
+    pub payer_amounts: Vec<FfiUserAmount>,
+    pub payee_amounts: Vec<FfiUserAmount>,
+}
+
+/// Identity of a draft and the bills it supersedes when saved.
+#[derive(uniffi::Record)]
+pub struct FfiBillDraft {
+    pub bill_id: String,
+    pub prev_bill_ids: Vec<String>,
+}
+
+/// Allocate a real bill ID for previewing and saving a new bill or amendment.
+#[uniffi::export]
+pub fn new_bill_id() -> String {
+    BillId::new().to_string()
+}
+
+#[derive(uniffi::Record)]
 pub struct FfiTransaction {
     pub from_name: String,
     pub to_name: String,
@@ -381,6 +406,38 @@ impl FfiConsole {
             .map_err(err)
     }
 
+    /// Calculate a draft using the same verified splitting algorithm as other clients.
+    pub fn preview_bill_split(
+        &self,
+        amount_cents: i64,
+        payers: Vec<FfiShareInput>,
+        payees: Vec<FfiShareInput>,
+        bill_id: String,
+    ) -> Result<FfiBillSplit, FfiError> {
+        let split = self
+            .inner
+            .calculate_bill_split(
+                &to_shares(payers)?,
+                &to_shares(payees)?,
+                amount_cents,
+                parse_bill_id(&bill_id)?,
+            )
+            .map_err(err)?;
+        let amounts = |items: Vec<(UserId, i64)>| {
+            items
+                .into_iter()
+                .map(|(id, amount_cents)| FfiUserAmount {
+                    user_id: id.to_string(),
+                    amount_cents,
+                })
+                .collect()
+        };
+        Ok(FfiBillSplit {
+            payer_amounts: amounts(split.payer_amounts),
+            payee_amounts: amounts(split.payee_amounts),
+        })
+    }
+
     /// Save a new bill or an amendment (supersedes `prev_bill_ids`). Returns the new bill id.
     pub fn save_bill(
         &self,
@@ -389,17 +446,19 @@ impl FfiConsole {
         description: String,
         payers: Vec<FfiShareInput>,
         payees: Vec<FfiShareInput>,
-        prev_bill_ids: Vec<String>,
+        draft: FfiBillDraft,
     ) -> Result<String, FfiError> {
         let lid = parse_ledger_id(&ledger_id)?;
+        let bill_id = parse_bill_id(&draft.bill_id)?;
         let payers = to_shares(payers)?;
         let payees = to_shares(payees)?;
-        let prev = prev_bill_ids
+        let prev = draft
+            .prev_bill_ids
             .iter()
             .map(|s| parse_bill_id(s))
             .collect::<Result<Vec<_>, _>>()?;
         self.rt
-            .block_on(self.inner.add_bill(
+            .block_on(self.inner.add_bill_with_id(
                 lid,
                 NewBill {
                     amount_cents,
@@ -408,6 +467,7 @@ impl FfiConsole {
                     payees,
                     prev,
                 },
+                bill_id,
             ))
             .map(|id| id.to_string())
             .map_err(err)
@@ -447,9 +507,15 @@ impl FfiConsole {
             .map_err(err)
     }
 
-    pub fn sync_once(&self, peer_node_id: String) -> Result<(), FfiError> {
+    /// Await network sync without blocking the caller's Swift actor executor.
+    pub async fn sync_once(&self, peer_node_id: String) -> Result<(), FfiError> {
         let peer = peer_node_id.parse::<NodeId>().map_err(err)?;
-        self.rt.block_on(self.inner.sync_once(peer)).map_err(err)
+        let inner = Arc::clone(&self.inner);
+        self.rt
+            .spawn(async move { inner.sync_once(peer).await })
+            .await
+            .map_err(err)?
+            .map_err(err)
     }
 
     /// Subscribe to service events. Delivery stops when the returned handle drops.
@@ -908,6 +974,149 @@ mod tests {
                 "Shared dinner"
             );
         }
+        let alice = console
+            .create_user(ledger.ledger_id.clone(), "Alice".into())
+            .unwrap();
+        let bob = console
+            .create_user(ledger.ledger_id.clone(), "Bob".into())
+            .unwrap();
+        let payer_shares = || {
+            vec![
+                FfiShareInput {
+                    user_id: alice.user_id.clone(),
+                    shares: 1,
+                },
+                FfiShareInput {
+                    user_id: bob.user_id.clone(),
+                    shares: 3,
+                },
+            ]
+        };
+        let payee_shares = || {
+            vec![
+                FfiShareInput {
+                    user_id: alice.user_id.clone(),
+                    shares: 1,
+                },
+                FfiShareInput {
+                    user_id: bob.user_id.clone(),
+                    shares: 1,
+                },
+            ]
+        };
+        let seed = new_bill_id();
+        let preview = console
+            .preview_bill_split(4000, payer_shares(), payee_shares(), seed.clone())
+            .unwrap();
+        assert_eq!(
+            preview
+                .payer_amounts
+                .iter()
+                .map(|a| a.amount_cents)
+                .collect::<Vec<_>>(),
+            vec![1000, 3000]
+        );
+        assert_eq!(
+            preview
+                .payee_amounts
+                .iter()
+                .map(|a| a.amount_cents)
+                .sum::<i64>(),
+            4000
+        );
+        assert!(
+            console
+                .ledger_detail(ledger.ledger_id.clone())
+                .unwrap()
+                .bills
+                .is_empty()
+        );
+        assert!(
+            console
+                .preview_bill_split(100, vec![], payee_shares(), seed.clone())
+                .is_err()
+        );
+        assert!(
+            console
+                .preview_bill_split(i64::MAX, payer_shares(), payee_shares(), seed.clone())
+                .is_err()
+        );
+        let rounded_preview = console
+            .preview_bill_split(4001, payer_shares(), payee_shares(), seed.clone())
+            .unwrap();
+        let original = console
+            .save_bill(
+                ledger.ledger_id.clone(),
+                4001,
+                "Dinner".into(),
+                payer_shares(),
+                payee_shares(),
+                FfiBillDraft {
+                    bill_id: seed.clone(),
+                    prev_bill_ids: vec![],
+                },
+            )
+            .unwrap();
+        assert_eq!(original, seed);
+        let saved = console.ledger_detail(ledger.ledger_id.clone()).unwrap();
+        let saved_bill = saved.bills.first().unwrap();
+        let saved_split = console
+            .preview_bill_split(
+                saved_bill.amount_cents,
+                payer_shares(),
+                payee_shares(),
+                saved_bill.id.clone(),
+            )
+            .unwrap();
+        let amounts = |entries: Vec<FfiUserAmount>| {
+            entries
+                .into_iter()
+                .map(|entry| (entry.user_id, entry.amount_cents))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            amounts(rounded_preview.payer_amounts),
+            amounts(saved_split.payer_amounts)
+        );
+        assert_eq!(
+            amounts(rounded_preview.payee_amounts),
+            amounts(saved_split.payee_amounts)
+        );
+        assert!(
+            console
+                .save_bill(
+                    ledger.ledger_id.clone(),
+                    4001,
+                    "Duplicate".into(),
+                    payer_shares(),
+                    payee_shares(),
+                    FfiBillDraft {
+                        bill_id: seed.clone(),
+                        prev_bill_ids: vec![]
+                    },
+                )
+                .is_err()
+        );
+        let amended = console
+            .save_bill(
+                ledger.ledger_id.clone(),
+                5000,
+                "Corrected dinner".into(),
+                payer_shares(),
+                payee_shares(),
+                FfiBillDraft {
+                    bill_id: new_bill_id(),
+                    prev_bill_ids: vec![original.clone()],
+                },
+            )
+            .unwrap();
+        let bills = console
+            .ledger_detail(ledger.ledger_id.clone())
+            .unwrap()
+            .bills;
+        assert_eq!(bills.len(), 1);
+        assert_eq!(bills.first().unwrap().id, amended);
+        assert_eq!(bills.first().unwrap().prev, vec![original]);
         drop(console);
 
         let console = FfiConsole::open(path).unwrap();

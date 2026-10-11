@@ -111,7 +111,18 @@ impl LedgerDoc {
         created_by_device: NodeId,
         now: Timestamp,
     ) -> std::result::Result<BillId, AddBillOpError> {
-        ops::add_bill(&mut self.doc, input, created_by_device, now)
+        self.add_bill_with_id(input, created_by_device, now, BillId::new())
+    }
+
+    /// Insert a bill using the ID allocated for its draft. Duplicate IDs are rejected.
+    pub fn add_bill_with_id(
+        &mut self,
+        input: NewBill,
+        created_by_device: NodeId,
+        now: Timestamp,
+        bill_id: BillId,
+    ) -> std::result::Result<BillId, AddBillOpError> {
+        ops::add_bill(&mut self.doc, input, created_by_device, now, bill_id)
     }
 
     pub fn add_user(

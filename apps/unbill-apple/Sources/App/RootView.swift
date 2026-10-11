@@ -1,42 +1,112 @@
 import SwiftUI
 
-// NavigationSplitView adapts itself: sidebar + detail on iPad/Mac(Catalyst),
-// collapses to a navigation stack on iPhone.
+// Mac uses ledgers, bills, and editor columns; iOS adapts a two-column split view.
 struct RootView: View {
     let console: ConsoleClient
     @State private var selectedLedgerID: String?
-    @State private var showingSettings = false
+    @State private var sheet: AppSheet?
+    @State private var listGeneration = 0
+    @State private var detailGeneration = 0
+    @State private var billEditor: BillEditorContext?
+    @AppStorage("appearance") private var appearance = "system"
 
     var body: some View {
-        NavigationSplitView {
-            LedgerListView(console: console, selection: $selectedLedgerID)
-        } detail: {
-            if let id = selectedLedgerID {
-                LedgerDetailView(console: console, ledgerID: id)
-                    .id(id)
-            } else {
-                ContentUnavailableView(
-                    "Select a ledger",
-                    systemImage: "list.bullet.rectangle",
-                    description: Text("Choose a ledger to see its bills and settlement.")
-                )
-            }
+        navigation
+        .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
+        .onChange(of: selectedLedgerID) { _, _ in billEditor = nil }
+        .onOpenURL { url in
+            guard url.scheme?.lowercased() == "unbill", url.host?.lowercased() == "join" else { return }
+            sheet = .join(url.absoluteString)
         }
         .toolbar {
             ToolbarItem(placement: .automatic) {
-                Button { showingSettings = true } label: {
+                Button { sheet = .settings } label: {
                     Label("Settings", systemImage: "gearshape")
                 }
             }
         }
-        .sheet(isPresented: $showingSettings) {
-            AppSettingsView(console: console)
+        .sheet(item: $sheet) { destination in
+            switch destination {
+            case .settings: AppSettingsView(console: console)
+            case .join(let url):
+                JoinLedgerView(console: console, invitationURL: url) { listGeneration += 1 }
+            }
+        }
+    }
+
+    @ViewBuilder private var navigation: some View {
+        #if targetEnvironment(macCatalyst)
+        NavigationSplitView {
+            ledgerList
+                .navigationSplitViewColumnWidth(min: 180, ideal: 240, max: 360)
+        } content: {
+            ledgerContent
+                .navigationSplitViewColumnWidth(min: 320, ideal: 420)
+        } detail: {
+            if let context = billEditor {
+                AddBillView(console: console, ledgerID: context.detail.summary.id,
+                    currency: context.detail.summary.currency, users: context.detail.users,
+                    bill: context.bill, embedded: true, onCancel: { billEditor = nil }) {
+                        billEditor = nil
+                        detailGeneration += 1
+                        listGeneration += 1
+                    }
+                    .id(context.id)
+                    .navigationSplitViewColumnWidth(min: 360, ideal: 460)
+            } else {
+                ContentUnavailableView("Select a bill", systemImage: "doc.text",
+                    description: Text("Choose a bill to edit it, or add a new bill."))
+            }
+        }
+        .navigationSplitViewStyle(.balanced)
+        #else
+        NavigationSplitView { ledgerList } detail: { ledgerContent }
+        #endif
+    }
+
+    private var ledgerList: some View {
+        LedgerListView(console: console, selection: $selectedLedgerID, onJoin: { sheet = .join("") })
+            .id(listGeneration)
+    }
+
+    @ViewBuilder private var ledgerContent: some View {
+        if let id = selectedLedgerID {
+            #if targetEnvironment(macCatalyst)
+            LedgerDetailView(console: console, ledgerID: id, selectedBillID: billEditor?.bill?.id, onOpenBillEditor: { bill, detail in
+                billEditor = BillEditorContext(bill: bill, detail: detail)
+            }, onCloseBillEditor: { billEditor = nil })
+                .id("\(id):\(detailGeneration)")
+            #else
+            LedgerDetailView(console: console, ledgerID: id).id(id)
+            #endif
+        } else {
+            ContentUnavailableView("Select a ledger", systemImage: "list.bullet.rectangle",
+                description: Text("Choose a ledger to see its bills and settlement."))
+        }
+    }
+
+}
+
+private struct BillEditorContext {
+    let id = UUID()
+    let bill: Bill?
+    let detail: LedgerDetail
+}
+
+private enum AppSheet: Identifiable {
+    case settings
+    case join(String)
+    var id: String {
+        switch self {
+        case .settings: return "settings"
+        case .join(let url): return "join:" + url
         }
     }
 }
 
 private struct AppSettingsView: View {
     let console: ConsoleClient
+    @AppStorage("appearance") private var appearance = "system"
     private let client = clientBuildInfo()
     @State private var service: FfiBuildInfo?
     @State private var loading = true
@@ -54,6 +124,12 @@ private struct AppSettingsView: View {
             GeometryReader { geometry in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 4) {
+                        Picker("Appearance", selection: $appearance) {
+                            Text("System").tag("system")
+                            Text("Light").tag("light")
+                            Text("Dark").tag("dark")
+                        }
+                        .font(.body).foregroundStyle(.primary)
                         Spacer(minLength: 24)
                         Text("Client: \(client.version) (built \(client.builtAtUtc))")
                         if let service {

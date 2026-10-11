@@ -41,3 +41,7 @@ A merge amendment resolves a conflict by naming every competing effective bill i
 The selected bill fields are preserved,
 the competing branches become superseded,
 and the next projection has one effective successor for that ancestry.
+
+Drafts may allocate a real `BillId` before insertion. `add_bill_with_id` preserves
+that ID when saving, so deterministic rounding matches the preview. The verified
+bill checks reject duplicate IDs; amendments use fresh IDs.

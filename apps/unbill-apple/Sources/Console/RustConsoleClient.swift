@@ -3,10 +3,11 @@ import Foundation
 // ConsoleClient backed by the real Rust core (unbill-ffi via UniFFI).
 //
 // An `actor` so its calls run OFF the main thread: the FFI methods are
-// synchronous (they block_on a tokio runtime in Rust), and blocking the main
+// mostly synchronous (they block_on a tokio runtime in Rust), and blocking the main
 // thread would freeze the UI (e.g. a navigation transition stalling on the old
 // title). Isolating to the actor's executor keeps SwiftUI responsive. Moving to
-// async UniFFI later removes the blocking entirely.
+// async UniFFI later removes the blocking entirely. Peer sync already uses an
+// async UniFFI call so network waits yield this actor to local ledger queries.
 //
 // Maps the aggregated FFI DTOs (bootstrap / ledger detail) to the app's models.
 actor RustConsoleClient: ConsoleClient {
@@ -32,7 +33,13 @@ actor RustConsoleClient: ConsoleClient {
     }
 
     func ledgers() async throws -> [LedgerSummary] {
-        try console.bootstrap().ledgers.map(Self.summary)
+        try console.bootstrap().ledgers.map(Self.summary).sorted {
+            if $0.latestBillAtMs != $1.latestBillAtMs {
+                return ($0.latestBillAtMs ?? Int64.min) > ($1.latestBillAtMs ?? Int64.min)
+            }
+            if $0.name != $1.name { return $0.name < $1.name }
+            return $0.ledgerID < $1.ledgerID
+        }
     }
 
     @discardableResult
@@ -58,21 +65,19 @@ actor RustConsoleClient: ConsoleClient {
         Self.user(try console.addUser(ledgerId: ledgerID, userId: userID))
     }
 
-    func saveBill(
-        ledgerID: String,
-        description: String,
-        amountCents: Int64,
-        payerUserIDs: [String],
-        payeeUserIDs: [String]
-    ) async throws {
-        _ = try console.saveBill(
-            ledgerId: ledgerID,
-            amountCents: amountCents,
-            description: description,
-            payers: payerUserIDs.map { FfiShareInput(userId: $0, shares: 1) },
-            payees: payeeUserIDs.map { FfiShareInput(userId: $0, shares: 1) },
-            prevBillIds: []
-        )
+    func previewBill(amountCents: Int64, payers: [BillShareInput], payees: [BillShareInput], previewID: String) async throws -> BillSplitPreview {
+        let split = try console.previewBillSplit(amountCents: amountCents,
+            payers: payers.map { FfiShareInput(userId: $0.userID, shares: $0.shares) },
+            payees: payees.map { FfiShareInput(userId: $0.userID, shares: $0.shares) }, billId: previewID)
+        return BillSplitPreview(
+            payers: Dictionary(split.payerAmounts.map { ($0.userId, $0.amountCents) }, uniquingKeysWith: +),
+            payees: Dictionary(split.payeeAmounts.map { ($0.userId, $0.amountCents) }, uniquingKeysWith: +))
+    }
+
+    func saveBill(ledgerID: String, description: String, amountCents: Int64, payers: [BillShareInput], payees: [BillShareInput], previousBillIDs: [String], billID: String) async throws {
+        _ = try console.saveBill(ledgerId: ledgerID, amountCents: amountCents, description: description,
+            payers: payers.map { FfiShareInput(userId: $0.userID, shares: $0.shares) },
+            payees: payees.map { FfiShareInput(userId: $0.userID, shares: $0.shares) }, draft: FfiBillDraft(billId: billID, prevBillIds: previousBillIDs))
     }
 
     func ledgerDetail(id: String) async throws -> LedgerDetail {
@@ -81,6 +86,7 @@ actor RustConsoleClient: ConsoleClient {
             summary: Self.summary(d.summary),
             emojiFingerprint: d.emojiFingerprint,
             users: d.users.map(Self.user),
+            devices: d.devices.map { SyncDevice(nodeID: $0.nodeId, label: $0.label, ledgerNames: $0.ledgerNames) },
             bills: d.bills.map(Self.bill),
             conflicts: d.conflicts.map {
                 ConflictGroup(conflicting: $0.conflicting.map(Self.bill), ancestors: $0.ancestors.map(Self.bill))
@@ -130,7 +136,7 @@ actor RustConsoleClient: ConsoleClient {
     }
 
     func syncOnce(peerNodeID: String) async throws {
-        try console.syncOnce(peerNodeId: peerNodeID)
+        try await console.syncOnce(peerNodeId: peerNodeID)
     }
 
     // MARK: - Mapping (nonisolated: pure value transforms)

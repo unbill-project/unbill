@@ -175,24 +175,40 @@ ______________________________________________________________________
 
 ## iOS
 
-**Native SwiftUI Apple app:** download `unbill-apple-ios.ipa` from a nightly or
-stable GitHub release, then sign and sideload it with your preferred tool.
-This app requires iOS 17.0 or later and includes its device service in process.
-The IPA is unsigned; CI does not require signing credentials.
+### AltStore (recommended)
 
-The same native app is also available through the AltStore source below.
+Install the native **Unbill** app on iPhone or iPad using
+[AltStore Classic](https://altstore.io). Requires **iOS 17.0 or later**.
 
-Unbill is distributed for iOS via **AltStore** sideloading.
+1. Install **AltServer** on your Mac or Windows computer and use it to install
+   **AltStore Classic** on your iPhone or iPad. Follow the
+   [official setup instructions](https://faq.altstore.io/).
 
-1. Install [AltStore](https://altstore.io) on your device.
-1. In AltStore, go to **Sources** and add:
-   ```
+1. In AltStore, open **Sources**, tap **+**, and add the Unbill source URL:
+
+   ```text
    https://raw.githubusercontent.com/unbill-project/unbill/main/altstore-source.json
    ```
-1. Browse the source and install **Unbill** (iOS 17+).
 
-Requires iOS 17.0 or later.
-The IPA is unsigned — AltStore re-signs it with your Apple ID.
+1. Open **Browse**, select **Unbill**, and install it. AltStore signs the app
+   with your Apple ID.
+
+With a free Apple account, sideloaded apps expire after **7 days**. Refresh
+before expiry through **My Apps → Refresh All**; background refresh can also
+renew the apps. For the standard AltServer setup, keep AltServer running and
+reachable from your device over the same Wi-Fi network or USB. See
+[refreshing apps](https://faq.altstore.io/altstore-classic/your-altstore) and
+[AltServer connectivity](https://faq.altstore.io/altstore-classic/altserver).
+
+Unbill runs its device service inside the iOS app; no separate Unbill daemon
+installation is needed.
+
+### Direct IPA download
+
+Download `unbill-apple-ios.ipa` from the
+[latest release](https://github.com/unbill-project/unbill/releases/latest),
+then sign and sideload it with your preferred tool. The IPA is unsigned;
+your sideloading tool supplies signing.
 
 ______________________________________________________________________
 

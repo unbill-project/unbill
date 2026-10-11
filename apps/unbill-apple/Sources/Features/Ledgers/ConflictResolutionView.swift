@@ -52,12 +52,21 @@ struct ConflictResolutionView: View {
                                             .monospacedDigit()
                                             .foregroundStyle(.primary)
                                     }
-                                    Text(bill.payers.map(\.displayName).joined(separator: ", ") + " paid · split "
-                                        + bill.payees.map(\.displayName).joined(separator: ", "))
+                                    Text(bill.payers.map { "\($0.displayName) (\($0.shares))" }.joined(separator: ", ") + " paid · split "
+                                        + bill.payees.map { "\($0.displayName) (\($0.shares))" }.joined(separator: ", "))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                    Text(Date(timeIntervalSince1970: Double(bill.createdAtMs) / 1000), format: .dateTime.year().month().day().hour().minute())
+                                        .font(.caption).foregroundStyle(.secondary)
                                 }
                             }
+                        }
+                    }
+                }
+                if !group.ancestors.isEmpty {
+                    Section("Original versions") {
+                        ForEach(group.ancestors) { bill in
+                            LabeledContent(bill.description, value: Money.string(cents: bill.amountCents, currency: currency))
                         }
                     }
                 }
