@@ -3,6 +3,7 @@
 resolver = "2"
 members = [
     "crates/unbill-build-info",
+    "crates/unbill-license",
     "apps/unbill-cli",
     "apps/unbill-daemon",
     "apps/unbill-server",
@@ -108,6 +109,13 @@ wiremock = "0.6"
 
 [profile.release]
 lto = true
+
+# License detection runs during builds; optimize its text scanner even in debug.
+[profile.dev.package.spdx]
+opt-level = 3
+
+[profile.release.package.spdx]
+opt-level = 3
 
 [profile.release.package.unbill-tui]
 strip = true  # Automatically strip symbols from the binary.
