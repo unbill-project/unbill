@@ -82,3 +82,10 @@ that never opens a stream cannot block later connections. Endpoint closure abort
 pending accept tasks.
 The higher-level `accept_loop_inner` delegates acceptance to `accept_bi`, so both
 entry points share one handshake and initial-stream implementation.
+
+Successful sync and join connections log their Iroh transport paths at INFO level,
+on establishment, path changes, and closure. Each line includes a connection ID,
+peer, protocol, direct/relay/custom transport, remote address, selection and closure
+flags, and available per-path QUIC byte counters (including protocol overhead).
+These describe transport paths rather than proving mDNS address discovery. The
+observer uses weak handles and does not keep connections alive for logging.

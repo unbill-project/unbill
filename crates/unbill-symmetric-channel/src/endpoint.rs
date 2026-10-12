@@ -27,10 +27,10 @@ type Result<T> = std::result::Result<T, UnbillError>;
 use crate::node_id_ext::SecretKeyExt;
 use unbill_storage::StoreServer;
 
-use iroh::RelayMode;
 use iroh::address_lookup::MdnsAddressLookup;
 use iroh::address_lookup::memory::MemoryLookup;
 use iroh::endpoint::presets;
+use iroh::{RelayMode, Watcher};
 
 use crate::join::{run_join_host, run_join_requester};
 use crate::node_id_ext::{EndpointIdExt, NodeIdExt};
@@ -134,6 +134,7 @@ impl UnbillEndpoint {
     /// Cache the remote peer's direct addresses after a successful connection
     /// so that future dials can use the direct path instead of the relay.
     async fn cache_peer(&self, conn: &iroh::endpoint::Connection) {
+        monitor_paths(conn);
         let id = conn.remote_id();
         if let Some(info) = self.inner.remote_info(id).await {
             let addr =
@@ -316,6 +317,69 @@ impl UnbillEndpoint {
 // ---------------------------------------------------------------------------
 // Dispatch incoming connection to the right protocol handler
 // ---------------------------------------------------------------------------
+
+// Observe weak connection handles so logging cannot prolong a connection's lifetime.
+fn monitor_paths(conn: &iroh::endpoint::Connection) {
+    let connection = conn.stable_id();
+    let info = conn.to_info();
+    let mut paths = conn.paths();
+    log_paths(&info, connection, "established", paths.get());
+    tokio::spawn(async move {
+        let closed = info.closed();
+        tokio::pin!(closed);
+        loop {
+            tokio::select! {
+                _ = &mut closed => {
+                    log_paths(&info, connection, "closed", paths.get());
+                    break;
+                }
+                update = paths.updated() => {
+                    match update {
+                        Ok(snapshot) => log_paths(&info, connection, "changed", snapshot),
+                        Err(_) => {
+                            log_paths(&info, connection, "closed", paths.get());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+fn log_paths(
+    info: &iroh::endpoint::ConnectionInfo,
+    connection: usize,
+    event: &str,
+    paths: iroh::endpoint::PathInfoList,
+) {
+    let peer = info.remote_id();
+    let protocol = String::from_utf8_lossy(info.alpn());
+    if paths.is_empty() {
+        info!(connection, %peer, %protocol, event, "connection path unavailable");
+    }
+    for path in paths {
+        let transport = match path.remote_addr() {
+            iroh::TransportAddr::Ip(_) => "direct",
+            iroh::TransportAddr::Relay(_) => "relay",
+            _ => "custom",
+        };
+        let stats = path.stats();
+        info!(
+            connection,
+            %peer,
+            %protocol,
+            event,
+            transport,
+            remote = %path.remote_addr(),
+            selected = path.is_selected(),
+            closed = path.is_closed(),
+            sent_bytes = stats.as_ref().map(|s| s.udp_tx.bytes),
+            received_bytes = stats.as_ref().map(|s| s.udp_rx.bytes),
+            "connection path"
+        );
+    }
+}
 
 async fn accept_incoming(incoming: iroh::endpoint::Incoming) -> Option<AcceptedBi> {
     let mut connecting = match incoming.accept() {
