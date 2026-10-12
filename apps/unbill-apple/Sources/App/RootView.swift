@@ -36,7 +36,8 @@ struct RootView: View {
         }
         .sheet(item: $sheet) { destination in
             switch destination {
-            case .settings: AppSettingsView(console: console)
+            case .settings:
+                AppSettingsView(console: console, onDevicesChanged: { listGeneration += 1 })
             case .join(let url):
                 JoinLedgerView(console: console, invitationURL: url) { listGeneration += 1 }
             }
@@ -153,6 +154,8 @@ private enum AppSheet: Identifiable {
 
 private struct AppSettingsView: View {
     let console: ConsoleClient
+    var onDevicesChanged: () -> Void
+    @State private var showingDevices = false
     @AppStorage("appearance") private var appearance = "system"
     private let client = clientBuildInfo()
     @State private var service: FfiBuildInfo?
@@ -175,6 +178,18 @@ private struct AppSettingsView: View {
                             Text("System").tag("system")
                             Text("Light").tag("light")
                             Text("Dark").tag("dark")
+                        }
+                    }
+                    Section {
+                        Button { showingDevices = true } label: {
+                            HStack {
+                                Label("Devices", systemImage: "laptopcomputer.and.iphone")
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .foregroundStyle(.primary)
                         }
                     }
                     Section {
@@ -209,6 +224,11 @@ private struct AppSettingsView: View {
                 service = try? await console.serviceBuildInfo()
                 loading = false
             }
+        }
+        .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
+        .sheet(isPresented: $showingDevices, onDismiss: onDevicesChanged) {
+            DevicesView(console: console, onSynced: onDevicesChanged)
+                .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
         }
     }
 

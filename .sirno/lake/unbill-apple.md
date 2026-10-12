@@ -188,3 +188,9 @@ uses automatic placement. RootView owns the settings sheet presentation.
 Application Settings uses native Form sections for Appearance and the Open Source
 Licenses navigation row, retaining the system row styling and disclosure indicator.
 Selectable build information remains a separate compact footer below the form.
+
+Global Devices is opened from an application Settings form row; the ledger-list
+toolbar no longer presents it. Sync completion and device-sheet dismissal refresh
+the ledger list. Settings and its device sheet apply the stored appearance choice
+at their presentation boundaries so switching Light, Dark, or System updates them
+while open.
