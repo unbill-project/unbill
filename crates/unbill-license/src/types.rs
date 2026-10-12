@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 /// One name may have several versions or sources in the dependency graph.
 pub type LegalDictionary = BTreeMap<String, Vec<SoftwareLegalInfo>>;
 
-/// Legal information for one Cargo package, not a compliance certification.
+/// Legal information for one Cargo package or the Unbill project.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SoftwareLegalInfo {
     pub name: String,

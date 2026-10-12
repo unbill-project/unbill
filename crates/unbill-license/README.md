@@ -23,6 +23,9 @@ and attribution documents, package authors, repository and Cargo source identity
 and exact crates.io source archive URLs. `LEGAL_INFORMATION_JSON` exposes the
 same embedded data for other consumers.
 
+The `unbill` entry contains the project's own original root license files,
+workspace version, license expression, and repository.
+
 The build script uses cargo-about's library API; no separate cargo-about command
 installation is required. It collects the locked workspace's normal dependency
 graph with all features and platforms. This is a conservative workspace catalog,
@@ -53,6 +56,7 @@ The CLI exposes the embedded catalog without connecting to a daemon:
 
 ```sh
 unbill-cli licenses                       # List software names, versions and licenses
+unbill-cli licenses unbill                # Unbill's own original license texts
 unbill-cli licenses unbill-license        # Full license texts and original notices
 unbill-cli licenses --all                 # All full texts and notices
 unbill-cli --json licenses iroh           # Selected software records as JSON

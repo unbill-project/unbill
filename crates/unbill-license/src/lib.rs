@@ -14,7 +14,7 @@ pub use types::{LegalDictionary, LegalDocument, LicenseText, SoftwareLegalInfo, 
 /// Generated JSON, also suitable for tooling that wants to avoid Rust DTOs.
 pub const LEGAL_INFORMATION_JSON: &str = include_str!(concat!(env!("OUT_DIR"), "/legal.json"));
 
-/// Dictionary keyed by Cargo software name. Original texts are not paraphrased.
+/// Dictionary keyed by software name. Original texts are not paraphrased.
 #[allow(
     clippy::expect_used,
     reason = "the build script serializes these exact DTOs"
@@ -40,6 +40,45 @@ mod build_support;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn project_entry_has_workspace_identity_and_original_license_texts() {
+        let records = software("unbill");
+        assert_eq!(records.len(), 1);
+        let project = &records[0];
+        assert_eq!(project.name, "unbill");
+        assert_eq!(project.version, env!("CARGO_PKG_VERSION"));
+        assert_eq!(project.license_expression, env!("CARGO_PKG_LICENSE"));
+        assert_eq!(
+            project.repository.as_deref(),
+            Some(env!("CARGO_PKG_REPOSITORY"))
+        );
+        for (path, text) in [
+            ("LICENSE", include_str!("../../../LICENSE")),
+            ("LICENSE-MIT", include_str!("../../../LICENSE-MIT")),
+            ("LICENSE-APACHE", include_str!("../../../LICENSE-APACHE")),
+        ] {
+            assert!(
+                project
+                    .documents
+                    .iter()
+                    .any(|d| d.path == path && d.text == text)
+            );
+        }
+        assert!(
+            project
+                .license_texts
+                .iter()
+                .any(|t| t.identifier == "MIT" && t.text == include_str!("../../../LICENSE-MIT"))
+        );
+        assert!(
+            project
+                .license_texts
+                .iter()
+                .any(|t| t.identifier == "Apache-2.0"
+                    && t.text == include_str!("../../../LICENSE-APACHE"))
+        );
+    }
 
     #[test]
     fn shared_unbill_license_files_are_embedded_verbatim() {

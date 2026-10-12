@@ -186,6 +186,30 @@ fn main() -> Result<()> {
             },
         );
     }
+    // This crate inherits the project's workspace identity. Reuse that metadata
+    // but only root legal files, rather than attributing crate files to Unbill.
+    let mut project = dictionary
+        .get("unbill-license")
+        .and_then(|records| records.first())
+        .context("the workspace catalog must contain unbill-license")?
+        .clone();
+    project.name = "unbill".to_owned();
+    project.package_id = format!("workspace#unbill@{}", project.version);
+    project.documents = shared;
+    project.license_texts.retain_mut(|text| {
+        if let TextOrigin::PackageFile { path } = &mut text.origin
+            && let Some(relative) = path.strip_prefix("workspace/")
+        {
+            *path = relative.to_owned();
+            true
+        } else {
+            false
+        }
+    });
+    if project.license_texts.is_empty() {
+        bail!("Unbill's original root license texts must be available");
+    }
+    build_support::insert(&mut dictionary, project);
     let destination = PathBuf::from(env::var("OUT_DIR")?).join("legal.json");
     fs::write(destination, serde_json::to_vec(&dictionary)?)?;
     Ok(())

@@ -295,7 +295,7 @@ fingerprint = "sha256:7eed5870f33b610ec470fa81c3432a7404e005fb69631a340bad716198
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-cli]
-fingerprint = "sha256:ef5b02c4dfd9e300855c428b748e39a33c232972ab17b4b3702125831475bfb9"
+fingerprint = "sha256:9714fece299c7028ec9396b7c5844f5ce2b8bf692232ea531e3b692c71099e09"
 "core.belongs" = ["applications"]
 "core.refines" = ["device-console-split"]
 
@@ -323,7 +323,7 @@ fingerprint = "sha256:23bf8421cd46fba5ee8f1b0c4995c7ee4a1579afea376b532d551c00de
 "core.refines" = ["sync-behavior"]
 
 [entries.unbill-license]
-fingerprint = "sha256:a5fd6cc825d5de90df133317979e888e8f4b91ac3dfbe4dba1d52969712ad399"
+fingerprint = "sha256:8410d4867cbbac8ad660b5d2b09e5d75088085fed1e8e63da9de6701ecbde52d"
 "core.belongs" = ["workspace-layout"]
 
 [entries.unbill-model]

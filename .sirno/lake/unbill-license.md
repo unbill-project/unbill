@@ -7,10 +7,14 @@ core.belongs:
   - workspace-layout
 ---
 
-`unbill-license` provides a read-only dictionary from Cargo package names to
+`unbill-license` provides a read-only dictionary from software names to
 versioned legal records. Records retain license texts, attribution and notice
 files, package identity, and source locations. Multiple versions and sources of
 a package remain distinct.
+
+The `unbill` entry represents the project itself. It inherits the workspace
+version, license expression, and repository, and embeds the original root
+LICENSE, LICENSE-MIT, and LICENSE-APACHE files separately from crate entries.
 
 The catalog is generated offline during compilation from the locked workspace
 dependency graph and package sources using the cargo-about library. It includes

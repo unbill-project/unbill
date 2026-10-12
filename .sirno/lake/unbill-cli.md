@@ -43,6 +43,7 @@ license texts and original notices; `--all` prints the complete catalog.
 `--json` returns a dictionary of full records, optionally limited to one software
 name. Unknown software names fail clearly. The catalog covers all workspace
 features and platforms, not just the CLI's linked dependencies.
+`licenses unbill` displays the project's own original license texts.
 
 Implementation:
 `main.rs` parses with Clap,

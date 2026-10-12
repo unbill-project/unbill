@@ -31,20 +31,17 @@ fn licenses_are_available_without_a_daemon_or_data_directory() {
 
 #[test]
 fn selected_software_includes_original_license_text_and_json_records() {
-    let (_dir, output) = run(&["licenses", "unbill-license"]);
+    let (_dir, output) = run(&["licenses", "unbill"]);
     assert!(output.status.success());
     let text = String::from_utf8(output.stdout).unwrap();
     assert!(text.contains("Permission is hereby granted"));
     assert!(text.contains("Apache License"));
 
-    let (_dir, output) = run(&["--json", "licenses", "unbill-license"]);
+    let (_dir, output) = run(&["--json", "licenses", "unbill"]);
     assert!(output.status.success());
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(json.as_object().unwrap().len(), 1);
-    assert_eq!(
-        json["unbill-license"][0]["license_expression"],
-        "MIT OR Apache-2.0"
-    );
+    assert_eq!(json["unbill"][0]["license_expression"], "MIT OR Apache-2.0");
 }
 
 #[test]
