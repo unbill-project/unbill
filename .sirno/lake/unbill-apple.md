@@ -184,3 +184,7 @@ The detail screen keeps a stable full-size container for content and reload erro
 The application Settings gear belongs to the ledger-list view inside the navigation
 container. iOS explicitly places it in the trailing navigation bar; Mac Catalyst
 uses automatic placement. RootView owns the settings sheet presentation.
+
+Application Settings uses native Form sections for Appearance and the Open Source
+Licenses navigation row, retaining the system row styling and disclosure indicator.
+Selectable build information remains a separate compact footer below the form.
