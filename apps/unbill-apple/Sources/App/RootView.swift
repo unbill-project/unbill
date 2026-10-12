@@ -34,13 +34,6 @@ struct RootView: View {
             guard url.scheme?.lowercased() == "unbill", url.host?.lowercased() == "join" else { return }
             sheet = .join(url.absoluteString)
         }
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
-                Button { sheet = .settings } label: {
-                    Label("Settings", systemImage: "gearshape")
-                }
-            }
-        }
         .sheet(item: $sheet) { destination in
             switch destination {
             case .settings: AppSettingsView(console: console)
@@ -106,6 +99,21 @@ struct RootView: View {
             selectedLedgerID = detail.summary.id
         })
             .id(listGeneration)
+            .toolbar {
+                ToolbarItem(placement: settingsPlacement) {
+                    Button { sheet = .settings } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                }
+            }
+    }
+
+    private var settingsPlacement: ToolbarItemPlacement {
+        #if targetEnvironment(macCatalyst)
+        .automatic
+        #else
+        .topBarTrailing
+        #endif
     }
 
     @ViewBuilder private var ledgerContent: some View {

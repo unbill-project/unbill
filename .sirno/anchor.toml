@@ -287,7 +287,7 @@ fingerprint = "sha256:af583b59ae48f7b956b66387e4a1a39ff0ae38b442f40998f421a7ac1f
 fingerprint = "sha256:4e55d4de86988da589d6b17d66d2e4c85e16b56d58a84ef34b76588b24a37c34"
 
 [entries.unbill-apple]
-fingerprint = "sha256:d114a28b1e1e2788c514d2122f59c0b4d6a9f08f3661ae463640493a9968a537"
+fingerprint = "sha256:4e89c885372209df5df23f2636f09c4d19d5e5d88552be8d7e2a8ae3300a48e6"
 "core.belongs" = [
     "frontend-ui",
     "applications",
