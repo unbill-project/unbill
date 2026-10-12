@@ -5,7 +5,10 @@
 //! binary. It excludes dependencies used only for building or testing.
 //! Non-Cargo native libraries and frontend assets need separate accounting.
 
+mod display;
 mod types;
+
+pub use display::{SoftwareSummary, display_documents, software_summaries};
 
 use std::sync::OnceLock;
 pub use types::{LegalDictionary, LegalDocument, LicenseText, SoftwareLegalInfo, TextOrigin};

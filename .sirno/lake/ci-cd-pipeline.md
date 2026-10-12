@@ -66,6 +66,9 @@ Clippy explicitly enables `arithmetic_side_effects`, `indexing_slicing`,
 The warnings-as-errors policy makes findings from these lints fail CI.
 Clippy and test jobs fetch locked dependency sources before compilation so
 the offline unbill-license generator can inspect packages for all platforms.
+Binary and Tauri build jobs also fetch locked sources before compilation. Apple
+and Docker frontend build entry points perform the same preparation. Nix source
+filtering retains the root license files required by the embedded project entry.
 
 `build.yml` is reusable and also manually dispatchable.
 It accepts a tag used for Docker image tagging.

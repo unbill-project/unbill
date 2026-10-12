@@ -35,5 +35,8 @@ Runtime consumers need neither Cargo nor filesystem access. The same dictionary
 and embedded JSON can serve command-line, terminal, GUI, and library consumers.
 The CLI exposes the catalog and original legal documents through its offline
 licenses command.
+GUI consumers use compact software summaries and selected detail records.
+Display helpers retain original documents first and add only distinct canonical
+texts, so repeated license content does not obscure package-specific notices.
 The catalog does not cover non-Cargo components, prove legal compliance, or
 provide corresponding source itself.

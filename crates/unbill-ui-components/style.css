@@ -724,6 +724,33 @@
   gap: 8px;
 }
 
+.license-overlay {
+  position: fixed;
+  z-index: 100;
+}
+
+.license-panel {
+  width: min(980px, 100%);
+  height: min(760px, calc(100% - 36px));
+}
+
+.license-scope { margin: 8px 12px; }
+.license-layout { display: flex; flex: 1; min-height: 0; }
+.license-sidebar { display: flex; flex-direction: column; width: 240px; min-width: 0; padding: 8px; border-right: 1px solid var(--line-soft); }
+.license-software-list { overflow: auto; min-height: 0; margin-top: 8px; }
+.license-software { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 8px; border: 0; text-align: left; color: var(--text-body); background: transparent; cursor: pointer; }
+.license-software[aria-pressed="true"] { background: var(--bg-accent-soft); }
+.license-software small { color: var(--text-soft); }
+.license-documents { flex: 1; min-width: 0; overflow: auto; padding: 12px; user-select: text; }
+.license-source { overflow-wrap: anywhere; }
+.license-document { border-top: 1px solid var(--line-soft); padding-top: 8px; }
+.license-document pre { font: inherit; font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+@media (max-width: 720px) {
+  .license-layout { flex-direction: column; }
+  .license-sidebar { width: auto; max-height: 180px; border-right: 0; border-bottom: 1px solid var(--line-soft); }
+}
+
 
 .result-panel,
 .invite-panel {

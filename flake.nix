@@ -44,7 +44,8 @@
         cargoSource = pkgs.lib.cleanSourceWith {
           src = pkgs.lib.cleanSource ./.;
           filter = path: type:
-            craneLib.filterCargoSources path type || pkgs.lib.hasSuffix ".sql" path;
+            craneLib.filterCargoSources path type || pkgs.lib.hasSuffix ".sql" path
+            || builtins.elem (baseNameOf path) [ "LICENSE" "LICENSE-MIT" "LICENSE-APACHE" ];
         };
         # sirno:witness:ci-cd-pipeline:end
 

@@ -46,6 +46,70 @@ use unbill_store_sqlite::SqliteStore;
 
 uniffi::setup_scaffolding!();
 
+// sirno:witness:unbill-license:begin
+#[derive(uniffi::Record)]
+pub struct FfiLegalSoftware {
+    pub name: String,
+    pub versions: Vec<String>,
+    pub license_expressions: Vec<String>,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiLegalDocument {
+    pub title: String,
+    pub text: String,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiLegalPackage {
+    pub package_id: String,
+    pub name: String,
+    pub version: String,
+    pub license_expression: String,
+    pub repository: Option<String>,
+    pub source: Option<String>,
+    pub documents: Vec<FfiLegalDocument>,
+}
+
+/// Local compiled information; never opens storage or contacts a daemon.
+#[uniffi::export]
+pub fn license_software_summaries() -> Vec<FfiLegalSoftware> {
+    unbill_license::software_summaries()
+        .into_iter()
+        .map(|software| FfiLegalSoftware {
+            name: software.name,
+            versions: software.versions,
+            license_expressions: software.license_expressions,
+        })
+        .collect()
+}
+
+#[uniffi::export]
+pub fn license_software_details(name: String) -> Vec<FfiLegalPackage> {
+    unbill_license::software(&name)
+        .iter()
+        .map(|package| FfiLegalPackage {
+            package_id: package.package_id.clone(),
+            name: package.name.clone(),
+            version: package.version.clone(),
+            license_expression: package.license_expression.clone(),
+            repository: package.repository.clone(),
+            source: package
+                .source_archive
+                .clone()
+                .or_else(|| package.source.clone()),
+            documents: unbill_license::display_documents(package)
+                .into_iter()
+                .map(|document| FfiLegalDocument {
+                    title: document.path,
+                    text: document.text,
+                })
+                .collect(),
+        })
+        .collect()
+}
+// sirno:witness:unbill-license:end
+
 /// Complete currency catalog for frontend pickers, sorted by ISO code.
 #[uniffi::export]
 pub fn supported_currency_codes() -> Vec<String> {
@@ -849,6 +913,27 @@ fn parse_bill_id(v: &str) -> Result<BillId, FfiError> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn legal_catalog_and_original_project_texts_are_available_without_console() {
+        let summaries = super::license_software_summaries();
+        assert_eq!(summaries.first().unwrap().name, "unbill");
+        let details = super::license_software_details("unbill".to_owned());
+        let project = details.first().unwrap();
+        assert_eq!(project.license_expression, "MIT OR Apache-2.0");
+        assert!(
+            project
+                .documents
+                .iter()
+                .any(|document| document.text == include_str!("../../../LICENSE-MIT"))
+        );
+        assert!(
+            project
+                .documents
+                .iter()
+                .any(|document| document.text == include_str!("../../../LICENSE-APACHE"))
+        );
+        assert!(super::license_software_details("unknown-software".to_owned()).is_empty());
+    }
     use super::*;
 
     #[cfg(not(any(

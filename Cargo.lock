@@ -9052,6 +9052,7 @@ dependencies = [
  "unbill-asymmetric-channel",
  "unbill-build-info",
  "unbill-console",
+ "unbill-license",
  "unbill-storage",
  "unbill-store-sqlite",
  "uniffi",
@@ -9244,6 +9245,7 @@ dependencies = [
  "leptos",
  "qrcode",
  "serde",
+ "unbill-license",
  "wasm-bindgen-futures",
  "web-sys",
 ]

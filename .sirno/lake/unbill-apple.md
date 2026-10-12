@@ -90,6 +90,14 @@ choices appear in collapsed disclosure groups; new bill defaults use active peop
 
 Application Settings displays client version and UTC build timestamp alongside the connected daemon or in-process service build, obtained through UniFFI, as a compact footer at the bottom.
 
+Application Settings links to a searchable Open Source Licenses list with Unbill
+first. Software details show version, license expression, repository, source
+location and selectable original legal texts. Standalone UniFFI functions expose
+the local catalog and selected software without a console connection. The Swift
+loader reads them off the main actor and renders only selected software details.
+The startup failure screen also offers the license browser without a device
+connection. Apple build workflows exercise the Foundation-only search model.
+
 The Swift Apple iOS app is built unsigned by `build-apple-ios.yml` on macOS CI.
 Nightly and version releases enable `build_apple_ios`; manual builds can opt in.
 The Rust build script's `--ios-only` option builds the device slice and generates

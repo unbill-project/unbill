@@ -36,6 +36,7 @@ RUN cargo binstall -y trunk
 COPY . .
 
 WORKDIR /app/apps/unbill-ui-remote
+RUN cargo fetch --locked
 RUN trunk build --release
 
 # ────────────────────────────────────────────────────────────────────────────

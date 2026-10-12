@@ -22,6 +22,11 @@ and pending spinners.
 
 Component prop and event data types are plain structs defined in this crate.
 
+The shared license browser reads unbill-license's embedded legal metadata.
+It opens on demand from settings and keeps software search and selection local.
+Only the selected software's text is rendered. Original documents and canonical
+fallback texts remain distinguishable and HTML is rendered as plain text.
+
 The crate exports buttons, icon buttons, list rows, tag pills,
 settings navigation items, settings navigation groups,
 currency input,

@@ -24,6 +24,7 @@ struct UnbillApp: App {
 private struct StartupFailureView: View {
     let error: Error
     var onRetry: () -> Void
+    @State private var showingLicenses = false
 
     private var failure: (title: String, icon: String, message: String) {
         switch error {
@@ -47,6 +48,17 @@ private struct StartupFailureView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
+            Button("Open Source Licenses") { showingLicenses = true }
+        }
+        .sheet(isPresented: $showingLicenses) {
+            NavigationStack {
+                LicensesView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showingLicenses = false }
+                        }
+                    }
+            }
         }
     }
 }

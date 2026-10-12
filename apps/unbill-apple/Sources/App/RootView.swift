@@ -169,6 +169,12 @@ private struct AppSettingsView: View {
                             Text("Dark").tag("dark")
                         }
                         .font(.body).foregroundStyle(.primary)
+                        NavigationLink {
+                            LicensesView()
+                        } label: {
+                            Label("Open Source Licenses", systemImage: "doc.text")
+                        }
+                        .font(.body).foregroundStyle(.primary)
                         Spacer(minLength: 24)
                         Text("Client: \(client.version) (built \(client.builtAtUtc))")
                         if let service {
