@@ -73,6 +73,9 @@ through the API adapter for live payer and payee amounts.
 Device Settings shows the server-assigned device ID,
 known peer devices,
 and per-device sync actions.
+General settings includes the shared Open Source Licenses browser, backed by
+metadata compiled into the browser bundle rather than fetched from the server.
+The connection screen offers the same browser before server authentication.
 Ledger Settings provides ledger selection,
 ledger users,
 add-user picker,

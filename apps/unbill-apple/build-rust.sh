@@ -43,6 +43,7 @@ fi
 #      clang + the right per-target SDK; DEVELOPER_DIR only affects that.
 
 echo "==> Phase A: host artifacts (Nix toolchain)"
+cargo fetch --locked
 cargo build -p unbill-ffi --release
 
 echo "==> Phase B: iOS libs (Xcode toolchain) for: ${TARGETS[*]}"

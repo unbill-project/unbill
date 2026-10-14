@@ -1,11 +1,11 @@
 use crate::api::{self, Bill, LedgerDetail, LedgerSummary, SyncDevice, User};
 use crate::app::SettingsTab;
-use crate::components::LedgerFingerprint;
 use crate::components::{
     ActionButton, ButtonTone, ConflictBillItem, ConflictGroupView, CurrencyCombobox, FieldBlock,
     IconButton, IconButtonKind, ListRow, ModalSheet, QrCode, ScreenFrame, SectionCard,
     SettingsNavGroup, SettingsNavItem, ThemeMode, ThemePicker, apply_theme, load_theme, use_toast,
 };
+use crate::components::{LedgerFingerprint, OpenSourceLicenses};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
@@ -469,6 +469,9 @@ pub fn SettingsPopup(
                                                 .into_any()
                                         }}
                                     </div>
+                                </SectionCard>
+                                <SectionCard title="Legal".to_owned()>
+                                    <OpenSourceLicenses />
                                 </SectionCard>
                                 <footer class="row-meta" style="grid-column: 1 / -1; font-size: 0.75rem; overflow-wrap: anywhere;">
                                     <div>{format!("Client: {}", client_build)}</div>

@@ -37,6 +37,14 @@ Service errors surface as non-zero exits with human-readable stderr.
 Invitation QR encoding errors also propagate to stderr and a non-zero exit; the URL is printed first.
 Commands fail clearly when the daemon socket cannot be reached.
 
+`licenses` lists the embedded Rust workspace legal catalog without opening a
+data directory or contacting the daemon. A software name prints that package's
+license texts and original notices; `--all` prints the complete catalog.
+`--json` returns a dictionary of full records, optionally limited to one software
+name. Unknown software names fail clearly. The catalog covers all workspace
+features and platforms, not just the CLI's linked dependencies.
+`licenses unbill` displays the project's own original license texts.
+
 Implementation:
 `main.rs` parses with Clap,
 connects through `RpcAsymChannel` at the socket under `UNBILL_PATH`,
