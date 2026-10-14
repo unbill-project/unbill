@@ -1,5 +1,6 @@
 """Checks for release identity and native wheel metadata."""
 
+from email.parser import BytesParser
 from pathlib import Path
 import platform
 import sys
@@ -29,19 +30,22 @@ class WheelTests(unittest.TestCase):
             with self.subTest(wheel=wheel.name), zipfile.ZipFile(wheel) as archive:
                 names = archive.namelist()
                 metadata_path = next(n for n in names if n.endswith(".dist-info/METADATA"))
-                metadata = archive.read(metadata_path).decode()
-                self.assertIn("Name: unbill\n", metadata)
-                self.assertIn("Requires-Python: >=3.9\n", metadata)
-                self.assertIn("License-Expression: MIT OR Apache-2.0\n", metadata)
+                metadata = BytesParser().parsebytes(archive.read(metadata_path))
+                self.assertEqual(metadata["Name"], "unbill")
+                self.assertEqual(metadata["Requires-Python"], ">=3.9")
+                self.assertEqual(metadata["License-Expression"], "MIT OR Apache-2.0")
                 self.assertTrue(any(n.endswith("LICENSE-MIT") for n in names))
                 self.assertTrue(any(n.endswith("LICENSE-APACHE") for n in names))
                 # Repair tools compute library paths in the wheel tree. Keeping
                 # the package at the root preserves those paths after pip install.
                 self.assertIn("unbill/unbill_ffi.py", names)
                 self.assertTrue(any(n.endswith((".dylib", ".so", ".dll")) for n in names))
-                wheel_metadata = archive.read(metadata_path.replace("METADATA", "WHEEL")).decode()
-                self.assertIn("Root-Is-Purelib: false\n", wheel_metadata)
-                self.assertIn("Tag: py3-none-", wheel_metadata)
+                wheel_metadata = BytesParser().parsebytes(
+                    archive.read(metadata_path.replace("METADATA", "WHEEL"))
+                )
+                self.assertEqual(wheel_metadata["Root-Is-Purelib"], "false")
+                tags = wheel_metadata.get_all("Tag", [])
+                self.assertTrue(any(tag.startswith("py3-none-") for tag in tags))
                 if sys.platform == "darwin":
                     self.assertIn(platform.machine(), wheel.name)
                     self.assertNotIn("universal2", wheel.name)
