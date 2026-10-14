@@ -9064,6 +9064,7 @@ version = "0.0.7"
 dependencies = [
  "anyhow",
  "cargo-about",
+ "flate2",
  "krates",
  "serde",
  "serde_json",

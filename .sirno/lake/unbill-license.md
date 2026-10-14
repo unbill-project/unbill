@@ -40,3 +40,14 @@ Display helpers retain original documents first and add only distinct canonical
 texts, so repeated license content does not obscure package-specific notices.
 The catalog does not cover non-Cargo components, prove legal compliance, or
 provide corresponding source itself.
+
+The binary embeds only losslessly gzip-compressed catalog data. Repeated legal
+text shares compression data without removing package-specific copyright or
+NOTICE content. The dictionary is decoded once on first access; the full JSON
+export is generated and cached only when legal_information_json() is requested.
+LEGAL_INFORMATION_GZIP provides the compressed bytes for tooling.
+
+Before compression, all identical legal texts are interned in a shared text table.
+Package records retain their document paths and license origins and reference text
+indices. Deduplication compares exact content, not SPDX identifiers: differing
+copyright statements or NOTICE files remain separate.

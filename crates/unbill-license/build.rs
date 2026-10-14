@@ -1,10 +1,12 @@
 mod build_support;
+#[path = "src/packed.rs"]
+mod packed;
 #[path = "src/types.rs"]
 mod types;
 
 use anyhow::{Context, Result, bail};
 use cargo_about::licenses::{Gatherer, LicenseFileKind, LicenseInfo, config::Config};
-use std::{env, fs, path::PathBuf, sync::Arc};
+use std::{env, fs, io::Write, path::PathBuf, sync::Arc};
 use types::{LegalDictionary, LicenseText, SoftwareLegalInfo, TextOrigin};
 
 // sirno:witness:unbill-license:begin
@@ -17,6 +19,7 @@ fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=build_support.rs");
     println!("cargo:rerun-if-changed=src/types.rs");
+    println!("cargo:rerun-if-changed=src/packed.rs");
     println!(
         "cargo:rerun-if-changed={}",
         workspace.join("Cargo.toml").display()
@@ -210,8 +213,13 @@ fn main() -> Result<()> {
         bail!("Unbill's original root license texts must be available");
     }
     build_support::insert(&mut dictionary, project);
-    let destination = PathBuf::from(env::var("OUT_DIR")?).join("legal.json");
-    fs::write(destination, serde_json::to_vec(&dictionary)?)?;
+    let packed = packed::PackedCatalog::pack(&dictionary)?;
+    let json = serde_json::to_vec(&packed)?;
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+    encoder.write_all(&json)?;
+    let compressed = encoder.finish()?;
+    let destination = PathBuf::from(env::var("OUT_DIR")?).join("legal.json.gz");
+    fs::write(destination, compressed)?;
     Ok(())
 }
 // sirno:witness:unbill-license:end

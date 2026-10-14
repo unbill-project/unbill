@@ -6,6 +6,7 @@
 //! Non-Cargo native libraries and frontend assets need separate accounting.
 
 mod display;
+mod packed;
 mod types;
 
 pub use display::{SoftwareSummary, display_documents, software_summaries};
@@ -14,8 +15,19 @@ use std::sync::OnceLock;
 pub use types::{LegalDictionary, LegalDocument, LicenseText, SoftwareLegalInfo, TextOrigin};
 
 // sirno:witness:unbill-license:begin
-/// Generated JSON, also suitable for tooling that wants to avoid Rust DTOs.
-pub const LEGAL_INFORMATION_JSON: &str = include_str!(concat!(env!("OUT_DIR"), "/legal.json"));
+/// Losslessly compressed catalog. Repeated license content shares compression data.
+pub const LEGAL_INFORMATION_GZIP: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/legal.json.gz"));
+
+/// Full JSON for tooling, expanded only when requested.
+#[allow(
+    clippy::expect_used,
+    reason = "these DTOs contain only JSON-serializable values"
+)]
+pub fn legal_information_json() -> &'static str {
+    static JSON: OnceLock<String> = OnceLock::new();
+    JSON.get_or_init(|| serde_json::to_string(dictionary()).expect("legal catalog must serialize"))
+}
 
 /// Dictionary keyed by software name. Original texts are not paraphrased.
 #[allow(
@@ -25,8 +37,13 @@ pub const LEGAL_INFORMATION_JSON: &str = include_str!(concat!(env!("OUT_DIR"), "
 pub fn dictionary() -> &'static LegalDictionary {
     static DICTIONARY: OnceLock<LegalDictionary> = OnceLock::new();
     DICTIONARY.get_or_init(|| {
-        serde_json::from_str(LEGAL_INFORMATION_JSON)
-            .expect("build script must produce valid legal information")
+        let packed: packed::PackedCatalog = serde_json::from_reader(std::io::BufReader::new(
+            flate2::read::GzDecoder::new(LEGAL_INFORMATION_GZIP),
+        ))
+        .expect("build script must produce valid compressed legal information");
+        packed
+            .unpack()
+            .expect("build script must produce valid legal text references")
     })
 }
 
@@ -43,6 +60,27 @@ mod build_support;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shared_text_table_preserves_every_package_and_original_document() {
+        let packed = packed::PackedCatalog::pack(dictionary()).unwrap();
+        let unique: std::collections::BTreeSet<_> = packed.texts.iter().collect();
+        assert_eq!(unique.len(), packed.texts.len());
+        let total_texts: usize = dictionary()
+            .values()
+            .flatten()
+            .map(|package| package.documents.len() + package.license_texts.len())
+            .sum();
+        assert!(packed.texts.len() < total_texts);
+        assert_eq!(packed.unpack().unwrap(), *dictionary());
+    }
+
+    #[test]
+    fn json_export_preserves_the_complete_dictionary() {
+        let exported: LegalDictionary = serde_json::from_str(legal_information_json()).unwrap();
+        assert_eq!(&exported, dictionary());
+        assert!(LEGAL_INFORMATION_GZIP.len() < legal_information_json().len());
+    }
 
     #[test]
     fn project_entry_has_workspace_identity_and_original_license_texts() {

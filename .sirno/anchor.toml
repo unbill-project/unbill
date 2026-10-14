@@ -323,7 +323,7 @@ fingerprint = "sha256:23bf8421cd46fba5ee8f1b0c4995c7ee4a1579afea376b532d551c00de
 "core.refines" = ["sync-behavior"]
 
 [entries.unbill-license]
-fingerprint = "sha256:13c95de3e99e717b934303f2e28aa0cfdb1895db622c05517e9968ef00393e1a"
+fingerprint = "sha256:5f5faa2cfca3c84cfae6c298b268437da7c2687b64129ec326c9f5dd32c112fd"
 "core.belongs" = ["workspace-layout"]
 
 [entries.unbill-model]

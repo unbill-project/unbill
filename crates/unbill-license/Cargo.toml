@@ -8,10 +8,12 @@ description = "Compiled license texts and notices for Unbill's Rust software"
 publish.workspace = true
 
 [dependencies]
+flate2 = "1"
 serde.workspace = true
 serde_json.workspace = true
 
 [build-dependencies]
+flate2 = "1"
 anyhow.workspace = true
 cargo-about = "=0.8.4"
 krates = "0.20"

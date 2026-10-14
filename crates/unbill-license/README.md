@@ -20,8 +20,12 @@ for package in unbill_license::software("iroh") {
 preserves multiple versions and sources with the same software name. Records
 contain SPDX expressions, full license texts and exceptions, original license
 and attribution documents, package authors, repository and Cargo source identity,
-and exact crates.io source archive URLs. `LEGAL_INFORMATION_JSON` exposes the
-same embedded data for other consumers.
+and exact crates.io source archive URLs. `legal_information_json()` exposes the
+same data for other consumers on demand. The binary embeds only losslessly
+compressed gzip data, available as `LEGAL_INFORMATION_GZIP`. Repeated texts
+share compression data; all original copyright and NOTICE content is retained.
+The dictionary is decoded once on first access. JSON export is generated only
+when explicitly requested.
 
 The `unbill` entry contains the project's own original root license files,
 workspace version, license expression, and repository.
@@ -61,3 +65,8 @@ unbill-cli licenses unbill-license        # Full license texts and original noti
 unbill-cli licenses --all                 # All full texts and notices
 unbill-cli --json licenses iroh           # Selected software records as JSON
 ```
+
+Before compression, all identical legal texts are interned in a shared text table.
+Package records retain their document paths and license origins and reference text
+indices. Deduplication compares exact content, not SPDX identifiers: differing
+copyright statements or NOTICE files remain separate.
