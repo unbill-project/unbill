@@ -38,7 +38,8 @@ pub fn OpenAbout(
                 <div class="about-scroll">
                     <header class="about-hero">
                         <div class="about-brand">
-                            <span class="about-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+                            <span class="about-mark" aria-hidden="true"
+                                inner_html=include_str!("../../../unbill-icon.svg") />
                             <span class="about-wordmark">{about.name.clone()}</span>
                         </div>
                         <h3>{about.tagline.clone()}</h3>

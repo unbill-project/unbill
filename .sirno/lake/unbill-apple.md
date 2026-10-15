@@ -201,4 +201,4 @@ the ledger list. Settings and its device sheet apply the stored appearance choic
 at their presentation boundaries so switching Light, Dark, or System updates them
 while open.
 
-About appears in Application Settings and on startup failure. XcodeGen bundles crates/unbill-about/content.json directly; Foundation decodes the shared resource and SwiftUI renders a native scrollable page with Dynamic Type and system link handling. The Apple build script runs the shared-content decoding test and typechecks About for each requested iOS, Simulator, or Catalyst target.
+About appears in Application Settings and on startup failure. Its UnbillLogo image set links to the root unbill-icon.svg and preserves vector data; SwiftUI renders its original colors on a light backing. XcodeGen bundles crates/unbill-about/content.json directly; Foundation decodes the shared resource and SwiftUI renders a native scrollable page with Dynamic Type and system link handling. The Apple build script runs the shared-content decoding test and typechecks About for each requested iOS, Simulator, or Catalyst target.

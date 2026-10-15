@@ -5,7 +5,7 @@ schema = 1
 lake = ".sirno/lake"
 
 [entries.about-page]
-fingerprint = "sha256:f1200ae39764c76b22d51809d9540e3475555612352e5ae44b83dc6e670ffa7c"
+fingerprint = "sha256:a12564c376ea70611e5079631a0925720c75adf5644edf3ea356719ea0a756fe"
 "core.belongs" = [
     "frontend-ui",
     "workspace-layout",
@@ -283,7 +283,7 @@ fingerprint = "sha256:5b5b3a07dd04e7d70b4375791dcc830271c5ccd94df75df4a64f6c48da
 "core.refines" = ["design-principles"]
 
 [entries.ui-components]
-fingerprint = "sha256:42f47879790d760f553b10e4f4c9e1ca46a5da337d0e87c7032c571caea8bc94"
+fingerprint = "sha256:11dda16f8ef2899e6915b291422ea2297d14be15c7c1da2e54e3e05d14c624f3"
 "core.belongs" = [
     "frontend-ui",
     "workspace-layout",
@@ -302,7 +302,7 @@ fingerprint = "sha256:43500f4b094e03eff4d8b2cb3c0451730a900223c46343831e8df19868
 fingerprint = "sha256:4e55d4de86988da589d6b17d66d2e4c85e16b56d58a84ef34b76588b24a37c34"
 
 [entries.unbill-apple]
-fingerprint = "sha256:1b728ee0e907cfa5cae6745b671e9ccc69713408dd187a05bfab25c10170b7f6"
+fingerprint = "sha256:9e98f988324bdee617173cae53c1e5b8a265faf6a3814016be47c507c829d72b"
 "core.belongs" = [
     "frontend-ui",
     "applications",

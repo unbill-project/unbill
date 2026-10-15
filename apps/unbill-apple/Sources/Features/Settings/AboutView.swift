@@ -55,16 +55,14 @@ struct AboutView: View {
     private func hero(_ content: AboutContent) -> some View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(spacing: 14) {
-                HStack(spacing: -12) {
-                    ForEach(0..<3) { index in
-                        Circle()
-                            .fill(.teal.opacity(0.12))
-                            .overlay(Circle().stroke(.teal, lineWidth: 2))
-                            .frame(width: 28, height: 28)
-                            .offset(y: index == 1 ? -6 : 0)
-                    }
-                }
-                .accessibilityHidden(true)
+                Image("UnbillLogo")
+                    .renderingMode(.original)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(6)
+                    .frame(width: 56, height: 56)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 12))
+                    .accessibilityHidden(true)
                 Text(content.name).font(.title2.weight(.semibold)).tracking(-1)
             }
             Text(content.tagline)
