@@ -194,6 +194,11 @@ private struct AppSettingsView: View {
                     }
                     Section {
                         NavigationLink {
+                            AboutView()
+                        } label: {
+                            Label(AboutContent.navigationTitle, systemImage: "info.circle")
+                        }
+                        NavigationLink {
                             LicensesView()
                         } label: {
                             Label("Open Source Licenses", systemImage: "doc.text")

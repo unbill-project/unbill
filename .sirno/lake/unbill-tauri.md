@@ -104,3 +104,5 @@ native frontend refreshes the fingerprint through its existing detail queries.
 
 Joining requires the name of this joining device in the ledger. Device names
 are read from the ledger device records, without a local label lookup.
+
+The open_about_link command resolves a section identifier against the embedded about-page resource, then uses tauri-plugin-opener to launch the system browser. It does not accept arbitrary URLs. Automatic JavaScript link interception is disabled because the native frontend explicitly routes About actions through this command.

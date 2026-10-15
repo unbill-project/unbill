@@ -8,6 +8,7 @@ use ratatui::{
 
 use unbill_console::model::{LedgerId, NewBill, NewUser, NewUserName};
 
+pub mod about;
 pub mod create_ledger;
 pub mod invite;
 pub mod settings;

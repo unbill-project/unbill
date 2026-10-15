@@ -200,3 +200,5 @@ toolbar no longer presents it. Sync completion and device-sheet dismissal refres
 the ledger list. Settings and its device sheet apply the stored appearance choice
 at their presentation boundaries so switching Light, Dark, or System updates them
 while open.
+
+About appears in Application Settings and on startup failure. XcodeGen bundles crates/unbill-about/content.json directly; Foundation decodes the shared resource and SwiftUI renders a native scrollable page with Dynamic Type and system link handling. The Apple build script runs the shared-content decoding test and typechecks About for each requested iOS, Simulator, or Catalyst target.

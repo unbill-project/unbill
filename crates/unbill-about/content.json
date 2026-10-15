@@ -1,0 +1,47 @@
+{
+  "title": "About Unbill",
+  "name": "unbill",
+  "tagline": "Shared expenses, on your terms.",
+  "summary": "Private, local-first bill splitting for the people you share life with.",
+  "principles": ["Local first", "Privacy minded", "Open source"],
+  "sections": [
+    {
+      "id": "local-first",
+      "title": "Less bookkeeping. More living.",
+      "paragraphs": [
+        "A home, a trip, a meal together. Keep track of who paid, split costs fairly, and see how to settle up — without making shared expenses a second job.",
+        "Your ledger stays under your control. Work offline on your devices and sync directly with people you trust. There are no Unbill accounts or analytics. The web frontend connects to a server you choose to trust."
+      ]
+    },
+    {
+      "id": "architecture",
+      "title": "A small app. A long-term experiment.",
+      "paragraphs": [
+        "Unbill is also an experiment in software architecture. We keep refining it with established standards, clear boundaries, and designs we can reason about and verify.",
+        "The ambition is simple: let careful engineering make everyday software more dependable, more understandable, and easier to use."
+      ]
+    },
+    {
+      "id": "contributors",
+      "title": "Built together.",
+      "paragraphs": [
+        "Thank you to everyone who contributes code, design, documentation, translations, testing, and thoughtful bug reports. Every improvement, large or small, helps shape Unbill."
+      ],
+      "link": {
+        "label": "Meet the contributors",
+        "url": "https://github.com/unbill-project/unbill/graphs/contributors"
+      }
+    },
+    {
+      "id": "support",
+      "title": "Like where this is going?",
+      "paragraphs": [
+        "A star on GitHub helps other people discover Unbill. Come follow the project, share an idea, or help build what comes next."
+      ],
+      "link": {
+        "label": "Star on GitHub",
+        "url": "https://github.com/unbill-project/unbill"
+      }
+    }
+  ]
+}

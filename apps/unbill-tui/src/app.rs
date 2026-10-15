@@ -183,11 +183,16 @@ async fn handle_key(key: KeyEvent, state: &mut AppState, svc: &Arc<UnbillConsole
                     .write_all(clipboard_sequence(&text).as_bytes())
                     .and_then(|_| std::io::stdout().flush());
                 state.status_message = Some(match result {
-                    Ok(()) => "Fingerprint sent to terminal clipboard.".to_owned(),
+                    Ok(()) => "Text sent to terminal clipboard.".to_owned(),
                     Err(error) => format!("Clipboard: {error}"),
                 });
             }
         }
+        return;
+    }
+
+    if key.code == KeyCode::F(1) {
+        state.popup = Some(Box::new(crate::popup::about::AboutPopup::default()));
         return;
     }
 

@@ -17,6 +17,8 @@ build-info-build.workspace = true
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+unbill-about = { path = "../unbill-about" }
+tauri-plugin-opener = "2"
 tokio = { workspace = true, features = ["sync"] }
 build-info.workspace = true
 unbill-build-info = { path = "../unbill-build-info" }

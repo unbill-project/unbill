@@ -109,6 +109,7 @@ fn Root() -> impl IntoView {
                                 full_width=true
                                 on_press=Callback::new(connect)
                             />
+                            <unbill_ui_components::about::OpenAbout />
                             <unbill_ui_components::licenses::OpenSourceLicenses />
                         </div>
                     </main>

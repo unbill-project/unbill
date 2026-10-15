@@ -12,6 +12,7 @@ name = "unbill-cli"
 path = "src/main.rs"
 
 [dependencies]
+unbill-about = { path = "../../crates/unbill-about" }
 build-info.workspace = true
 unbill-build-info = { path = "../../crates/unbill-build-info" }
 unbill-license = { path = "../../crates/unbill-license" }

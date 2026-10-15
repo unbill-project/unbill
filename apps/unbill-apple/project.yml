@@ -31,6 +31,10 @@ targets:
     # sirno:witness:unbill-apple:end
     sources:
       - path: Sources
+      # sirno:witness:about-page:begin
+      - path: ../../crates/unbill-about/content.json
+        buildPhase: resources
+      # sirno:witness:about-page:end
     dependencies:
       # Rust core, built by build-rust.sh (static xcframework — not embedded).
       - framework: Generated/UnbillCore.xcframework

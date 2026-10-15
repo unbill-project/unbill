@@ -1,4 +1,5 @@
 // sirno:witness:ui-components:begin
+pub mod about;
 pub mod bill;
 pub mod bill_editor;
 pub mod button;

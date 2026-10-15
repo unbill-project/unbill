@@ -42,3 +42,5 @@ and lives outside the Cargo workspace.
 
 `unbill-license` embeds a generated dictionary of license texts and notices for
 workspace Rust software and normal dependencies, shared by frontend and package consumers.
+
+unbill-about is a transport-free content crate for the shared project story. Rust frontends embed its structured JSON; the Apple project bundles that same source file. Editorial content is never duplicated in frontend source.

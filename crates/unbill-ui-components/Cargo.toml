@@ -8,6 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
+unbill-about = { path = "../unbill-about" }
 unbill-license = { path = "../unbill-license" }
 leptos = { version = "0.8.14", features = ["csr"] }
 serde = { workspace = true, features = ["derive"] }
@@ -15,4 +16,4 @@ iso_currency = { workspace = true, features = ["iterator"] }
 qrcode.workspace = true
 js-sys = "0.3"
 wasm-bindgen-futures.workspace = true
-web-sys = { version = "0.3", features = ["Document", "DomRect", "Element", "HtmlInputElement", "Storage", "Window"] }
+web-sys = { version = "0.3", features = ["Document", "DomRect", "Element", "HtmlDialogElement", "HtmlInputElement", "Storage", "Window"] }

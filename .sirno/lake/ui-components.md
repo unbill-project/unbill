@@ -150,3 +150,5 @@ Bill editor users and draft rows carry the ledger archived flag. New drafts
 exclude archived users and select the first active payer. Archived choices are
 collapsed; expansion persists while editing share selection and weights.
 Amendment seeds preserve archived participants and original share weights.
+
+The shared OpenAbout component renders about-page content in a native HTML dialog, with modal keyboard focus, Escape dismissal, and focus restoration. Native hosts supply an external-link callback; browsers use normal links. Typography and small static brand shapes follow the active theme.

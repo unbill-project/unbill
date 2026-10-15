@@ -70,7 +70,12 @@ fn render_status_bar(frame: &mut Frame, area: ratatui::layout::Rect, state: &App
     .areas::<2>(area);
 
     frame.render_widget(
-        Paragraph::new(hints).style(Style::default().fg(Color::DarkGray)),
+        Paragraph::new(if state.popup.is_none() {
+            format!("[F1] About  {hints}")
+        } else {
+            hints.to_owned()
+        })
+        .style(Style::default().fg(Color::DarkGray)),
         cols[0],
     );
     frame.render_widget(

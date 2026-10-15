@@ -9,6 +9,7 @@ use unbill_asymmetric_channel::rpc::RpcAsymChannel;
 use unbill_console::service::UnbillConsole;
 use unbill_storage::UNBILL_PATH;
 
+mod about;
 mod commands;
 mod licenses;
 mod output;
@@ -31,6 +32,8 @@ pub struct Cli {
 
 #[derive(clap::Subcommand)]
 pub enum Command {
+    /// Read about Unbill, its contributors, and the project without a daemon.
+    About,
     /// View embedded licenses and third-party notices without a daemon.
     Licenses {
         /// Software name to view in full; omit to list available software.
@@ -230,6 +233,10 @@ async fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let json = cli.json;
 
+    if matches!(cli.command, Command::About) {
+        return about::write(&mut std::io::stdout().lock(), json);
+    }
+
     // sirno:witness:unbill-license:begin
     if let Command::Licenses { software, all } = &cli.command {
         return licenses::write(
@@ -251,6 +258,7 @@ async fn run() -> anyhow::Result<()> {
     let svc = UnbillConsole::open(channel).await;
 
     match cli.command {
+        Command::About => about::write(&mut std::io::stdout().lock(), json),
         Command::Licenses { software, all } => licenses::write(
             &mut std::io::stdout().lock(),
             software.as_deref(),
