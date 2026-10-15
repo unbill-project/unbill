@@ -11,16 +11,16 @@ import Foundation
 //
 // Maps the aggregated FFI DTOs (bootstrap / ledger detail) to the app's models.
 actor RustConsoleClient: ConsoleClient {
-    private let console: FfiConsole
+    private let console: Console
 
     init() throws {
         #if targetEnvironment(macCatalyst) || os(macOS)
-        console = try FfiConsole.open(dir: defaultDataDirectory())
+        console = try Console.openRpc(dir: defaultDataDirectory())
         #else
         let base = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = base.appendingPathComponent("unbill", isDirectory: true)
-        console = try FfiConsole.open(dir: dir.path)
+        console = try Console.openInProcess(dir: dir.path)
         #endif
     }
 

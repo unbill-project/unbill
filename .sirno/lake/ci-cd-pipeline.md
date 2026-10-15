@@ -204,3 +204,10 @@ Swift bindings. Xcode builds Release for generic iOS with signing disabled.
 The workflow packages `Payload/unbill.app` as `unbill-apple-ios.ipa` in a
 `binaries-apple-ios-aarch64` artifact, collected by the GitHub release workflow.
 Users sign the IPA themselves for sideloading. No signing secrets are required.
+
+`apple-bindings.yml` verifies the shared UniFFI interface on relevant pull requests,
+main pushes, and manual runs without publishing. It builds iOS device, Simulator,
+and Mac Catalyst libraries and their matching Swift bindings and headers.
+Swift compile checks accept in-process construction on every variant, accept RPC
+construction on Catalyst, and require RPC construction to fail on iOS.
+Mobile dependency checks reject the desktop RPC dependencies.

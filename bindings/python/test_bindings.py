@@ -26,11 +26,48 @@ class NativeBindingsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             with mock.patch.dict(os.environ, {"UNBILL_SOCKET": directory + "/missing.sock"}):
                 with self.assertRaises(unbill.FfiError):
-                    unbill.FfiConsole.open(directory)
+                    unbill.Console.open_rpc(directory)
+
+    def test_in_process_persists_without_daemon_and_owns_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with mock.patch.dict(os.environ, {"UNBILL_SOCKET": directory + "/missing.sock"}):
+                console = unbill.Console.open_in_process(directory)
+                try:
+                    device_id = console.device_id()
+                    self.assertEqual(
+                        console.service_build_info().version,
+                        unbill.client_build_info().version,
+                    )
+                    ledger = console.create_ledger("Embedded Python", "USD")
+                    with self.assertRaises(unbill.FfiError.DataDirectoryInUse):
+                        unbill.Console.open_in_process(directory)
+                finally:
+                    del console
+
+                reopened = unbill.Console.open_in_process(directory)
+                try:
+                    self.assertEqual(reopened.device_id(), device_id)
+                    self.assertEqual(
+                        reopened.ledger_detail(ledger.ledger_id).summary.name,
+                        "Embedded Python",
+                    )
+                finally:
+                    del reopened
+
+    def test_in_process_operations_and_observer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            console = unbill.Console.open_in_process(directory)
+            try:
+                self.check_operations_and_observer(console)
+            finally:
+                del console
 
     @unittest.skipUnless(os.environ.get("UNBILL_PYTHON_TEST_DIR"), "requires an isolated test daemon")
     def test_daemon_operations_and_observer(self):
-        console = unbill.FfiConsole.open(os.environ["UNBILL_PYTHON_TEST_DIR"])
+        console = unbill.Console.open_rpc(os.environ["UNBILL_PYTHON_TEST_DIR"])
+        self.check_operations_and_observer(console)
+
+    def check_operations_and_observer(self, console):
         events = queue.Queue()
 
         class Observer(unbill.FfiConsoleObserver):

@@ -1,0 +1,53 @@
+name: Apple Bindings
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apple-bindings.yml'
+      - 'apps/unbill-apple/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'LICENSE*'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/apple-bindings.yml'
+      - 'apps/unbill-apple/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'LICENSE*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-bindings-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+# sirno:witness:unbill-ffi:begin
+jobs:
+  bindings:
+    name: Console API (iOS, Simulator, Catalyst)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      DEVELOPER_DIR_OVERRIDE: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-ios-macabi
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: apple-bindings-macos-26-xcode-26.6-arm64
+      - name: Build and check platform-specific Console APIs
+        run: ./apps/unbill-apple/build-rust.sh
+# sirno:witness:unbill-ffi:end

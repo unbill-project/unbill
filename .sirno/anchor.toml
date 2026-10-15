@@ -40,7 +40,7 @@ fingerprint = "sha256:fd3302642d25a1dbc341cd4954cce29d25ad7b8674cb91320ff080ed94
 "core.belongs" = ["unbill"]
 
 [entries.ci-cd-pipeline]
-fingerprint = "sha256:da3c5bd41775c524b949237131865e96022681aba669c17e08bcb6bdf878fda9"
+fingerprint = "sha256:051e8cc3a6b0cdc2a9e131bb8eacf10b33db69262d5fb10e8344c1275c0c9471"
 "core.belongs" = ["distribution-and-release"]
 
 [entries.compiled-markdown-artifacts]
@@ -97,7 +97,7 @@ fingerprint = "sha256:859fa7b4360d5a7b9d33c846699241f7f1252d61e1792d851784337b8d
 "core.refines" = ["design-principles"]
 
 [entries.deployment-topologies]
-fingerprint = "sha256:a4de092199953832e224c66a4db97adf272bd50ead33ba8bf222ddb3514e8774"
+fingerprint = "sha256:88c0eef9502ca9e8c61cc0dea73623fe421f36f2a73cd83e2d849686ba862bbc"
 "core.belongs" = [
     "unbill",
     "applications",
@@ -214,8 +214,11 @@ fingerprint = "sha256:0c64da9a6ea338bd7155dda22367dbb120a675c37eafbbfeb48e5b8ebe
 "core.refines" = ["design-principles"]
 
 [entries.python-bindings]
-fingerprint = "sha256:b1e3311fcecd0fc50b0f4352d3f11c383f4caf38b52d5ca8ab8d717052bbfe23"
-"core.belongs" = ["workspace-layout"]
+fingerprint = "sha256:8bd97f20ade239ff8929f425ee993b99b0c122ac29fa45702a0b4824674c38ba"
+"core.belongs" = [
+    "workspace-layout",
+    "unbill-ffi",
+]
 
 [entries.security-model]
 fingerprint = "sha256:220ab59e5a0a59de4ee57449d44edc651e705327ac0d222d6e1d0e6fc4769735"
@@ -291,7 +294,7 @@ fingerprint = "sha256:af583b59ae48f7b956b66387e4a1a39ff0ae38b442f40998f421a7ac1f
 fingerprint = "sha256:4e55d4de86988da589d6b17d66d2e4c85e16b56d58a84ef34b76588b24a37c34"
 
 [entries.unbill-apple]
-fingerprint = "sha256:d0fddecdcc770872bfe4fee5c64f3f346e1f5f61e708da0a52eeae524e79f9bb"
+fingerprint = "sha256:583e5b3dffecd1d268383334a970e1456623057c130f118360d5b35965646893"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -325,6 +328,10 @@ fingerprint = "sha256:dfd69c147c2b3e6897f0c3640438f35655cff6f5fc711a87874d0c090d
 fingerprint = "sha256:23bf8421cd46fba5ee8f1b0c4995c7ee4a1579afea376b532d551c00deafbee4"
 "core.belongs" = ["workspace-layout"]
 "core.refines" = ["sync-behavior"]
+
+[entries.unbill-ffi]
+fingerprint = "sha256:81e6f5645bb995af41f57cfe275dc5e17b42565820068ffd2ba9b8679ac363fe"
+"core.belongs" = ["workspace-layout"]
 
 [entries.unbill-license]
 fingerprint = "sha256:5f5faa2cfca3c84cfae6c298b268437da7c2687b64129ec326c9f5dd32c112fd"

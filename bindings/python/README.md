@@ -2,7 +2,7 @@
 
 After CI publishes a release, install it with `python -m pip install unbill`. Wheels
 target Linux x86_64 (glibc 2.28 or newer), macOS ARM64, and Windows x86_64.
-The daemon is installed separately and must be running before opening a console.
+Use an in-process console directly, or connect to a separately installed daemon.
 
 The Python package reuses the Rust console interface through UniFFI. Build it
 from the repository with Cargo and Python 3.9 or newer:
@@ -32,17 +32,31 @@ distribution may additionally require wheel repair with auditwheel; macOS may
 require delocate when the build links external shared libraries. The script
 builds for the Rust host target even if a cross-compilation target is configured.
 
-Start `unbill-daemon` before opening a desktop console. The data directory and
-`UNBILL_SOCKET` override follow the existing desktop configuration.
+Open an in-process console to run the Rust device service and SQLite storage
+inside Python, with no separate daemon:
 
 ```python
 import unbill
 
-console = unbill.FfiConsole.open(unbill.default_data_directory())
+console = unbill.Console.open_in_process("./household-data")
 ledger = console.create_ledger("Household", "USD")
 detail = console.ledger_detail(ledger.ledger_id)
 print(detail)
 ```
+
+Alternatively, start `unbill-daemon` and connect to it:
+
+```python
+console = unbill.Console.open_rpc(unbill.default_data_directory())
+```
+
+Both constructors provide the same operations. RPC uses the existing desktop
+data-directory configuration and `UNBILL_SOCKET` override. In-process mode uses
+the supplied directory directly and ignores `UNBILL_SOCKET`. A data directory
+can have only one storage owner: an in-process console or the daemon. Competing
+in-process opens raise `unbill.FfiError.DataDirectoryInUse`.
+Keep the in-process console alive while using it; releasing it stops its runtime
+and releases its storage ownership.
 
 Records, enums, errors, and methods are generated from the same Rust exports
 used by Swift. Rust errors raise `unbill.FfiError`. Most methods are synchronous
@@ -61,7 +75,8 @@ Verify the generated package without installing it:
 PYTHONPATH=target/python/debug python3 bindings/python/test_bindings.py
 ```
 
-For daemon and observer verification, start a daemon with an isolated
+The default tests cover in-process operations, persistence, directory ownership,
+and observer delivery. For additional RPC verification, start a daemon with an isolated
 `UNBILL_DATA_DIR`, then set `UNBILL_PYTHON_TEST_DIR` to that same directory when
 running the tests. Use a temporary directory because this test creates a ledger.
 

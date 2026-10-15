@@ -5,6 +5,7 @@ core.category:
   - core.concept
 core.belongs:
   - workspace-layout
+  - unbill-ffi
 ---
 
 Python clients reuse the UniFFI exports of `unbill-ffi` through an installable
@@ -18,13 +19,18 @@ Distribution across machines requires bundling external native dependencies.
 Python builds fetch locked workspace dependency sources before compilation so
 the embedded license catalog can inspect dependencies across all platforms.
 
-Desktop console handles connect to the existing daemon. Synchronous operations
-block and must be offloaded by asyncio clients; `sync_once` is awaitable.
+The public `Console` type provides explicit in-process and daemon constructors
+from the shared `unbill-ffi` interface. In-process consoles run without a separate
+daemon and own their data directory until released; daemon consoles connect to
+an already-running service. Desktop wheels support both modes.
+Synchronous operations block and must be offloaded by asyncio clients;
+`sync_once` is awaitable.
 Observer callbacks execute on Rust worker threads. Callbacks forward events to
 their own thread or event loop before calling console methods.
 
 Python verification covers native loading, values, error propagation,
-daemon-backed operations, and callback delivery.
+in-process persistence and directory ownership, operations and callback delivery
+without a daemon, and optional daemon-backed integration.
 
 Version tags publish the `unbill` package to PyPI after all platform wheels
 build and pass installation tests. Python package versions inherit the Cargo
