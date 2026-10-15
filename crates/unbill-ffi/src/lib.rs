@@ -1,4 +1,4 @@
-//! FFI surface bridging `UnbillConsole` to Swift via UniFFI.
+//! Shared `Console` API bridging `UnbillConsole` to Swift and Python via UniFFI.
 //!
 //! Mirrors the aggregated command granularity of the Tauri bridge (bootstrap /
 //! ledger-detail / mutations) rather than the raw console methods — fewer, UI-
@@ -6,7 +6,7 @@
 //! should eventually share an `unbill-shell` crate to avoid drift.
 //!
 //! Methods are synchronous and `block_on` a stored tokio runtime; the caller
-//! (Swift) must invoke them off any tokio thread. The `ServiceEvent` stream is
+//! must invoke them off any tokio thread. The `ServiceEvent` stream is
 //! delivered through a callback interface driven by a spawned forwarding task.
 
 build_info::build_info!(fn compiled_build_info);
@@ -15,14 +15,6 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use unbill_asymmetric_channel::AsymChannel;
-#[cfg(any(
-    test,
-    any(
-        target_os = "android",
-        all(target_os = "ios", not(target_abi = "macabi"))
-    )
-))]
 use unbill_asymmetric_channel::local::LocalAsymChannel;
 #[cfg(not(any(
     target_os = "android",
@@ -32,16 +24,9 @@ use unbill_asymmetric_channel::rpc::RpcAsymChannel;
 use unbill_console::event::ServiceEvent;
 use unbill_console::model::{
     Bill, BillId, Currency, EffectiveBills, LedgerId, LedgerMeta, NewBill, NewLedger, NewUser,
-    NewUserName, NodeId, Share, User, UserId,
+    NewUserName, NodeId, Share, StorageError, User, UserId,
 };
 use unbill_console::service::{ConflictGroup, UnbillConsole};
-#[cfg(any(
-    test,
-    any(
-        target_os = "android",
-        all(target_os = "ios", not(target_abi = "macabi"))
-    )
-))]
 use unbill_store_sqlite::SqliteStore;
 
 uniffi::setup_scaffolding!();
@@ -329,7 +314,7 @@ impl From<ServiceEvent> for FfiServiceEvent {
 #[uniffi::export(callback_interface)]
 pub trait FfiConsoleObserver: Send + Sync {
     /// Called from a tokio worker thread — keep it cheap (e.g. yield to a
-    /// Swift AsyncStream); do NOT call back into FfiConsole here (block_on).
+    /// Swift AsyncStream); do NOT call back into Console here (block_on).
     fn on_event(&self, event: FfiServiceEvent);
 }
 
@@ -354,45 +339,82 @@ impl Drop for FfiSubscription {
 
 // ---------- Console handle ----------
 
+// sirno:witness:unbill-ffi:begin
 #[derive(uniffi::Object)]
-pub struct FfiConsole {
+pub struct Console {
     rt: tokio::runtime::Runtime,
     inner: Arc<UnbillConsole>,
 }
 
 #[uniffi::export]
-impl FfiConsole {
-    /// On desktop, connect to the daemon socket in `dir` (or UNBILL_SOCKET).
-    /// On mobile, open a colocated device+console rooted at `dir`.
+impl Console {
+    /// Run a device and console in this process, owning the SQLite data directory.
     #[uniffi::constructor]
-    pub fn open(dir: String) -> Result<Arc<Self>, FfiError> {
+    pub fn open_in_process(dir: String) -> Result<Arc<Self>, FfiError> {
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .map_err(err)?;
         let inner = rt.block_on(async {
-            #[cfg(any(target_os = "android", all(target_os = "ios", not(target_abi = "macabi"))))]
-            let channel: Arc<dyn AsymChannel> = {
-                let store = Arc::new(SqliteStore::open(PathBuf::from(&dir)).await.map_err(err)?);
-                let channel = LocalAsymChannel::open(store, unbill_build_info::BuildInfo::from(crate::compiled_build_info())).await.map_err(err)?;
-                let accept = Arc::clone(&channel);
-                tokio::spawn(async move {
-                    let _ = accept.accept_loop().await;
-                });
-                channel
-            };
-            #[cfg(not(any(target_os = "android", all(target_os = "ios", not(target_abi = "macabi")))))]
-            let channel: Arc<dyn AsymChannel> = {
-                let socket = std::env::var_os("UNBILL_SOCKET").map(PathBuf::from)
-                    .unwrap_or_else(|| PathBuf::from(&dir).join("unbill.sock"));
-                RpcAsymChannel::connect(&socket).await.map_err(|error|
-                    err(format!("could not connect to unbill-daemon at {}: {error}; start unbill-daemon first", socket.display())))?
-            };
+            let store =
+                SqliteStore::open(PathBuf::from(&dir))
+                    .await
+                    .map_err(|error| match error {
+                        StorageError::Io(error)
+                            if error.kind() == std::io::ErrorKind::WouldBlock =>
+                        {
+                            FfiError::DataDirectoryInUse { path: dir.clone() }
+                        }
+                        error => err(error),
+                    })?;
+            let channel = LocalAsymChannel::open(
+                Arc::new(store),
+                unbill_build_info::BuildInfo::from(crate::compiled_build_info()),
+            )
+            .await
+            .map_err(err)?;
+            let accept = Arc::clone(&channel);
+            tokio::spawn(async move {
+                let _ = accept.accept_loop().await;
+            });
             Ok::<_, FfiError>(UnbillConsole::open(channel).await)
         })?;
         Ok(Arc::new(Self { rt, inner }))
     }
+}
 
+#[cfg(not(any(
+    target_os = "android",
+    all(target_os = "ios", not(target_abi = "macabi"))
+)))]
+#[uniffi::export]
+impl Console {
+    /// Connect to an existing daemon socket in `dir` (or UNBILL_SOCKET).
+    #[uniffi::constructor]
+    pub fn open_rpc(dir: String) -> Result<Arc<Self>, FfiError> {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .map_err(err)?;
+        let inner = rt.block_on(async {
+            let socket = std::env::var_os("UNBILL_SOCKET")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from(&dir).join("unbill.sock"));
+            let channel = RpcAsymChannel::connect(&socket).await.map_err(|error| {
+                err(format!(
+                    "could not connect to unbill-daemon at {}: {error}; start unbill-daemon first",
+                    socket.display()
+                ))
+            })?;
+            Ok::<_, FfiError>(UnbillConsole::open(channel).await)
+        })?;
+        Ok(Arc::new(Self { rt, inner }))
+    }
+}
+// sirno:witness:unbill-ffi:end
+
+#[uniffi::export]
+impl Console {
     pub fn service_build_info(&self) -> Result<FfiBuildInfo, FfiError> {
         self.rt
             .block_on(self.inner.service_build_info())
@@ -1016,7 +1038,7 @@ mod tests {
     fn desktop_bridge_reports_missing_daemon_without_creating_storage() {
         let parent = tempfile::tempdir().unwrap();
         let root = parent.path().join("absent");
-        let error = match FfiConsole::open(root.to_str().unwrap().to_owned()) {
+        let error = match Console::open_rpc(root.to_str().unwrap().to_owned()) {
             Err(error) => error,
             Ok(_) => panic!("desktop must connect to an existing daemon"),
         };
@@ -1029,45 +1051,82 @@ mod tests {
     }
 
     #[test]
-    fn sqlite_identity_and_ledger_survive_reopening_the_apple_bridge() {
+    fn sqlite_identity_and_ledger_survive_in_process_reopening() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_sqlite_round_trip(dir.path(), Console::open_in_process);
+    }
+
+    #[cfg(not(any(
+        target_os = "android",
+        all(target_os = "ios", not(target_abi = "macabi"))
+    )))]
+    #[test]
+    fn sqlite_identity_and_ledger_survive_daemon_reopening() {
+        let dir = tempfile::tempdir().unwrap();
+        let _daemon = TestDaemon::start(dir.path().into());
+        assert_sqlite_round_trip(dir.path(), Console::open_rpc);
+    }
+
+    #[cfg(not(any(
+        target_os = "android",
+        all(target_os = "ios", not(target_abi = "macabi"))
+    )))]
+    #[test]
+    fn daemon_consoles_share_device_state_without_owning_storage() {
+        let dir = tempfile::tempdir().unwrap();
+        let _daemon = TestDaemon::start(dir.path().into());
+        let path = dir.path().to_str().unwrap().to_owned();
+        let first = Console::open_rpc(path.clone()).unwrap();
+        let second = Console::open_rpc(path.clone()).unwrap();
+        let service = first.service_build_info().unwrap();
+        assert_eq!(service.version, "test-daemon");
+        assert_eq!(service.built_at_utc, "2025-01-01T00:00:00Z");
+        assert_eq!(first.device_id(), second.device_id());
+        let ledger = first
+            .create_ledger("Shared daemon".into(), "USD".into())
+            .unwrap();
+        assert_eq!(
+            second.ledger_detail(ledger.ledger_id).unwrap().summary.name,
+            "Shared daemon"
+        );
+        assert!(matches!(
+            Console::open_in_process(path),
+            Err(FfiError::DataDirectoryInUse { .. })
+        ));
+    }
+
+    #[cfg(not(any(
+        target_os = "android",
+        all(target_os = "ios", not(target_abi = "macabi"))
+    )))]
+    #[test]
+    fn in_process_console_releases_directory_ownership_on_drop() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().to_str().unwrap().to_owned();
-        #[cfg(not(any(
-            target_os = "android",
-            all(target_os = "ios", not(target_abi = "macabi"))
-        )))]
-        let _daemon = TestDaemon::start(dir.path().into());
-        let console = FfiConsole::open(path.clone()).unwrap();
-        #[cfg(not(any(
-            target_os = "android",
-            all(target_os = "ios", not(target_abi = "macabi"))
-        )))]
-        {
-            let service = console.service_build_info().unwrap();
-            assert_eq!(service.version, "test-daemon");
-            assert_eq!(service.built_at_utc, "2025-01-01T00:00:00Z");
-            assert_ne!(service.version, client_build_info().version);
-        }
+        let first = Console::open_in_process(path.clone()).unwrap();
+        assert_eq!(
+            first.service_build_info().unwrap().version,
+            client_build_info().version
+        );
+        assert!(matches!(
+            Console::open_in_process(path.clone()),
+            Err(FfiError::DataDirectoryInUse { .. })
+        ));
+        drop(first);
+        let reopened = Console::open_in_process(path).unwrap();
+        assert!(reopened.bootstrap().unwrap().ledgers.is_empty());
+    }
+
+    fn assert_sqlite_round_trip(
+        root: &std::path::Path,
+        open: fn(String) -> Result<Arc<Console>, FfiError>,
+    ) {
+        let path = root.to_str().unwrap().to_owned();
+        let console = open(path.clone()).unwrap();
         let device_id = console.device_id();
         let ledger = console
             .create_ledger("Shared dinner".into(), "USD".into())
             .unwrap();
-        #[cfg(not(any(
-            target_os = "android",
-            all(target_os = "ios", not(target_abi = "macabi"))
-        )))]
-        {
-            let second = FfiConsole::open(path.clone()).unwrap();
-            assert_eq!(second.device_id(), device_id);
-            assert_eq!(
-                second
-                    .ledger_detail(ledger.ledger_id.clone())
-                    .unwrap()
-                    .summary
-                    .name,
-                "Shared dinner"
-            );
-        }
         let alice = console
             .create_user(ledger.ledger_id.clone(), "Alice".into())
             .unwrap();
@@ -1213,19 +1272,19 @@ mod tests {
         assert_eq!(bills.first().unwrap().prev, vec![original]);
         drop(console);
 
-        let console = FfiConsole::open(path).unwrap();
+        let console = open(path).unwrap();
         assert_eq!(console.device_id(), device_id);
         let detail = console.ledger_detail(ledger.ledger_id).unwrap();
         assert_eq!(detail.summary.name, "Shared dinner");
         assert_eq!(detail.emoji_fingerprint.split(' ').count(), 6);
-        assert!(dir.path().join("unbill.sqlite3").is_file());
+        assert!(root.join("unbill.sqlite3").is_file());
         assert_eq!(
-            dir.path().join("unbill.lock").exists(),
+            root.join("unbill.lock").exists(),
             !cfg!(any(
                 target_os = "android",
                 all(target_os = "ios", not(target_abi = "macabi"))
             ))
         );
-        assert!(!dir.path().join("device_key.bin").exists());
+        assert!(!root.join("device_key.bin").exists());
     }
 }

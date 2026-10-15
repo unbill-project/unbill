@@ -186,6 +186,17 @@ uses one shared workspace version,
 and emits a single workspace tag `v{version}`.
 Workspace crates inherit the version from `[workspace.package]` in `Cargo.toml`.
 
+`python.yml` builds and tests the platform wheels described by `python-bindings`.
+It runs independently on the same `v*` tag pushes as `version.yml`, and checks
+that the tag matches the workspace version before building. Relevant main pushes,
+pull requests, and manual runs build and test without publishing.
+The Linux build uses manylinux_2_28; macOS and Windows use native hosted runners.
+Platform repair tools bundle external libraries before installed-wheel tests.
+All wheel jobs must succeed before the separate PyPI publishing job runs.
+Only that job has `id-token: write`; it uses the `pypi` environment and the
+official PyPA publishing action. Trusted Publishing runs in this top-level
+workflow rather than the reusable GitHub-release workflow.
+
 The Swift Apple iOS app is built unsigned by `build-apple-ios.yml` on macOS CI.
 Nightly and version releases enable `build_apple_ios`; manual builds can opt in.
 The Rust build script's `--ios-only` option builds the device slice and generates
@@ -193,3 +204,10 @@ Swift bindings. Xcode builds Release for generic iOS with signing disabled.
 The workflow packages `Payload/unbill.app` as `unbill-apple-ios.ipa` in a
 `binaries-apple-ios-aarch64` artifact, collected by the GitHub release workflow.
 Users sign the IPA themselves for sideloading. No signing secrets are required.
+
+`apple-bindings.yml` verifies the shared UniFFI interface on relevant pull requests,
+main pushes, and manual runs without publishing. It builds iOS device, Simulator,
+and Mac Catalyst libraries and their matching Swift bindings and headers.
+Swift compile checks accept in-process construction on every variant, accept RPC
+construction on Catalyst, and require RPC construction to fail on iOS.
+Mobile dependency checks reject the desktop RPC dependencies.

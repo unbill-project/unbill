@@ -33,6 +33,8 @@ User-friendly installation includes:
 - **AltStore source** for iOS sideloading.
 - **Android APK** attached to each GitHub release.
 - **GHCR Docker image** for the relay server.
+- **PyPI Python wheels** for Linux x86_64, macOS ARM64, and Windows x86_64,
+  published by version-tag CI through Trusted Publishing.
 - **Windows auto-updater** via `tauri-plugin-updater`.
   The Windows desktop app checks for updates on startup
   against `latest.json` hosted on the latest GitHub release.

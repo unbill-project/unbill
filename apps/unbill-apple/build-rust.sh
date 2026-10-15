@@ -9,7 +9,7 @@
 #
 # Outputs (all git-ignored — regenerate with this script):
 #   Generated/UnbillCore.xcframework   static libs + headers, per slice
-#   Sources/Generated/unbill_ffi.swift UniFFI-generated Swift bindings (app source)
+#   Sources/Generated/unbill_ffi_*.swift per-target Swift bindings (app source)
 set -euo pipefail
 
 APP="$(cd "$(dirname "$0")" && pwd)"
@@ -78,26 +78,47 @@ done
 unset SDKROOT
 
 echo "==> Generating Swift bindings"
-rm -rf "$OUT"; mkdir -p "$OUT/headers" "$SWIFT_OUT"
-"$ROOT/target/$PROFILE/uniffi-bindgen" generate \
-  --library "$ROOT/target/${TARGETS[0]}/$PROFILE/$LIB" \
-  --language swift --out-dir "$OUT"
+rm -rf "$OUT"; mkdir -p "$OUT" "$SWIFT_OUT"
+# Remove bindings from an earlier full or single-target build.
+rm -f "$SWIFT_OUT"/unbill_ffi*.swift
+for t in "${TARGETS[@]}"; do
+  target_out="$OUT/$t"
+  mkdir -p "$target_out/headers"
+  "$ROOT/target/$PROFILE/uniffi-bindgen" generate \
+    --library "$ROOT/target/$t/$PROFILE/$LIB" \
+    --language swift --out-dir "$target_out"
 
-# UniFFI emits <name>.swift + <name>FFI.h + <name>FFI.modulemap. The .swift is
-# compiled as an app source; the header + modulemap go into the xcframework.
-mv "$OUT"/unbill_ffi.swift "$SWIFT_OUT/unbill_ffi.swift"
-mv "$OUT"/*FFI.h "$OUT/headers/"
-mv "$OUT"/*FFI.modulemap "$OUT/headers/module.modulemap"
+  # Each generated file includes only this target's exports and API checksums.
+  # Exactly one file participates in a Swift build, even in a full XCFramework.
+  case "$t" in
+    aarch64-apple-ios)
+      condition='os(iOS) && !targetEnvironment(macCatalyst) && !targetEnvironment(simulator)' ;;
+    aarch64-apple-ios-sim)
+      condition='os(iOS) && targetEnvironment(simulator)' ;;
+    aarch64-apple-ios-macabi)
+      condition='targetEnvironment(macCatalyst)' ;;
+  esac
+  {
+    printf '#if %s\n' "$condition"
+    cat "$target_out/unbill_ffi.swift"
+    printf '\n#endif\n'
+  } > "$SWIFT_OUT/unbill_ffi_$t.swift"
+  mv "$target_out"/*FFI.h "$target_out/headers/"
+  mv "$target_out"/*FFI.modulemap "$target_out/headers/module.modulemap"
+done
 
 echo "==> Assembling UnbillCore.xcframework"
 export DEVELOPER_DIR="${DEVELOPER_DIR_OVERRIDE:-/Applications/Xcode.app/Contents/Developer}"
 ARGS=()
 for t in "${TARGETS[@]}"; do
-  ARGS+=(-library "$ROOT/target/$t/$PROFILE/$LIB" -headers "$OUT/headers")
+  ARGS+=(-library "$ROOT/target/$t/$PROFILE/$LIB" -headers "$OUT/$t/headers")
 done
 rm -rf "$OUT/UnbillCore.xcframework"
 xcodebuild -create-xcframework "${ARGS[@]}" -output "$OUT/UnbillCore.xcframework"
 
+echo "==> Checking platform-specific Console APIs"
+"$APP/test-console-api.sh" "${TARGETS[@]}"
+
 echo "==> Done."
 echo "    $OUT/UnbillCore.xcframework"
-echo "    $SWIFT_OUT/unbill_ffi.swift"
+echo "    $SWIFT_OUT/unbill_ffi_*.swift"

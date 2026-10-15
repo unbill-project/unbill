@@ -21,16 +21,16 @@ The app is backed by the real Rust core.
 There is no mock backend.
 Listing ledgers only reads persisted state. A fresh installation starts with an empty
 ledger list; the app does not automatically create sample ledgers, users, or bills.
-On iOS and Simulator the Rust bridge opens an in-process SQLite device service
+On iOS and Simulator the app calls `Console.openInProcess` to open a SQLite device service
 in the app's data directory, skipping the desktop ownership lock.
-On macOS and Mac Catalyst it connects by RPC to an already-running daemon
+On macOS and Mac Catalyst it calls `Console.openRpc` to connect by RPC to an already-running daemon
 using the shared desktop data-directory default and socket override.
 Startup failures display their error; daemon installation and startup follow the desktop model.
 Existing flat-file data remains untouched and is not automatically imported.
 The new-ledger currency picker obtains the complete Rust currency catalog through `ConsoleClient`
 and UniFFI, sorted by currency code, rather than maintaining a Swift shortlist.
 
-`unbill-ffi` is a Cargo workspace member that bridges `UnbillConsole` to Swift with UniFFI.
+`unbill-ffi` is a Cargo workspace member that exposes the shared `Console` interface to Swift with UniFFI.
 It mirrors the aggregated command granularity of the Tauri bridge rather than the raw console methods:
 bootstrap, ledger detail, create ledger, create and import users, save bill, resolve conflict,
 create invitation, join, sync, and a `ServiceEvent` callback stream.
@@ -40,6 +40,12 @@ The project lives at `apps/unbill-apple`, outside the Cargo workspace.
 An `xcodegen` `project.yml` defines one application target for iOS device, simulator, and Mac Catalyst.
 It declares a shared `unbill` scheme so fresh CI checkouts can build without opening Xcode.
 `build-rust.sh` compiles `unbill-ffi` into `UnbillCore.xcframework` and generates the Swift bindings.
+Each target supplies its own generated Swift bindings, C header, and module map.
+Swift conditional compilation selects the matching generated source, and each
+XCFramework slice carries its matching headers. iOS device and Simulator bindings
+omit the daemon constructor entirely; Mac Catalyst bindings expose both constructors.
+Build-time Swift checks accept in-process construction on every target and require
+daemon construction to fail on iOS device and Simulator while succeeding on Catalyst.
 The generated project, Swift bindings, xcframework, `Info.plist`, and docs projection stay out of version control.
 
 `build-apple-dmg.yml` builds an Apple Silicon Catalyst DMG on macOS CI.

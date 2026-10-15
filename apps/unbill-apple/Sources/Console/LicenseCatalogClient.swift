@@ -1,6 +1,6 @@
 import Foundation
 
-// Embedded metadata is independent of FfiConsole and the device service.
+// Embedded metadata is independent of Console and the device service.
 // Decode and copy Rust texts off the main actor.
 actor LicenseCatalogClient {
     static let shared = LicenseCatalogClient()
