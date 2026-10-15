@@ -12,3 +12,4 @@ pub use unbill_ui_components::status::{ToastProvider, use_toast};
 pub use unbill_ui_components::theme::{ThemeMode, ThemePicker, apply_theme, load_theme};
 
 pub use unbill_ui_components::ledger::LedgerFingerprint;
+pub use unbill_ui_components::licenses::OpenSourceLicenses;

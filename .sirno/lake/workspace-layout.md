@@ -39,3 +39,6 @@ Applications:
 and lives outside the Cargo workspace.
 
 `unbill-build-info` provides shared build-information types; each application embeds its own version and UTC build timestamp.
+
+`unbill-license` embeds a generated dictionary of license texts and notices for
+workspace Rust software and normal dependencies, shared by frontend and package consumers.

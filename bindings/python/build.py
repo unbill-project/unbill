@@ -47,6 +47,8 @@ def main():
         if line.startswith("host: ")
     )
     flags = ["--release"] if args.release else []
+    # The embedded license catalog inspects dependencies for all platforms.
+    run("cargo", "fetch", "--locked")
     run(
         "cargo", "build", "--locked", "-p", "unbill-ffi", "--lib",
         "--bin", "uniffi-bindgen", "--target", host, *flags

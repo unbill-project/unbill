@@ -15,6 +15,8 @@ for the host platform. Builds use the workspace-pinned generator and version.
 Generated bindings and native artifacts stay out of version control.
 Wheels are platform-specific and independent of the CPython extension ABI.
 Distribution across machines requires bundling external native dependencies.
+Python builds fetch locked workspace dependency sources before compilation so
+the embedded license catalog can inspect dependencies across all platforms.
 
 Desktop console handles connect to the existing daemon. Synchronous operations
 block and must be offloaded by asyncio clients; `sync_once` is awaitable.

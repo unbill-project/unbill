@@ -14,6 +14,7 @@ path = "src/main.rs"
 [dependencies]
 build-info.workspace = true
 unbill-build-info = { path = "../../crates/unbill-build-info" }
+unbill-license = { path = "../../crates/unbill-license" }
 unbill-console = { path = "../../crates/unbill-console" }
 unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["rpc"] }
 unbill-storage = { path = "../../crates/unbill-storage" }

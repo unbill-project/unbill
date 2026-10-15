@@ -16,7 +16,6 @@ struct LedgerListView: View {
     @State private var loadError: String?
     @State private var archivedExpanded = false
     @State private var showingNew = false
-    @State private var showingDevices = false
 
     var body: some View {
         List(selection: Binding(get: { selection }, set: { _ in })) {
@@ -59,13 +58,7 @@ struct LedgerListView: View {
                 }
                 .help("Join Ledger")
             }
-            ToolbarItem(placement: .cancellationAction) {
-                Button {
-                    showingDevices = true
-                } label: {
-                    Label("Devices", systemImage: "laptopcomputer.and.iphone")
-                }
-            }
+
         }
         .overlay {
             if ledgers.isEmpty && loadError == nil {
@@ -75,11 +68,6 @@ struct LedgerListView: View {
         }
         .sheet(isPresented: $showingNew) {
             NewLedgerView(console: console) { _ in
-                Task { await load() }
-            }
-        }
-        .sheet(isPresented: $showingDevices, onDismiss: { Task { await load() } }) {
-            DevicesView(console: console) {
                 Task { await load() }
             }
         }

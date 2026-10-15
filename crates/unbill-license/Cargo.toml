@@ -1,0 +1,25 @@
+[package]
+name = "unbill-license"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Compiled license texts and notices for Unbill's Rust software"
+publish.workspace = true
+
+[dependencies]
+flate2 = "1"
+serde.workspace = true
+serde_json.workspace = true
+
+[build-dependencies]
+flate2 = "1"
+anyhow.workspace = true
+cargo-about = "=0.8.4"
+krates = "0.20"
+serde.workspace = true
+serde_json.workspace = true
+spdx = { version = "0.13", features = ["text"] }
+
+[dev-dependencies]
+tempfile = "3"

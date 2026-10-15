@@ -82,6 +82,8 @@ users known from local ledgers,
 known peer devices,
 known-user share and import,
 and ledger join actions.
+General settings includes the shared Open Source Licenses browser. Its catalog
+is compiled into the frontend, so opening it does not invoke Tauri or the daemon.
 Ledger Settings shows the ledger selector,
 ledger users,
 known-user picker,

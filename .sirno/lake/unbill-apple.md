@@ -90,6 +90,14 @@ choices appear in collapsed disclosure groups; new bill defaults use active peop
 
 Application Settings displays client version and UTC build timestamp alongside the connected daemon or in-process service build, obtained through UniFFI, as a compact footer at the bottom.
 
+Application Settings links to a searchable Open Source Licenses list with Unbill
+first. Software details show version, license expression, repository, source
+location and selectable original legal texts. Standalone UniFFI functions expose
+the local catalog and selected software without a console connection. The Swift
+loader reads them off the main actor and renders only selected software details.
+The startup failure screen also offers the license browser without a device
+connection. Apple build workflows exercise the Foundation-only search model.
+
 The Swift Apple iOS app is built unsigned by `build-apple-ios.yml` on macOS CI.
 Nightly and version releases enable `build_apple_ios`; manual builds can opt in.
 The Rust build script's `--ios-only` option builds the device slice and generates
@@ -172,3 +180,17 @@ Compact iPhone layouts use an explicit NavigationStack with ledger-ID destinatio
 iPad retains two-column navigation and Mac Catalyst retains three columns. The stack
 path and ledger selection stay synchronized for back navigation and archiving.
 The detail screen keeps a stable full-size container for content and reload errors.
+
+The application Settings gear belongs to the ledger-list view inside the navigation
+container. iOS explicitly places it in the trailing navigation bar; Mac Catalyst
+uses automatic placement. RootView owns the settings sheet presentation.
+
+Application Settings uses native Form sections for Appearance and the Open Source
+Licenses navigation row, retaining the system row styling and disclosure indicator.
+Selectable build information remains a separate compact footer below the form.
+
+Global Devices is opened from an application Settings form row; the ledger-list
+toolbar no longer presents it. Sync completion and device-sheet dismissal refresh
+the ledger list. Settings and its device sheet apply the stored appearance choice
+at their presentation boundaries so switching Light, Dark, or System updates them
+while open.

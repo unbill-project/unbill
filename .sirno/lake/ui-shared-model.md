@@ -118,6 +118,11 @@ Device Settings displays client version and UTC build timestamp separately from 
 
 Version information appears as a compact footer at the bottom of settings, after the settings controls.
 
+GUI settings provide an Open Source Licenses entry. The browser supports software
+search, shows Unbill first, and displays version, license expression, repository,
+source location, and selectable original license and attribution texts.
+It reads the compiled workspace catalog locally, without a device service call.
+
 Active ledgers appear in the main list; a collapsed Archived group opens ledger details without row-level Restore buttons. Ledger Settings offers Archive Ledger and Restore Ledger. Archiving hides a ledger locally while retaining data and synchronization. Archiving an open ledger clears its detail and bill editor selection. Browser archiving uses server state, and clients sharing a desktop daemon receive the same preference through update notifications.
 
 Ledger list rows only open ledger details; restoration belongs in Ledger Settings. Explicitly opened archived ledgers remain selected across refreshes.

@@ -49,6 +49,8 @@ jobs:
         run: |
           ./xcbuild.sh xcrun swiftc Sources/App/Money.swift Tests/MoneyTests.swift -o /tmp/unbill-money-tests
           /tmp/unbill-money-tests
+          ./xcbuild.sh xcrun swiftc Sources/Models/LicenseModels.swift Tests/LicenseTests.swift -o /tmp/unbill-license-tests
+          /tmp/unbill-license-tests
 
       - name: Build Rust core and Swift bindings
         run: ./apps/unbill-apple/build-rust.sh --ios-only

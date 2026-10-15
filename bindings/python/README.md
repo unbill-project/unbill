@@ -16,6 +16,8 @@ For an optimized build, add `--release` and install `./target/python/release`.
 The output follows Cargo's target directory if you override it. Generated
 bindings and the native library stay under that directory and are not committed.
 The generator is built from the same pinned workspace dependencies as the library.
+The script fetches locked dependency sources before compilation so the embedded
+license catalog can include dependencies across all platforms.
 
 The package includes a native shared library for the build host. Wheels are
 platform-specific (`py3-none-<platform>`), and require no Rust toolchain at runtime.

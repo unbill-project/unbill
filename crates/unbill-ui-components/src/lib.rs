@@ -6,6 +6,7 @@ pub mod conflict;
 pub mod input;
 pub mod layout;
 pub mod ledger;
+pub mod licenses;
 pub mod progress;
 pub mod qr;
 pub mod settlement;
