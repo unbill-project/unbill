@@ -119,8 +119,9 @@ equal or custom positive integer weights on both sides, and live amounts from
 UnbillConsole's verified splitting algorithm through UniFFI.
 Explicit Equal shares / Custom shares segmented controls select each side's mode;
 custom weights use labeled, bordered numeric inputs and survive mode changes.
-Payer selection uses square checkboxes with whole-row activation and accessible
-selection state on iOS and Mac Catalyst, rather than switches.
+Paid by and Split between use the same square checkbox style, with whole-row
+activation and accessible selection state on iOS and Mac Catalyst. The same
+participant control is used for active and archived members in both sections.
 UniFFI allocates a real bill ID when a draft opens; preview and save use that same ID,
 so displayed amounts match saved amounts. Amendments allocate a new ID rather than
 reusing the original bill ID. Amendments preserve archived
