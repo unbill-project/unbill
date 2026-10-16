@@ -77,3 +77,5 @@ the daemon. Device show displays independent client and daemon build information
 including both records in JSON; unavailable daemon metadata is reported as unavailable.
 
 ledger list defaults to active ledgers; --archived lists only archived ledgers and --all lists both, with the archived flag in JSON and an archived marker in text. ledger archive <ledger_id> and ledger restore <ledger_id> change the device-local preference without changing the document or synchronization.
+
+The offline about command displays the shared project story, acknowledgements, and links. With --json it emits the original structured content. Neither mode creates a data directory nor connects to a daemon.

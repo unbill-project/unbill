@@ -119,6 +119,9 @@ xcodebuild -create-xcframework "${ARGS[@]}" -output "$OUT/UnbillCore.xcframework
 echo "==> Checking platform-specific Console APIs"
 "$APP/test-console-api.sh" "${TARGETS[@]}"
 
+echo "==> Checking shared About content and native views"
+bash "$APP/test-about.sh" "${TARGETS[@]}"
+
 echo "==> Done."
 echo "    $OUT/UnbillCore.xcframework"
 echo "    $SWIFT_OUT/unbill_ffi_*.swift"

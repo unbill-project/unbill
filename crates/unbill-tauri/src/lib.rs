@@ -892,6 +892,17 @@ fn drain_pending_deep_links(pending: State<'_, PendingDeepLinks>) -> Vec<String>
     std::mem::take(&mut pending.0.lock().unwrap())
 }
 
+// sirno:witness:about-page:begin
+#[tauri::command]
+fn open_about_link(app: tauri::AppHandle, section_id: String) -> std::result::Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let link = unbill_about::link(&section_id).ok_or("Unknown About link")?;
+    app.opener()
+        .open_url(&link.url, None::<&str>)
+        .map_err(|error| error.to_string())
+}
+// sirno:witness:about-page:end
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // sirno:witness:unbill-tauri:begin
@@ -913,6 +924,11 @@ pub fn run() {
     }
 
     builder
+        .plugin(
+            tauri_plugin_opener::Builder::new()
+                .open_js_links_on_click(false)
+                .build(),
+        )
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
@@ -1010,6 +1026,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            open_about_link,
             bootstrap_app,
             create_ledger,
             load_ledger_detail,

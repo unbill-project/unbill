@@ -107,3 +107,5 @@ are read from the ledger device records, without a local label lookup.
 The browser UI groups archived ledgers in a collapsed Archived disclosure with navigation rows; Ledger Settings exposes Archive Ledger and Restore Ledger. Archive mutations use the console HTTP channel and persist on the server device. Ledger update events refresh the flag and clear archived selections and bill editors.
 
 Ledger list rows only open ledger details; restoration belongs in Ledger Settings. Explicitly opened archived ledgers remain selected across refreshes.
+
+About is available from General settings and the connection screen, before authentication. The shared component reads only bundled about-page content; repository links open a separate browser tab on demand.

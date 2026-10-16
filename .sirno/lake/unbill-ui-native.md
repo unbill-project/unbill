@@ -129,3 +129,5 @@ Tauri DTO assembly and command behavior are tested in the Tauri crate.
 The native UI groups archived ledgers in a collapsed Archived disclosure with navigation rows; Ledger Settings exposes Archive Ledger and Restore Ledger. The Tauri command forwards set_ledger_archived, and console ledger updates are emitted to the webview so other daemon clients also refresh the visible preference and clear archived selections.
 
 Ledger list rows only open ledger details; restoration belongs in Ledger Settings. Explicitly opened archived ledgers remain selected across refreshes.
+
+General settings groups About and Open Source Licenses under Project. About uses the shared component and asks the Tauri shell to open a content action by identifier; link-opening errors remain visible inside the About dialog.

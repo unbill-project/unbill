@@ -116,3 +116,5 @@ Bill editors use a to expand archived participants, with active members selected
 for new bills and original membership preserved for amendments.
 
 The ledger pane defaults to active ledgers. [A] expands or collapses archived entries and reports their count. The list has no archive or restore action; [u] opens Ledger Settings, which exposes [X] archive/restore. Archive mutations clear the bill editor and selected detail; data and synchronization are retained.
+
+F1 opens the About popup from the main panes or an active bill editor without discarding the draft. The page wraps shared about-page content to the terminal width, supports line/page/end scrolling, and clamps its scroll position after resizing. s and c copy the repository and contributor destinations through the existing terminal clipboard mechanism; Escape returns to the previous pane or editor.
