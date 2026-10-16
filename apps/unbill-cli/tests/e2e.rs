@@ -22,11 +22,26 @@ struct Env {
     node_id: String,
 }
 
+#[test]
+fn device_ble_reports_daemon_snapshot_as_json() {
+    let env = Env::new();
+    let snapshot = env.json(&["device", "ble"]);
+    assert_eq!(snapshot["state"], "disabled");
+    assert_eq!(snapshot["peers"], serde_json::json!([]));
+}
+
 impl Env {
     fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
         let mut child = Command::new("cargo")
-            .args(["run", "-q", "-p", "unbill-daemon"])
+            .args([
+                "run",
+                "-q",
+                "-p",
+                "unbill-daemon",
+                "--features",
+                "test-helpers",
+            ])
             .env("UNBILL_DATA_DIR", dir.path())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())

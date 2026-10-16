@@ -1,0 +1,18 @@
+---
+core.name: BLE Transport
+core.desc: Default-enabled BLE discovery and Iroh transport with observable peer snapshots.
+core.category:
+  - core.concept
+core.belongs:
+  - symmetric-channel
+---
+
+Apple application bundles declare Bluetooth usage. Standalone macOS daemon and
+server binaries embed an Info.plist with a Bluetooth usage description. The CLI
+exposes `device ble` (including JSON output) through the connected daemon.
+
+BLE starts automatically as an additional path for the existing Iroh identity and sync/join protocols. IP transports, mDNS, relays, and ledger authorization remain enabled. There is no runtime switch or public configuration to disable BLE. Initialization failure is observable and leaves IP connectivity available. Upstream supports macOS, iOS, Linux, and Android; Windows reports unavailable. Android also requires its host BLE plugin and permissions. The internal test-helpers build feature bypasses radio initialization so automated fixtures never request Bluetooth permission.
+
+BLE actors run on an owned runtime thread so endpoint closure or drop cancels the upstream background tasks and releases radio ownership. Initialization is not cancelled midway: the upstream builder bounds its steps internally. A snapshot reports disabled, active, unavailable, or closed state and transient peer phases. Advertisements alone are not authenticated NodeIds or proof of current proximity. Only verified_endpoint is mapped to a NodeId, and discovery never authorizes ledger access.
+
+The device-to-console boundary exposes a read-only snapshot through local, RPC, and authenticated HTTP channels, and UnbillConsole delegates it. Peer snapshots are process-local and are not persisted in ledger documents. Physical BLE exchange requires two separate machines; unit tests use synthetic snapshots and preserve IP transport regression coverage.

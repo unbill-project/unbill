@@ -75,6 +75,37 @@ pub async fn device_show(
 // Ledger
 // ---------------------------------------------------------------------------
 
+pub async fn device_ble(svc: &UnbillConsole, json: bool) -> anyhow::Result<()> {
+    use unbill_console::model::BleState;
+
+    let snapshot = svc.ble_snapshot().await?;
+    if json {
+        print_json(&snapshot)?;
+    } else {
+        match &snapshot.state {
+            BleState::Disabled => println!("BLE: disabled in test build"),
+            BleState::Active => println!("BLE: active"),
+            BleState::Unavailable { reason } => println!("BLE: unavailable ({reason})"),
+            BleState::Closed => println!("BLE: closed"),
+        }
+        for peer in &snapshot.peers {
+            let verified = peer
+                .verified_node_id
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_else(|| "unverified".into());
+            println!(
+                "{}  {:?}  {:?}  {}",
+                peer.device_id, peer.phase, peer.connect_path, verified
+            );
+        }
+        if matches!(snapshot.state, BleState::Active) && snapshot.peers.is_empty() {
+            println!("no observed BLE peers");
+        }
+    }
+    Ok(())
+}
+
 pub async fn ledger_create(
     svc: &UnbillConsole,
     name: String,

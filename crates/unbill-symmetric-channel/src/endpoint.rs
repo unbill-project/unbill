@@ -16,11 +16,12 @@
 //   - pkarr publishing is kept so interop with other iroh clients works.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use tokio::io::{AsyncRead, AsyncWrite};
 use tracing::{info, warn};
 
-use unbill_model::{NodeId, SecretKey, UnbillError};
+use unbill_model::{BleSnapshot, BleState, NodeId, SecretKey, UnbillError};
 
 type Result<T> = std::result::Result<T, UnbillError>;
 
@@ -90,11 +91,21 @@ pub struct UnbillEndpoint {
     inner: iroh::Endpoint,
     addr_cache: MemoryLookup,
     incoming_tasks: tokio::sync::Mutex<tokio::task::JoinSet<Option<AcceptedBi>>>,
+    ble_state: BleState,
+    closed: AtomicBool,
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "linux",
+        target_os = "android"
+    ))]
+    ble: Option<crate::ble::BleDriver>,
 }
 
 impl UnbillEndpoint {
     /// Bind a new Iroh endpoint using the given device secret key.
     pub async fn bind(key: &SecretKey) -> Result<Self> {
+        let enable_ble = !cfg!(any(test, feature = "test-helpers"));
         let mut relay_urls: Vec<iroh::RelayUrl> = Vec::new();
         for s in UNBILL_RELAY_URLS {
             relay_urls.push(
@@ -111,6 +122,41 @@ impl UnbillEndpoint {
             .address_lookup(iroh::address_lookup::PkarrPublisher::n0_dns())
             .address_lookup(MdnsAddressLookup::builder())
             .address_lookup(addr_cache.clone());
+
+        #[allow(unused_mut)]
+        let mut ble_state = if enable_ble {
+            BleState::Unavailable {
+                reason: "BLE is not compiled for this platform".into(),
+            }
+        } else {
+            BleState::Disabled
+        };
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        let ble = if enable_ble {
+            match crate::ble::BleDriver::start(key.to_iroh_key().public()).await {
+                Ok(ble) => {
+                    builder = builder
+                        .hooks(ble.transport.dedup_hook())
+                        .add_custom_transport(ble.transport.as_custom_transport())
+                        .address_lookup(ble.transport.address_lookup());
+                    ble_state = BleState::Active;
+                    info!("BLE transport enabled alongside IP transports");
+                    Some(ble)
+                }
+                Err(reason) => {
+                    warn!(%reason, "BLE unavailable; continuing with IP transports");
+                    ble_state = BleState::Unavailable { reason };
+                    None
+                }
+            }
+        } else {
+            None
+        };
 
         // On Android, reading the system DNS config panics because
         // ndk-context is not initialised by Tauri.  Use Google Public DNS
@@ -129,7 +175,39 @@ impl UnbillEndpoint {
             inner,
             addr_cache,
             incoming_tasks: tokio::sync::Mutex::new(tokio::task::JoinSet::new()),
+            ble_state,
+            closed: AtomicBool::new(false),
+            #[cfg(any(
+                target_os = "macos",
+                target_os = "ios",
+                target_os = "linux",
+                target_os = "android"
+            ))]
+            ble,
         })
+    }
+
+    /// Observations can outlive radio proximity; only verified IDs are authenticated.
+    pub fn ble_snapshot(&self) -> BleSnapshot {
+        if self.closed.load(Ordering::Acquire) {
+            return BleSnapshot {
+                state: BleState::Closed,
+                peers: Vec::new(),
+            };
+        }
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        if let Some(ble) = &self.ble {
+            return ble.snapshot();
+        }
+        BleSnapshot {
+            state: self.ble_state.clone(),
+            peers: Vec::new(),
+        }
     }
 
     /// Cache the remote peer's direct addresses after a successful connection
@@ -173,7 +251,17 @@ impl UnbillEndpoint {
 
     /// Close the endpoint gracefully.
     pub async fn close(&self) {
+        self.closed.store(true, Ordering::Release);
         self.inner.close().await;
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        if let Some(ble) = &self.ble {
+            ble.close().await;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -351,6 +439,17 @@ fn transport_name(address: &iroh::TransportAddr) -> &'static str {
     match address {
         iroh::TransportAddr::Ip(_) => "direct",
         iroh::TransportAddr::Relay(_) => "relay",
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        iroh::TransportAddr::Custom(addr)
+            if addr.id() == iroh_ble_transport::transport::transport::BLE_TRANSPORT_ID =>
+        {
+            "ble"
+        }
         _ => "custom",
     }
 }
@@ -453,6 +552,17 @@ mod tests {
             .bind()
             .await
             .expect("bind local endpoint")
+    }
+
+    #[tokio::test]
+    async fn disabled_ble_preserves_ip_transport_and_closes_cleanly() {
+        let endpoint = UnbillEndpoint::bind(&SecretKey::from_bytes([27; 32]))
+            .await
+            .expect("bind IP endpoint without Bluetooth");
+        assert_eq!(endpoint.ble_snapshot().state, BleState::Disabled);
+        assert!(!endpoint.inner.bound_sockets().is_empty());
+        endpoint.close().await;
+        assert_eq!(endpoint.ble_snapshot().state, BleState::Closed);
     }
 
     #[tokio::test]
@@ -560,6 +670,15 @@ mod tests {
                 inner: local_endpoint().await,
                 addr_cache: MemoryLookup::new(),
                 incoming_tasks: tokio::sync::Mutex::new(tokio::task::JoinSet::new()),
+                ble_state: BleState::Disabled,
+                closed: AtomicBool::new(false),
+                #[cfg(any(
+                    target_os = "macos",
+                    target_os = "ios",
+                    target_os = "linux",
+                    target_os = "android"
+                ))]
+                ble: None,
             });
             let address = iroh::EndpointAddr::from_parts(
                 host.inner.id(),

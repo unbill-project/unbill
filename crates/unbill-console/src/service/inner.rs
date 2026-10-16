@@ -513,6 +513,11 @@ impl UnbillConsole {
         self.channel.build_info().await
     }
 
+    /// Snapshot of the connected device's BLE observations, not a presence guarantee.
+    pub async fn ble_snapshot(&self) -> Result<unbill_model::BleSnapshot> {
+        self.channel.ble_snapshot().await
+    }
+
     pub fn device_id(&self) -> NodeId {
         self.channel.device_id()
     }
@@ -623,6 +628,13 @@ mod tests {
 
     #[async_trait::async_trait]
     impl AsymChannel for MockAsymChannel {
+        async fn ble_snapshot(&self) -> Result<unbill_model::BleSnapshot> {
+            Ok(unbill_model::BleSnapshot {
+                state: unbill_model::BleState::Disabled,
+                peers: Vec::new(),
+            })
+        }
+
         async fn build_info(&self) -> Result<unbill_build_info::BuildInfo> {
             Ok(unbill_build_info::BuildInfo {
                 version: "test-service".to_owned(),
@@ -743,6 +755,14 @@ mod tests {
             svc.service_build_info().await.unwrap().version,
             "test-service"
         );
+    }
+
+    #[tokio::test]
+    async fn ble_snapshot_comes_from_the_connected_channel() {
+        let svc = open().await;
+        let snapshot = svc.ble_snapshot().await.unwrap();
+        assert_eq!(snapshot.state, unbill_model::BleState::Disabled);
+        assert!(snapshot.peers.is_empty());
     }
 
     #[tokio::test]

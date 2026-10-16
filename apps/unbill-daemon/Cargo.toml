@@ -7,6 +7,9 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 
+[features]
+test-helpers = ["unbill-device/test-helpers"]
+
 [[bin]]
 name = "unbill-daemon"
 path = "src/main.rs"

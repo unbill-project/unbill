@@ -40,6 +40,7 @@ targets:
       - sdk: SystemConfiguration.framework
       - sdk: CoreFoundation.framework
       - sdk: Network.framework
+      - sdk: CoreBluetooth.framework
       - sdk: libiconv.tbd
     info:
       path: Info.plist
@@ -55,6 +56,7 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         # P2P sync: mDNS peer discovery on the local network.
         NSLocalNetworkUsageDescription: unbill syncs your ledgers directly between your devices over the local network.
+        NSBluetoothAlwaysUsageDescription: unbill uses Bluetooth to discover nearby devices and sync your ledgers.
         NSBonjourServices:
           - _irohv1._udp
         # Scanning invitation QR codes.

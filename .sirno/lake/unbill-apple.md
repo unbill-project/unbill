@@ -203,6 +203,8 @@ while open.
 
 The Local Network Bonjour declaration includes _irohv1._udp, matching the Iroh
 mDNS companion crate's service name.
+The app also declares Bluetooth usage and links CoreBluetooth for the Rust BLE
+transport. No background Bluetooth mode is declared.
 Physical iOS builds also request the multicast entitlement because this service
 uses UDP multicast sockets directly. Device signing must use a provisioning
 profile that grants this capability; the entitlement is not applied to Catalyst.

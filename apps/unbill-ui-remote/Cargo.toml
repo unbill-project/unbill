@@ -26,6 +26,7 @@ getrandom3 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 getrandom4 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
 
 [dev-dependencies]
+unbill-symmetric-channel = { path = "../../crates/unbill-symmetric-channel", features = ["test-helpers"] }
 unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["local"] }
 unbill-store-memory = { path = "../../crates/unbill-store-memory" }
 

@@ -898,6 +898,11 @@ pub fn run() {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let mut builder = tauri::Builder::default();
 
+    #[cfg(target_os = "android")]
+    {
+        builder = builder.plugin(tauri_plugin_blew::init());
+    }
+
     #[cfg(desktop)]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {

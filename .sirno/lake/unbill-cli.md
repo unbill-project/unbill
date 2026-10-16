@@ -28,6 +28,11 @@ reached through the daemon.
 IDs and node identities remain opaque strings until parsed by the CLI or core types.
 `--json` is the stable machine-readable surface for scripts and end-to-end tests.
 
+`device ble` reads the connected daemon's BLE state and observed peer phases;
+`--json device ble` exports the typed snapshot. BLE starts automatically on
+supported platforms. Observations do not prove current
+proximity or grant ledger access.
+
 Invalid IDs,
 invalid amounts,
 and invalid node IDs fail before service calls.

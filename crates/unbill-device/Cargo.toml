@@ -7,6 +7,9 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 
+[features]
+test-helpers = ["unbill-symmetric-channel/test-helpers"]
+
 [dependencies]
 unbill-model = { path = "../unbill-model" }
 unbill-event = { path = "../unbill-event" }

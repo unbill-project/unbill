@@ -70,6 +70,10 @@ impl AsymChannel for LocalAsymChannel {
         Ok(self.build_info.clone())
     }
 
+    async fn ble_snapshot(&self) -> Result<unbill_model::BleSnapshot> {
+        Ok(self.service.ble_snapshot())
+    }
+
     async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String> {
         self.service.create_invitation(ledger_id).await
     }

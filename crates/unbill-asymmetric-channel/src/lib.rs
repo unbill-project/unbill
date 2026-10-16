@@ -55,6 +55,9 @@ pub trait AsymChannel: MaybeSend + MaybeSync {
     /// Build information from the connected device service.
     async fn build_info(&self) -> Result<unbill_build_info::BuildInfo>;
 
+    /// Read transient Bluetooth observations from the connected device.
+    async fn ble_snapshot(&self) -> Result<unbill_model::BleSnapshot>;
+
     // --- Control plane ---
 
     async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String>;

@@ -65,6 +65,10 @@ records the iOS development team,
 and records native frameworks required by Rust dependencies.
 Generated Xcode files are not hand-edited.
 
+On Android, the blew Tauri plugin installs the JNI/Kotlin bridge and requests BLE
+permissions for the automatically initialized Rust transport. Windows keeps the
+existing IP transports without BLE.
+
 The command layer maps service state into frontend DTOs.
 Bootstrap data includes known peer devices across local ledgers.
 Ledger summaries include user display names so the frontend can show them

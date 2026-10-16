@@ -34,6 +34,7 @@ path = "src/bin/uniffi-bindgen.rs"
 unbill-asymmetric-channel = { path = "../unbill-asymmetric-channel", features = ["rpc"] }
 
 [dev-dependencies]
+unbill-symmetric-channel = { path = "../unbill-symmetric-channel", features = ["test-helpers"] }
 tempfile = "3"
 
 [build-dependencies]

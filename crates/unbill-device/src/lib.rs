@@ -51,6 +51,14 @@ impl UnbillDevice {
         self.device_id.clone()
     }
 
+    pub fn ble_snapshot(&self) -> unbill_model::BleSnapshot {
+        self.endpoint.ble_snapshot()
+    }
+
+    pub async fn close(&self) {
+        self.endpoint.close().await;
+    }
+
     pub fn subscribe(&self) -> broadcast::Receiver<ServiceEvent> {
         self.server.subscribe()
     }

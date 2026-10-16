@@ -49,4 +49,8 @@ and reconnects after drops.
 
 The identity surface also exposes service build information; RPC and HTTP return the connected service build, while Local returns the in-process build.
 
+`ble_snapshot` returns the connected device's transient BLE state and observed
+peers through Local, RPC, and HTTP. It neither persists observations nor changes
+ledger authorization.
+
 AsymChannel exposes typed set_ledger_archived and transports the local archived flag in ledger summaries. Local and RPC channels change the device preference; HTTP changes the server device preference. Archive changes use the existing ledger update notifications and never enter replicated ledger documents.

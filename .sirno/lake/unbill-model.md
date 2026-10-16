@@ -35,6 +35,10 @@ Callers decide how to handle that failure.
 
 `EffectiveBills` is a thin wrapper over the vector of bills left after supersession filtering.
 
+`BleSnapshot` and its typed state, peer phase, and link-path records carry
+process-local transport observations across console boundaries. They are not
+Automerge ledger data; only a transport-verified identity becomes a NodeId.
+
 `UnbillError` covers domain-level failures (missing ledgers, users, bills, devices),
 validation, authorization, Automerge and reconciliation errors,
 network and URL errors, ID parsing, system clock errors, and configuration errors.

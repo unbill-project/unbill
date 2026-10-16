@@ -1,3 +1,10 @@
+#[cfg(any(
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "linux",
+    target_os = "android"
+))]
+mod ble;
 mod endpoint;
 mod join;
 mod node_id_ext;

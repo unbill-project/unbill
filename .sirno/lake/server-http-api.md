@@ -36,8 +36,8 @@ and join ledgers from invitation URLs.
 
 Peer endpoints trigger one-shot sync to a known peer `NodeId`.
 
-Device endpoints expose the current device ID
-only; device names are fields in ledger sync data.
+Device endpoints expose the current device ID and a process-local BLE snapshot;
+device names are fields in ledger sync data.
 No arbitrary-key endpoint or secret-key access is exposed.
 
 The events endpoint streams server-sent events.
@@ -53,6 +53,7 @@ The route surface is:
 `POST /ledgers/join`,
 `POST /peers/{node_id}/sync`,
 `GET /device/id`,
+`GET /device/ble`,
 `GET /build-info`,
 and `GET /events`.
 
@@ -74,6 +75,8 @@ Other non-success statuses map to storage or channel errors on the client side.
 `POST /ledgers/join` requires `{"url": "...", "label": "..."}` and returns `204`.
 The label is the joining device's shared ledger name, not an alias for the host.
 `GET /device/id` returns the node ID as `text/plain`.
+`GET /device/ble` returns a `BleSnapshot` as JSON, protected by the same bearer
+authentication. It describes the server's radio, not the browser's radio.
 SSE data fields carry `{"type": "LedgerUpdated", "ledger_id": "..."}`.
 
 `GET /build-info` returns the server version and UTC build timestamp as JSON behind the same bearer authentication.

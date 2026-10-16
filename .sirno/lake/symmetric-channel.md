@@ -85,12 +85,14 @@ entry points share one handshake and initial-stream implementation.
 
 Successful sync and join connections log their Iroh transport paths at INFO level,
 on establishment, path changes, and closure. Each line includes a connection ID,
-peer, protocol, direct/relay/custom transport, remote address, selection and closure
+peer, protocol, direct/relay/ble/custom transport, remote address, selection and closure
 flags, and available per-path QUIC byte counters (including protocol overhead).
 These describe transport paths rather than proving mDNS address discovery. The
 observer uses weak handles and does not keep connections alive for logging.
 
 The endpoint uses Iroh 1.3 and the companion iroh-mdns-address-lookup service.
+BLE is registered automatically on supported native platforms as described by
+`ble-transport`, alongside the existing IP transports and lookup services.
 LAN discovery advertises and resolves the _irohv1._udp Bonjour service. Shared
 relays use Iroh's production hostnames; relay URLs remain available when dialing
 by NodeId, alongside LAN lookup and the learned-address cache. A multicast
