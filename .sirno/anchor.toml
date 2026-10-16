@@ -48,7 +48,7 @@ fingerprint = "sha256:fd3302642d25a1dbc341cd4954cce29d25ad7b8674cb91320ff080ed94
 "core.belongs" = ["unbill"]
 
 [entries.ci-cd-pipeline]
-fingerprint = "sha256:051e8cc3a6b0cdc2a9e131bb8eacf10b33db69262d5fb10e8344c1275c0c9471"
+fingerprint = "sha256:3ec1f87e08af5b7ecdce20498f32f341d63a41128997e8f25a8f2e96b39e43af"
 "core.belongs" = ["distribution-and-release"]
 
 [entries.compiled-markdown-artifacts]
@@ -302,7 +302,7 @@ fingerprint = "sha256:43500f4b094e03eff4d8b2cb3c0451730a900223c46343831e8df19868
 fingerprint = "sha256:4e55d4de86988da589d6b17d66d2e4c85e16b56d58a84ef34b76588b24a37c34"
 
 [entries.unbill-apple]
-fingerprint = "sha256:9e98f988324bdee617173cae53c1e5b8a265faf6a3814016be47c507c829d72b"
+fingerprint = "sha256:238505ac7fffd457aead4fe1285db6e09ff20aa5569f22928b0b71889f43eda7"
 "core.belongs" = [
     "frontend-ui",
     "applications",

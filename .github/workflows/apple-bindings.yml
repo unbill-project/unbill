@@ -50,4 +50,17 @@ jobs:
           key: apple-bindings-macos-26-xcode-26.6-arm64
       - name: Build and check platform-specific Console APIs
         run: ./apps/unbill-apple/build-rust.sh
+      - name: Test app appearance on iOS Simulator
+        working-directory: apps/unbill-apple
+        run: |
+          brew install xcodegen
+          ./xcbuild.sh xcodegen generate
+          ./xcbuild.sh xcodebuild \
+            -project unbill.xcodeproj \
+            -scheme unbill \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -derivedDataPath build/appearance-tests \
+            CODE_SIGNING_ALLOWED=NO \
+            ARCHS=arm64 \
+            test
 # sirno:witness:unbill-ffi:end

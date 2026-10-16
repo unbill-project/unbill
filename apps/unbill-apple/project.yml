@@ -21,6 +21,9 @@ schemes:
     build:
       targets:
         unbill: all
+    test:
+      targets:
+        - unbill-tests
 
 targets:
   unbill:
@@ -74,3 +77,14 @@ targets:
         # Simulator builds ignore signing; device builds provision automatically.
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: BB577FKUK4
+
+  unbill-tests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/AppearanceTests.swift
+    dependencies:
+      - target: unbill
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
