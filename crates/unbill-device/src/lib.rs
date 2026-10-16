@@ -112,10 +112,9 @@ impl UnbillDevice {
         self.server.asym_sync(ledger_id, bytes).await
     }
 
-    /// Wait for the endpoint to be ready, print the readiness line, then accept
-    /// incoming sync/join connections until an error occurs or the endpoint closes.
+    /// Accept sync/join connections immediately, including offline LAN peers.
+    /// Relay registration proceeds independently of incoming connections.
     pub async fn accept_loop(&self) -> Result<()> {
-        self.endpoint.wait_for_ready().await;
         println!("listening on: {}", self.endpoint.node_id());
 
         while let Some(accepted) = self.endpoint.accept_bi().await {

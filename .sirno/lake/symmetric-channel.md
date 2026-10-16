@@ -89,3 +89,14 @@ peer, protocol, direct/relay/custom transport, remote address, selection and clo
 flags, and available per-path QUIC byte counters (including protocol overhead).
 These describe transport paths rather than proving mDNS address discovery. The
 observer uses weak handles and does not keep connections alive for logging.
+
+The endpoint uses Iroh 1.3 and the companion iroh-mdns-address-lookup service.
+LAN discovery advertises and resolves the _irohv1._udp Bonjour service. Shared
+relays use Iroh's production hostnames; relay URLs remain available when dialing
+by NodeId, alongside LAN lookup and the learned-address cache. A multicast
+regression test connects using only a peer ID with relays disabled.
+This test requires OS local-network permission and a multicast-capable interface;
+on macOS it has been verified with an administrator-run test binary. Address
+lookup failures close both endpoints before reporting the error.
+Path logging consumes owned path events and transient weak-handle upgrades,
+including final byte counters for closed paths, without retaining connections.

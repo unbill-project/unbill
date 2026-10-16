@@ -11,6 +11,8 @@ homepage.workspace = true
 unbill-model = { path = "../unbill-model" }
 unbill-storage = { path = "../unbill-storage" }
 iroh.workspace = true
+iroh-mdns-address-lookup = "0.6"
+futures-util.workspace = true
 tokio = { workspace = true, features = ["rt", "io-util"] }
 serde.workspace = true
 serde_json.workspace = true
@@ -19,6 +21,7 @@ automerge.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+tracing-subscriber.workspace = true
 unbill-model = { path = "../unbill-model", features = ["test-helpers"] }
 unbill-store-memory = { path = "../unbill-store-memory" }
 tokio = { workspace = true, features = ["rt", "macros", "io-util", "test-util"] }

@@ -24,7 +24,8 @@ while RPC and HTTP server code call the same methods directly.
 One `UnbillDevice` instance exists per device process.
 It holds the store and endpoint exclusively.
 The symmetric endpoint is bound eagerly in `open`.
-`accept_loop` waits for the endpoint to be ready and runs until it closes.
+`accept_loop` starts accepting immediately after bind and runs until the endpoint
+closes. Relay registration must not block connections discovered on the LAN.
 
 Pending invitation tokens are persisted in local device metadata.
 The join URL format names the ledger ID, host node ID, and token.

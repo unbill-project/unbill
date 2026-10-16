@@ -200,3 +200,9 @@ toolbar no longer presents it. Sync completion and device-sheet dismissal refres
 the ledger list. Settings and its device sheet apply the stored appearance choice
 at their presentation boundaries so switching Light, Dark, or System updates them
 while open.
+
+The Local Network Bonjour declaration includes _irohv1._udp, matching the Iroh
+mDNS companion crate's service name.
+Physical iOS builds also request the multicast entitlement because this service
+uses UDP multicast sockets directly. Device signing must use a provisioning
+profile that grants this capability; the entitlement is not applied to Catalyst.
