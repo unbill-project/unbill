@@ -205,3 +205,13 @@ the override. Views do not install competing preferredColorScheme overrides.
 Simulator tests verify window and presented-controller trait changes.
 
 About appears in Application Settings and on startup failure. Its UnbillLogo image set links to the root unbill-icon.svg and preserves vector data; SwiftUI renders its original colors on a light backing. XcodeGen bundles crates/unbill-about/content.json directly; Foundation decodes the shared resource and SwiftUI renders a native scrollable page with Dynamic Type and system link handling. The Apple build script runs the shared-content decoding test and typechecks About for each requested iOS, Simulator, or Catalyst target.
+
+The Local Network Bonjour declaration includes _irohv1._udp, matching the Iroh
+mDNS companion crate's service name.
+The app also declares Bluetooth usage and links CoreBluetooth for the Rust BLE
+transport. No background Bluetooth mode is declared.
+Physical iOS builds also request the multicast entitlement because this service
+uses UDP multicast sockets directly. Device signing must use a provisioning
+profile that grants this capability; the entitlement is not applied to Catalyst.
+
+Devices and Ledger Settings consume a bufferingNewest AsyncStream with current observed and connected NodeId sets through the FFI observer. A device row uses blue when connected and gray when only observed. An empty current peer list clears all badges even if an older service sends historical discovery hints. Both device sections include the plain-language color legend in their footer. View cancellation releases the subscription; observer release finishes the stream.

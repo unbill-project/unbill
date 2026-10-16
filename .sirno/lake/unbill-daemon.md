@@ -21,7 +21,7 @@ It serves the local RPC socket so CLI, TUI, and other local clients can issue co
 without touching storage directly.
 
 The device layer prints `listening on: <node_id>` to stdout
-inside `accept_loop` once the Iroh endpoint is ready.
+inside `accept_loop` after the Iroh endpoint binds, without waiting for relay registration.
 That line is the readiness signal for automated tooling.
 All other daemon startup output goes to stderr.
 `--version` prints build information to stdout and exits before opening storage or networking.

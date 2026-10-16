@@ -127,4 +127,6 @@ Active ledgers appear in the main list; a collapsed Archived group opens ledger 
 
 Ledger list rows only open ledger details; restoration belongs in Ledger Settings. Explicitly opened archived ledgers remain selected across refreshes.
 
+Device rows use gray for a device observed over Bluetooth and blue for a verified Bluetooth connection, with blue taking precedence. A legend below the device list says Blue: connected via Bluetooth. Gray: device seen, not connected. UI text avoids transport and authentication terminology. Discovery records do not guarantee current proximity. Subscription updates do not reload ledgers.
+
 About is an on-demand settings or help destination. Its shared project story, acknowledgements, and repository links are owned by about-page; each frontend renders the same bundled content in its native idiom. It does not interrupt ledger workflows.

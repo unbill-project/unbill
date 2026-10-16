@@ -24,7 +24,8 @@ while RPC and HTTP server code call the same methods directly.
 One `UnbillDevice` instance exists per device process.
 It holds the store and endpoint exclusively.
 The symmetric endpoint is bound eagerly in `open`.
-`accept_loop` waits for the endpoint to be ready and runs until it closes.
+`accept_loop` starts accepting immediately after bind and runs until the endpoint
+closes. Relay registration must not block connections discovered on the LAN.
 
 Pending invitation tokens are persisted in local device metadata.
 The join URL format names the ledger ID, host node ID, and token.
@@ -44,3 +45,9 @@ bound during `open`.
 
 Integration tests use `unbill-store-memory` to exercise the device surface
 without touching disk or real network endpoints.
+
+The device owns one 500 ms BLE snapshot polling task and a watch channel. Polling reads cached transport state, never restarts scanning, and publishes only changes. The task holds the device weakly between ticks; close publishes Closed immediately and terminates polling. subscribe_ble returns the current value plus subsequent changes.
+
+The polling task caches known ledger peers, refreshing them initially and after ledger notifications or event lag. Each sample matches those identities only against device IDs present in that same current peer snapshot and fills discovered_node_ids. Historical scan records never independently keep a badge visible. One-shot ble_snapshot reads return the latest sampled snapshot. No ledger reads are needed on ordinary polling ticks, and close still publishes Closed immediately.
+
+Sync completion must not immediately close QUIC while the peer may still be reading buffered frames. The initiator retains both stream halves, persists local changes, finishes its write side and waits for peer EOF before closing the connection. The receiver retains its writer until received changes are persisted, then finishes it to signal completion. EOF draining is bounded and rejects unexpected trailing bytes. Existing v1 framing is unchanged; older receivers already finish their writer on return, confirming protocol consumption but not necessarily persistence.

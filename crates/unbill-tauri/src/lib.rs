@@ -202,6 +202,18 @@ struct UpdateInfoDto {
 }
 
 #[tauri::command]
+async fn ble_peer_indicators(
+    state: State<'_, AppState>,
+) -> std::result::Result<(Vec<String>, Vec<String>), String> {
+    Ok(state
+        .service
+        .ble_snapshot()
+        .await
+        .map_err(stringify_error)?
+        .indicator_node_ids())
+}
+
+#[tauri::command]
 async fn check_update(app: tauri::AppHandle) -> std::result::Result<Option<UpdateInfoDto>, String> {
     #[cfg(windows)]
     {
@@ -909,6 +921,11 @@ pub fn run() {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let mut builder = tauri::Builder::default();
 
+    #[cfg(target_os = "android")]
+    {
+        builder = builder.plugin(tauri_plugin_blew::init());
+    }
+
     #[cfg(desktop)]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
@@ -1006,6 +1023,23 @@ pub fn run() {
             })
             .map_err(|e| -> Box<dyn std::error::Error> { Box::new(e) })?;
 
+            let ble_service = Arc::clone(&service);
+            let ble_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Ok(mut rx) = ble_service.subscribe_ble().await {
+                    loop {
+                        let peers = rx.borrow_and_update().indicator_node_ids();
+                        let _ = ble_handle.emit("ble-peers-updated", peers);
+                        if rx.changed().await.is_err() {
+                            break;
+                        }
+                    }
+                }
+                let _ = ble_handle.emit(
+                    "ble-peers-updated",
+                    (Vec::<String>::new(), Vec::<String>::new()),
+                );
+            });
             let mut events = service.subscribe();
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -1028,6 +1062,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_about_link,
             bootstrap_app,
+            ble_peer_indicators,
             create_ledger,
             load_ledger_detail,
             create_user,

@@ -6,6 +6,7 @@ pub use error::{AddBillOpError, AddDeviceOpError, AddUserOpError, StorageError, 
 
 mod amendment;
 mod bill;
+mod ble;
 mod currency;
 mod device_label;
 mod id;
@@ -21,6 +22,7 @@ pub mod verified_bridge;
 
 pub use amendment::EffectiveBills;
 pub use bill::{Bill, NewBill, Share};
+pub use ble::{BleConnectPath, BlePeer, BlePeerPhase, BleSnapshot, BleState};
 pub use currency::Currency;
 pub use device_label::DeviceLabel;
 pub use doc::LedgerDoc;

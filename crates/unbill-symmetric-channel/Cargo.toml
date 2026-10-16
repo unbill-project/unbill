@@ -7,10 +7,15 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 
+[features]
+test-helpers = []
+
 [dependencies]
 unbill-model = { path = "../unbill-model" }
 unbill-storage = { path = "../unbill-storage" }
 iroh.workspace = true
+iroh-mdns-address-lookup = "0.6"
+futures-util.workspace = true
 tokio = { workspace = true, features = ["rt", "io-util"] }
 serde.workspace = true
 serde_json.workspace = true
@@ -18,7 +23,14 @@ ciborium.workspace = true
 automerge.workspace = true
 tracing.workspace = true
 
+[target.'cfg(any(target_os = "macos", target_os = "ios", target_os = "linux", target_os = "android"))'.dependencies]
+iroh-ble-transport = "=0.5.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+dbus = { version = "0.9", features = ["vendored"] }
+
 [dev-dependencies]
+tracing-subscriber.workspace = true
 unbill-model = { path = "../unbill-model", features = ["test-helpers"] }
 unbill-store-memory = { path = "../unbill-store-memory" }
 tokio = { workspace = true, features = ["rt", "macros", "io-util", "test-util"] }

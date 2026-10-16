@@ -958,3 +958,15 @@ mod tests {
         (ledger_id, base_id, left_id, right_id)
     }
 }
+
+// sirno:witness:unbill-ui-remote:begin
+pub async fn subscribe_ble()
+-> Result<tokio::sync::watch::Receiver<unbill_console::model::BleSnapshot>, String> {
+    get_service()?
+        .subscribe_ble()
+        .await
+        .map_err(|error| error.to_string())
+}
+// sirno:witness:unbill-ui-remote:end
+
+pub type BlePeerIndicators = (Vec<String>, Vec<String>);

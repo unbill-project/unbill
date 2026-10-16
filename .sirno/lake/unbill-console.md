@@ -65,6 +65,11 @@ and local metadata remains outside shared ledger state.
 The crate does not own CLI parsing, Tauri wiring, or UI state.
 Storage and transport are abstracted behind the asymmetric channel.
 
+`ble_snapshot` delegates to the connected channel so Rust console consumers can
+inspect the device's Bluetooth observations without managing Iroh or radio state.
+
 Drafts may allocate a real `BillId` before insertion. `add_bill_with_id` preserves
 that ID when saving, so deterministic rounding matches the preview. The verified
 bill checks reject duplicate IDs; amendments use fresh IDs.
+
+subscribe_ble returns a watch receiver with an initial BLE snapshot and subsequent changed snapshots. It registers for channel notifications before fetching initial state, refreshes on BLE notifications or receiver lag, and stops its task when the returned receiver is dropped. The existing ledger event bridge ignores BLE notifications.

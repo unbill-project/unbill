@@ -16,21 +16,23 @@
 //   - pkarr publishing is kept so interop with other iroh clients works.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use tokio::io::{AsyncRead, AsyncWrite};
 use tracing::{info, warn};
 
-use unbill_model::{NodeId, SecretKey, UnbillError};
+use unbill_model::{BleSnapshot, BleState, NodeId, SecretKey, UnbillError};
 
 type Result<T> = std::result::Result<T, UnbillError>;
 
 use crate::node_id_ext::SecretKeyExt;
 use unbill_storage::StoreServer;
 
-use iroh::address_lookup::MdnsAddressLookup;
+use futures_util::StreamExt;
+use iroh::RelayMode;
 use iroh::address_lookup::memory::MemoryLookup;
 use iroh::endpoint::presets;
-use iroh::{RelayMode, Watcher};
+use iroh_mdns_address_lookup::MdnsAddressLookup;
 
 use crate::join::{run_join_host, run_join_requester};
 use crate::node_id_ext::{EndpointIdExt, NodeIdExt};
@@ -77,10 +79,10 @@ pub struct ConnectedBi {
 /// All peers register with one of these relays, so any peer's `EndpointAddr`
 /// can be constructed from their `NodeId` alone — no DNS/pkarr lookup required.
 const UNBILL_RELAY_URLS: &[&str] = &[
-    "https://use1-1.relay.n0.iroh-canary.iroh.link.",
-    "https://usw1-1.relay.n0.iroh-canary.iroh.link.",
-    "https://euc1-1.relay.n0.iroh-canary.iroh.link.",
-    "https://aps1-1.relay.n0.iroh-canary.iroh.link.",
+    "https://use1-1.relay.n0.iroh.link.",
+    "https://usw1-1.relay.n0.iroh.link.",
+    "https://euc1-1.relay.n0.iroh.link.",
+    "https://aps1-1.relay.n0.iroh.link.",
 ];
 // sirno:witness:security-model:end
 
@@ -89,11 +91,21 @@ pub struct UnbillEndpoint {
     inner: iroh::Endpoint,
     addr_cache: MemoryLookup,
     incoming_tasks: tokio::sync::Mutex<tokio::task::JoinSet<Option<AcceptedBi>>>,
+    ble_state: BleState,
+    closed: AtomicBool,
+    #[cfg(any(
+        target_os = "macos",
+        target_os = "ios",
+        target_os = "linux",
+        target_os = "android"
+    ))]
+    ble: Option<crate::ble::BleDriver>,
 }
 
 impl UnbillEndpoint {
     /// Bind a new Iroh endpoint using the given device secret key.
     pub async fn bind(key: &SecretKey) -> Result<Self> {
+        let enable_ble = !cfg!(any(test, feature = "test-helpers"));
         let mut relay_urls: Vec<iroh::RelayUrl> = Vec::new();
         for s in UNBILL_RELAY_URLS {
             relay_urls.push(
@@ -110,6 +122,41 @@ impl UnbillEndpoint {
             .address_lookup(iroh::address_lookup::PkarrPublisher::n0_dns())
             .address_lookup(MdnsAddressLookup::builder())
             .address_lookup(addr_cache.clone());
+
+        #[allow(unused_mut)]
+        let mut ble_state = if enable_ble {
+            BleState::Unavailable {
+                reason: "BLE is not compiled for this platform".into(),
+            }
+        } else {
+            BleState::Disabled
+        };
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        let ble = if enable_ble {
+            match crate::ble::BleDriver::start(key.to_iroh_key().public()).await {
+                Ok(ble) => {
+                    builder = builder
+                        .hooks(ble.transport.dedup_hook())
+                        .add_custom_transport(ble.transport.as_custom_transport())
+                        .address_lookup(ble.transport.address_lookup());
+                    ble_state = BleState::Active;
+                    info!("BLE transport enabled alongside IP transports");
+                    Some(ble)
+                }
+                Err(reason) => {
+                    warn!(%reason, "BLE unavailable; continuing with IP transports");
+                    ble_state = BleState::Unavailable { reason };
+                    None
+                }
+            }
+        } else {
+            None
+        };
 
         // On Android, reading the system DNS config panics because
         // ndk-context is not initialised by Tauri.  Use Google Public DNS
@@ -128,8 +175,72 @@ impl UnbillEndpoint {
             inner,
             addr_cache,
             incoming_tasks: tokio::sync::Mutex::new(tokio::task::JoinSet::new()),
+            ble_state,
+            closed: AtomicBool::new(false),
+            #[cfg(any(
+                target_os = "macos",
+                target_os = "ios",
+                target_os = "linux",
+                target_os = "android"
+            ))]
+            ble,
         })
     }
+
+    /// Observations can outlive radio proximity; only verified IDs are authenticated.
+    pub fn ble_snapshot(&self) -> BleSnapshot {
+        if self.closed.load(Ordering::Acquire) {
+            return BleSnapshot {
+                state: BleState::Closed,
+                discovered_node_ids: Vec::new(),
+                peers: Vec::new(),
+            };
+        }
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        if let Some(ble) = &self.ble {
+            return ble.snapshot();
+        }
+        BleSnapshot {
+            state: self.ble_state.clone(),
+            discovered_node_ids: Vec::new(),
+            peers: Vec::new(),
+        }
+    }
+
+    // sirno:witness:ble-transport:begin
+    /// Correlate known identities only with peers present in this sample.
+    pub fn ble_discovered_node_ids(
+        &self,
+        known: &[NodeId],
+        peers: &[unbill_model::BlePeer],
+    ) -> Vec<NodeId> {
+        if self.closed.load(Ordering::Acquire) {
+            return Vec::new();
+        }
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        if let Some(ble) = &self.ble {
+            return current_ble_matches(known, peers, |node| {
+                let id = node.to_endpoint_id().ok()?;
+                ble.transport
+                    .device_for_endpoint(&id)
+                    .map(|device| device.to_string())
+            });
+        }
+        let _ = (known, peers);
+        Vec::new()
+    }
+
+    // sirno:witness:ble-transport:end
 
     /// Cache the remote peer's direct addresses after a successful connection
     /// so that future dials can use the direct path instead of the relay.
@@ -172,7 +283,17 @@ impl UnbillEndpoint {
 
     /// Close the endpoint gracefully.
     pub async fn close(&self) {
+        self.closed.store(true, Ordering::Release);
         self.inner.close().await;
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        if let Some(ble) = &self.ble {
+            ble.close().await;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -318,66 +439,92 @@ impl UnbillEndpoint {
 // Dispatch incoming connection to the right protocol handler
 // ---------------------------------------------------------------------------
 
-// Observe weak connection handles so logging cannot prolong a connection's lifetime.
+// sirno:witness:ble-transport:begin
+#[cfg(any(
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "linux",
+    target_os = "android",
+    test
+))]
+fn current_ble_matches(
+    known: &[NodeId],
+    peers: &[unbill_model::BlePeer],
+    resolve_device: impl Fn(&NodeId) -> Option<String>,
+) -> Vec<NodeId> {
+    known
+        .iter()
+        .filter(|node| {
+            resolve_device(node)
+                .is_some_and(|device| peers.iter().any(|peer| peer.device_id == device))
+        })
+        .cloned()
+        .collect()
+}
+// sirno:witness:ble-transport:end
+
+// Path events own their data; the observer never retains a strong connection.
 fn monitor_paths(conn: &iroh::endpoint::Connection) {
     let connection = conn.stable_id();
-    let info = conn.to_info();
-    let mut paths = conn.paths();
-    log_paths(&info, connection, "established", paths.get());
+    let peer = conn.remote_id();
+    let protocol = String::from_utf8_lossy(conn.alpn()).into_owned();
+    let weak = conn.weak_handle();
+    let mut events = conn.path_events();
+    log_paths(conn, "established");
     tokio::spawn(async move {
-        let closed = info.closed();
-        tokio::pin!(closed);
-        loop {
-            tokio::select! {
-                _ = &mut closed => {
-                    log_paths(&info, connection, "closed", paths.get());
-                    break;
-                }
-                update = paths.updated() => {
-                    match update {
-                        Ok(snapshot) => log_paths(&info, connection, "changed", snapshot),
-                        Err(_) => {
-                            log_paths(&info, connection, "closed", paths.get());
-                            break;
-                        }
-                    }
-                }
+        while let Some(event) = events.next().await {
+            if let iroh::endpoint::PathEvent::Closed {
+                remote_addr,
+                last_stats,
+                ..
+            } = &event
+            {
+                info!(connection, %peer, %protocol, event = "closed",
+                    transport = transport_name(remote_addr), remote = %remote_addr,
+                    selected = false, closed = true, sent_bytes = last_stats.udp_tx.bytes,
+                    received_bytes = last_stats.udp_rx.bytes, "connection path");
+            } else if let Some(conn) = weak.upgrade() {
+                log_paths(&conn, "changed");
             }
         }
+        info!(connection, %peer, %protocol, event = "closed", "connection closed");
     });
 }
 
-fn log_paths(
-    info: &iroh::endpoint::ConnectionInfo,
-    connection: usize,
-    event: &str,
-    paths: iroh::endpoint::PathInfoList,
-) {
-    let peer = info.remote_id();
-    let protocol = String::from_utf8_lossy(info.alpn());
+fn transport_name(address: &iroh::TransportAddr) -> &'static str {
+    match address {
+        iroh::TransportAddr::Ip(_) => "direct",
+        iroh::TransportAddr::Relay(_) => "relay",
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        iroh::TransportAddr::Custom(addr)
+            if addr.id() == iroh_ble_transport::transport::transport::BLE_TRANSPORT_ID =>
+        {
+            "ble"
+        }
+        _ => "custom",
+    }
+}
+
+fn log_paths(conn: &iroh::endpoint::Connection, event: &str) {
+    let connection = conn.stable_id();
+    let peer = conn.remote_id();
+    let protocol = String::from_utf8_lossy(conn.alpn());
+    let paths = conn.paths();
     if paths.is_empty() {
         info!(connection, %peer, %protocol, event, "connection path unavailable");
     }
-    for path in paths {
-        let transport = match path.remote_addr() {
-            iroh::TransportAddr::Ip(_) => "direct",
-            iroh::TransportAddr::Relay(_) => "relay",
-            _ => "custom",
-        };
+    for path in &paths {
         let stats = path.stats();
-        info!(
-            connection,
-            %peer,
-            %protocol,
-            event,
-            transport,
-            remote = %path.remote_addr(),
-            selected = path.is_selected(),
-            closed = path.is_closed(),
-            sent_bytes = stats.as_ref().map(|s| s.udp_tx.bytes),
-            received_bytes = stats.as_ref().map(|s| s.udp_rx.bytes),
-            "connection path"
-        );
+        info!(connection, %peer, %protocol, event,
+            transport = transport_name(path.remote_addr()), remote = %path.remote_addr(),
+            selected = path.is_selected(), closed = false,
+            sent_bytes = stats.udp_tx.bytes, received_bytes = stats.udp_rx.bytes,
+            "connection path");
     }
 }
 
@@ -452,6 +599,33 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
+    #[test]
+    fn ble_discovery_matches_only_current_peer_devices() {
+        let current = NodeId::from_seed(1);
+        let historical = NodeId::from_seed(2);
+        let known = vec![current.clone(), historical];
+        let mut peers = vec![unbill_model::BlePeer {
+            device_id: "current-radio".into(),
+            phase: unbill_model::BlePeerPhase::Discovered,
+            consecutive_failures: 0,
+            connect_path: None,
+            verified_node_id: None,
+        }];
+        let resolve = |node: &NodeId| {
+            Some(if node == &current {
+                "current-radio".to_owned()
+            } else {
+                "historical-radio".to_owned()
+            })
+        };
+        assert_eq!(
+            current_ble_matches(&known, &peers, resolve),
+            vec![current.clone()]
+        );
+        peers.clear();
+        assert!(current_ble_matches(&known, &peers, resolve).is_empty());
+    }
+
     async fn local_endpoint() -> iroh::Endpoint {
         iroh::Endpoint::builder(presets::Minimal)
             .clear_ip_transports()
@@ -464,12 +638,130 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn disabled_ble_preserves_ip_transport_and_closes_cleanly() {
+        let endpoint = UnbillEndpoint::bind(&SecretKey::from_bytes([27; 32]))
+            .await
+            .expect("bind IP endpoint without Bluetooth");
+        assert_eq!(endpoint.ble_snapshot().state, BleState::Disabled);
+        assert!(!endpoint.inner.bound_sockets().is_empty());
+        endpoint.close().await;
+        assert_eq!(endpoint.ble_snapshot().state, BleState::Closed);
+    }
+
+    #[tokio::test]
+    async fn mdns_connects_by_node_id_without_relays_or_supplied_addresses() {
+        let _ = tracing_subscriber::fmt()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .with_test_writer()
+            .try_init();
+        tokio::time::timeout(Duration::from_secs(20), async {
+            let host = iroh::Endpoint::builder(presets::Minimal)
+                .relay_mode(RelayMode::Disabled)
+                .address_lookup(MdnsAddressLookup::builder())
+                .alpns(vec![ALPN_SYNC.to_vec()])
+                .bind()
+                .await
+                .expect("bind mDNS host");
+            let client = iroh::Endpoint::builder(presets::Minimal)
+                .relay_mode(RelayMode::Disabled)
+                .address_lookup(MdnsAddressLookup::builder())
+                .bind()
+                .await
+                .expect("bind mDNS client");
+            let expected_peer = client.id();
+            let accepting = host.clone();
+            let server = tokio::spawn(async move {
+                let conn = accepting
+                    .accept()
+                    .await
+                    .expect("incoming connection")
+                    .await
+                    .expect("authenticate mDNS peer");
+                assert_eq!(conn.remote_id(), expected_peer);
+                let (mut send, mut recv) = conn.accept_bi().await.expect("accept stream");
+                let mut request = [0; 4];
+                recv.read_exact(&mut request).await.expect("read request");
+                assert_eq!(&request, b"mdns");
+                send.write_all(b"ok").await.expect("write reply");
+                send.finish().expect("finish reply");
+                conn.closed().await;
+            });
+            // Only the ID is supplied: mDNS is the sole source of a dialable address.
+            let conn = match client.connect(host.id(), ALPN_SYNC).await {
+                Ok(conn) => conn,
+                Err(err) => {
+                    server.abort();
+                    client.close().await;
+                    host.close().await;
+                    panic!(
+                        "resolve via mDNS (requires local-network permission and multicast): {err}"
+                    );
+                }
+            };
+            assert!(conn.paths().iter().any(|path| path.is_ip()));
+            assert!(conn.paths().iter().all(|path| !path.is_relay()));
+            let (mut send, mut recv) = conn.open_bi().await.expect("open stream");
+            send.write_all(b"mdns").await.expect("write request");
+            let mut reply = [0; 2];
+            recv.read_exact(&mut reply).await.expect("read reply");
+            assert_eq!(&reply, b"ok");
+            conn.close(0u32.into(), b"done");
+            server.await.expect("server task");
+            client.close().await;
+            host.close().await;
+        })
+        .await
+        .expect("mDNS discovery must work without a relay");
+    }
+
+    #[tokio::test]
+    async fn path_logging_does_not_keep_a_connection_alive() {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            let host = local_endpoint().await;
+            let accepting = host.clone();
+            let server = tokio::spawn(async move {
+                accepting
+                    .accept()
+                    .await
+                    .expect("incoming")
+                    .await
+                    .expect("handshake")
+            });
+            let address = iroh::EndpointAddr::from_parts(
+                host.id(),
+                host.bound_sockets()
+                    .into_iter()
+                    .map(iroh::TransportAddr::Ip),
+            );
+            let client = local_endpoint().await;
+            let conn = client.connect(address, ALPN_SYNC).await.expect("connect");
+            let remote = server.await.expect("accept task");
+            monitor_paths(&conn);
+            drop(conn);
+            remote.closed().await;
+            host.close().await;
+            client.close().await;
+        })
+        .await
+        .expect("logging must not retain the last connection handle");
+    }
+
+    #[tokio::test]
     async fn idle_connection_does_not_block_later_connections() {
         tokio::time::timeout(Duration::from_secs(10), async {
             let host = Arc::new(UnbillEndpoint {
                 inner: local_endpoint().await,
                 addr_cache: MemoryLookup::new(),
                 incoming_tasks: tokio::sync::Mutex::new(tokio::task::JoinSet::new()),
+                ble_state: BleState::Disabled,
+                closed: AtomicBool::new(false),
+                #[cfg(any(
+                    target_os = "macos",
+                    target_os = "ios",
+                    target_os = "linux",
+                    target_os = "android"
+                ))]
+                ble: None,
             });
             let address = iroh::EndpointAddr::from_parts(
                 host.inner.id(),

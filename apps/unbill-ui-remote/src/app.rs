@@ -161,6 +161,7 @@ pub fn App() -> impl IntoView {
     let loading_count = RwSignal::new(0usize);
     let toast = use_toast();
     let devices = RwSignal::new(Vec::<SyncDevice>::new());
+    let ble_peers = RwSignal::new(api::BlePeerIndicators::default());
     // sirno:witness:unbill-ui-remote:end
 
     let load_selected_ledger = move |ledger_id: String| {
@@ -306,6 +307,17 @@ pub fn App() -> impl IntoView {
 
     // sirno:witness:unbill-ui-remote:begin
     // Service event loop: on LedgerUpdated, refresh only the affected signals.
+    leptos::task::spawn_local_scoped_with_cancellation(async move {
+        if let Ok(mut rx) = api::subscribe_ble().await {
+            loop {
+                ble_peers.set(rx.borrow_and_update().indicator_node_ids());
+                if rx.changed().await.is_err() {
+                    break;
+                }
+            }
+        }
+        ble_peers.set(api::BlePeerIndicators::default());
+    });
     let mut events = api::subscribe();
     spawn_local(async move {
         use tokio::sync::broadcast::error::RecvError;
@@ -780,6 +792,7 @@ pub fn App() -> impl IntoView {
                     device_id=device_id.get()
                     ledgers=ledgers.get()
                     devices=devices.get()
+                    ble_peers=ble_peers
                     active_tab=popup.active_tab
                     mobile_in_content=popup.mobile_in_content
                     selected_ledger_id=popup.selected_ledger_id

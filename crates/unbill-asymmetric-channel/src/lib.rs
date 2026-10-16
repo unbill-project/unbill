@@ -15,7 +15,11 @@ pub mod rpc;
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type")]
 pub enum AsymChannelEvent {
-    LedgerUpdated { ledger_id: LedgerId },
+    /// BLE state changed; fetch the current snapshot.
+    BleSnapshotChanged,
+    LedgerUpdated {
+        ledger_id: LedgerId,
+    },
 }
 
 // On wasm32 (single-threaded), relax Send + Sync requirements so that
@@ -54,6 +58,9 @@ pub trait AsymChannel: MaybeSend + MaybeSync {
 
     /// Build information from the connected device service.
     async fn build_info(&self) -> Result<unbill_build_info::BuildInfo>;
+
+    /// Read transient Bluetooth observations from the connected device.
+    async fn ble_snapshot(&self) -> Result<unbill_model::BleSnapshot>;
 
     // --- Control plane ---
 

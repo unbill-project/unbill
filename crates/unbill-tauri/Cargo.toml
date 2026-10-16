@@ -39,7 +39,11 @@ serde_json.workspace = true
 tauri-plugin-updater = "2"
 tauri-plugin-single-instance = "2"
 
+[target.'cfg(target_os = "android")'.dependencies]
+tauri-plugin-blew = "=0.5.0"
+
 [dev-dependencies]
+unbill-symmetric-channel = { path = "../unbill-symmetric-channel", features = ["test-helpers"] }
 unbill-store-memory = { path = "../unbill-store-memory" }
 tokio.workspace = true
 tracing-subscriber.workspace = true

@@ -2,6 +2,7 @@
 pub mod about;
 pub mod bill;
 pub mod bill_editor;
+pub mod bluetooth;
 pub mod button;
 pub mod conflict;
 pub mod input;

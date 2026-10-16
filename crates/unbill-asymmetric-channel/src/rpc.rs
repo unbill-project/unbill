@@ -73,6 +73,7 @@ impl WireLedgerMeta {
 pub trait AsymChannelService {
     async fn get_device_id() -> String;
     async fn build_info() -> std::result::Result<unbill_build_info::BuildInfo, String>;
+    async fn ble_snapshot() -> std::result::Result<unbill_model::BleSnapshot, String>;
     async fn create_invitation(ledger_id: LedgerId) -> std::result::Result<String, String>;
     async fn join_ledger(
         url: String,
@@ -102,12 +103,14 @@ pub trait AsymChannelService {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum WireEvent {
+    BleSnapshotChanged,
     LedgerUpdated { ledger_id: LedgerId },
 }
 
 impl From<AsymChannelEvent> for WireEvent {
     fn from(e: AsymChannelEvent) -> Self {
         match e {
+            AsymChannelEvent::BleSnapshotChanged => WireEvent::BleSnapshotChanged,
             AsymChannelEvent::LedgerUpdated { ledger_id } => WireEvent::LedgerUpdated { ledger_id },
         }
     }
@@ -116,6 +119,7 @@ impl From<AsymChannelEvent> for WireEvent {
 impl From<WireEvent> for AsymChannelEvent {
     fn from(e: WireEvent) -> Self {
         match e {
+            WireEvent::BleSnapshotChanged => AsymChannelEvent::BleSnapshotChanged,
             WireEvent::LedgerUpdated { ledger_id } => AsymChannelEvent::LedgerUpdated { ledger_id },
         }
     }
@@ -143,6 +147,13 @@ impl<C: AsymChannel> Clone for AsymChannelServiceServer<C> {
 }
 
 impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
+    async fn ble_snapshot(
+        self,
+        _ctx: tarpc::context::Context,
+    ) -> std::result::Result<unbill_model::BleSnapshot, String> {
+        self.channel.ble_snapshot().await.map_err(|e| e.to_string())
+    }
+
     async fn get_device_id(self, _ctx: tarpc::context::Context) -> String {
         self.channel.device_id().to_string()
     }
@@ -293,10 +304,17 @@ where
         tokio::spawn(async move {
             loop {
                 match rx.recv().await {
-                    Ok(evt) => q2
-                        .lock()
-                        .unwrap_or_else(PoisonError::into_inner)
-                        .push(WireEvent::from(evt)),
+                    Ok(evt) => {
+                        let mut queue = q2.lock().unwrap_or_else(PoisonError::into_inner);
+                        // BLE notifications invalidate state; one pending item is enough.
+                        if !matches!(evt, AsymChannelEvent::BleSnapshotChanged)
+                            || !queue
+                                .iter()
+                                .any(|e| matches!(e, WireEvent::BleSnapshotChanged))
+                        {
+                            queue.push(WireEvent::from(evt));
+                        }
+                    }
                     Err(broadcast::error::RecvError::Lagged(_)) => continue,
                     Err(broadcast::error::RecvError::Closed) => break,
                 }
@@ -377,6 +395,14 @@ impl RpcAsymChannel {
 
 #[async_trait]
 impl AsymChannel for RpcAsymChannel {
+    async fn ble_snapshot(&self) -> Result<unbill_model::BleSnapshot> {
+        self.client
+            .ble_snapshot(tarpc::context::current())
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)
+    }
+
     fn device_id(&self) -> NodeId {
         self.device_node_id.clone()
     }

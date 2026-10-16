@@ -130,4 +130,6 @@ The native UI groups archived ledgers in a collapsed Archived disclosure with na
 
 Ledger list rows only open ledger details; restoration belongs in Ledger Settings. Explicitly opened archived ledgers remain selected across refreshes.
 
+The webview listens for ble-peers-updated before fetching initial ble_peer_indicators, ignoring an older query result after a newer event. A separate observed/connected signal drives gray or blue Bluetooth badges in global and ledger device rows. Both lists include a plain-language color legend.
+
 General settings groups About and Open Source Licenses under Project. About uses the shared component and asks the Tauri shell to open a content action by identifier; link-opening errors remain visible inside the About dialog.

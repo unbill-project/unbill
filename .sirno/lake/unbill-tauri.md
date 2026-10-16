@@ -65,6 +65,10 @@ records the iOS development team,
 and records native frameworks required by Rust dependencies.
 Generated Xcode files are not hand-edited.
 
+On Android, the blew Tauri plugin installs the JNI/Kotlin bridge and requests BLE
+permissions for the automatically initialized Rust transport. Windows keeps the
+existing IP transports without BLE.
+
 The command layer maps service state into frontend DTOs.
 Bootstrap data includes known peer devices across local ledgers.
 Ledger summaries include user display names so the frontend can show them
@@ -104,5 +108,7 @@ native frontend refreshes the fingerprint through its existing detail queries.
 
 Joining requires the name of this joining device in the ledger. Device names
 are read from the ledger device records, without a local label lookup.
+
+ble_peer_indicators returns observed and verified connected NodeId lists. The host sends the same pair with ble-peers-updated notifications and sends two empty lists when the subscription closes. It never converts advertising hints into authenticated identities.
 
 The open_about_link command resolves a section identifier against the embedded about-page resource, then uses tauri-plugin-opener to launch the system browser. It does not accept arbitrary URLs. Automatic JavaScript link interception is disabled because the native frontend explicitly routes About actions through this command.

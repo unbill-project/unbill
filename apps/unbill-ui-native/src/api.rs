@@ -16,6 +16,9 @@ extern "C" {
     #[wasm_bindgen(catch, js_name = writeClipboardText)]
     async fn write_clipboard_text_js(text: &str) -> Result<JsValue, JsValue>;
 
+    #[wasm_bindgen(js_name = subscribeBlePeers)]
+    fn subscribe_ble_peers_js(callback: &Closure<dyn FnMut(JsValue)>);
+
     #[wasm_bindgen(js_name = listenEvent)]
     fn listen_event_js(event_name: &str, callback: &Closure<dyn FnMut(JsValue)>);
 }
@@ -370,3 +373,17 @@ mod tests {
         );
     }
 }
+
+pub fn on_ble_updated(mut callback: impl FnMut(BlePeerIndicators) + 'static) {
+    let closure = Closure::new(move |value: JsValue| {
+        if let Some(json) = value.as_string()
+            && let Ok(peers) = serde_json::from_str(&json)
+        {
+            callback(peers);
+        }
+    });
+    subscribe_ble_peers_js(&closure);
+    closure.forget();
+}
+
+pub type BlePeerIndicators = (Vec<String>, Vec<String>);

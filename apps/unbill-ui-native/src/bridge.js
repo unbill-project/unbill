@@ -48,3 +48,21 @@ export function listenEvent(eventName, callback) {
     event.listen(eventName, (e) => callback(e.payload));
   }
 }
+
+export async function subscribeBlePeers(callback) {
+  const core = tauriCore();
+  const events = window.__TAURI__ && window.__TAURI__.event;
+  if (!core || !events) return;
+  let revision = 0;
+  try {
+    await events.listen("ble-peers-updated", (event) => {
+      revision += 1;
+      callback(JSON.stringify(event.payload));
+    });
+    const before = revision;
+    const peers = await core.invoke("ble_peer_indicators");
+    if (revision === before) callback(JSON.stringify(peers));
+  } catch {
+    if (revision === 0) callback("[[],[]]");
+  }
+}

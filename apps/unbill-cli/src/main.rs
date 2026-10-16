@@ -77,6 +77,8 @@ pub enum Command {
 pub enum DeviceCmd {
     /// Print this device's ID and data directory.
     Show,
+    /// Show the daemon's BLE status and observed peers.
+    Ble,
 }
 
 #[derive(clap::Subcommand)]
@@ -268,6 +270,7 @@ async fn run() -> anyhow::Result<()> {
         Command::Init => commands::init(&svc, json).await,
         Command::Device { sub } => match sub {
             DeviceCmd::Show => commands::device_show(&svc, &data_dir, json).await,
+            DeviceCmd::Ble => commands::device_ble(&svc, json).await,
         },
         Command::Ledger { sub } => match sub {
             LedgerCmd::Create { name, currency } => {

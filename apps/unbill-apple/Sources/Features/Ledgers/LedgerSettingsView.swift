@@ -7,6 +7,7 @@ struct LedgerSettingsView: View {
     let detail: LedgerDetail
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
+    @State private var blePeers = BlePeerConnections()
     @State private var syncingNodeID: String?
     @State private var lastSyncedAt: [String: Date] = [:]
     @State private var syncErrors: [String: String] = [:]
@@ -37,11 +38,13 @@ struct LedgerSettingsView: View {
                     }
                     .padding(.vertical, 4)
                 }
-                Section("Ledger Devices") {
+                Section {
                     if detail.devices.isEmpty { Text("No peer devices").foregroundStyle(.secondary) }
                     ForEach(detail.devices) { peer in
                         PeerDeviceRow(
                             peer: peer,
+                            bleConnected: blePeers.connected.contains(peer.nodeID),
+                            bleDiscovered: blePeers.discovered.contains(peer.nodeID),
                             syncing: syncingNodeID == peer.nodeID,
                             disabled: busy,
                             lastSyncedAt: lastSyncedAt[peer.nodeID],
@@ -50,6 +53,10 @@ struct LedgerSettingsView: View {
                             Task { await sync(peer.nodeID) }
                         }
                     }
+                } header: {
+                    Text("Ledger Devices")
+                } footer: {
+                    BluetoothLegend()
                 }
                 Section {
                     Button(detail.summary.archived ? "Restore Ledger" : "Archive Ledger") {
@@ -76,6 +83,16 @@ struct LedgerSettingsView: View {
                         .disabled(busy)
                 }
             }
+        }
+        .task {
+            do {
+                let updates = try await console.blePeerConnections()
+                for await peers in updates {
+                    guard !Task.isCancelled else { break }
+                    blePeers = peers
+                }
+            } catch { /* BLE indicators are optional; IP sync remains available. */ }
+            blePeers = BlePeerConnections()
         }
         .interactiveDismissDisabled(busy)
         .onChange(of: detail.emojiFingerprint) { _, _ in copied = false }

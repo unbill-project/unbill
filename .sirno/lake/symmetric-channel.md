@@ -67,6 +67,14 @@ Protocol tests use in-process streams. A loopback endpoint regression test verif
 that an idle connection cannot block later connections across accept calls.
 Coverage includes framing, convergence, authorization filtering,
 and join success and failure paths.
+Convergence tests also cover multiple shared ledgers with a one-sided user
+restoration, and compare document fingerprints rather than only visible bills.
+An Automerge message can require a response even after generation previously
+returned no message; completion must account for all accepted ledgers.
+Each ledger generates its initial message once, then only generates again after
+receiving an Automerge message for that ledger. A message in flight is not
+completion. Incoming messages reopen completion, and a session ends only when
+both peers have sent Done for every ledger.
 
 The join request includes a required typed name for the joining device. The host
 adds it to the shared ledger device record. The requester persists the returned
@@ -91,7 +99,22 @@ verify that private IDs stay out of Hello and malicious acceptance is rejected.
 
 Successful sync and join connections log their Iroh transport paths at INFO level,
 on establishment, path changes, and closure. Each line includes a connection ID,
-peer, protocol, direct/relay/custom transport, remote address, selection and closure
+peer, protocol, direct/relay/ble/custom transport, remote address, selection and closure
 flags, and available per-path QUIC byte counters (including protocol overhead).
 These describe transport paths rather than proving mDNS address discovery. The
 observer uses weak handles and does not keep connections alive for logging.
+
+The endpoint uses Iroh 1.3 and the companion iroh-mdns-address-lookup service.
+BLE is registered automatically on supported native platforms as described by
+`ble-transport`, alongside the existing IP transports and lookup services.
+LAN discovery advertises and resolves the _irohv1._udp Bonjour service. Shared
+relays use Iroh's production hostnames; relay URLs remain available when dialing
+by NodeId, alongside LAN lookup and the learned-address cache. A multicast
+regression test connects using only a peer ID with relays disabled.
+This test requires OS local-network permission and a multicast-capable interface;
+on macOS it has been verified with an administrator-run test binary. Address
+lookup failures close both endpoints before reporting the error.
+Path logging consumes owned path events and transient weak-handle upgrades,
+including final byte counters for closed paths, without retaining connections.
+
+Sync completion must not immediately close QUIC while the peer may still be reading buffered frames. The initiator retains both stream halves, persists local changes, finishes its write side and waits for peer EOF before closing the connection. The receiver retains its writer until received changes are persisted, then finishes it to signal completion. EOF draining is bounded and rejects unexpected trailing bytes. Existing v1 framing is unchanged; older receivers already finish their writer on return, confirming protocol consumption but not necessarily persistence.

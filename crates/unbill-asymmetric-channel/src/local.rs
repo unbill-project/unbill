@@ -27,6 +27,14 @@ impl LocalAsymChannel {
         let service = UnbillDevice::open(store).await?;
         let (events, _) = broadcast::channel(256);
 
+        let mut ble_rx = service.subscribe_ble();
+        let ble_tx = events.clone();
+        tokio::spawn(async move {
+            while ble_rx.changed().await.is_ok() {
+                let _ = ble_tx.send(AsymChannelEvent::BleSnapshotChanged);
+            }
+        });
+
         // Forward ServiceEvents into the AsymChannelEvent broadcast.
         let mut svc_rx = service.subscribe();
         let tx = events.clone();
@@ -68,6 +76,10 @@ impl AsymChannel for LocalAsymChannel {
 
     async fn build_info(&self) -> Result<unbill_build_info::BuildInfo> {
         Ok(self.build_info.clone())
+    }
+
+    async fn ble_snapshot(&self) -> Result<unbill_model::BleSnapshot> {
+        Ok(self.service.ble_snapshot())
     }
 
     async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String> {

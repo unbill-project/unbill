@@ -282,15 +282,25 @@ fn bill_title(bill: &Bill) -> String {
 fn SyncDeviceRow(
     title: String,
     node_id: String,
+    ble_peers: RwSignal<api::BlePeerIndicators>,
     #[prop(optional, into)] detail: Option<String>,
     on_sync: Callback<(String, Callback<()>)>,
 ) -> impl IntoView {
+    let ble_node = node_id.clone();
     let working = RwSignal::new(false);
     let done = Callback::new(move |_| working.set(false));
     view! {
         <div class="data-row split-row">
             <div class="row-copy">
-                <p class="row-title">{title}</p>
+                <p class="row-title">{title}
+                    {move || {
+                        let (observed, connected) = ble_peers.get();
+                        let blue = connected.contains(&ble_node);
+                        (blue || observed.contains(&ble_node)).then(|| view! {
+                            <unbill_ui_components::bluetooth::BluetoothBadge connected=blue />
+                        })
+                    }}
+                </p>
                 <p class="row-meta mono-copy">{node_id.clone()}</p>
                 {detail.map(|d| view! { <p class="row-detail">{d}</p> })}
             </div>
@@ -316,6 +326,7 @@ pub fn SettingsPopup(
     device_id: String,
     ledgers: Vec<LedgerSummary>,
     devices: Vec<SyncDevice>,
+    ble_peers: RwSignal<api::BlePeerIndicators>,
     active_tab: SettingsTab,
     mobile_in_content: bool,
     selected_ledger_id: Option<String>,
@@ -458,6 +469,7 @@ pub fn SettingsPopup(
                                                     };
                                                     view! {
                                                         <SyncDeviceRow
+                                                            ble_peers=ble_peers
                                                             title=title
                                                             node_id=node_id
                                                             detail=detail
@@ -469,6 +481,7 @@ pub fn SettingsPopup(
                                                 .into_any()
                                         }}
                                     </div>
+                                <unbill_ui_components::bluetooth::BluetoothLegend />
                                 </SectionCard>
                                 <SectionCard title="Project".to_owned()>
                                     <unbill_ui_components::about::OpenAbout on_open_link=Callback::new(move |(section_id, complete): unbill_ui_components::about::AboutLinkRequest| {
@@ -562,6 +575,7 @@ pub fn SettingsPopup(
                                                             };
                                                             view! {
                                                                 <SyncDeviceRow
+                                                                    ble_peers=ble_peers
                                                                     title=title
                                                                     node_id=node_id
                                                                     on_sync=on_sync_device
@@ -572,7 +586,8 @@ pub fn SettingsPopup(
                                                         .into_any()
                                                 }}
                                             </div>
-                                        </SectionCard>
+                                        <unbill_ui_components::bluetooth::BluetoothLegend />
+                                    </SectionCard>
 
                                         <SectionCard title="Device invitation".to_owned()>
                                             <div class="stack-gap">

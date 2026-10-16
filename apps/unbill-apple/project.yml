@@ -47,6 +47,7 @@ targets:
       - sdk: SystemConfiguration.framework
       - sdk: CoreFoundation.framework
       - sdk: Network.framework
+      - sdk: CoreBluetooth.framework
       - sdk: libiconv.tbd
     info:
       path: Info.plist
@@ -62,8 +63,9 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         # P2P sync: mDNS peer discovery on the local network.
         NSLocalNetworkUsageDescription: unbill syncs your ledgers directly between your devices over the local network.
+        NSBluetoothAlwaysUsageDescription: unbill uses Bluetooth to discover nearby devices and sync your ledgers.
         NSBonjourServices:
-          - _iroh._udp
+          - _irohv1._udp
         # Scanning invitation QR codes.
         NSCameraUsageDescription: unbill uses the camera to scan invitation QR codes.
     settings:
@@ -76,6 +78,7 @@ targets:
         # your Apple Developer team (this one is carried over from tauri.conf.json).
         # Simulator builds ignore signing; device builds provision automatically.
         CODE_SIGN_STYLE: Automatic
+        "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": unbill-ios.entitlements
         DEVELOPMENT_TEAM: BB577FKUK4
 
   unbill-tests:

@@ -13,7 +13,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt as _;
-use tokio_stream::wrappers::BroadcastStream;
+use tokio_stream::wrappers::{BroadcastStream, WatchStream};
 use tower_http::trace::TraceLayer;
 
 use unbill_device::{ServiceEvent, UnbillDevice};
@@ -74,6 +74,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/peers/{node_id}/sync", post(sync_with_peer))
         .route("/events", get(stream_events))
         .route("/device/id", get(get_device_id))
+        .route("/device/ble", get(get_ble_snapshot))
         .route("/build-info", get(get_build_info))
         .layer(middleware::from_fn_with_state(state.clone(), auth))
         .with_state(state);
@@ -221,6 +222,10 @@ async fn get_build_info() -> Json<unbill_build_info::BuildInfo> {
     ))
 }
 
+async fn get_ble_snapshot(State(state): State<Arc<AppState>>) -> Json<unbill_model::BleSnapshot> {
+    Json(state.service.ble_snapshot())
+}
+
 async fn get_device_id(State(state): State<Arc<AppState>>) -> Response {
     (
         StatusCode::OK,
@@ -276,7 +281,12 @@ async fn stream_events(State(state): State<Arc<AppState>>) -> impl IntoResponse 
         }
         _ => None,
     });
-    Sse::new(stream).keep_alive(KeepAlive::default())
+    let ble = WatchStream::new(state.service.subscribe_ble()).map(|_| {
+        Ok::<Event, Infallible>(
+            Event::default().data(serde_json::json!({"type": "BleSnapshotChanged"}).to_string()),
+        )
+    });
+    Sse::new(stream.merge(ble)).keep_alive(KeepAlive::default())
 }
 
 // ---------------------------------------------------------------------------
@@ -386,7 +396,60 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn ble_events_start_with_invalidation_and_require_auth() {
+        use http_body_util::BodyExt;
+        let dir = tempfile::tempdir().unwrap();
+        let app = make_app(dir.path()).await;
+        let response = app
+            .clone()
+            .oneshot(auth_get("/api/v1/events"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let mut body = response.into_body();
+        let frame = tokio::time::timeout(std::time::Duration::from_secs(2), body.frame())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        let data = std::str::from_utf8(frame.data_ref().unwrap()).unwrap();
+        assert!(data.contains("BleSnapshotChanged"), "{data}");
+        let request = Request::builder()
+            .uri("/api/v1/events")
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(
+            app.oneshot(request).await.unwrap().status(),
+            StatusCode::UNAUTHORIZED
+        );
+    }
+
     // --- auth ---------------------------------------------------------------
+
+    #[tokio::test]
+    async fn ble_snapshot_is_read_only_and_requires_auth() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = make_app(dir.path()).await;
+        let resp = app
+            .clone()
+            .oneshot(auth_get("/api/v1/device/ble"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let snapshot: unbill_model::BleSnapshot =
+            serde_json::from_slice(&body_bytes(resp).await).unwrap();
+        assert_eq!(snapshot.state, unbill_model::BleState::Disabled);
+        assert!(snapshot.peers.is_empty());
+        let request = Request::builder()
+            .uri("/api/v1/device/ble")
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(
+            app.oneshot(request).await.unwrap().status(),
+            StatusCode::UNAUTHORIZED
+        );
+    }
 
     #[tokio::test]
     async fn test_missing_token_returns_401() {
