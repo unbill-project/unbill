@@ -211,3 +211,7 @@ and Mac Catalyst libraries and their matching Swift bindings and headers.
 Swift compile checks accept in-process construction on every variant, accept RPC
 construction on Catalyst, and require RPC construction to fail on iOS.
 Mobile dependency checks reject the desktop RPC dependencies.
+
+Apple Bindings also generates the app project and runs its window-appearance
+regression tests on an iPhone Simulator, compiling the complete app along with
+the tests. This checks theme changes while a settings controller is presented.

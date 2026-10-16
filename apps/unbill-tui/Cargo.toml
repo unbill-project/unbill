@@ -13,12 +13,13 @@ description = "Terminal UI for unbill."
 path = "src/main.rs"
 
 [dependencies]
+unbill-about = { path = "../../crates/unbill-about" }
 build-info.workspace = true
 unbill-build-info = { path = "../../crates/unbill-build-info" }
 unbill-console = { path = "../../crates/unbill-console" }
 unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["rpc"] }
 unbill-storage = { path = "../../crates/unbill-storage" }
-ratatui = "0.29"
+ratatui = { version = "0.29", features = ["unstable-rendered-line-info"] }
 crossterm = { version = "0.28", features = ["event-stream"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 anyhow = { workspace = true }

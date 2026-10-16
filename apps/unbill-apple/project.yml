@@ -21,6 +21,9 @@ schemes:
     build:
       targets:
         unbill: all
+    test:
+      targets:
+        - unbill-tests
 
 targets:
   unbill:
@@ -31,6 +34,10 @@ targets:
     # sirno:witness:unbill-apple:end
     sources:
       - path: Sources
+      # sirno:witness:about-page:begin
+      - path: ../../crates/unbill-about/content.json
+        buildPhase: resources
+      # sirno:witness:about-page:end
     dependencies:
       # Rust core, built by build-rust.sh (static xcframework — not embedded).
       - framework: Generated/UnbillCore.xcframework
@@ -73,3 +80,14 @@ targets:
         CODE_SIGN_STYLE: Automatic
         "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]": unbill-ios.entitlements
         DEVELOPMENT_TEAM: BB577FKUK4
+
+  unbill-tests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/AppearanceTests.swift
+    dependencies:
+      - target: unbill
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES

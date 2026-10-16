@@ -12,11 +12,9 @@ struct RootView: View {
     @State private var listGeneration = 0
     @State private var detailGeneration = 0
     @State private var billEditor: BillEditorContext?
-    @AppStorage("appearance") private var appearance = "system"
 
     var body: some View {
         navigation
-        .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
         .onChange(of: selectedLedgerID) { _, id in
             billEditor = nil
             if usesCompactNavigation {
@@ -194,6 +192,11 @@ private struct AppSettingsView: View {
                     }
                     Section {
                         NavigationLink {
+                            AboutView()
+                        } label: {
+                            Label(AboutContent.navigationTitle, systemImage: "info.circle")
+                        }
+                        NavigationLink {
                             LicensesView()
                         } label: {
                             Label("Open Source Licenses", systemImage: "doc.text")
@@ -225,10 +228,8 @@ private struct AppSettingsView: View {
                 loading = false
             }
         }
-        .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
         .sheet(isPresented: $showingDevices, onDismiss: onDevicesChanged) {
             DevicesView(console: console, onSynced: onDevicesChanged)
-                .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
         }
     }
 

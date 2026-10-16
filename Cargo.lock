@@ -8318,6 +8318,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-opener"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d39404b2572927e0d3ed30a7ca226037f7508d22e79c96ee6ef0d42b6a4b3345"
+dependencies = [
+ "dunce",
+ "glob",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "open",
+ "schemars 0.8.22",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.21",
+ "url",
+ "windows",
+ "zbus",
+]
+
+[[package]]
 name = "tauri-plugin-shell"
 version = "2.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9116,6 +9138,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eaea85b334db583fe3274d12b4cd1880032beab409c0d774be044d4480ab9a94"
 
 [[package]]
+name = "unbill-about"
+version = "0.0.7"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "unbill-asymmetric-channel"
 version = "0.0.7"
 dependencies = [
@@ -9163,6 +9193,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "unbill-about",
  "unbill-asymmetric-channel",
  "unbill-build-info",
  "unbill-console",
@@ -9416,12 +9447,14 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-blew",
  "tauri-plugin-deep-link",
+ "tauri-plugin-opener",
  "tauri-plugin-shell",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "unbill-about",
  "unbill-asymmetric-channel",
  "unbill-build-info",
  "unbill-console",
@@ -9446,6 +9479,7 @@ dependencies = [
  "ratatui",
  "tokio",
  "tracing-subscriber",
+ "unbill-about",
  "unbill-asymmetric-channel",
  "unbill-build-info",
  "unbill-console",
@@ -9461,6 +9495,7 @@ dependencies = [
  "leptos",
  "qrcode",
  "serde",
+ "unbill-about",
  "unbill-license",
  "wasm-bindgen-futures",
  "web-sys",

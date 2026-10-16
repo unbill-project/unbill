@@ -482,8 +482,9 @@ pub fn SettingsPopup(
                                         }}
                                     </div>
                                 <unbill_ui_components::bluetooth::BluetoothLegend />
-                                    </SectionCard>
-                                <SectionCard title="Legal".to_owned()>
+                                </SectionCard>
+                                <SectionCard title="Project".to_owned()>
+                                    <unbill_ui_components::about::OpenAbout />
                                     <OpenSourceLicenses />
                                 </SectionCard>
                                 <footer class="row-meta" style="grid-column: 1 / -1; font-size: 0.75rem; overflow-wrap: anywhere;">

@@ -119,8 +119,9 @@ equal or custom positive integer weights on both sides, and live amounts from
 UnbillConsole's verified splitting algorithm through UniFFI.
 Explicit Equal shares / Custom shares segmented controls select each side's mode;
 custom weights use labeled, bordered numeric inputs and survive mode changes.
-Payer selection uses square checkboxes with whole-row activation and accessible
-selection state on iOS and Mac Catalyst, rather than switches.
+Paid by and Split between use the same square checkbox style, with whole-row
+activation and accessible selection state on iOS and Mac Catalyst. The same
+participant control is used for active and archived members in both sections.
 UniFFI allocates a real bill ID when a draft opens; preview and save use that same ID,
 so displayed amounts match saved amounts. Amendments allocate a new ID rather than
 reusing the original bill ID. Amendments preserve archived
@@ -197,9 +198,13 @@ Selectable build information remains a separate compact footer below the form.
 
 Global Devices is opened from an application Settings form row; the ledger-list
 toolbar no longer presents it. Sync completion and device-sheet dismissal refresh
-the ledger list. Settings and its device sheet apply the stored appearance choice
-at their presentation boundaries so switching Light, Dark, or System updates them
-while open.
+the ledger list. A window-scoped UIKit appearance bridge observes the stored
+appearance choice at the app root and updates its containing UIWindow. Light and
+Dark override the whole window, including already-presented sheets; System clears
+the override. Views do not install competing preferredColorScheme overrides.
+Simulator tests verify window and presented-controller trait changes.
+
+About appears in Application Settings and on startup failure. Its UnbillLogo image set links to the root unbill-icon.svg and preserves vector data; SwiftUI renders its original colors on a light backing. XcodeGen bundles crates/unbill-about/content.json directly; Foundation decodes the shared resource and SwiftUI renders a native scrollable page with Dynamic Type and system link handling. The Apple build script runs the shared-content decoding test and typechecks About for each requested iOS, Simulator, or Catalyst target.
 
 The Local Network Bonjour declaration includes _irohv1._udp, matching the Iroh
 mDNS companion crate's service name.

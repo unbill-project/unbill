@@ -152,3 +152,5 @@ collapsed; expansion persists while editing share selection and weights.
 Amendment seeds preserve archived participants and original share weights.
 
 BluetoothBadge accepts a connected flag and renders blue or muted gray. Its label and the BluetoothLegend use plain language: Blue: connected via Bluetooth. Gray: device seen, not connected. Components only render the supplied state.
+
+The shared OpenAbout component renders about-page content in a native HTML dialog, with modal keyboard focus, Escape dismissal, and focus restoration. Native hosts supply an external-link callback; browsers use normal links. Typography follows the active theme. The brand mark embeds the root unbill-icon.svg, preserving the project logo on a light backing.

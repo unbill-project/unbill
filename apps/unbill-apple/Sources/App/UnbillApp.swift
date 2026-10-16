@@ -4,6 +4,7 @@ import SwiftUI
 struct UnbillApp: App {
     // Backed by the real Rust core (unbill-ffi via UniFFI over UnbillConsole).
     @State private var startup: Result<ConsoleClient, Error>
+    @AppStorage("appearance") private var appearance = "system"
 
     init() {
         _startup = State(initialValue: Result { try RustConsoleClient() })
@@ -11,12 +12,15 @@ struct UnbillApp: App {
 
     var body: some Scene {
         WindowGroup {
-            switch startup {
-            case .success(let console):
-                RootView(console: console)
-            case .failure(let error):
-                StartupFailureView(error: error) { startup = Result { try RustConsoleClient() } }
+            Group {
+                switch startup {
+                case .success(let console):
+                    RootView(console: console)
+                case .failure(let error):
+                    StartupFailureView(error: error) { startup = Result { try RustConsoleClient() } }
+                }
             }
+            .background(WindowAppearance(appearance: appearance))
         }
     }
 }
@@ -25,6 +29,7 @@ private struct StartupFailureView: View {
     let error: Error
     var onRetry: () -> Void
     @State private var showingLicenses = false
+    @State private var showingAbout = false
 
     private var failure: (title: String, icon: String, message: String) {
         switch error {
@@ -49,6 +54,17 @@ private struct StartupFailureView: View {
                 .controlSize(.large)
                 .keyboardShortcut(.defaultAction)
             Button("Open Source Licenses") { showingLicenses = true }
+            Button(AboutContent.navigationTitle) { showingAbout = true }
+        }
+        .sheet(isPresented: $showingAbout) {
+            NavigationStack {
+                AboutView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showingAbout = false }
+                        }
+                    }
+            }
         }
         .sheet(isPresented: $showingLicenses) {
             NavigationStack {

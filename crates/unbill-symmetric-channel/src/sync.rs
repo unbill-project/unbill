@@ -83,7 +83,19 @@ where
 
     let accepted: Vec<String> = if is_initiator {
         let metas = store.list_ledgers().await?;
-        let my_ids: Vec<String> = metas.iter().map(|m| m.ledger_id.to_string()).collect();
+        let mut my_ids = Vec::new();
+        for meta in metas {
+            let id = meta.ledger_id.to_string();
+            let doc = store
+                .load_ledger(&id)
+                .await?
+                .ok_or_else(|| UnbillError::Network(format!("ledger {id} disappeared")))?;
+            // Only propose ledgers this authenticated peer may access. The
+            // HelloAck subset check below preserves this authorization boundary.
+            if doc.is_device_authorized(&peer_node_id)? {
+                my_ids.push(id);
+            }
+        }
         // Build the set before moving my_ids into the Hello message.
         let my_ids_set: std::collections::HashSet<String> = my_ids.iter().cloned().collect();
         write_msg(&mut writer, &SyncFrame::Hello(Hello { ledger_ids: my_ids })).await?;
@@ -395,6 +407,79 @@ mod tests {
 
         task_a.await.unwrap();
         task_b.await.unwrap();
+    }
+
+    async fn check_initiator_authorization(
+        malicious_ack: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use crate::protocol::{HelloAck, SyncFrame, read_msg, write_msg};
+        use tokio::io::AsyncReadExt;
+
+        let peer = NodeId::from_seed(2);
+        let store = Arc::new(StoreServer::spawn(make_store()));
+        let now = Timestamp::now()?;
+        let mut shared = LedgerDoc::new(LedgerId::new(), "Shared".into(), usd(), now)?;
+        shared.add_device(
+            NewDevice {
+                node_id: peer.clone(),
+                label: unbill_model::DeviceLabel::new("Peer".into())?,
+            },
+            now,
+        )?;
+        let shared_id = shared.get_ledger()?.ledger_id.to_string();
+        save_doc(&store, &mut shared).await?;
+        let mut private = LedgerDoc::new(LedgerId::new(), "Private".into(), usd(), now)?;
+        let private_id = private.get_ledger()?.ledger_id.to_string();
+        save_doc(&store, &mut private).await?;
+
+        let (initiator, responder) = tokio::io::duplex(64 * 1024);
+        let (reader, writer) = tokio::io::split(initiator);
+        let task =
+            tokio::spawn(async move { run_sync_session(true, peer, &store, reader, writer).await });
+        let (mut reader, mut writer) = tokio::io::split(responder);
+        let hello: SyncFrame = read_msg(&mut reader).await?;
+        let SyncFrame::Hello(hello) = hello else {
+            panic!("expected Hello");
+        };
+        assert_eq!(hello.ledger_ids, vec![shared_id]);
+
+        write_msg(
+            &mut writer,
+            &SyncFrame::HelloAck(HelloAck {
+                accepted: if malicious_ack {
+                    vec![private_id]
+                } else {
+                    Vec::new()
+                },
+                rejected: Vec::new(),
+            }),
+        )
+        .await?;
+        let result = task.await?;
+        if malicious_ack {
+            let error = result
+                .err()
+                .expect("unproposed private ledger must be rejected");
+            assert!(error.to_string().contains("we never proposed"));
+        } else {
+            assert!(result?.is_empty());
+        }
+        let mut sent = Vec::new();
+        reader.read_to_end(&mut sent).await?;
+        assert!(sent.is_empty(), "no ledger data may follow this HelloAck");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_initiator_hello_only_contains_authorized_ledgers()
+    -> Result<(), Box<dyn std::error::Error>> {
+        check_initiator_authorization(false).await
+    }
+
+    #[tokio::test]
+    async fn test_initiator_rejects_private_ledger_in_malicious_ack()
+    -> Result<(), Box<dyn std::error::Error>> {
+        check_initiator_authorization(true).await
     }
 
     #[tokio::test]

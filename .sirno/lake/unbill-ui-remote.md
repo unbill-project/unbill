@@ -109,3 +109,5 @@ The browser UI groups archived ledgers in a collapsed Archived disclosure with n
 Ledger list rows only open ledger details; restoration belongs in Ledger Settings. Explicitly opened archived ledgers remain selected across refreshes.
 
 An owner-scoped task projects the Console BLE subscription into observed and connected identity lists. Global and ledger device rows render gray or blue badges and include the plain-language color legend. Closure clears indicators and owner cleanup cancels the task. Indicators describe the server radio.
+
+About is available from General settings and the connection screen, before authentication. The shared component reads only bundled about-page content; repository links open a separate browser tab on demand.

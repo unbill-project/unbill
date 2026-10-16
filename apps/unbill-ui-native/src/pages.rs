@@ -482,8 +482,13 @@ pub fn SettingsPopup(
                                         }}
                                     </div>
                                 <unbill_ui_components::bluetooth::BluetoothLegend />
-                                    </SectionCard>
-                                <SectionCard title="Legal".to_owned()>
+                                </SectionCard>
+                                <SectionCard title="Project".to_owned()>
+                                    <unbill_ui_components::about::OpenAbout on_open_link=Callback::new(move |(section_id, complete): unbill_ui_components::about::AboutLinkRequest| {
+                                        leptos::task::spawn_local(async move {
+                                            complete.run(crate::api::open_about_link(&section_id).await);
+                                        });
+                                    }) />
                                     <OpenSourceLicenses />
                                 </SectionCard>
                                 <footer class="row-meta" style="grid-column: 1 / -1; font-size: 0.75rem; overflow-wrap: anywhere;">

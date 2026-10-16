@@ -91,6 +91,12 @@ pending accept tasks.
 The higher-level `accept_loop_inner` delegates acceptance to `accept_bi`, so both
 entry points share one handshake and initial-stream implementation.
 
+The initiator proposes only ledgers that authorize the TLS-authenticated remote
+NodeId. Missing documents or authorization-read errors abort before sending Hello.
+The responder's accepted IDs must be a subset of this authorized proposal; an
+unproposed ID aborts before ledger sync data is sent. Protocol regression tests
+verify that private IDs stay out of Hello and malicious acceptance is rejected.
+
 Successful sync and join connections log their Iroh transport paths at INFO level,
 on establishment, path changes, and closure. Each line includes a connection ID,
 peer, protocol, direct/relay/ble/custom transport, remote address, selection and closure

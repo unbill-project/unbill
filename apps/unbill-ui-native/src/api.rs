@@ -168,6 +168,14 @@ pub async fn bootstrap_app() -> Result<AppBootstrap, String> {
     invoke("bootstrap_app", &()).await
 }
 
+pub async fn open_about_link(section_id: &str) -> Result<(), String> {
+    invoke(
+        "open_about_link",
+        &serde_json::json!({ "sectionId": section_id }),
+    )
+    .await
+}
+
 pub async fn create_ledger(input: CreateLedgerInput) -> Result<LedgerSummary, String> {
     invoke("create_ledger", &serde_json::json!({ "input": input })).await
 }

@@ -114,12 +114,8 @@ struct AddBillView: View {
             else { payeeWeights[user.userID] = enabled ? "1" : nil }
         })
         return VStack(alignment: .leading) {
-            if payers {
-                Toggle(user.displayName, isOn: selection)
-                    .toggleStyle(PayerCheckboxStyle())
-            } else {
-                Toggle(user.displayName, isOn: selection)
-            }
+            Toggle(user.displayName, isOn: selection)
+                .toggleStyle(ParticipantCheckboxStyle())
             if selected {
                 HStack {
                     if custom {
@@ -200,7 +196,7 @@ struct AddBillView: View {
     }
 }
 
-private struct PayerCheckboxStyle: ToggleStyle {
+private struct ParticipantCheckboxStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         Button { configuration.isOn.toggle() } label: {
             HStack(spacing: 12) {
