@@ -76,7 +76,9 @@ impl UnbillDevice {
                     }
                 }
                 let mut snapshot = device.endpoint.ble_snapshot();
-                snapshot.discovered_node_ids = device.endpoint.ble_discovered_node_ids(&known);
+                snapshot.discovered_node_ids = device
+                    .endpoint
+                    .ble_discovered_node_ids(&known, &snapshot.peers);
                 let closed = matches!(snapshot.state, unbill_model::BleState::Closed);
                 device.publish_ble(snapshot);
                 if closed {

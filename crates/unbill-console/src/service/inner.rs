@@ -839,7 +839,8 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(rx.borrow_and_update().observed_node_ids(), vec![discovered]);
+        assert_eq!(rx.borrow_and_update().discovered_node_ids, vec![discovered]);
+        assert!(rx.borrow().observed_node_ids().is_empty());
 
         // Wait until an unchanged notification has actually been processed.
         let reads = channel.ble_reads.load(Ordering::SeqCst);

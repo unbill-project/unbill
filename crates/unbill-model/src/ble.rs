@@ -9,16 +9,15 @@ pub struct BleSnapshot {
     #[serde(flatten)]
     pub state: BleState,
     pub peers: Vec<BlePeer>,
-    /// Known peer IDs matched by advertising prefix, not authenticated identities.
-    /// Upstream retains hints for the session; these do not prove current proximity.
+    /// Known IDs matched to peers in this snapshot, not authenticated identities.
     #[serde(default)]
     pub discovered_node_ids: Vec<NodeId>,
 }
 
 impl BleSnapshot {
-    /// Observations only: advertising hints and previously verified peer identities.
+    /// Current peers only; discovery history without a peer never produces a badge.
     pub fn observed_node_ids(&self) -> Vec<NodeId> {
-        if self.state != BleState::Active {
+        if self.state != BleState::Active || self.peers.is_empty() {
             return Vec::new();
         }
         let mut nodes = self.discovered_node_ids.clone();
@@ -111,24 +110,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn historical_discovery_without_current_peers_has_no_indicator() {
+        let snapshot = BleSnapshot {
+            state: BleState::Active,
+            peers: Vec::new(),
+            discovered_node_ids: vec![NodeId::from_seed(2)],
+        };
+        assert_eq!(snapshot.indicator_node_ids(), (vec![], vec![]));
+    }
+
+    #[test]
     fn discovery_hints_are_gray_until_verified_connected() {
         let id = NodeId::from_seed(2);
         let mut snapshot = BleSnapshot {
             state: BleState::Active,
-            peers: Vec::new(),
+            peers: vec![BlePeer {
+                device_id: "radio".into(),
+                phase: BlePeerPhase::Discovered,
+                consecutive_failures: 0,
+                connect_path: None,
+                verified_node_id: None,
+            }],
             discovered_node_ids: vec![id.clone(), id.clone()],
         };
         assert_eq!(
             snapshot.indicator_node_ids(),
             (vec![id.to_string()], vec![])
         );
-        snapshot.peers.push(BlePeer {
+        snapshot.peers[0] = BlePeer {
             device_id: "radio".into(),
             phase: BlePeerPhase::Connected,
             consecutive_failures: 0,
             connect_path: Some(BleConnectPath::Gatt),
             verified_node_id: Some(id.clone()),
-        });
+        };
         assert_eq!(
             snapshot.indicator_node_ids(),
             (vec![id.to_string()], vec![id.to_string()])

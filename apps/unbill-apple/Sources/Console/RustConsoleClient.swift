@@ -215,6 +215,10 @@ private final class BleConnectionObserver: FfiBleObserver {
             continuation.yield(BlePeerConnections())
             return
         }
+        guard !snapshot.peers.isEmpty else {
+            continuation.yield(BlePeerConnections())
+            return
+        }
         let nodes = snapshot.peers.compactMap { peer -> String? in
             guard case .connected = peer.phase else { return nil }
             return peer.verifiedNodeId

@@ -213,8 +213,12 @@ impl UnbillEndpoint {
     }
 
     // sirno:witness:ble-transport:begin
-    /// Advertising-prefix hints for known peers, without identity authentication.
-    pub fn ble_discovered_node_ids(&self, known: &[NodeId]) -> Vec<NodeId> {
+    /// Correlate known identities only with peers present in this sample.
+    pub fn ble_discovered_node_ids(
+        &self,
+        known: &[NodeId],
+        peers: &[unbill_model::BlePeer],
+    ) -> Vec<NodeId> {
         if self.closed.load(Ordering::Acquire) {
             return Vec::new();
         }
@@ -225,16 +229,14 @@ impl UnbillEndpoint {
             target_os = "android"
         ))]
         if let Some(ble) = &self.ble {
-            return known
-                .iter()
-                .filter(|node| {
-                    node.to_endpoint_id()
-                        .is_ok_and(|id| ble.transport.has_scan_hint_for_endpoint(&id))
-                })
-                .cloned()
-                .collect();
+            return current_ble_matches(known, peers, |node| {
+                let id = node.to_endpoint_id().ok()?;
+                ble.transport
+                    .device_for_endpoint(&id)
+                    .map(|device| device.to_string())
+            });
         }
-        let _ = known;
+        let _ = (known, peers);
         Vec::new()
     }
 
@@ -437,6 +439,30 @@ impl UnbillEndpoint {
 // Dispatch incoming connection to the right protocol handler
 // ---------------------------------------------------------------------------
 
+// sirno:witness:ble-transport:begin
+#[cfg(any(
+    target_os = "macos",
+    target_os = "ios",
+    target_os = "linux",
+    target_os = "android",
+    test
+))]
+fn current_ble_matches(
+    known: &[NodeId],
+    peers: &[unbill_model::BlePeer],
+    resolve_device: impl Fn(&NodeId) -> Option<String>,
+) -> Vec<NodeId> {
+    known
+        .iter()
+        .filter(|node| {
+            resolve_device(node)
+                .is_some_and(|device| peers.iter().any(|peer| peer.device_id == device))
+        })
+        .cloned()
+        .collect()
+}
+// sirno:witness:ble-transport:end
+
 // Path events own their data; the observer never retains a strong connection.
 fn monitor_paths(conn: &iroh::endpoint::Connection) {
     let connection = conn.stable_id();
@@ -572,6 +598,33 @@ async fn dispatch(accepted: AcceptedBi, store: Arc<StoreServer>) -> Result<()> {
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    #[test]
+    fn ble_discovery_matches_only_current_peer_devices() {
+        let current = NodeId::from_seed(1);
+        let historical = NodeId::from_seed(2);
+        let known = vec![current.clone(), historical];
+        let mut peers = vec![unbill_model::BlePeer {
+            device_id: "current-radio".into(),
+            phase: unbill_model::BlePeerPhase::Discovered,
+            consecutive_failures: 0,
+            connect_path: None,
+            verified_node_id: None,
+        }];
+        let resolve = |node: &NodeId| {
+            Some(if node == &current {
+                "current-radio".to_owned()
+            } else {
+                "historical-radio".to_owned()
+            })
+        };
+        assert_eq!(
+            current_ble_matches(&known, &peers, resolve),
+            vec![current.clone()]
+        );
+        peers.clear();
+        assert!(current_ble_matches(&known, &peers, resolve).is_empty());
+    }
 
     async fn local_endpoint() -> iroh::Endpoint {
         iroh::Endpoint::builder(presets::Minimal)

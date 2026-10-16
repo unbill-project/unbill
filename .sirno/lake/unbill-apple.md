@@ -209,4 +209,4 @@ Physical iOS builds also request the multicast entitlement because this service
 uses UDP multicast sockets directly. Device signing must use a provisioning
 profile that grants this capability; the entitlement is not applied to Catalyst.
 
-Devices and Ledger Settings consume a bufferingNewest AsyncStream with observed and connected NodeId sets through the FFI observer. A device row uses blue when connected and gray when only observed. Both device sections include the plain-language color legend in their footer. View cancellation releases the subscription; observer release finishes the stream.
+Devices and Ledger Settings consume a bufferingNewest AsyncStream with current observed and connected NodeId sets through the FFI observer. A device row uses blue when connected and gray when only observed. An empty current peer list clears all badges even if an older service sends historical discovery hints. Both device sections include the plain-language color legend in their footer. View cancellation releases the subscription; observer release finishes the stream.
