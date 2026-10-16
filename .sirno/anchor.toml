@@ -40,7 +40,7 @@ fingerprint = "sha256:fd3302642d25a1dbc341cd4954cce29d25ad7b8674cb91320ff080ed94
 "core.belongs" = ["unbill"]
 
 [entries.ci-cd-pipeline]
-fingerprint = "sha256:d15f0e8979a9458d118f9685566a3a45e2e9f62cda112485ea4c4530fce95713"
+fingerprint = "sha256:051e8cc3a6b0cdc2a9e131bb8eacf10b33db69262d5fb10e8344c1275c0c9471"
 "core.belongs" = ["distribution-and-release"]
 
 [entries.compiled-markdown-artifacts]
@@ -97,7 +97,7 @@ fingerprint = "sha256:859fa7b4360d5a7b9d33c846699241f7f1252d61e1792d851784337b8d
 "core.refines" = ["design-principles"]
 
 [entries.deployment-topologies]
-fingerprint = "sha256:a20cc991881a71af7467937b44ee4a77dd0e9d62d840f3a82244f481c19d2260"
+fingerprint = "sha256:88c0eef9502ca9e8c61cc0dea73623fe421f36f2a73cd83e2d849686ba862bbc"
 "core.belongs" = [
     "unbill",
     "applications",
@@ -118,7 +118,7 @@ fingerprint = "sha256:3f90bf67804a1024b5acde51ac1fcb064fe21ed40b8efa3605c88cf5d0
 "core.refines" = ["design-principles"]
 
 [entries.distribution-and-release]
-fingerprint = "sha256:8277aa600a7cb7e47cf19f9ad482e21ef91abc50fc08a73cfdc432f1427444fa"
+fingerprint = "sha256:53b4450b5cc42d64ff937cdce14df890fcddfed2ea0f34adbed8727d39fd656f"
 "core.belongs" = ["unbill"]
 
 [entries.emoji-fingerprint]
@@ -213,6 +213,13 @@ fingerprint = "sha256:0c64da9a6ea338bd7155dda22367dbb120a675c37eafbbfeb48e5b8ebe
 "core.belongs" = ["unbill"]
 "core.refines" = ["design-principles"]
 
+[entries.python-bindings]
+fingerprint = "sha256:8bd97f20ade239ff8929f425ee993b99b0c122ac29fa45702a0b4824674c38ba"
+"core.belongs" = [
+    "workspace-layout",
+    "unbill-ffi",
+]
+
 [entries.security-model]
 fingerprint = "sha256:220ab59e5a0a59de4ee57449d44edc651e705327ac0d222d6e1d0e6fc4769735"
 "core.belongs" = ["unbill"]
@@ -252,7 +259,7 @@ fingerprint = "sha256:e64d033c5aafdbaf7ad2ce16eb75ab659f5ee60a5f32bd06e041336473
 "core.belongs" = ["unbill"]
 
 [entries.symmetric-channel]
-fingerprint = "sha256:7045883a3693d697aa3dd316c41ae5ec7ba732e81b8c66490093d8c64733d55b"
+fingerprint = "sha256:c656735085597406a91d797a5b26854f383b4abf9fe1fd9d4eb77d947b25481a"
 "core.belongs" = [
     "channels",
     "workspace-layout",
@@ -268,7 +275,7 @@ fingerprint = "sha256:5b5b3a07dd04e7d70b4375791dcc830271c5ccd94df75df4a64f6c48da
 "core.refines" = ["design-principles"]
 
 [entries.ui-components]
-fingerprint = "sha256:39be3c410d87acdc29ba51f0e5c66c662e52f7a177b2978a2d9598c43475ba72"
+fingerprint = "sha256:ea63e3a7684c53a28587ddab90515585ecb91ff1fc2dd48435eab97a33b98d83"
 "core.belongs" = [
     "frontend-ui",
     "workspace-layout",
@@ -276,7 +283,7 @@ fingerprint = "sha256:39be3c410d87acdc29ba51f0e5c66c662e52f7a177b2978a2d9598c434
 "core.refines" = ["ui-shared-model"]
 
 [entries.ui-shared-model]
-fingerprint = "sha256:e72e2e82fae8c1f00a5c35c1915f2a08e291c313bd4039492eff549a31b4e73d"
+fingerprint = "sha256:af583b59ae48f7b956b66387e4a1a39ff0ae38b442f40998f421a7ac1f1f8a92"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -287,7 +294,7 @@ fingerprint = "sha256:e72e2e82fae8c1f00a5c35c1915f2a08e291c313bd4039492eff549a31
 fingerprint = "sha256:4e55d4de86988da589d6b17d66d2e4c85e16b56d58a84ef34b76588b24a37c34"
 
 [entries.unbill-apple]
-fingerprint = "sha256:7eed5870f33b610ec470fa81c3432a7404e005fb69631a340bad7161983092c9"
+fingerprint = "sha256:583e5b3dffecd1d268383334a970e1456623057c130f118360d5b35965646893"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -295,7 +302,7 @@ fingerprint = "sha256:7eed5870f33b610ec470fa81c3432a7404e005fb69631a340bad716198
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-cli]
-fingerprint = "sha256:d459ffca80a78a1a247168a9234ec76a96de5eeb2c6b3b7955bccb4b5a062e24"
+fingerprint = "sha256:9714fece299c7028ec9396b7c5844f5ce2b8bf692232ea531e3b692c71099e09"
 "core.belongs" = ["applications"]
 "core.refines" = ["device-console-split"]
 
@@ -321,6 +328,14 @@ fingerprint = "sha256:dfd69c147c2b3e6897f0c3640438f35655cff6f5fc711a87874d0c090d
 fingerprint = "sha256:23bf8421cd46fba5ee8f1b0c4995c7ee4a1579afea376b532d551c00deafbee4"
 "core.belongs" = ["workspace-layout"]
 "core.refines" = ["sync-behavior"]
+
+[entries.unbill-ffi]
+fingerprint = "sha256:81e6f5645bb995af41f57cfe275dc5e17b42565820068ffd2ba9b8679ac363fe"
+"core.belongs" = ["workspace-layout"]
+
+[entries.unbill-license]
+fingerprint = "sha256:5f5faa2cfca3c84cfae6c298b268437da7c2687b64129ec326c9f5dd32c112fd"
+"core.belongs" = ["workspace-layout"]
 
 [entries.unbill-model]
 fingerprint = "sha256:d9a36b05b39eca4d89e4a5b97da71d04a6cea7785d351767113ebd068d4a3736"
@@ -357,7 +372,7 @@ fingerprint = "sha256:cd2380666bb79e4dc093af761f5675b93786c5af61c2d2632cf482230f
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-ui-native]
-fingerprint = "sha256:e630f31a86458e18e9dbc7b8991826d4c369a81f7d9d2d46bb3cc29ee92f2192"
+fingerprint = "sha256:3292242ae6a742b992f5d1f487b3d82d28c974cb21ef2ec28ef8f5559ff45924"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -365,7 +380,7 @@ fingerprint = "sha256:e630f31a86458e18e9dbc7b8991826d4c369a81f7d9d2d46bb3cc29ee9
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-ui-remote]
-fingerprint = "sha256:fab246f8dfad835cd7ff18054d90fc3382ae7c70a9feab4d93f0532932906be0"
+fingerprint = "sha256:eb109aec6e7f266dc8e43e28979ced74d09021404531e85792ac428cde6dbe6c"
 "core.belongs" = [
     "frontend-ui",
     "applications",
@@ -378,5 +393,5 @@ fingerprint = "sha256:d511a3ae658f60c88a21a0f9d5940e31e54f648d658e013c63818a8f76
 "core.refines" = ["data-model"]
 
 [entries.workspace-layout]
-fingerprint = "sha256:c20ede856e93edf156cfaf1003139c9a5def558277fae6a966946a69417f12e5"
+fingerprint = "sha256:9fdae6eaffe419a4b114299e8746d4f7bc82166c83c89e7e56e5ba40b391c1a8"
 "core.belongs" = ["unbill"]

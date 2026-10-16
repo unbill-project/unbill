@@ -11,11 +11,12 @@ core.refines:
 ---
 
 Single-process colocated deployment runs a device and console in the same process.
-This fits mobile app sandboxes.
+This fits mobile app sandboxes and embedded Python clients.
 The asymmetric channel is in-process memory communication.
+Desktop embedded clients acquire the same exclusive data-directory lock as the daemon.
 
 Local two-process desktop deployment runs `unbill-daemon` as the device process.
-CLI, TUI, Tauri, and Apple macOS/Catalyst connect over the local RPC socket.
+CLI, TUI, Tauri, Apple macOS/Catalyst, and Python clients using daemon mode connect over the local RPC socket.
 The daemon acquires the desktop data-directory lock when opening its SQLite Store.
 The daemon holds storage and sync after the UI exits,
 and multiple local consoles can connect concurrently.

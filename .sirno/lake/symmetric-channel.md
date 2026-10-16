@@ -88,3 +88,10 @@ NodeId. Missing documents or authorization-read errors abort before sending Hell
 The responder's accepted IDs must be a subset of this authorized proposal; an
 unproposed ID aborts before ledger sync data is sent. Protocol regression tests
 verify that private IDs stay out of Hello and malicious acceptance is rejected.
+
+Successful sync and join connections log their Iroh transport paths at INFO level,
+on establishment, path changes, and closure. Each line includes a connection ID,
+peer, protocol, direct/relay/custom transport, remote address, selection and closure
+flags, and available per-path QUIC byte counters (including protocol overhead).
+These describe transport paths rather than proving mDNS address discovery. The
+observer uses weak handles and does not keep connections alive for logging.

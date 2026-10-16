@@ -28,7 +28,8 @@ Role crates:
 UI crates:
 `unbill-tauri` exposes the desktop bridge and host.
 `unbill-ui-components` provides shared Leptos components for frontend apps.
-`unbill-ffi` bridges `unbill-console` to Swift through UniFFI.
+`unbill-ffi` bridges `unbill-console` to Swift and Python through UniFFI.
+`bindings/python` builds the installable Python package described by `python-bindings`.
 
 Applications:
 `unbill-cli`, `unbill-tui`, `unbill-daemon`, `unbill-server`,
@@ -38,3 +39,6 @@ Applications:
 and lives outside the Cargo workspace.
 
 `unbill-build-info` provides shared build-information types; each application embeds its own version and UTC build timestamp.
+
+`unbill-license` embeds a generated dictionary of license texts and notices for
+workspace Rust software and normal dependencies, shared by frontend and package consumers.

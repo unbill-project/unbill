@@ -116,6 +116,7 @@ The device persists ledger state in Automerge documents and converges with peers
 Use Rust stable.
 
 ```sh
+cargo fetch --locked
 cargo build --workspace
 cargo test --workspace --exclude unbill-tauri
 ```
@@ -169,7 +170,9 @@ Unbill is a Rust workspace built from focused crates and thin applications.
 | `crates/unbill-symmetric-channel` | Device-to-device Iroh sync and join |
 | `crates/unbill-asymmetric-channel` | Device-to-console transports |
 | `crates/unbill-tauri`, `crates/unbill-ui-components` | Desktop and web UI |
-| `crates/unbill-ffi` | Swift/UniFFI bridge for the Apple app |
+| `crates/unbill-ffi` | Shared UniFFI bridge for Swift and Python |
+| [`bindings/python`](bindings/python/README.md) | Installable Python bindings and native library |
+| `crates/unbill-license` | Compiled Rust dependency licenses and attribution notices |
 | `apps/` | CLI, TUI, daemon, server, native UI, remote UI |
 | `apps/unbill-apple` | Native SwiftUI app (iPhone, iPad, Mac Catalyst) |
 

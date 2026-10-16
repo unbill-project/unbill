@@ -21,16 +21,16 @@ The app is backed by the real Rust core.
 There is no mock backend.
 Listing ledgers only reads persisted state. A fresh installation starts with an empty
 ledger list; the app does not automatically create sample ledgers, users, or bills.
-On iOS and Simulator the Rust bridge opens an in-process SQLite device service
+On iOS and Simulator the app calls `Console.openInProcess` to open a SQLite device service
 in the app's data directory, skipping the desktop ownership lock.
-On macOS and Mac Catalyst it connects by RPC to an already-running daemon
+On macOS and Mac Catalyst it calls `Console.openRpc` to connect by RPC to an already-running daemon
 using the shared desktop data-directory default and socket override.
 Startup failures display their error; daemon installation and startup follow the desktop model.
 Existing flat-file data remains untouched and is not automatically imported.
 The new-ledger currency picker obtains the complete Rust currency catalog through `ConsoleClient`
 and UniFFI, sorted by currency code, rather than maintaining a Swift shortlist.
 
-`unbill-ffi` is a Cargo workspace member that bridges `UnbillConsole` to Swift with UniFFI.
+`unbill-ffi` is a Cargo workspace member that exposes the shared `Console` interface to Swift with UniFFI.
 It mirrors the aggregated command granularity of the Tauri bridge rather than the raw console methods:
 bootstrap, ledger detail, create ledger, create and import users, save bill, resolve conflict,
 create invitation, join, sync, and a `ServiceEvent` callback stream.
@@ -40,6 +40,12 @@ The project lives at `apps/unbill-apple`, outside the Cargo workspace.
 An `xcodegen` `project.yml` defines one application target for iOS device, simulator, and Mac Catalyst.
 It declares a shared `unbill` scheme so fresh CI checkouts can build without opening Xcode.
 `build-rust.sh` compiles `unbill-ffi` into `UnbillCore.xcframework` and generates the Swift bindings.
+Each target supplies its own generated Swift bindings, C header, and module map.
+Swift conditional compilation selects the matching generated source, and each
+XCFramework slice carries its matching headers. iOS device and Simulator bindings
+omit the daemon constructor entirely; Mac Catalyst bindings expose both constructors.
+Build-time Swift checks accept in-process construction on every target and require
+daemon construction to fail on iOS device and Simulator while succeeding on Catalyst.
 The generated project, Swift bindings, xcframework, `Info.plist`, and docs projection stay out of version control.
 
 `build-apple-dmg.yml` builds an Apple Silicon Catalyst DMG on macOS CI.
@@ -89,6 +95,14 @@ People offers Archive and Restore actions. Archived people and bill participant
 choices appear in collapsed disclosure groups; new bill defaults use active people.
 
 Application Settings displays client version and UTC build timestamp alongside the connected daemon or in-process service build, obtained through UniFFI, as a compact footer at the bottom.
+
+Application Settings links to a searchable Open Source Licenses list with Unbill
+first. Software details show version, license expression, repository, source
+location and selectable original legal texts. Standalone UniFFI functions expose
+the local catalog and selected software without a console connection. The Swift
+loader reads them off the main actor and renders only selected software details.
+The startup failure screen also offers the license browser without a device
+connection. Apple build workflows exercise the Foundation-only search model.
 
 The Swift Apple iOS app is built unsigned by `build-apple-ios.yml` on macOS CI.
 Nightly and version releases enable `build_apple_ios`; manual builds can opt in.
@@ -172,3 +186,17 @@ Compact iPhone layouts use an explicit NavigationStack with ledger-ID destinatio
 iPad retains two-column navigation and Mac Catalyst retains three columns. The stack
 path and ledger selection stay synchronized for back navigation and archiving.
 The detail screen keeps a stable full-size container for content and reload errors.
+
+The application Settings gear belongs to the ledger-list view inside the navigation
+container. iOS explicitly places it in the trailing navigation bar; Mac Catalyst
+uses automatic placement. RootView owns the settings sheet presentation.
+
+Application Settings uses native Form sections for Appearance and the Open Source
+Licenses navigation row, retaining the system row styling and disclosure indicator.
+Selectable build information remains a separate compact footer below the form.
+
+Global Devices is opened from an application Settings form row; the ledger-list
+toolbar no longer presents it. Sync completion and device-sheet dismissal refresh
+the ledger list. Settings and its device sheet apply the stored appearance choice
+at their presentation boundaries so switching Light, Dark, or System updates them
+while open.

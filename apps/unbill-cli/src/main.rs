@@ -10,6 +10,7 @@ use unbill_console::service::UnbillConsole;
 use unbill_storage::UNBILL_PATH;
 
 mod commands;
+mod licenses;
 mod output;
 
 // ---------------------------------------------------------------------------
@@ -30,6 +31,14 @@ pub struct Cli {
 
 #[derive(clap::Subcommand)]
 pub enum Command {
+    /// View embedded licenses and third-party notices without a daemon.
+    Licenses {
+        /// Software name to view in full; omit to list available software.
+        software: Option<String>,
+        /// Print full license texts and notices for every software package.
+        #[arg(long, conflicts_with = "software")]
+        all: bool,
+    },
     /// Initialize this device (generates a key if one does not exist).
     Init,
     /// Show information about this device.
@@ -221,6 +230,17 @@ async fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
     let json = cli.json;
 
+    // sirno:witness:unbill-license:begin
+    if let Command::Licenses { software, all } = &cli.command {
+        return licenses::write(
+            &mut std::io::stdout().lock(),
+            software.as_deref(),
+            *all,
+            json,
+        );
+    }
+    // sirno:witness:unbill-license:end
+
     let data_dir = UNBILL_PATH.ensure_data_dir()?;
 
     let socket = UNBILL_PATH.socket_path()?;
@@ -231,6 +251,12 @@ async fn run() -> anyhow::Result<()> {
     let svc = UnbillConsole::open(channel).await;
 
     match cli.command {
+        Command::Licenses { software, all } => licenses::write(
+            &mut std::io::stdout().lock(),
+            software.as_deref(),
+            all,
+            json,
+        ),
         Command::Init => commands::init(&svc, json).await,
         Command::Device { sub } => match sub {
             DeviceCmd::Show => commands::device_show(&svc, &data_dir, json).await,

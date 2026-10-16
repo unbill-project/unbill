@@ -8,6 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
+unbill-license = { path = "../unbill-license" }
 leptos = { version = "0.8.14", features = ["csr"] }
 serde = { workspace = true, features = ["derive"] }
 iso_currency = { workspace = true, features = ["iterator"] }

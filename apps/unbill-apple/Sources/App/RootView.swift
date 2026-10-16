@@ -34,16 +34,10 @@ struct RootView: View {
             guard url.scheme?.lowercased() == "unbill", url.host?.lowercased() == "join" else { return }
             sheet = .join(url.absoluteString)
         }
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
-                Button { sheet = .settings } label: {
-                    Label("Settings", systemImage: "gearshape")
-                }
-            }
-        }
         .sheet(item: $sheet) { destination in
             switch destination {
-            case .settings: AppSettingsView(console: console)
+            case .settings:
+                AppSettingsView(console: console, onDevicesChanged: { listGeneration += 1 })
             case .join(let url):
                 JoinLedgerView(console: console, invitationURL: url) { listGeneration += 1 }
             }
@@ -106,6 +100,21 @@ struct RootView: View {
             selectedLedgerID = detail.summary.id
         })
             .id(listGeneration)
+            .toolbar {
+                ToolbarItem(placement: settingsPlacement) {
+                    Button { sheet = .settings } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                }
+            }
+    }
+
+    private var settingsPlacement: ToolbarItemPlacement {
+        #if targetEnvironment(macCatalyst)
+        .automatic
+        #else
+        .topBarTrailing
+        #endif
     }
 
     @ViewBuilder private var ledgerContent: some View {
@@ -145,6 +154,8 @@ private enum AppSheet: Identifiable {
 
 private struct AppSettingsView: View {
     let console: ConsoleClient
+    var onDevicesChanged: () -> Void
+    @State private var showingDevices = false
     @AppStorage("appearance") private var appearance = "system"
     private let client = clientBuildInfo()
     @State private var service: FfiBuildInfo?
@@ -160,29 +171,48 @@ private struct AppSettingsView: View {
 
     var body: some View {
         NavigationStack {
-            GeometryReader { geometry in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
+            VStack(spacing: 0) {
+                Form {
+                    Section {
                         Picker("Appearance", selection: $appearance) {
                             Text("System").tag("system")
                             Text("Light").tag("light")
                             Text("Dark").tag("dark")
                         }
-                        .font(.body).foregroundStyle(.primary)
-                        Spacer(minLength: 24)
-                        Text("Client: \(client.version) (built \(client.builtAtUtc))")
-                        if let service {
-                            Text("\(serviceLabel): \(service.version) (built \(service.builtAtUtc))")
-                        } else {
-                            Text("\(serviceLabel): \(loading ? "Loading…" : "Service version unavailable")")
+                    }
+                    Section {
+                        Button { showingDevices = true } label: {
+                            HStack {
+                                Label("Devices", systemImage: "laptopcomputer.and.iphone")
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .foregroundStyle(.primary)
                         }
                     }
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, minHeight: max(0, geometry.size.height - 32), alignment: .bottomLeading)
-                    .padding()
+                    Section {
+                        NavigationLink {
+                            LicensesView()
+                        } label: {
+                            Label("Open Source Licenses", systemImage: "doc.text")
+                        }
+                    }
                 }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Client: \(client.version) (built \(client.builtAtUtc))")
+                    if let service {
+                        Text("\(serviceLabel): \(service.version) (built \(service.builtAtUtc))")
+                    } else {
+                        Text("\(serviceLabel): \(loading ? "Loading…" : "Service version unavailable")")
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
             }
             .navigationTitle("Settings")
             .toolbar {
@@ -194,6 +224,11 @@ private struct AppSettingsView: View {
                 service = try? await console.serviceBuildInfo()
                 loading = false
             }
+        }
+        .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
+        .sheet(isPresented: $showingDevices, onDismiss: onDevicesChanged) {
+            DevicesView(console: console, onSynced: onDevicesChanged)
+                .preferredColorScheme(appearance == "light" ? .light : appearance == "dark" ? .dark : nil)
         }
     }
 
