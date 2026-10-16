@@ -108,3 +108,5 @@ native frontend refreshes the fingerprint through its existing detail queries.
 
 Joining requires the name of this joining device in the ledger. Device names
 are read from the ledger device records, without a local label lookup.
+
+The host subscribes to Console BLE snapshots and emits ble-peers-updated with verified connected NodeIds. ble_connected_peers supplies initial state after a webview registers its listener. Subscription closure emits an empty list. BLE updates do not trigger ledger reloads.

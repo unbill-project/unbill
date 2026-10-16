@@ -180,6 +180,7 @@ pub fn App() -> impl IntoView {
     let ledgers = RwSignal::new(Vec::<LedgerSummary>::new());
     let all_users = RwSignal::new(Vec::<User>::new());
     let devices = RwSignal::new(Vec::<SyncDevice>::new());
+    let ble_peers = RwSignal::new(Vec::<String>::new());
     let selected_ledger_id = RwSignal::new(None::<String>);
     let ledger_detail = RwSignal::new(None::<LedgerDetail>);
     let settings_popup = RwSignal::new(None::<SettingsPopupState>);
@@ -331,6 +332,7 @@ pub fn App() -> impl IntoView {
 
     reload_bootstrap();
     api::on_ledger_updated(reload_bootstrap);
+    api::on_ble_updated(move |peers| ble_peers.set(peers));
 
     // Handle deep link URLs: drain pending (cold start) and listen for runtime arrivals.
     let open_deep_link = move |url: String| {
@@ -800,6 +802,7 @@ pub fn App() -> impl IntoView {
                     device_id=device_id.get()
                     ledgers=ledgers.get()
                     devices=devices.get()
+                    ble_peers=ble_peers
                     active_tab=popup.active_tab
                     mobile_in_content=popup.mobile_in_content
                     selected_ledger_id=popup.selected_ledger_id

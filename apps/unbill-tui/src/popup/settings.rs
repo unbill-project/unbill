@@ -59,6 +59,7 @@ pub struct SettingsPopup {
 
     // Device tab state
     device_id: String,
+    ble_peers: Vec<String>,
     service_build: Option<unbill_build_info::BuildInfo>,
     peer_input: TextInput,
     device_field: DeviceField,
@@ -92,6 +93,7 @@ impl SettingsPopup {
         Self {
             top_tab: initial_tab,
             device_id,
+            ble_peers: Vec::new(),
             service_build: None,
             peer_input: TextInput::new("Peer NodeId"),
             device_field: DeviceField::PeerSync,
@@ -152,6 +154,9 @@ impl SettingsPopup {
 // ---------------------------------------------------------------------------
 
 impl PopupView for SettingsPopup {
+    fn update_ble_peers(&mut self, peers: &[String]) {
+        self.ble_peers = peers.to_vec();
+    }
     fn update_fingerprints(&mut self, fingerprints: &LedgerFingerprints) {
         self.fingerprints = fingerprints.clone();
     }
@@ -254,6 +259,16 @@ impl SettingsPopup {
         let peer_inner = peer_block.inner(rows[1]);
         frame.render_widget(peer_block, rows[1]);
         render_text_field(frame, peer_inner, &self.peer_input, true);
+
+        let peers: Vec<Line<'_>> = self
+            .ble_peers
+            .iter()
+            .map(|id| Line::from(format!("[BLE] {id}")))
+            .collect();
+        frame.render_widget(
+            Paragraph::new(peers).style(Style::default().fg(Color::Blue)),
+            rows[2],
+        );
 
         if let Some(err) = &self.error {
             frame.render_widget(

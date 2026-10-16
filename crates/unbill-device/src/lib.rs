@@ -9,7 +9,7 @@ use std::sync::Arc;
 pub use unbill_event::ServiceEvent;
 pub use unbill_storage::StoreServer;
 
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, watch};
 use tracing::warn;
 use unbill_model::error::{Result, UnbillError};
 use unbill_model::{LedgerId, NodeId, Timestamp};
@@ -23,6 +23,7 @@ pub struct UnbillDevice {
     server: Arc<StoreServer>,
     device_id: NodeId,
     endpoint: UnbillEndpoint,
+    ble: watch::Sender<unbill_model::BleSnapshot>,
 }
 
 impl UnbillDevice {
@@ -36,11 +37,29 @@ impl UnbillDevice {
         // Wrap in StoreServer to serialize all subsequent access.
         let server = Arc::new(StoreServer::spawn(raw_store));
 
-        Ok(Arc::new(Self {
+        let (ble, _) = watch::channel(endpoint.ble_snapshot());
+        let device = Arc::new(Self {
             server,
             device_id,
             endpoint,
-        }))
+            ble,
+        });
+        let weak = Arc::downgrade(&device);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            loop {
+                interval.tick().await;
+                let Some(device) = weak.upgrade() else { break };
+                let snapshot = device.endpoint.ble_snapshot();
+                let closed = matches!(snapshot.state, unbill_model::BleState::Closed);
+                device.publish_ble(snapshot);
+                if closed {
+                    break;
+                }
+            }
+        });
+        Ok(device)
     }
 
     pub fn store(&self) -> &Arc<StoreServer> {
@@ -55,8 +74,24 @@ impl UnbillDevice {
         self.endpoint.ble_snapshot()
     }
 
+    /// Current BLE state followed by changes, sampled once per 500 ms.
+    pub fn subscribe_ble(&self) -> watch::Receiver<unbill_model::BleSnapshot> {
+        self.ble.subscribe()
+    }
+
+    fn publish_ble(&self, snapshot: unbill_model::BleSnapshot) {
+        self.ble.send_if_modified(|current| {
+            if matches!(current.state, unbill_model::BleState::Closed) || *current == snapshot {
+                return false;
+            }
+            *current = snapshot;
+            true
+        });
+    }
+
     pub async fn close(&self) {
         self.endpoint.close().await;
+        self.publish_ble(self.endpoint.ble_snapshot());
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<ServiceEvent> {
@@ -272,6 +307,32 @@ mod tests {
     use unbill_store_memory::InMemoryStore;
 
     use super::StoreServer;
+
+    #[cfg(feature = "test-helpers")]
+    #[tokio::test]
+    async fn ble_subscription_suppresses_unchanged_polls_and_reports_close() {
+        let device = super::UnbillDevice::open(Arc::new(InMemoryStore::default()))
+            .await
+            .unwrap();
+        let mut rx = device.subscribe_ble();
+        assert_eq!(
+            rx.borrow_and_update().state,
+            unbill_model::BleState::Disabled
+        );
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(600), rx.changed())
+                .await
+                .is_err()
+        );
+        device.close().await;
+        rx.changed().await.unwrap();
+        assert_eq!(rx.borrow_and_update().state, unbill_model::BleState::Closed);
+        drop(device);
+        tokio::time::timeout(std::time::Duration::from_secs(2), rx.changed())
+            .await
+            .unwrap()
+            .unwrap_err();
+    }
 
     fn usd() -> Currency {
         Currency::from_code("USD").unwrap()

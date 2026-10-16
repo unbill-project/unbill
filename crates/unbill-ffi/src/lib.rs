@@ -261,6 +261,105 @@ pub struct FfiShareInput {
     pub shares: u32,
 }
 
+// sirno:witness:unbill-ffi:begin
+#[derive(uniffi::Enum)]
+pub enum FfiBleState {
+    Disabled,
+    Active,
+    Unavailable { reason: String },
+    Closed,
+}
+impl From<unbill_console::model::BleState> for FfiBleState {
+    fn from(value: unbill_console::model::BleState) -> Self {
+        match value {
+            unbill_console::model::BleState::Disabled => Self::Disabled,
+            unbill_console::model::BleState::Active => Self::Active,
+            unbill_console::model::BleState::Unavailable { reason } => Self::Unavailable { reason },
+            unbill_console::model::BleState::Closed => Self::Closed,
+        }
+    }
+}
+#[derive(uniffi::Enum)]
+pub enum FfiBlePeerPhase {
+    Discovered,
+    PendingDial,
+    Connecting,
+    Handshaking,
+    Connected,
+    Draining,
+    Reconnecting,
+    Restoring,
+    Unknown,
+}
+impl From<unbill_console::model::BlePeerPhase> for FfiBlePeerPhase {
+    fn from(value: unbill_console::model::BlePeerPhase) -> Self {
+        match value {
+            unbill_console::model::BlePeerPhase::Discovered => Self::Discovered,
+            unbill_console::model::BlePeerPhase::PendingDial => Self::PendingDial,
+            unbill_console::model::BlePeerPhase::Connecting => Self::Connecting,
+            unbill_console::model::BlePeerPhase::Handshaking => Self::Handshaking,
+            unbill_console::model::BlePeerPhase::Connected => Self::Connected,
+            unbill_console::model::BlePeerPhase::Draining => Self::Draining,
+            unbill_console::model::BlePeerPhase::Reconnecting => Self::Reconnecting,
+            unbill_console::model::BlePeerPhase::Restoring => Self::Restoring,
+            unbill_console::model::BlePeerPhase::Unknown => Self::Unknown,
+        }
+    }
+}
+#[derive(uniffi::Enum)]
+pub enum FfiBleConnectPath {
+    Gatt,
+    L2cap,
+}
+impl From<unbill_console::model::BleConnectPath> for FfiBleConnectPath {
+    fn from(value: unbill_console::model::BleConnectPath) -> Self {
+        match value {
+            unbill_console::model::BleConnectPath::Gatt => Self::Gatt,
+            unbill_console::model::BleConnectPath::L2cap => Self::L2cap,
+        }
+    }
+}
+#[derive(uniffi::Record)]
+pub struct FfiBlePeer {
+    pub device_id: String,
+    pub phase: FfiBlePeerPhase,
+    pub consecutive_failures: u32,
+    pub connect_path: Option<FfiBleConnectPath>,
+    pub verified_node_id: Option<String>,
+}
+
+#[derive(uniffi::Record)]
+pub struct FfiBleSnapshot {
+    pub state: FfiBleState,
+    pub peers: Vec<FfiBlePeer>,
+}
+
+impl From<unbill_console::model::BleSnapshot> for FfiBleSnapshot {
+    fn from(value: unbill_console::model::BleSnapshot) -> Self {
+        Self {
+            state: value.state.into(),
+            peers: value
+                .peers
+                .into_iter()
+                .map(|peer| FfiBlePeer {
+                    device_id: peer.device_id,
+                    phase: peer.phase.into(),
+                    consecutive_failures: peer.consecutive_failures,
+                    connect_path: peer.connect_path.map(Into::into),
+                    verified_node_id: peer.verified_node_id.map(|id| id.to_string()),
+                })
+                .collect(),
+        }
+    }
+}
+
+#[uniffi::export(callback_interface)]
+pub trait FfiBleObserver: Send + Sync {
+    /// Delivered on a worker thread; dispatch UI changes to the main thread.
+    fn on_snapshot(&self, snapshot: FfiBleSnapshot);
+}
+// sirno:witness:unbill-ffi:end
+
 // ---------- Event stream ----------
 
 #[derive(uniffi::Enum)]
@@ -612,6 +711,34 @@ impl Console {
             .map_err(err)
     }
 
+    /// Subscribe to BLE state, including an initial snapshot.
+    /// Cancel or drop the returned subscription to stop callbacks.
+    pub async fn observe_ble(
+        &self,
+        observer: Box<dyn FfiBleObserver>,
+    ) -> Result<Arc<FfiSubscription>, FfiError> {
+        let inner = Arc::clone(&self.inner);
+        let mut rx = self
+            .rt
+            .spawn(async move { inner.subscribe_ble().await })
+            .await
+            .map_err(err)?
+            .map_err(err)?;
+        let handle = self
+            .rt
+            .spawn(async move {
+                loop {
+                    let snapshot = rx.borrow_and_update().clone();
+                    observer.on_snapshot(snapshot.into());
+                    if rx.changed().await.is_err() {
+                        break;
+                    }
+                }
+            })
+            .abort_handle();
+        Ok(Arc::new(FfiSubscription { handle }))
+    }
+
     /// Subscribe to service events. Delivery stops when the returned handle drops.
     pub fn observe(&self, observer: Box<dyn FfiConsoleObserver>) -> Arc<FfiSubscription> {
         use tokio::sync::broadcast::error::RecvError;
@@ -935,6 +1062,31 @@ fn parse_bill_id(v: &str) -> Result<BillId, FfiError> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn ble_observer_receives_initial_snapshot_and_releases_on_cancel() {
+        struct Observer(std::sync::mpsc::Sender<FfiBleSnapshot>);
+        impl FfiBleObserver for Observer {
+            fn on_snapshot(&self, snapshot: FfiBleSnapshot) {
+                let _ = self.0.send(snapshot);
+            }
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let console = Console::open_in_process(dir.path().to_str().unwrap().to_owned()).unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let subscription = console
+            .rt
+            .block_on(console.observe_ble(Box::new(Observer(tx))))
+            .unwrap();
+        let snapshot = rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        assert!(matches!(snapshot.state, FfiBleState::Disabled));
+        assert!(snapshot.peers.is_empty());
+        subscription.cancel();
+        assert!(matches!(
+            rx.recv_timeout(std::time::Duration::from_secs(2)),
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected)
+        ));
+    }
+
     #[test]
     fn legal_catalog_and_original_project_texts_are_available_without_console() {
         let summaries = super::license_software_summaries();

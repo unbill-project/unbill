@@ -28,3 +28,5 @@ Generated bindings and headers belong to the target library that supplied their
 UniFFI metadata. Apple builds select matching Swift source and headers for each
 XCFramework variant. Compile checks require in-process construction on iOS and
 reject daemon construction there; desktop variants accept both constructors.
+
+observe_ble exposes the Console BLE watch subscription through a typed FfiBleObserver callback. It delivers the initial snapshot and changed snapshots on the Console runtime. The returned FfiSubscription cancels delivery explicitly or on drop. BLE DTOs preserve state, phases, transport path and optional verified node identity.

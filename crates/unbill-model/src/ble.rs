@@ -11,6 +11,25 @@ pub struct BleSnapshot {
     pub peers: Vec<BlePeer>,
 }
 
+impl BleSnapshot {
+    /// Verified identities with an established BLE connection, in stable order.
+    /// This does not imply that Iroh currently routes sync traffic over BLE.
+    pub fn connected_node_ids(&self) -> Vec<NodeId> {
+        if self.state != BleState::Active {
+            return Vec::new();
+        }
+        let mut nodes: Vec<_> = self
+            .peers
+            .iter()
+            .filter(|peer| peer.phase == BlePeerPhase::Connected)
+            .filter_map(|peer| peer.verified_node_id.clone())
+            .collect();
+        nodes.sort_by_key(ToString::to_string);
+        nodes.dedup();
+        nodes
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum BleState {
@@ -52,3 +71,47 @@ pub enum BleConnectPath {
     L2cap,
 }
 // sirno:witness:ble-transport:end
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn connection_badges_require_active_verified_connected_peers() {
+        let id = NodeId::from_seed(1);
+        let peer = BlePeer {
+            device_id: "radio-peer".into(),
+            phase: BlePeerPhase::Connected,
+            consecutive_failures: 0,
+            connect_path: Some(BleConnectPath::Gatt),
+            verified_node_id: Some(id.clone()),
+        };
+        let mut snapshot = BleSnapshot {
+            state: BleState::Active,
+            peers: vec![peer.clone(), peer],
+        };
+        assert_eq!(snapshot.connected_node_ids(), vec![id]);
+        for phase in [
+            BlePeerPhase::Discovered,
+            BlePeerPhase::Connecting,
+            BlePeerPhase::Handshaking,
+            BlePeerPhase::Reconnecting,
+            BlePeerPhase::Draining,
+        ] {
+            for peer in &mut snapshot.peers {
+                peer.phase = phase;
+            }
+            assert!(snapshot.connected_node_ids().is_empty());
+        }
+        for peer in &mut snapshot.peers {
+            peer.phase = BlePeerPhase::Connected;
+            peer.verified_node_id = None;
+        }
+        assert!(snapshot.connected_node_ids().is_empty());
+        for peer in &mut snapshot.peers {
+            peer.verified_node_id = Some(NodeId::from_seed(1));
+        }
+        snapshot.state = BleState::Closed;
+        assert!(snapshot.connected_node_ids().is_empty());
+    }
+}

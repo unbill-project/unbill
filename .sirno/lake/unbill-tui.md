@@ -116,3 +116,5 @@ Bill editors use a to expand archived participants, with active members selected
 for new bills and original membership preserved for amendments.
 
 The ledger pane defaults to active ledgers. [A] expands or collapses archived entries and reports their count. The list has no archive or restore action; [u] opens Ledger Settings, which exposes [X] archive/restore. Archive mutations clear the bill editor and selected detail; data and synchronization are retained.
+
+Device Settings shows current verified BLE connections as NodeIds with a blue [BLE] marker. The application event loop consumes the Console BLE watch subscription and updates the open settings popup; newly opened settings receive the current list. Stream closure clears the list. This does not require terminal icon fonts.

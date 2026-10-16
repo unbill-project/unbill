@@ -67,5 +67,6 @@ and SSE streaming.
 
 Errors map malformed sync messages to bad request.
 Other service errors become internal server errors with message bodies.
-Only `LedgerUpdated` events are forwarded over SSE;
-other events and lagged receiver errors are skipped.
+SSE forwards `LedgerUpdated` events and BLE snapshot invalidations.
+Every SSE connection starts with a BLE invalidation, including on reconnect.
+Other storage events and lagged storage receiver errors are skipped.

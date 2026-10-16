@@ -101,6 +101,16 @@ actor RustConsoleClient: ConsoleClient {
         )
     }
 
+    func bleConnectedPeers() async throws -> AsyncStream<Set<String>> {
+        let (stream, continuation) = AsyncStream.makeStream(
+            of: Set<String>.self, bufferingPolicy: .bufferingNewest(1)
+        )
+        let observer = BleConnectionObserver(continuation: continuation)
+        let subscription = try await console.observeBle(observer: observer)
+        continuation.onTermination = { _ in subscription.cancel() }
+        return stream
+    }
+
     func ledgerUpdates() async -> AsyncStream<String?> {
         AsyncStream { continuation in
             let observer = LedgerUpdateObserver(continuation: continuation)
@@ -188,5 +198,27 @@ private final class LedgerUpdateObserver: FfiConsoleObserver {
         default:
             break
         }
+    }
+}
+
+private final class BleConnectionObserver: FfiBleObserver {
+    let continuation: AsyncStream<Set<String>>.Continuation
+
+    init(continuation: AsyncStream<Set<String>>.Continuation) {
+        self.continuation = continuation
+    }
+
+    deinit { continuation.finish() }
+
+    func onSnapshot(snapshot: FfiBleSnapshot) {
+        guard case .active = snapshot.state else {
+            continuation.yield([])
+            return
+        }
+        let nodes = snapshot.peers.compactMap { peer -> String? in
+            guard case .connected = peer.phase else { return nil }
+            return peer.verifiedNodeId
+        }
+        continuation.yield(Set(nodes))
     }
 }

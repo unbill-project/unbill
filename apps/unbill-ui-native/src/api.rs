@@ -16,6 +16,9 @@ extern "C" {
     #[wasm_bindgen(catch, js_name = writeClipboardText)]
     async fn write_clipboard_text_js(text: &str) -> Result<JsValue, JsValue>;
 
+    #[wasm_bindgen(js_name = subscribeBlePeers)]
+    fn subscribe_ble_peers_js(callback: &Closure<dyn FnMut(JsValue)>);
+
     #[wasm_bindgen(js_name = listenEvent)]
     fn listen_event_js(event_name: &str, callback: &Closure<dyn FnMut(JsValue)>);
 }
@@ -361,4 +364,16 @@ mod tests {
             "2026/11/19 23:58"
         );
     }
+}
+
+pub fn on_ble_updated(mut callback: impl FnMut(Vec<String>) + 'static) {
+    let closure = Closure::new(move |value: JsValue| {
+        let peers = js_sys::Array::from(&value)
+            .iter()
+            .filter_map(|id| id.as_string())
+            .collect();
+        callback(peers);
+    });
+    subscribe_ble_peers_js(&closure);
+    closure.forget();
 }

@@ -45,3 +45,5 @@ bound during `open`.
 
 Integration tests use `unbill-store-memory` to exercise the device surface
 without touching disk or real network endpoints.
+
+The device owns one 500 ms BLE snapshot polling task and a watch channel. Polling reads cached transport state, never restarts scanning, and publishes only changes. The task holds the device weakly between ticks; close publishes Closed immediately and terminates polling. subscribe_ble returns the current value plus subsequent changes.

@@ -103,12 +103,14 @@ pub trait AsymChannelService {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum WireEvent {
+    BleSnapshotChanged,
     LedgerUpdated { ledger_id: LedgerId },
 }
 
 impl From<AsymChannelEvent> for WireEvent {
     fn from(e: AsymChannelEvent) -> Self {
         match e {
+            AsymChannelEvent::BleSnapshotChanged => WireEvent::BleSnapshotChanged,
             AsymChannelEvent::LedgerUpdated { ledger_id } => WireEvent::LedgerUpdated { ledger_id },
         }
     }
@@ -117,6 +119,7 @@ impl From<AsymChannelEvent> for WireEvent {
 impl From<WireEvent> for AsymChannelEvent {
     fn from(e: WireEvent) -> Self {
         match e {
+            WireEvent::BleSnapshotChanged => AsymChannelEvent::BleSnapshotChanged,
             WireEvent::LedgerUpdated { ledger_id } => AsymChannelEvent::LedgerUpdated { ledger_id },
         }
     }
@@ -301,10 +304,17 @@ where
         tokio::spawn(async move {
             loop {
                 match rx.recv().await {
-                    Ok(evt) => q2
-                        .lock()
-                        .unwrap_or_else(PoisonError::into_inner)
-                        .push(WireEvent::from(evt)),
+                    Ok(evt) => {
+                        let mut queue = q2.lock().unwrap_or_else(PoisonError::into_inner);
+                        // BLE notifications invalidate state; one pending item is enough.
+                        if !matches!(evt, AsymChannelEvent::BleSnapshotChanged)
+                            || !queue
+                                .iter()
+                                .any(|e| matches!(e, WireEvent::BleSnapshotChanged))
+                        {
+                            queue.push(WireEvent::from(evt));
+                        }
+                    }
                     Err(broadcast::error::RecvError::Lagged(_)) => continue,
                     Err(broadcast::error::RecvError::Closed) => break,
                 }

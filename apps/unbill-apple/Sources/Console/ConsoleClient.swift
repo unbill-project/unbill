@@ -38,6 +38,7 @@ protocol ConsoleClient {
     // Join a ledger from an invitation URL.
     func joinLedger(url: String, label: String) async throws
     // Peer devices known to this device.
+    func bleConnectedPeers() async throws -> AsyncStream<Set<String>>
     func syncDevices() async throws -> [SyncDevice]
     // Run one sync round with a peer.
     func syncOnce(peerNodeID: String) async throws

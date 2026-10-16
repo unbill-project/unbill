@@ -23,9 +23,9 @@ for the joining device.
 It does not expose arbitrary metadata, secret keys, or pending invitation storage.
 The subscription plane returns device-originated `AsymChannelEvent` values.
 
-`AsymChannelEvent` currently carries `LedgerUpdated { ledger_id }`.
-When a console receives it,
-the console polls the channel and refreshes its in-process projection.
+`AsymChannelEvent` carries ledger updates and BLE snapshot invalidations.
+Ledger updates refresh the console document projection; BLE notifications
+refresh only the transient snapshot.
 
 Implementations:
 `LocalAsymChannel` wraps `UnbillDevice` in-process and forwards calls directly.
@@ -54,3 +54,5 @@ peers through Local, RPC, and HTTP. It neither persists observations nor changes
 ledger authorization.
 
 AsymChannel exposes typed set_ledger_archived and transports the local archived flag in ledger summaries. Local and RPC channels change the device preference; HTTP changes the server device preference. Archive changes use the existing ledger update notifications and never enter replicated ledger documents.
+
+The subscription plane also carries BleSnapshotChanged notifications over Local, RPC and authenticated HTTP SSE. They invalidate transient BLE state; consumers fetch the current snapshot rather than replay potentially stale observations. Reconnecting HTTP streams invalidate BLE state again.

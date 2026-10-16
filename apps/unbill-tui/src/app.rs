@@ -46,6 +46,7 @@ pub struct AppState {
     pub bill_editor: Option<BillEditor>,
     pub popup: Option<Box<dyn PopupView>>,
     pub sync_status: SyncStatus,
+    pub ble_peers: Vec<String>,
     pub status_message: Option<String>,
     pub should_quit: bool,
     pub sync_result_tx: mpsc::UnboundedSender<Result<(), String>>,
@@ -67,6 +68,7 @@ impl AppState {
             bill_editor: None,
             popup: None,
             sync_status: SyncStatus::Idle,
+            ble_peers: Vec::new(),
             status_message: None,
             should_quit: false,
             sync_result_tx,
@@ -92,6 +94,15 @@ pub async fn run(
     let mut events = EventStream::new();
     let mut tick = interval(Duration::from_millis(16));
     let mut svc_events = svc.subscribe();
+    let mut ble = svc.subscribe_ble().await.ok();
+    if let Some(rx) = &mut ble {
+        state.ble_peers = rx
+            .borrow_and_update()
+            .connected_node_ids()
+            .into_iter()
+            .map(|id| id.to_string())
+            .collect();
+    }
 
     // Initial data load.
     refresh_ledgers(&svc, &mut state).await;
@@ -107,6 +118,20 @@ pub async fn run(
         terminal.draw(|f| crate::ui::render(f, &state, &svc))?;
 
         tokio::select! {
+            update = async {
+                match &mut ble {
+                    Some(rx) => rx.changed().await,
+                    None => std::future::pending().await,
+                }
+            } => {
+                if update.is_err() { ble = None; }
+                state.ble_peers = ble.as_mut().map(|rx| rx.borrow_and_update()
+                    .connected_node_ids().into_iter().map(|id| id.to_string()).collect())
+                    .unwrap_or_default();
+                if let Some(popup) = &mut state.popup {
+                    popup.update_ble_peers(&state.ble_peers);
+                }
+            }
             _ = tick.tick() => {
                 // Render tick — just redraw.
             }
@@ -750,6 +775,9 @@ async fn open_settings_popup(tab: TopTab, state: &mut AppState, svc: &Arc<Unbill
         )
         .with_service_build(service_build),
     ));
+    if let Some(popup) = &mut state.popup {
+        popup.update_ble_peers(&state.ble_peers);
+    }
     refresh_fingerprints(svc, state).await;
 }
 

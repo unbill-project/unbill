@@ -15,7 +15,11 @@ pub mod rpc;
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type")]
 pub enum AsymChannelEvent {
-    LedgerUpdated { ledger_id: LedgerId },
+    /// BLE state changed; fetch the current snapshot.
+    BleSnapshotChanged,
+    LedgerUpdated {
+        ledger_id: LedgerId,
+    },
 }
 
 // On wasm32 (single-threaded), relax Send + Sync requirements so that

@@ -82,3 +82,5 @@ SSE data fields carry `{"type": "LedgerUpdated", "ledger_id": "..."}`.
 `GET /build-info` returns the server version and UTC build timestamp as JSON behind the same bearer authentication.
 
 PUT /api/v1/ledgers/{id}/archive accepts {"archived": boolean} and sets the server device preference. It requires the normal bearer authorization, returns 204 on success, 400 for invalid ledger IDs and 404 for unknown ledgers. Ledger metadata responses include archived. Normal metadata PUT and document sync do not overwrite the archive preference.
+
+The authenticated events stream also emits {"type":"BleSnapshotChanged"} from the device BLE watch channel, including an initial notification for each SSE connection so reconnecting clients refresh current state.

@@ -13,7 +13,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use tokio_stream::StreamExt as _;
-use tokio_stream::wrappers::BroadcastStream;
+use tokio_stream::wrappers::{BroadcastStream, WatchStream};
 use tower_http::trace::TraceLayer;
 
 use unbill_device::{ServiceEvent, UnbillDevice};
@@ -281,7 +281,12 @@ async fn stream_events(State(state): State<Arc<AppState>>) -> impl IntoResponse 
         }
         _ => None,
     });
-    Sse::new(stream).keep_alive(KeepAlive::default())
+    let ble = WatchStream::new(state.service.subscribe_ble()).map(|_| {
+        Ok::<Event, Infallible>(
+            Event::default().data(serde_json::json!({"type": "BleSnapshotChanged"}).to_string()),
+        )
+    });
+    Sse::new(stream.merge(ble)).keep_alive(KeepAlive::default())
 }
 
 // ---------------------------------------------------------------------------
@@ -383,6 +388,35 @@ mod tests {
         );
         let request = Request::builder()
             .uri("/api/v1/build-info")
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(
+            app.oneshot(request).await.unwrap().status(),
+            StatusCode::UNAUTHORIZED
+        );
+    }
+
+    #[tokio::test]
+    async fn ble_events_start_with_invalidation_and_require_auth() {
+        use http_body_util::BodyExt;
+        let dir = tempfile::tempdir().unwrap();
+        let app = make_app(dir.path()).await;
+        let response = app
+            .clone()
+            .oneshot(auth_get("/api/v1/events"))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let mut body = response.into_body();
+        let frame = tokio::time::timeout(std::time::Duration::from_secs(2), body.frame())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        let data = std::str::from_utf8(frame.data_ref().unwrap()).unwrap();
+        assert!(data.contains("BleSnapshotChanged"), "{data}");
+        let request = Request::builder()
+            .uri("/api/v1/events")
             .body(Body::empty())
             .unwrap();
         assert_eq!(

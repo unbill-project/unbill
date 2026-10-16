@@ -129,3 +129,5 @@ Tauri DTO assembly and command behavior are tested in the Tauri crate.
 The native UI groups archived ledgers in a collapsed Archived disclosure with navigation rows; Ledger Settings exposes Archive Ledger and Restore Ledger. The Tauri command forwards set_ledger_archived, and console ledger updates are emitted to the webview so other daemon clients also refresh the visible preference and clear archived selections.
 
 Ledger list rows only open ledger details; restoration belongs in Ledger Settings. Explicitly opened archived ledgers remain selected across refreshes.
+
+The webview registers a ble-peers-updated listener before querying initial state, ignoring the query result if a newer event arrived. A dedicated reactive peer list drives the shared Bluetooth badge in both global and ledger device rows without changing ledger signals.

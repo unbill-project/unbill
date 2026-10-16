@@ -7,6 +7,7 @@ struct LedgerSettingsView: View {
     let detail: LedgerDetail
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
+    @State private var blePeers: Set<String> = []
     @State private var syncingNodeID: String?
     @State private var lastSyncedAt: [String: Date] = [:]
     @State private var syncErrors: [String: String] = [:]
@@ -42,6 +43,7 @@ struct LedgerSettingsView: View {
                     ForEach(detail.devices) { peer in
                         PeerDeviceRow(
                             peer: peer,
+                            bleConnected: blePeers.contains(peer.nodeID),
                             syncing: syncingNodeID == peer.nodeID,
                             disabled: busy,
                             lastSyncedAt: lastSyncedAt[peer.nodeID],
@@ -76,6 +78,16 @@ struct LedgerSettingsView: View {
                         .disabled(busy)
                 }
             }
+        }
+        .task {
+            do {
+                let updates = try await console.bleConnectedPeers()
+                for await peers in updates {
+                    guard !Task.isCancelled else { break }
+                    blePeers = peers
+                }
+            } catch { /* BLE indicators are optional; IP sync remains available. */ }
+            blePeers = []
         }
         .interactiveDismissDisabled(busy)
         .onChange(of: detail.emojiFingerprint) { _, _ in copied = false }

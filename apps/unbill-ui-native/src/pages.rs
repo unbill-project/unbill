@@ -282,15 +282,21 @@ fn bill_title(bill: &Bill) -> String {
 fn SyncDeviceRow(
     title: String,
     node_id: String,
+    ble_peers: RwSignal<Vec<String>>,
     #[prop(optional, into)] detail: Option<String>,
     on_sync: Callback<(String, Callback<()>)>,
 ) -> impl IntoView {
+    let ble_node = node_id.clone();
     let working = RwSignal::new(false);
     let done = Callback::new(move |_| working.set(false));
     view! {
         <div class="data-row split-row">
             <div class="row-copy">
-                <p class="row-title">{title}</p>
+                <p class="row-title">{title}
+                    {move || ble_peers.get().contains(&ble_node).then(|| view! {
+                        <unbill_ui_components::bluetooth::BluetoothBadge />
+                    })}
+                </p>
                 <p class="row-meta mono-copy">{node_id.clone()}</p>
                 {detail.map(|d| view! { <p class="row-detail">{d}</p> })}
             </div>
@@ -316,6 +322,7 @@ pub fn SettingsPopup(
     device_id: String,
     ledgers: Vec<LedgerSummary>,
     devices: Vec<SyncDevice>,
+    ble_peers: RwSignal<Vec<String>>,
     active_tab: SettingsTab,
     mobile_in_content: bool,
     selected_ledger_id: Option<String>,
@@ -458,6 +465,7 @@ pub fn SettingsPopup(
                                                     };
                                                     view! {
                                                         <SyncDeviceRow
+                                                            ble_peers=ble_peers
                                                             title=title
                                                             node_id=node_id
                                                             detail=detail
@@ -557,6 +565,7 @@ pub fn SettingsPopup(
                                                             };
                                                             view! {
                                                                 <SyncDeviceRow
+                                                                    ble_peers=ble_peers
                                                                     title=title
                                                                     node_id=node_id
                                                                     on_sync=on_sync_device

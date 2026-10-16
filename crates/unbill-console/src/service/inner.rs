@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use automerge::sync;
-use tokio::sync::{Mutex, broadcast};
+use tokio::sync::{Mutex, broadcast, watch};
 use unbill_asymmetric_channel::{AsymChannel, AsymChannelEvent};
 
 use crate::conflict::{self, ConflictGroup};
@@ -61,8 +61,14 @@ impl UnbillConsole {
             let cache = Arc::clone(&console.cache);
             let channel = Arc::clone(&console.channel);
             let fut = async move {
-                while let Ok(evt) = ch_rx.recv().await {
+                loop {
+                    let evt = match ch_rx.recv().await {
+                        Ok(evt) => evt,
+                        Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                        Err(broadcast::error::RecvError::Closed) => break,
+                    };
                     match evt {
+                        AsymChannelEvent::BleSnapshotChanged => {}
                         AsymChannelEvent::LedgerUpdated { ledger_id } => {
                             let mut doc = cache
                                 .lock()
@@ -518,6 +524,52 @@ impl UnbillConsole {
         self.channel.ble_snapshot().await
     }
 
+    // sirno:witness:ble-transport:begin
+    /// Initial BLE snapshot followed by changes. Drop the receiver to unsubscribe.
+    /// Intermediate states may be coalesced; this is current state, not an audit log.
+    pub async fn subscribe_ble(&self) -> Result<watch::Receiver<unbill_model::BleSnapshot>> {
+        let mut events = self.channel.subscribe_to_server();
+        let initial = self.channel.ble_snapshot().await?;
+        let (tx, rx) = watch::channel(initial);
+        let channel = Arc::clone(&self.channel);
+        let task = async move {
+            loop {
+                tokio::select! {
+                    _ = tx.closed() => break,
+                    event = events.recv() => {
+                        match event {
+                            Ok(AsymChannelEvent::LedgerUpdated { .. }) => continue,
+                            Err(broadcast::error::RecvError::Closed) => break,
+                            Ok(AsymChannelEvent::BleSnapshotChanged)
+                            | Err(broadcast::error::RecvError::Lagged(_)) => {}
+                        }
+                        let snapshot = tokio::select! {
+                            _ = tx.closed() => break,
+                            result = channel.ble_snapshot() => match result {
+                                Ok(snapshot) => snapshot,
+                                Err(error) => {
+                                    tracing::warn!(%error, "BLE subscription refresh failed");
+                                    break;
+                                }
+                            },
+                        };
+                        tx.send_if_modified(|current| {
+                            if *current == snapshot { return false; }
+                            *current = snapshot;
+                            true
+                        });
+                    }
+                }
+            }
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        tokio::spawn(task);
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(task);
+        Ok(rx)
+    }
+    // sirno:witness:ble-transport:end
+
     pub fn device_id(&self) -> NodeId {
         self.channel.device_id()
     }
@@ -611,6 +663,8 @@ mod tests {
         store: Arc<dyn LedgerStore>,
         device_id: NodeId,
         events: broadcast::Sender<AsymChannelEvent>,
+        ble: Mutex<unbill_model::BleSnapshot>,
+        ble_reads: std::sync::atomic::AtomicUsize,
     }
 
     impl MockAsymChannel {
@@ -622,6 +676,11 @@ mod tests {
                 store,
                 device_id,
                 events,
+                ble: Mutex::new(unbill_model::BleSnapshot {
+                    state: unbill_model::BleState::Disabled,
+                    peers: Vec::new(),
+                }),
+                ble_reads: std::sync::atomic::AtomicUsize::new(0),
             })
         }
     }
@@ -629,10 +688,9 @@ mod tests {
     #[async_trait::async_trait]
     impl AsymChannel for MockAsymChannel {
         async fn ble_snapshot(&self) -> Result<unbill_model::BleSnapshot> {
-            Ok(unbill_model::BleSnapshot {
-                state: unbill_model::BleState::Disabled,
-                peers: Vec::new(),
-            })
+            self.ble_reads
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(self.ble.lock().await.clone())
         }
 
         async fn build_info(&self) -> Result<unbill_build_info::BuildInfo> {
@@ -744,6 +802,76 @@ mod tests {
             .await
             .unwrap();
         }
+    }
+
+    #[tokio::test]
+    async fn ble_subscription_delivers_initial_changes_and_unsubscribes() {
+        use std::sync::atomic::Ordering;
+        let channel = MockAsymChannel::new(mem_store()).await;
+        let svc = UnbillConsole::open(channel.clone()).await;
+        let mut rx = svc.subscribe_ble().await.unwrap();
+        assert_eq!(
+            rx.borrow_and_update().state,
+            unbill_model::BleState::Disabled
+        );
+        assert_eq!(channel.events.receiver_count(), 2);
+
+        channel.ble.lock().await.state = unbill_model::BleState::Active;
+        channel
+            .events
+            .send(AsymChannelEvent::BleSnapshotChanged)
+            .unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(2), rx.changed())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(rx.borrow_and_update().state, unbill_model::BleState::Active);
+
+        // Wait until an unchanged notification has actually been processed.
+        let reads = channel.ble_reads.load(Ordering::SeqCst);
+        channel
+            .events
+            .send(AsymChannelEvent::BleSnapshotChanged)
+            .unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while channel.ble_reads.load(Ordering::SeqCst) == reads {
+                tokio::task::yield_now().await;
+            }
+            tokio::task::yield_now().await;
+        })
+        .await
+        .unwrap();
+        assert!(!rx.has_changed().unwrap());
+
+        drop(rx);
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            while channel.events.receiver_count() != 1 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn ble_subscription_recovers_latest_state_after_event_lag() {
+        let channel = MockAsymChannel::new(mem_store()).await;
+        let svc = UnbillConsole::open(channel.clone()).await;
+        let mut rx = svc.subscribe_ble().await.unwrap();
+        rx.borrow_and_update();
+        channel.ble.lock().await.state = unbill_model::BleState::Closed;
+        // The mock event buffer holds one item. Overflow it before yielding.
+        for _ in 0..8 {
+            channel
+                .events
+                .send(AsymChannelEvent::BleSnapshotChanged)
+                .unwrap();
+        }
+        tokio::time::timeout(std::time::Duration::from_secs(2), rx.changed())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(rx.borrow().state, unbill_model::BleState::Closed);
     }
 
     // --- create / list ledger ---
