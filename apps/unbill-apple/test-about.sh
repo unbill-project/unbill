@@ -19,9 +19,16 @@ for target in "$@"; do
     *) echo "Unsupported test target: $target" >&2; exit 2 ;;
   esac
   sdk_root="$("$APP/xcbuild.sh" xcrun --sdk "$sdk" --show-sdk-path)"
+  sdk_flags=(-sdk "$sdk_root")
+  if [[ "$target" == aarch64-apple-ios-macabi ]]; then
+    # Direct swiftc invocations need the iOS SwiftUI module for Catalyst.
+    sdk_flags+=(-F "$sdk_root/System/iOSSupport/System/Library/Frameworks")
+  fi
   "$APP/xcbuild.sh" xcrun --sdk "$sdk" swiftc \
-    -typecheck -target "$swift_target" -sdk "$sdk_root" \
+    -typecheck -target "$swift_target" \
+    "${sdk_flags[@]}" \
     -module-cache-path "$PROBES/modules/$target" \
     "$APP/Sources/Models/AboutContent.swift" \
     "$APP/Sources/Features/Settings/AboutView.swift"
+  echo "About checked: $target"
 done

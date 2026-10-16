@@ -5,7 +5,7 @@ schema = 1
 lake = ".sirno/lake"
 
 [entries.about-page]
-fingerprint = "sha256:a12564c376ea70611e5079631a0925720c75adf5644edf3ea356719ea0a756fe"
+fingerprint = "sha256:aa016e41e9b1b119b1ec6fb87a65e29e87d269dd2fa730f939d674631b9bceb7"
 "core.belongs" = [
     "frontend-ui",
     "workspace-layout",
