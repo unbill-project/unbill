@@ -17,4 +17,4 @@ pub use node_id_ext::{EndpointIdExt, IrohSecretKeyExt, NodeIdExt, SecretKeyExt};
 pub use protocol::{
     ALPN_JOIN, ALPN_SYNC, JoinError, JoinReply, JoinRequest, JoinResponse, read_msg, write_msg,
 };
-pub use sync::run_sync_session;
+pub use sync::{finish_sync_session, run_sync_session};

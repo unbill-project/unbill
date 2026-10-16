@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use unbill_model::{LedgerDoc, NodeId, UnbillError};
 use unbill_storage::StoreServer;
@@ -15,8 +15,40 @@ type Result<T> = std::result::Result<T, UnbillError>;
 
 use crate::protocol::{Hello, HelloAck, SyncDone, SyncFrame, SyncMsg, read_msg, write_msg};
 
+// sirno:witness:symmetric-channel:begin
+/// Finish outbound data and wait until the peer has consumed the sync session.
+/// New receivers finish their writer after persistence; old v1 receivers finish
+/// it when their protocol loop returns. Do not close QUIC before this barrier.
+pub async fn finish_sync_session<R, W>(reader: &mut R, writer: &mut W) -> Result<()>
+where
+    R: AsyncRead + Unpin,
+    W: AsyncWrite + Unpin,
+{
+    tokio::time::timeout(std::time::Duration::from_secs(30), async {
+        writer
+            .shutdown()
+            .await
+            .map_err(|error| UnbillError::Network(format!("finish sync stream: {error}")))?;
+        let mut trailing = [0u8; 1];
+        let count = reader.read(&mut trailing).await.map_err(|error| {
+            UnbillError::Network(format!("wait for peer sync completion: {error}"))
+        })?;
+        if count != 0 {
+            return Err(UnbillError::Network(
+                "unexpected data after sync completion".into(),
+            ));
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|_| UnbillError::Network("timed out waiting for peer sync completion".into()))?
+}
+// sirno:witness:symmetric-channel:end
+
 struct LedgerSyncState {
     sync_state: automerge::sync::State,
+    /// Generate initially and after receiving a message for this ledger only.
+    needs_send: bool,
     /// We have sent `SyncDone` for this ledger.
     we_done: bool,
     /// Peer has sent `SyncDone` for this ledger.
@@ -115,6 +147,7 @@ where
         accepted
     };
 
+    tracing::debug!(is_initiator, peer = %peer_node_id, ledgers = ?accepted, "sync ledgers accepted");
     if accepted.is_empty() {
         return Ok(Vec::new());
     }
@@ -143,6 +176,7 @@ where
                 id,
                 LedgerSyncState {
                     sync_state: automerge::sync::State::new(),
+                    needs_send: true,
                     we_done: false,
                     peer_done: false,
                 },
@@ -155,9 +189,10 @@ where
     loop {
         // --- Send phase ---
         for (id, state) in states.iter_mut() {
-            if state.we_done {
+            if !state.needs_send {
                 continue;
             }
+            state.needs_send = false;
             let doc = docs.get_mut(id).ok_or_else(|| {
                 UnbillError::Network(format!("ledger disappeared mid-sync: {id}"))
             })?;
@@ -189,9 +224,6 @@ where
         if states.values().all(|s| s.we_done && s.peer_done) {
             break;
         }
-        if states.values().all(|s| s.peer_done) {
-            break;
-        }
 
         // --- Read one incoming frame ---
         let frame: SyncFrame = read_msg(&mut reader).await?;
@@ -206,6 +238,9 @@ where
                     UnbillError::Network(format!("ledger disappeared: {}", m.ledger_id))
                 })?;
                 doc.receive_sync_message(&mut state.sync_state, msg)?;
+                state.needs_send = true;
+                state.we_done = false;
+                state.peer_done = false;
                 if !ledgers_with_remote_changes.contains(&m.ledger_id) {
                     ledgers_with_remote_changes.push(m.ledger_id);
                 }
@@ -255,6 +290,49 @@ mod tests {
     use unbill_store_memory::InMemoryStore;
 
     use super::run_sync_session;
+
+    #[tokio::test]
+    async fn sync_completion_waits_for_peer_to_consume_final_data() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let (local, remote) = tokio::io::duplex(64);
+        let (mut local_read, mut local_write) = tokio::io::split(local);
+        let (mut remote_read, mut remote_write) = tokio::io::split(remote);
+        let (consumed_tx, consumed_rx) = tokio::sync::oneshot::channel();
+        let (finish_tx, finish_rx) = tokio::sync::oneshot::channel();
+        let peer = tokio::spawn(async move {
+            let mut bytes = Vec::new();
+            remote_read.read_to_end(&mut bytes).await.unwrap();
+            assert_eq!(bytes, b"final sync frame");
+            consumed_tx.send(()).unwrap();
+            finish_rx.await.unwrap();
+            remote_write.shutdown().await.unwrap();
+        });
+        local_write.write_all(b"final sync frame").await.unwrap();
+        let completion = tokio::spawn(async move {
+            super::finish_sync_session(&mut local_read, &mut local_write).await
+        });
+        consumed_rx.await.unwrap();
+        assert!(
+            !completion.is_finished(),
+            "must not close before peer finishes"
+        );
+        finish_tx.send(()).unwrap();
+        completion.await.unwrap().unwrap();
+        peer.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn sync_completion_rejects_unconsumed_protocol_data() {
+        use tokio::io::AsyncWriteExt;
+        let (local, mut remote) = tokio::io::duplex(64);
+        let (mut read, mut write) = tokio::io::split(local);
+        remote.write_all(b"unexpected frame").await.unwrap();
+        assert!(
+            super::finish_sync_session(&mut read, &mut write)
+                .await
+                .is_err()
+        );
+    }
 
     fn make_store() -> Arc<InMemoryStore> {
         Arc::new(InMemoryStore::default())
@@ -317,6 +395,70 @@ mod tests {
 
         task_a.await.unwrap();
         task_b.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn sync_multiple_ledgers_restores_user() {
+        // Exercise differing per-session ledger iteration and frame orders.
+        for _ in 0..16 {
+            let node_a = NodeId::from_seed(1);
+            let node_b = NodeId::from_seed(2);
+            let store_a = Arc::new(StoreServer::spawn(make_store()));
+            let store_b = Arc::new(StoreServer::spawn(make_store()));
+            let user_id = UserId::from_u128(99);
+            let mut ids = Vec::new();
+            for name in ["Home", "Test"] {
+                let mut base = LedgerDoc::new(
+                    LedgerId::new(),
+                    name.into(),
+                    usd(),
+                    Timestamp::now().unwrap(),
+                )
+                .unwrap();
+                for node_id in [&node_a, &node_b] {
+                    base.add_device(
+                        NewDevice {
+                            node_id: node_id.clone(),
+                            label: unbill_model::DeviceLabel::new("Device".into()).unwrap(),
+                        },
+                        Timestamp::now().unwrap(),
+                    )
+                    .unwrap();
+                }
+                base.add_user(
+                    unbill_model::NewUser {
+                        user_id,
+                        display_name: "Test User 1".into(),
+                    },
+                    Timestamp::now().unwrap(),
+                )
+                .unwrap();
+                base.set_user_archived(&user_id, true).unwrap();
+                let bytes = base.save();
+                let mut a = LedgerDoc::from_bytes(&bytes).unwrap();
+                let mut b = LedgerDoc::from_bytes(&bytes).unwrap();
+                if name == "Test" {
+                    a.set_user_archived(&user_id, false).unwrap();
+                }
+                ids.push(base.get_ledger().unwrap().ledger_id.to_string());
+                save_doc(&store_a, &mut a).await.unwrap();
+                save_doc(&store_b, &mut b).await.unwrap();
+            }
+            sync_pair(Arc::clone(&store_a), Arc::clone(&store_b), node_a, node_b).await;
+            for id in ids {
+                let mut a = store_a.load_ledger(&id).await.unwrap().unwrap();
+                let mut b = store_b.load_ledger(&id).await.unwrap().unwrap();
+                assert_eq!(
+                    a.state_hash(),
+                    b.state_hash(),
+                    "ledger {id} did not converge"
+                );
+                assert_eq!(
+                    a.list_users().unwrap().first().unwrap().archived,
+                    b.list_users().unwrap().first().unwrap().archived
+                );
+            }
+        }
     }
 
     #[tokio::test]

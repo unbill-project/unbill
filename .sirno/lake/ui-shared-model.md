@@ -127,4 +127,4 @@ Active ledgers appear in the main list; a collapsed Archived group opens ledger 
 
 Ledger list rows only open ledger details; restoration belongs in Ledger Settings. Explicitly opened archived ledgers remain selected across refreshes.
 
-Device rows display a small Bluetooth icon only when the BLE snapshot reports an Active transport and a Connected peer with the matching verified NodeId. Discovery, handshake and reconnecting do not qualify. Subscription updates change indicators without reloading ledger data, and subscription closure clears them. The icon indicates an available BLE connection, not the path currently carrying sync traffic. Browser indicators describe the server radio.
+Device rows use gray for a device observed over Bluetooth and blue for a verified Bluetooth connection, with blue taking precedence. A legend below the device list says Blue: connected via Bluetooth. Gray: device seen, not connected. UI text avoids transport and authentication terminology. Discovery records do not guarantee current proximity. Subscription updates do not reload ledgers.

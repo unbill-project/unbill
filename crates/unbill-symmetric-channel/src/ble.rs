@@ -90,6 +90,7 @@ impl BleDriver {
         peers.sort_by(|left, right| left.device_id.cmp(&right.device_id));
         BleSnapshot {
             state: BleState::Active,
+            discovered_node_ids: Vec::new(),
             peers,
         }
     }

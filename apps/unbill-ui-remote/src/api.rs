@@ -968,3 +968,5 @@ pub async fn subscribe_ble()
         .map_err(|error| error.to_string())
 }
 // sirno:witness:unbill-ui-remote:end
+
+pub type BlePeerIndicators = (Vec<String>, Vec<String>);

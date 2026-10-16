@@ -180,7 +180,7 @@ pub fn App() -> impl IntoView {
     let ledgers = RwSignal::new(Vec::<LedgerSummary>::new());
     let all_users = RwSignal::new(Vec::<User>::new());
     let devices = RwSignal::new(Vec::<SyncDevice>::new());
-    let ble_peers = RwSignal::new(Vec::<String>::new());
+    let ble_peers = RwSignal::new(api::BlePeerIndicators::default());
     let selected_ledger_id = RwSignal::new(None::<String>);
     let ledger_detail = RwSignal::new(None::<LedgerDetail>);
     let settings_popup = RwSignal::new(None::<SettingsPopupState>);

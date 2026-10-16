@@ -67,6 +67,14 @@ Protocol tests use in-process streams. A loopback endpoint regression test verif
 that an idle connection cannot block later connections across accept calls.
 Coverage includes framing, convergence, authorization filtering,
 and join success and failure paths.
+Convergence tests also cover multiple shared ledgers with a one-sided user
+restoration, and compare document fingerprints rather than only visible bills.
+An Automerge message can require a response even after generation previously
+returned no message; completion must account for all accepted ledgers.
+Each ledger generates its initial message once, then only generates again after
+receiving an Automerge message for that ledger. A message in flight is not
+completion. Incoming messages reopen completion, and a session ends only when
+both peers have sent Done for every ledger.
 
 The join request includes a required typed name for the joining device. The host
 adds it to the shared ledger device record. The requester persists the returned
@@ -102,3 +110,5 @@ on macOS it has been verified with an administrator-run test binary. Address
 lookup failures close both endpoints before reporting the error.
 Path logging consumes owned path events and transient weak-handle upgrades,
 including final byte counters for closed paths, without retaining connections.
+
+Sync completion must not immediately close QUIC while the peer may still be reading buffered frames. The initiator retains both stream halves, persists local changes, finishes its write side and waits for peer EOF before closing the connection. The receiver retains its writer until received changes are persisted, then finishes it to signal completion. EOF draining is bounded and rejects unexpected trailing bytes. Existing v1 framing is unchanged; older receivers already finish their writer on return, confirming protocol consumption but not necessarily persistence.

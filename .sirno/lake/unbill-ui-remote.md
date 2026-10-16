@@ -108,4 +108,4 @@ The browser UI groups archived ledgers in a collapsed Archived disclosure with n
 
 Ledger list rows only open ledger details; restoration belongs in Ledger Settings. Explicitly opened archived ledgers remain selected across refreshes.
 
-A reactive-owner-scoped task consumes Console subscribe_ble and projects connected verified NodeIds into a dedicated signal. Global and ledger device rows use the shared Bluetooth badge. Stream closure clears the signal, and owner cleanup cancels the task. These indicators describe the server radio, not browser Bluetooth hardware.
+An owner-scoped task projects the Console BLE subscription into observed and connected identity lists. Global and ledger device rows render gray or blue badges and include the plain-language color legend. Closure clears indicators and owner cleanup cancels the task. Indicators describe the server radio.

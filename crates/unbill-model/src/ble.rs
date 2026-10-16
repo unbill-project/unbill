@@ -9,9 +9,43 @@ pub struct BleSnapshot {
     #[serde(flatten)]
     pub state: BleState,
     pub peers: Vec<BlePeer>,
+    /// Known peer IDs matched by advertising prefix, not authenticated identities.
+    /// Upstream retains hints for the session; these do not prove current proximity.
+    #[serde(default)]
+    pub discovered_node_ids: Vec<NodeId>,
 }
 
 impl BleSnapshot {
+    /// Observations only: advertising hints and previously verified peer identities.
+    pub fn observed_node_ids(&self) -> Vec<NodeId> {
+        if self.state != BleState::Active {
+            return Vec::new();
+        }
+        let mut nodes = self.discovered_node_ids.clone();
+        nodes.extend(
+            self.peers
+                .iter()
+                .filter_map(|peer| peer.verified_node_id.clone()),
+        );
+        nodes.sort_by_key(ToString::to_string);
+        nodes.dedup();
+        nodes
+    }
+
+    /// Display projection: observed identities, then verified connected identities.
+    pub fn indicator_node_ids(&self) -> (Vec<String>, Vec<String>) {
+        (
+            self.observed_node_ids()
+                .into_iter()
+                .map(|id| id.to_string())
+                .collect(),
+            self.connected_node_ids()
+                .into_iter()
+                .map(|id| id.to_string())
+                .collect(),
+        )
+    }
+
     /// Verified identities with an established BLE connection, in stable order.
     /// This does not imply that Iroh currently routes sync traffic over BLE.
     pub fn connected_node_ids(&self) -> Vec<NodeId> {
@@ -77,6 +111,43 @@ mod tests {
     use super::*;
 
     #[test]
+    fn discovery_hints_are_gray_until_verified_connected() {
+        let id = NodeId::from_seed(2);
+        let mut snapshot = BleSnapshot {
+            state: BleState::Active,
+            peers: Vec::new(),
+            discovered_node_ids: vec![id.clone(), id.clone()],
+        };
+        assert_eq!(
+            snapshot.indicator_node_ids(),
+            (vec![id.to_string()], vec![])
+        );
+        snapshot.peers.push(BlePeer {
+            device_id: "radio".into(),
+            phase: BlePeerPhase::Connected,
+            consecutive_failures: 0,
+            connect_path: Some(BleConnectPath::Gatt),
+            verified_node_id: Some(id.clone()),
+        });
+        assert_eq!(
+            snapshot.indicator_node_ids(),
+            (vec![id.to_string()], vec![id.to_string()])
+        );
+        snapshot.peers[0].phase = BlePeerPhase::Reconnecting;
+        assert!(snapshot.connected_node_ids().is_empty());
+        assert_eq!(snapshot.observed_node_ids(), vec![id]);
+        snapshot.state = BleState::Closed;
+        assert_eq!(snapshot.indicator_node_ids(), (vec![], vec![]));
+    }
+
+    #[test]
+    fn old_snapshots_default_to_no_discovery_hints() {
+        let snapshot: BleSnapshot =
+            serde_json::from_str(r#"{"state":"active","peers":[]}"#).unwrap();
+        assert!(snapshot.discovered_node_ids.is_empty());
+    }
+
+    #[test]
     fn connection_badges_require_active_verified_connected_peers() {
         let id = NodeId::from_seed(1);
         let peer = BlePeer {
@@ -88,6 +159,7 @@ mod tests {
         };
         let mut snapshot = BleSnapshot {
             state: BleState::Active,
+            discovered_node_ids: Vec::new(),
             peers: vec![peer.clone(), peer],
         };
         assert_eq!(snapshot.connected_node_ids(), vec![id]);

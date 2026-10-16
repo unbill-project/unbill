@@ -366,14 +366,16 @@ mod tests {
     }
 }
 
-pub fn on_ble_updated(mut callback: impl FnMut(Vec<String>) + 'static) {
+pub fn on_ble_updated(mut callback: impl FnMut(BlePeerIndicators) + 'static) {
     let closure = Closure::new(move |value: JsValue| {
-        let peers = js_sys::Array::from(&value)
-            .iter()
-            .filter_map(|id| id.as_string())
-            .collect();
-        callback(peers);
+        if let Some(json) = value.as_string()
+            && let Ok(peers) = serde_json::from_str(&json)
+        {
+            callback(peers);
+        }
     });
     subscribe_ble_peers_js(&closure);
     closure.forget();
 }
+
+pub type BlePeerIndicators = (Vec<String>, Vec<String>);

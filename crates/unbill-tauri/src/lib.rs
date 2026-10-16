@@ -202,18 +202,15 @@ struct UpdateInfoDto {
 }
 
 #[tauri::command]
-async fn ble_connected_peers(
+async fn ble_peer_indicators(
     state: State<'_, AppState>,
-) -> std::result::Result<Vec<String>, String> {
+) -> std::result::Result<(Vec<String>, Vec<String>), String> {
     Ok(state
         .service
         .ble_snapshot()
         .await
         .map_err(stringify_error)?
-        .connected_node_ids()
-        .into_iter()
-        .map(|id| id.to_string())
-        .collect())
+        .indicator_node_ids())
 }
 
 #[tauri::command]
@@ -1015,19 +1012,17 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 if let Ok(mut rx) = ble_service.subscribe_ble().await {
                     loop {
-                        let peers: Vec<String> = rx
-                            .borrow_and_update()
-                            .connected_node_ids()
-                            .into_iter()
-                            .map(|id| id.to_string())
-                            .collect();
+                        let peers = rx.borrow_and_update().indicator_node_ids();
                         let _ = ble_handle.emit("ble-peers-updated", peers);
                         if rx.changed().await.is_err() {
                             break;
                         }
                     }
                 }
-                let _ = ble_handle.emit("ble-peers-updated", Vec::<String>::new());
+                let _ = ble_handle.emit(
+                    "ble-peers-updated",
+                    (Vec::<String>::new(), Vec::<String>::new()),
+                );
             });
             let mut events = service.subscribe();
             let handle = app.handle().clone();
@@ -1050,7 +1045,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             bootstrap_app,
-            ble_connected_peers,
+            ble_peer_indicators,
             create_ledger,
             load_ledger_detail,
             create_user,

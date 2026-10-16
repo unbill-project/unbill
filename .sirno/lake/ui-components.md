@@ -151,4 +151,4 @@ exclude archived users and select the first active payer. Archived choices are
 collapsed; expansion persists while editing share selection and weights.
 Amendment seeds preserve archived participants and original share weights.
 
-BluetoothBadge renders a small blue Bluetooth SVG with an accessible BLE connected label. It is a display-only component; callers decide visibility from verified connected peer state.
+BluetoothBadge accepts a connected flag and renders blue or muted gray. Its label and the BluetoothLegend use plain language: Blue: connected via Bluetooth. Gray: device seen, not connected. Components only render the supplied state.

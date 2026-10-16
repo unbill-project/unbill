@@ -37,7 +37,8 @@ Callers decide how to handle that failure.
 
 `BleSnapshot` and its typed state, peer phase, and link-path records carry
 process-local transport observations across console boundaries. They are not
-Automerge ledger data; only a transport-verified identity becomes a NodeId.
+Automerge ledger data; verified_node_id alone represents an authenticated
+transport identity.
 
 `UnbillError` covers domain-level failures (missing ledgers, users, bills, devices),
 validation, authorization, Automerge and reconciliation errors,
@@ -47,3 +48,5 @@ network and URL errors, ID parsing, system clock errors, and configuration error
 Drafts may allocate a real `BillId` before insertion. `add_bill_with_id` preserves
 that ID when saving, so deterministic rounding matches the preview. The verified
 bill checks reject duplicate IDs; amendments use fresh IDs.
+
+BleSnapshot keeps discovered_node_ids separate from verified peer identity. These are existing known ledger IDs matched by an unverified advertising hint, not newly authenticated identities. observed_node_ids combines hints and verified observations while the transport is Active; connected_node_ids requires Connected plus a verified identity. indicator_node_ids supplies the two lists for display, with connection taking precedence in consumers. Missing discovery fields in older wire snapshots default to an empty list.

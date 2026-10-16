@@ -3,6 +3,11 @@ import Foundation
 // The Swift boundary to the Rust-backed console through UniFFI.
 // Async to match the console's async orchestration API.
 // sirno:witness:unbill-apple:begin
+struct BlePeerConnections {
+    var discovered: Set<String> = []
+    var connected: Set<String> = []
+}
+
 protocol ConsoleClient {
     func serviceBuildInfo() async throws -> FfiBuildInfo
     func supportedCurrencies() async -> [String]
@@ -38,7 +43,7 @@ protocol ConsoleClient {
     // Join a ledger from an invitation URL.
     func joinLedger(url: String, label: String) async throws
     // Peer devices known to this device.
-    func bleConnectedPeers() async throws -> AsyncStream<Set<String>>
+    func blePeerConnections() async throws -> AsyncStream<BlePeerConnections>
     func syncDevices() async throws -> [SyncDevice]
     // Run one sync round with a peer.
     func syncOnce(peerNodeID: String) async throws

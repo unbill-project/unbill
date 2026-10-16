@@ -332,12 +332,18 @@ pub struct FfiBlePeer {
 pub struct FfiBleSnapshot {
     pub state: FfiBleState,
     pub peers: Vec<FfiBlePeer>,
+    pub discovered_node_ids: Vec<String>,
 }
 
 impl From<unbill_console::model::BleSnapshot> for FfiBleSnapshot {
     fn from(value: unbill_console::model::BleSnapshot) -> Self {
         Self {
             state: value.state.into(),
+            discovered_node_ids: value
+                .discovered_node_ids
+                .into_iter()
+                .map(|id| id.to_string())
+                .collect(),
             peers: value
                 .peers
                 .into_iter()

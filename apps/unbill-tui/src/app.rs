@@ -13,7 +13,7 @@ use unbill_console::service::{ServiceEvent, SettlementTransaction, UnbillConsole
 
 use crate::pane::Pane;
 use crate::pane::detail::{BillEditor, EditorSection, ParticipantRow};
-use crate::popup::PopupView;
+use crate::popup::{BlePeerIndicators, PopupView};
 use crate::popup::{
     PopupAction, PopupOutcome,
     create_ledger::CreateLedgerPopup,
@@ -46,7 +46,7 @@ pub struct AppState {
     pub bill_editor: Option<BillEditor>,
     pub popup: Option<Box<dyn PopupView>>,
     pub sync_status: SyncStatus,
-    pub ble_peers: Vec<String>,
+    pub ble_peers: BlePeerIndicators,
     pub status_message: Option<String>,
     pub should_quit: bool,
     pub sync_result_tx: mpsc::UnboundedSender<Result<(), String>>,
@@ -68,7 +68,7 @@ impl AppState {
             bill_editor: None,
             popup: None,
             sync_status: SyncStatus::Idle,
-            ble_peers: Vec::new(),
+            ble_peers: BlePeerIndicators::default(),
             status_message: None,
             should_quit: false,
             sync_result_tx,
@@ -96,12 +96,7 @@ pub async fn run(
     let mut svc_events = svc.subscribe();
     let mut ble = svc.subscribe_ble().await.ok();
     if let Some(rx) = &mut ble {
-        state.ble_peers = rx
-            .borrow_and_update()
-            .connected_node_ids()
-            .into_iter()
-            .map(|id| id.to_string())
-            .collect();
+        state.ble_peers = rx.borrow_and_update().indicator_node_ids();
     }
 
     // Initial data load.
@@ -126,7 +121,7 @@ pub async fn run(
             } => {
                 if update.is_err() { ble = None; }
                 state.ble_peers = ble.as_mut().map(|rx| rx.borrow_and_update()
-                    .connected_node_ids().into_iter().map(|id| id.to_string()).collect())
+                    .indicator_node_ids())
                     .unwrap_or_default();
                 if let Some(popup) = &mut state.popup {
                     popup.update_ble_peers(&state.ble_peers);

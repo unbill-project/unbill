@@ -9,7 +9,7 @@ struct DevicesView: View {
     @State private var loadGeneration = 0
     @State private var deviceID = ""
     @State private var peers: [SyncDevice] = []
-    @State private var blePeers: Set<String> = []
+    @State private var blePeers = BlePeerConnections()
     @State private var syncingNodeID: String?
     @State private var isSyncingAll = false
     @State private var lastSyncedAt: [String: Date] = [:]
@@ -32,7 +32,7 @@ struct DevicesView: View {
                     }
                 }
 
-                Section("Peers") {
+                Section {
                     if peers.isEmpty {
                         Text("No peers yet. Invite someone or join a ledger to connect devices.")
                             .foregroundStyle(.secondary)
@@ -40,7 +40,8 @@ struct DevicesView: View {
                     ForEach(peers) { peer in
                         PeerDeviceRow(
                             peer: peer,
-                            bleConnected: blePeers.contains(peer.nodeID),
+                            bleConnected: blePeers.connected.contains(peer.nodeID),
+                            bleDiscovered: blePeers.discovered.contains(peer.nodeID),
                             syncing: syncingNodeID == peer.nodeID,
                             disabled: busy,
                             lastSyncedAt: lastSyncedAt[peer.nodeID],
@@ -49,6 +50,10 @@ struct DevicesView: View {
                             Task { await sync(peer.nodeID) }
                         }
                     }
+                } header: {
+                    Text("Peers")
+                } footer: {
+                    BluetoothLegend()
                 }
 
                 if let status {
@@ -76,13 +81,13 @@ struct DevicesView: View {
         }
         .task {
             do {
-                let updates = try await console.bleConnectedPeers()
+                let updates = try await console.blePeerConnections()
                 for await peers in updates {
                     guard !Task.isCancelled else { break }
                     blePeers = peers
                 }
             } catch { /* BLE indicators are optional; IP sync remains available. */ }
-            blePeers = []
+            blePeers = BlePeerConnections()
         }
         .interactiveDismissDisabled(busy)
     }
@@ -145,6 +150,7 @@ struct DevicesView: View {
 struct PeerDeviceRow: View {
     let peer: SyncDevice
     let bleConnected: Bool
+    let bleDiscovered: Bool
     let syncing: Bool
     let disabled: Bool
     let lastSyncedAt: Date?
@@ -156,7 +162,7 @@ struct PeerDeviceRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 5) {
                     Text(peer.label.isEmpty ? "Unnamed device" : peer.label)
-                    if bleConnected { BluetoothBadge() }
+                    if bleConnected || bleDiscovered { BluetoothBadge(connected: bleConnected) }
                 }
                 Text(peer.nodeID)
                     .font(.caption2.monospaced())
@@ -203,6 +209,7 @@ struct PeerDeviceRow: View {
 }
 
 private struct BluetoothBadge: View {
+    let connected: Bool
     var body: some View {
         Path { path in
             path.move(to: CGPoint(x: 2, y: 4))
@@ -212,8 +219,23 @@ private struct BluetoothBadge: View {
             path.addLine(to: CGPoint(x: 10, y: 4))
             path.addLine(to: CGPoint(x: 2, y: 12))
         }
-        .stroke(.blue, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+        .stroke(connected ? Color.blue : Color.secondary, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
         .frame(width: 12, height: 16)
-        .accessibilityLabel("BLE connected")
+        .accessibilityLabel(connected ? "Connected via Bluetooth" : "Device seen, not connected")
+    }
+}
+
+struct BluetoothLegend: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 5) {
+                BluetoothBadge(connected: true)
+                Text("Blue: connected via Bluetooth.")
+            }
+            HStack(spacing: 5) {
+                BluetoothBadge(connected: false)
+                Text("Gray: device seen, not connected.")
+            }
+        }
     }
 }

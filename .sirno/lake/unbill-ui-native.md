@@ -130,4 +130,4 @@ The native UI groups archived ledgers in a collapsed Archived disclosure with na
 
 Ledger list rows only open ledger details; restoration belongs in Ledger Settings. Explicitly opened archived ledgers remain selected across refreshes.
 
-The webview registers a ble-peers-updated listener before querying initial state, ignoring the query result if a newer event arrived. A dedicated reactive peer list drives the shared Bluetooth badge in both global and ledger device rows without changing ledger signals.
+The webview listens for ble-peers-updated before fetching initial ble_peer_indicators, ignoring an older query result after a newer event. A separate observed/connected signal drives gray or blue Bluetooth badges in global and ledger device rows. Both lists include a plain-language color legend.

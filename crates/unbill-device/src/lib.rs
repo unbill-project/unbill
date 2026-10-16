@@ -9,13 +9,14 @@ use std::sync::Arc;
 pub use unbill_event::ServiceEvent;
 pub use unbill_storage::StoreServer;
 
+use tokio::io::AsyncWriteExt;
 use tokio::sync::{broadcast, watch};
 use tracing::warn;
 use unbill_model::error::{Result, UnbillError};
 use unbill_model::{LedgerId, NodeId, Timestamp};
 use unbill_symmetric_channel::{
     ALPN_JOIN, ALPN_SYNC, JoinError, JoinReply, JoinRequest, JoinResponse, UnbillEndpoint,
-    read_msg, run_sync_session, write_msg,
+    finish_sync_session, read_msg, run_sync_session, write_msg,
 };
 
 // sirno:witness:unbill-device:begin
@@ -45,13 +46,37 @@ impl UnbillDevice {
             ble,
         });
         let weak = Arc::downgrade(&device);
+        let mut ledger_events = device.server.subscribe();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            let mut known = Vec::new();
+            let mut refresh_known = true;
             loop {
-                interval.tick().await;
+                tokio::select! {
+                    _ = interval.tick() => {},
+                    event = ledger_events.recv() => {
+                        match event {
+                            Ok(ServiceEvent::LedgerUpdated { .. })
+                            | Err(broadcast::error::RecvError::Lagged(_)) => refresh_known = true,
+                            Err(broadcast::error::RecvError::Closed) => break,
+                            _ => {},
+                        }
+                        continue;
+                    }
+                }
                 let Some(device) = weak.upgrade() else { break };
-                let snapshot = device.endpoint.ble_snapshot();
+                if refresh_known {
+                    match device.collect_peers().await {
+                        Ok(peers) => {
+                            known = peers;
+                            refresh_known = false;
+                        }
+                        Err(error) => warn!(%error, "could not refresh known BLE peers"),
+                    }
+                }
+                let mut snapshot = device.endpoint.ble_snapshot();
+                snapshot.discovered_node_ids = device.endpoint.ble_discovered_node_ids(&known);
                 let closed = matches!(snapshot.state, unbill_model::BleState::Closed);
                 device.publish_ble(snapshot);
                 if closed {
@@ -71,7 +96,7 @@ impl UnbillDevice {
     }
 
     pub fn ble_snapshot(&self) -> unbill_model::BleSnapshot {
-        self.endpoint.ble_snapshot()
+        self.ble.borrow().clone()
     }
 
     /// Current BLE state followed by changes, sampled once per 500 ms.
@@ -140,13 +165,18 @@ impl UnbillDevice {
 
     /// Dial `peer` and run the full sync exchange for all shared ledgers.
     pub async fn trigger_peer_sync(&self, peer: NodeId) -> Result<()> {
-        let conn = self.endpoint.connect_bi_sync(peer.clone()).await?;
-        let changed = run_sync_session(true, peer, &self.server, conn.recv, conn.send).await?;
-        conn.handle.close();
-        for (id, doc) in changed {
-            self.server.merge_and_save_ledger(&id, doc).await?;
+        let mut conn = self.endpoint.connect_bi_sync(peer.clone()).await?;
+        let result = async {
+            let changed =
+                run_sync_session(true, peer, &self.server, &mut conn.recv, &mut conn.send).await?;
+            for (id, doc) in changed {
+                self.server.merge_and_save_ledger(&id, doc).await?;
+            }
+            finish_sync_session(&mut conn.recv, &mut conn.send).await
         }
-        Ok(())
+        .await;
+        conn.handle.close();
+        result
     }
 
     /// Receive one Automerge sync message, persist any changes, and return the
@@ -165,8 +195,8 @@ impl UnbillDevice {
             let unbill_symmetric_channel::AcceptedBi {
                 peer,
                 alpn,
-                send,
-                recv,
+                mut send,
+                mut recv,
                 handle,
             } = accepted;
 
@@ -175,10 +205,14 @@ impl UnbillDevice {
                     match alpn.as_slice() {
                         ALPN_SYNC => {
                             let changed =
-                                run_sync_session(false, peer, &server, recv, send).await?;
+                                run_sync_session(false, peer, &server, &mut recv, &mut send)
+                                    .await?;
                             for (id, doc) in changed {
                                 server.merge_and_save_ledger(&id, doc).await?;
                             }
+                            send.shutdown().await.map_err(|error| {
+                                UnbillError::Network(format!("finish received sync: {error}"))
+                            })?;
                             Ok(())
                         }
                         ALPN_JOIN => handle_join_host(peer, &server, recv, send).await,

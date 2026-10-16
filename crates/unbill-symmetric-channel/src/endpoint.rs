@@ -192,6 +192,7 @@ impl UnbillEndpoint {
         if self.closed.load(Ordering::Acquire) {
             return BleSnapshot {
                 state: BleState::Closed,
+                discovered_node_ids: Vec::new(),
                 peers: Vec::new(),
             };
         }
@@ -206,9 +207,38 @@ impl UnbillEndpoint {
         }
         BleSnapshot {
             state: self.ble_state.clone(),
+            discovered_node_ids: Vec::new(),
             peers: Vec::new(),
         }
     }
+
+    // sirno:witness:ble-transport:begin
+    /// Advertising-prefix hints for known peers, without identity authentication.
+    pub fn ble_discovered_node_ids(&self, known: &[NodeId]) -> Vec<NodeId> {
+        if self.closed.load(Ordering::Acquire) {
+            return Vec::new();
+        }
+        #[cfg(any(
+            target_os = "macos",
+            target_os = "ios",
+            target_os = "linux",
+            target_os = "android"
+        ))]
+        if let Some(ble) = &self.ble {
+            return known
+                .iter()
+                .filter(|node| {
+                    node.to_endpoint_id()
+                        .is_ok_and(|id| ble.transport.has_scan_hint_for_endpoint(&id))
+                })
+                .cloned()
+                .collect();
+        }
+        let _ = known;
+        Vec::new()
+    }
+
+    // sirno:witness:ble-transport:end
 
     /// Cache the remote peer's direct addresses after a successful connection
     /// so that future dials can use the direct path instead of the relay.

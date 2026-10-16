@@ -47,3 +47,7 @@ Integration tests use `unbill-store-memory` to exercise the device surface
 without touching disk or real network endpoints.
 
 The device owns one 500 ms BLE snapshot polling task and a watch channel. Polling reads cached transport state, never restarts scanning, and publishes only changes. The task holds the device weakly between ticks; close publishes Closed immediately and terminates polling. subscribe_ble returns the current value plus subsequent changes.
+
+The polling task caches known ledger peers, refreshing them initially and after ledger notifications or event lag. Each sample matches those identities against transport advertising hints and fills discovered_node_ids. One-shot ble_snapshot reads return the latest sampled snapshot. No ledger reads are needed on ordinary polling ticks, and close still publishes Closed immediately.
+
+Sync completion must not immediately close QUIC while the peer may still be reading buffered frames. The initiator retains both stream halves, persists local changes, finishes its write side and waits for peer EOF before closing the connection. The receiver retains its writer until received changes are persisted, then finishes it to signal completion. EOF draining is bounded and rejects unexpected trailing bytes. Existing v1 framing is unchanged; older receivers already finish their writer on return, confirming protocol consumption but not necessarily persistence.

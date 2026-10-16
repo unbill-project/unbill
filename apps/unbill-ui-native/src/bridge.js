@@ -57,12 +57,12 @@ export async function subscribeBlePeers(callback) {
   try {
     await events.listen("ble-peers-updated", (event) => {
       revision += 1;
-      callback(event.payload);
+      callback(JSON.stringify(event.payload));
     });
     const before = revision;
-    const peers = await core.invoke("ble_connected_peers");
-    if (revision === before) callback(peers);
+    const peers = await core.invoke("ble_peer_indicators");
+    if (revision === before) callback(JSON.stringify(peers));
   } catch {
-    if (revision === 0) callback([]);
+    if (revision === 0) callback("[[],[]]");
   }
 }

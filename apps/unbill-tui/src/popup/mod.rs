@@ -12,6 +12,8 @@ pub mod create_ledger;
 pub mod invite;
 pub mod settings;
 
+pub type BlePeerIndicators = (Vec<String>, Vec<String>);
+
 pub type LedgerFingerprints = std::collections::HashMap<LedgerId, Result<String, String>>;
 
 // sirno:witness:unbill-tui:begin
@@ -20,7 +22,7 @@ pub trait PopupView: Send {
     fn title(&self) -> &str;
     fn render(&self, frame: &mut Frame, area: Rect);
     fn handle_key(&mut self, key: KeyEvent) -> PopupOutcome;
-    fn update_ble_peers(&mut self, _peers: &[String]) {}
+    fn update_ble_peers(&mut self, _peers: &BlePeerIndicators) {}
     fn update_fingerprints(&mut self, _fingerprints: &LedgerFingerprints) {}
 }
 

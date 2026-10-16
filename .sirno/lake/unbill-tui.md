@@ -117,4 +117,4 @@ for new bills and original membership preserved for amendments.
 
 The ledger pane defaults to active ledgers. [A] expands or collapses archived entries and reports their count. The list has no archive or restore action; [u] opens Ledger Settings, which exposes [X] archive/restore. Archive mutations clear the bill editor and selected detail; data and synchronization are retained.
 
-Device Settings shows current verified BLE connections as NodeIds with a blue [BLE] marker. The application event loop consumes the Console BLE watch subscription and updates the open settings popup; newly opened settings receive the current list. Stream closure clears the list. This does not require terminal icon fonts.
+Device Settings receives observed and verified connected NodeId lists from the Console BLE subscription. It renders Bluetooth markers in gray or blue, with a plain-language legend below the list. New settings receive current state, and subscription closure clears the indicators.

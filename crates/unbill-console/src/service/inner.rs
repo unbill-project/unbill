@@ -678,6 +678,7 @@ mod tests {
                 events,
                 ble: Mutex::new(unbill_model::BleSnapshot {
                     state: unbill_model::BleState::Disabled,
+                    discovered_node_ids: Vec::new(),
                     peers: Vec::new(),
                 }),
                 ble_reads: std::sync::atomic::AtomicUsize::new(0),
@@ -826,6 +827,19 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(rx.borrow_and_update().state, unbill_model::BleState::Active);
+
+        // Discovery alone must notify subscribers even though radio state is unchanged.
+        let discovered = NodeId::from_seed(9);
+        channel.ble.lock().await.discovered_node_ids = vec![discovered.clone()];
+        channel
+            .events
+            .send(AsymChannelEvent::BleSnapshotChanged)
+            .unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(2), rx.changed())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(rx.borrow_and_update().observed_node_ids(), vec![discovered]);
 
         // Wait until an unchanged notification has actually been processed.
         let reads = channel.ble_reads.load(Ordering::SeqCst);

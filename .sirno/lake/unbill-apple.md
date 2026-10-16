@@ -209,4 +209,4 @@ Physical iOS builds also request the multicast entitlement because this service
 uses UDP multicast sockets directly. Device signing must use a provisioning
 profile that grants this capability; the entitlement is not applied to Catalyst.
 
-Devices and Ledger Settings consume a bufferingNewest AsyncStream of connected BLE NodeIds through the FFI observer. Device rows show a small blue Bluetooth vector with an accessibility label when their identity is connected. View task cancellation releases the FFI subscription; observer release finishes the stream and clears indicators.
+Devices and Ledger Settings consume a bufferingNewest AsyncStream with observed and connected NodeId sets through the FFI observer. A device row uses blue when connected and gray when only observed. Both device sections include the plain-language color legend in their footer. View cancellation releases the subscription; observer release finishes the stream.
