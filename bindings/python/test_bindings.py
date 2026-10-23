@@ -11,6 +11,10 @@ import unbill
 
 
 class NativeBindingsTests(unittest.TestCase):
+    def test_public_names_hide_bridge_details(self):
+        self.assertFalse([name for name in dir(unbill) if "ffi" in name.lower()])
+        self.assertEqual(unbill.ConsoleError.__module__, "unbill._native")
+
     def test_currency_catalog_crosses_native_boundary(self):
         codes = unbill.supported_currency_codes()
         self.assertEqual(codes, sorted(set(codes)))
@@ -25,7 +29,7 @@ class NativeBindingsTests(unittest.TestCase):
     def test_missing_daemon_raises_generated_error(self):
         with tempfile.TemporaryDirectory() as directory:
             with mock.patch.dict(os.environ, {"UNBILL_SOCKET": directory + "/missing.sock"}):
-                with self.assertRaises(unbill.FfiError):
+                with self.assertRaises(unbill.ConsoleError):
                     unbill.Console.open_rpc(directory)
 
     def test_in_process_persists_without_daemon_and_owns_directory(self):
@@ -39,7 +43,7 @@ class NativeBindingsTests(unittest.TestCase):
                         unbill.client_build_info().version,
                     )
                     ledger = console.create_ledger("Embedded Python", "USD")
-                    with self.assertRaises(unbill.FfiError.DataDirectoryInUse):
+                    with self.assertRaises(unbill.ConsoleError.DataDirectoryInUse):
                         unbill.Console.open_in_process(directory)
                 finally:
                     del console
@@ -70,7 +74,7 @@ class NativeBindingsTests(unittest.TestCase):
     def check_operations_and_observer(self, console):
         events = queue.Queue()
 
-        class Observer(unbill.FfiConsoleObserver):
+        class Observer(unbill.ConsoleObserver):
             def on_event(self, event):
                 events.put(event)
 
@@ -80,11 +84,11 @@ class NativeBindingsTests(unittest.TestCase):
             self.assertTrue(ledger.ledger_id)
             self.assertEqual(console.ledger_detail(ledger.ledger_id).summary.name, "Python binding test")
             events.get(timeout=10)
-            with self.assertRaises(unbill.FfiError):
+            with self.assertRaises(unbill.ConsoleError):
                 console.create_ledger("Invalid", "NOT_A_CURRENCY")
 
             async def invalid_sync():
-                with self.assertRaises(unbill.FfiError):
+                with self.assertRaises(unbill.ConsoleError):
                     await console.sync_once("invalid-node-id")
 
             asyncio.run(invalid_sync())

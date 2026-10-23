@@ -156,7 +156,7 @@ private struct AppSettingsView: View {
     @State private var showingDevices = false
     @AppStorage("appearance") private var appearance = "system"
     private let client = clientBuildInfo()
-    @State private var service: FfiBuildInfo?
+    @State private var service: ConsoleBuildInfo?
     @State private var loading = true
 
     private var serviceLabel: String {

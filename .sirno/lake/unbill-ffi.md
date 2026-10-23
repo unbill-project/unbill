@@ -9,6 +9,8 @@ core.belongs:
 
 `unbill-ffi` exposes `Console` to Python and Swift through UniFFI.
 Public console naming belongs to this shared interface rather than language-specific aliases.
+Exported records, enums, errors, callbacks, and subscriptions use `Console` names
+without an `Ffi` prefix. The bridge and generated low-level symbols remain implementation details.
 The underlying orchestration remains in `UnbillConsole`.
 
 Construction explicitly selects the deployment topology.
@@ -29,6 +31,6 @@ UniFFI metadata. Apple builds select matching Swift source and headers for each
 XCFramework variant. Compile checks require in-process construction on iOS and
 reject daemon construction there; desktop variants accept both constructors.
 
-observe_ble exposes the Console BLE watch subscription through a typed FfiBleObserver callback. It delivers the initial snapshot and changed snapshots on the Console runtime. The returned FfiSubscription cancels delivery explicitly or on drop. BLE DTOs preserve state, phases, transport path and optional verified node identity.
+observe_ble exposes the Console BLE watch subscription through a typed ConsoleBleObserver callback. It delivers the initial snapshot and changed snapshots on the Console runtime. The returned ConsoleSubscription cancels delivery explicitly or on drop. BLE DTOs preserve state, phases, transport path and optional verified node identity.
 
-FfiBleSnapshot includes discovered_node_ids as a separate list of known identities matched by advertising hints. The field does not populate or alter verified_node_id. Foreign clients can render discovery and connected state separately using the same subscription.
+ConsoleBleSnapshot includes discovered_node_ids as a separate list of known identities matched by advertising hints. The field does not populate or alter verified_node_id. Foreign clients can render discovery and connected state separately using the same subscription.

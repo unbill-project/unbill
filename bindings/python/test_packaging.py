@@ -38,7 +38,8 @@ class WheelTests(unittest.TestCase):
                 self.assertTrue(any(n.endswith("LICENSE-APACHE") for n in names))
                 # Repair tools compute library paths in the wheel tree. Keeping
                 # the package at the root preserves those paths after pip install.
-                self.assertIn("unbill/unbill_ffi.py", names)
+                self.assertIn("unbill/_native.py", names)
+                self.assertNotIn("unbill/unbill_ffi.py", names)
                 self.assertTrue(any(n.endswith((".dylib", ".so", ".dll")) for n in names))
                 wheel_metadata = BytesParser().parsebytes(
                     archive.read(metadata_path.replace("METADATA", "WHEEL"))

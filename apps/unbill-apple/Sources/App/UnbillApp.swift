@@ -33,10 +33,10 @@ private struct StartupFailureView: View {
 
     private var failure: (title: String, icon: String, message: String) {
         switch error {
-        case FfiError.DataDirectoryInUse(let path):
+        case ConsoleError.DataDirectoryInUse(let path):
             return ("Data Directory Already in Use", "lock.fill",
                 "Another Unbill app or unbill-daemon is using this directory:\n\n\(path)\n\nQuit the other app or stop the daemon, then reopen Unbill.")
-        case FfiError.Message(let message):
+        case ConsoleError.Message(let message):
             return ("Unable to Open Unbill", "exclamationmark.triangle", message)
         default:
             return ("Unable to Open Unbill", "exclamationmark.triangle", error.localizedDescription)
