@@ -122,9 +122,11 @@ CI does not build the Tauri iOS app or publish an IPA.
 
 The Nix job builds all flake packages (`unbill-cli`, `unbill-tui`, `unbill-daemon`, `unbill-tauri`)
 and pushes them to the `unbill` Cachix binary cache.
-The shared Cargo source filter retains SQL migrations and the About page's
-`crates/unbill-about/content.json` and root `unbill-icon.svg` assets alongside
-Rust build inputs. Diesel and the About UI embed those files during compilation.
+The shared Cargo source filter retains SQL migrations, the About page's
+`crates/unbill-about/content.json` and root `unbill-icon.svg` assets, and the
+macOS `macos-info.plist` files for the daemon and server alongside Rust build inputs.
+Diesel and the About UI embed their files during compilation; the macOS linker
+embeds the plist files into the corresponding binaries.
 Nix users who add `unbill.cachix.org` as a substituter
 get pre-built binaries without local compilation.
 
