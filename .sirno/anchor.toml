@@ -52,7 +52,7 @@ fingerprint = "sha256:fd3302642d25a1dbc341cd4954cce29d25ad7b8674cb91320ff080ed94
 "core.belongs" = ["unbill"]
 
 [entries.ci-cd-pipeline]
-fingerprint = "sha256:f32ea6dd89cbd4bb9022fc9f8ef96d253779c9c7bfc80e11f7502132ce2f8a34"
+fingerprint = "sha256:4f0fbb44952ffb6bad40881a60a3e47b6244ddb9cd878664583b6cfb52f0996a"
 "core.belongs" = ["distribution-and-release"]
 
 [entries.compiled-markdown-artifacts]
