@@ -21,6 +21,14 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.0.8",
+          "date": "2026-10-23",
+          "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.8/unbill-apple-ios.ipa",
+          "size": 10489032,
+          "minOSVersion": "17.0",
+          "localizedDescription": "Nearby Bluetooth sync and connection status, refreshed settings with license information, and more reliable ledger sync."
+        },
+        {
           "version": "0.0.7",
           "date": "2026-10-11",
           "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.7/unbill-apple-ios.ipa",
@@ -40,8 +48,9 @@
       "appPermissions": {
         "entitlements": [],
         "privacy": {
-          "NSCameraUsageDescription": "Unbill uses the camera to scan invitation QR codes.",
-          "NSLocalNetworkUsageDescription": "Unbill syncs your ledgers directly between your devices over the local network."
+          "NSCameraUsageDescription": "unbill uses the camera to scan invitation QR codes.",
+          "NSLocalNetworkUsageDescription": "unbill syncs your ledgers directly between your devices over the local network.",
+          "NSBluetoothAlwaysUsageDescription": "unbill uses Bluetooth to discover nearby devices and sync your ledgers."
         }
       }
     }
