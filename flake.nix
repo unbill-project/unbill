@@ -39,12 +39,14 @@
         craneLibWasm = (crane.mkLib pkgs).overrideToolchain rustToolchainWasm;
 
         # sirno:witness:ci-cd-pipeline:begin
-        # Diesel embeds SQL migrations at compile time; Crane's default Cargo
-        # source filter excludes them.
+        # Diesel and the About UI embed non-Rust files at compile time; Crane's
+        # default Cargo source filter excludes them.
         cargoSource = pkgs.lib.cleanSourceWith {
           src = pkgs.lib.cleanSource ./.;
           filter = path: type:
             craneLib.filterCargoSources path type || pkgs.lib.hasSuffix ".sql" path
+            || pkgs.lib.hasSuffix "/crates/unbill-about/content.json" path
+            || pkgs.lib.hasSuffix "/unbill-icon.svg" path
             || builtins.elem (baseNameOf path) [ "LICENSE" "LICENSE-MIT" "LICENSE-APACHE" ];
         };
         # sirno:witness:ci-cd-pipeline:end
