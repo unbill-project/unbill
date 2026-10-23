@@ -13,6 +13,8 @@ Python clients reuse the UniFFI exports of `unbill-ffi` through an installable
 
 The package contains generated Python bindings and a shared Rust library built
 for the host platform. Builds use the workspace-pinned generator and version.
+The package exports only the named console API; generated bindings live in a
+private `_native` module, and public names do not expose bridge terminology.
 Generated bindings and native artifacts stay out of version control.
 Wheels are platform-specific and independent of the CPython extension ABI.
 Distribution across machines requires bundling external native dependencies.

@@ -24,7 +24,7 @@ actor RustConsoleClient: ConsoleClient {
         #endif
     }
 
-    func serviceBuildInfo() async throws -> FfiBuildInfo {
+    func serviceBuildInfo() async throws -> ConsoleBuildInfo {
         try console.serviceBuildInfo()
     }
 
@@ -71,8 +71,8 @@ actor RustConsoleClient: ConsoleClient {
 
     func previewBill(amountCents: Int64, payers: [BillShareInput], payees: [BillShareInput], previewID: String) async throws -> BillSplitPreview {
         let split = try console.previewBillSplit(amountCents: amountCents,
-            payers: payers.map { FfiShareInput(userId: $0.userID, shares: $0.shares) },
-            payees: payees.map { FfiShareInput(userId: $0.userID, shares: $0.shares) }, billId: previewID)
+            payers: payers.map { ConsoleShareInput(userId: $0.userID, shares: $0.shares) },
+            payees: payees.map { ConsoleShareInput(userId: $0.userID, shares: $0.shares) }, billId: previewID)
         return BillSplitPreview(
             payers: Dictionary(split.payerAmounts.map { ($0.userId, $0.amountCents) }, uniquingKeysWith: +),
             payees: Dictionary(split.payeeAmounts.map { ($0.userId, $0.amountCents) }, uniquingKeysWith: +))
@@ -80,8 +80,8 @@ actor RustConsoleClient: ConsoleClient {
 
     func saveBill(ledgerID: String, description: String, amountCents: Int64, payers: [BillShareInput], payees: [BillShareInput], previousBillIDs: [String], billID: String) async throws {
         _ = try console.saveBill(ledgerId: ledgerID, amountCents: amountCents, description: description,
-            payers: payers.map { FfiShareInput(userId: $0.userID, shares: $0.shares) },
-            payees: payees.map { FfiShareInput(userId: $0.userID, shares: $0.shares) }, draft: FfiBillDraft(billId: billID, prevBillIds: previousBillIDs))
+            payers: payers.map { ConsoleShareInput(userId: $0.userID, shares: $0.shares) },
+            payees: payees.map { ConsoleShareInput(userId: $0.userID, shares: $0.shares) }, draft: ConsoleBillDraft(billId: billID, prevBillIds: previousBillIDs))
     }
 
     func ledgerDetail(id: String) async throws -> LedgerDetail {
@@ -155,7 +155,7 @@ actor RustConsoleClient: ConsoleClient {
 
     // MARK: - Mapping (nonisolated: pure value transforms)
 
-    private static func summary(_ s: FfiLedgerSummary) -> LedgerSummary {
+    private static func summary(_ s: ConsoleLedgerSummary) -> LedgerSummary {
         LedgerSummary(
             archived: s.archived,
             ledgerID: s.ledgerId, name: s.name, currency: s.currency,
@@ -165,7 +165,7 @@ actor RustConsoleClient: ConsoleClient {
         )
     }
 
-    private static func bill(_ b: FfiBill) -> Bill {
+    private static func bill(_ b: ConsoleBill) -> Bill {
         Bill(
             id: b.id, amountCents: b.amountCents, description: b.description,
             createdAtMs: b.createdAtMs,
@@ -173,23 +173,23 @@ actor RustConsoleClient: ConsoleClient {
         )
     }
 
-    private static func share(_ s: FfiShare) -> Share {
+    private static func share(_ s: ConsoleShare) -> Share {
         Share(userID: s.userId, shares: UInt32(s.shares), displayName: s.displayName)
     }
 
-    private static func user(_ u: FfiUser) -> User {
+    private static func user(_ u: ConsoleUser) -> User {
         User(userID: u.userId, displayName: u.displayName, archived: u.archived, addedAtMs: u.addedAtMs)
     }
 }
 
-private final class LedgerUpdateObserver: FfiConsoleObserver {
+private final class LedgerUpdateObserver: ConsoleObserver {
     let continuation: AsyncStream<String?>.Continuation
 
     init(continuation: AsyncStream<String?>.Continuation) {
         self.continuation = continuation
     }
 
-    func onEvent(event: FfiServiceEvent) {
+    func onEvent(event: ConsoleServiceEvent) {
         switch event {
         case .ledgerUpdated(let ledgerID):
             continuation.yield(ledgerID)
@@ -201,7 +201,7 @@ private final class LedgerUpdateObserver: FfiConsoleObserver {
     }
 }
 
-private final class BleConnectionObserver: FfiBleObserver {
+private final class BleConnectionObserver: ConsoleBleObserver {
     let continuation: AsyncStream<BlePeerConnections>.Continuation
 
     init(continuation: AsyncStream<BlePeerConnections>.Continuation) {
@@ -210,7 +210,7 @@ private final class BleConnectionObserver: FfiBleObserver {
 
     deinit { continuation.finish() }
 
-    func onSnapshot(snapshot: FfiBleSnapshot) {
+    func onSnapshot(snapshot: ConsoleBleSnapshot) {
         guard case .active = snapshot.state else {
             continuation.yield(BlePeerConnections())
             return

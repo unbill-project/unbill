@@ -4,7 +4,7 @@ After CI publishes a release, install it with `python -m pip install unbill`. Wh
 target Linux x86_64 (glibc 2.28 or newer), macOS ARM64, and Windows x86_64.
 Use an in-process console directly, or connect to a separately installed daemon.
 
-The Python package reuses the Rust console interface through UniFFI. Build it
+The Python package reuses the Rust console interface. Build it
 from the repository with Cargo and Python 3.9 or newer:
 
 ```sh
@@ -54,16 +54,16 @@ Both constructors provide the same operations. RPC uses the existing desktop
 data-directory configuration and `UNBILL_SOCKET` override. In-process mode uses
 the supplied directory directly and ignores `UNBILL_SOCKET`. A data directory
 can have only one storage owner: an in-process console or the daemon. Competing
-in-process opens raise `unbill.FfiError.DataDirectoryInUse`.
+in-process opens raise `unbill.ConsoleError.DataDirectoryInUse`.
 Keep the in-process console alive while using it; releasing it stops its runtime
 and releases its storage ownership.
 
 Records, enums, errors, and methods are generated from the same Rust exports
-used by Swift. Rust errors raise `unbill.FfiError`. Most methods are synchronous
+used by Swift. Rust errors raise `unbill.ConsoleError`. Most methods are synchronous
 and block; use `asyncio.to_thread` when calling them from an asyncio application.
 `sync_once` is async and can be awaited directly.
 
-Observers subclass `unbill.FfiConsoleObserver` and implement `on_event(self, event)`.
+Observers subclass `unbill.ConsoleObserver` and implement `on_event(self, event)`.
 Keep the subscription returned by `console.observe(observer)` alive, then call
 `subscription.cancel()` when finished. Callbacks run on Rust worker threads:
 enqueue events or use `loop.call_soon_threadsafe` to forward them to the owning

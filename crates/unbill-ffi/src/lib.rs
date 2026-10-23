@@ -33,35 +33,35 @@ uniffi::setup_scaffolding!();
 
 // sirno:witness:unbill-license:begin
 #[derive(uniffi::Record)]
-pub struct FfiLegalSoftware {
+pub struct ConsoleLegalSoftware {
     pub name: String,
     pub versions: Vec<String>,
     pub license_expressions: Vec<String>,
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiLegalDocument {
+pub struct ConsoleLegalDocument {
     pub title: String,
     pub text: String,
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiLegalPackage {
+pub struct ConsoleLegalPackage {
     pub package_id: String,
     pub name: String,
     pub version: String,
     pub license_expression: String,
     pub repository: Option<String>,
     pub source: Option<String>,
-    pub documents: Vec<FfiLegalDocument>,
+    pub documents: Vec<ConsoleLegalDocument>,
 }
 
 /// Local compiled information; never opens storage or contacts a daemon.
 #[uniffi::export]
-pub fn license_software_summaries() -> Vec<FfiLegalSoftware> {
+pub fn license_software_summaries() -> Vec<ConsoleLegalSoftware> {
     unbill_license::software_summaries()
         .into_iter()
-        .map(|software| FfiLegalSoftware {
+        .map(|software| ConsoleLegalSoftware {
             name: software.name,
             versions: software.versions,
             license_expressions: software.license_expressions,
@@ -70,10 +70,10 @@ pub fn license_software_summaries() -> Vec<FfiLegalSoftware> {
 }
 
 #[uniffi::export]
-pub fn license_software_details(name: String) -> Vec<FfiLegalPackage> {
+pub fn license_software_details(name: String) -> Vec<ConsoleLegalPackage> {
     unbill_license::software(&name)
         .iter()
-        .map(|package| FfiLegalPackage {
+        .map(|package| ConsoleLegalPackage {
             package_id: package.package_id.clone(),
             name: package.name.clone(),
             version: package.version.clone(),
@@ -85,7 +85,7 @@ pub fn license_software_details(name: String) -> Vec<FfiLegalPackage> {
                 .or_else(|| package.source.clone()),
             documents: unbill_license::display_documents(package)
                 .into_iter()
-                .map(|document| FfiLegalDocument {
+                .map(|document| ConsoleLegalDocument {
                     title: document.path,
                     text: document.text,
                 })
@@ -107,7 +107,7 @@ pub fn supported_currency_codes() -> Vec<String> {
 
 /// Shared desktop data-directory default, including UNBILL_DATA_DIR overrides.
 #[uniffi::export]
-pub fn default_data_directory() -> Result<String, FfiError> {
+pub fn default_data_directory() -> Result<String, ConsoleError> {
     let root = unbill_storage::UNBILL_PATH.data_dir().map_err(err)?;
     root.into_os_string()
         .into_string()
@@ -115,12 +115,12 @@ pub fn default_data_directory() -> Result<String, FfiError> {
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiBuildInfo {
+pub struct ConsoleBuildInfo {
     pub version: String,
     pub built_at_utc: String,
 }
 
-impl From<unbill_build_info::BuildInfo> for FfiBuildInfo {
+impl From<unbill_build_info::BuildInfo> for ConsoleBuildInfo {
     fn from(info: unbill_build_info::BuildInfo) -> Self {
         Self {
             version: info.version,
@@ -130,28 +130,28 @@ impl From<unbill_build_info::BuildInfo> for FfiBuildInfo {
 }
 
 #[uniffi::export]
-pub fn client_build_info() -> FfiBuildInfo {
+pub fn client_build_info() -> ConsoleBuildInfo {
     unbill_build_info::BuildInfo::from(crate::compiled_build_info()).into()
 }
 
 // ---------- Errors ----------
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
-pub enum FfiError {
+pub enum ConsoleError {
     #[error("data directory is already in use: {path}")]
     DataDirectoryInUse { path: String },
     #[error("{0}")]
     Message(String),
 }
 
-fn err(e: impl std::fmt::Display) -> FfiError {
-    FfiError::Message(e.to_string())
+fn err(e: impl std::fmt::Display) -> ConsoleError {
+    ConsoleError::Message(e.to_string())
 }
 
 // ---------- DTOs (mirror unbill-tauri) ----------
 
 #[derive(uniffi::Record)]
-pub struct FfiLedgerSummary {
+pub struct ConsoleLedgerSummary {
     pub archived: bool,
     pub ledger_id: String,
     pub name: String,
@@ -164,7 +164,7 @@ pub struct FfiLedgerSummary {
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiUser {
+pub struct ConsoleUser {
     pub user_id: String,
     pub display_name: String,
     pub archived: bool,
@@ -172,38 +172,38 @@ pub struct FfiUser {
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiShare {
+pub struct ConsoleShare {
     pub user_id: String,
     pub shares: u32,
     pub display_name: String,
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiBill {
+pub struct ConsoleBill {
     pub id: String,
     pub amount_cents: i64,
     pub description: String,
     pub created_at_ms: i64,
-    pub payers: Vec<FfiShare>,
-    pub payees: Vec<FfiShare>,
+    pub payers: Vec<ConsoleShare>,
+    pub payees: Vec<ConsoleShare>,
     pub prev: Vec<String>,
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiUserAmount {
+pub struct ConsoleUserAmount {
     pub user_id: String,
     pub amount_cents: i64,
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiBillSplit {
-    pub payer_amounts: Vec<FfiUserAmount>,
-    pub payee_amounts: Vec<FfiUserAmount>,
+pub struct ConsoleBillSplit {
+    pub payer_amounts: Vec<ConsoleUserAmount>,
+    pub payee_amounts: Vec<ConsoleUserAmount>,
 }
 
 /// Identity of a draft and the bills it supersedes when saved.
 #[derive(uniffi::Record)]
-pub struct FfiBillDraft {
+pub struct ConsoleBillDraft {
     pub bill_id: String,
     pub prev_bill_ids: Vec<String>,
 }
@@ -215,61 +215,61 @@ pub fn new_bill_id() -> String {
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiTransaction {
+pub struct ConsoleTransaction {
     pub from_name: String,
     pub to_name: String,
     pub amount_cents: i64,
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiConflictGroup {
-    pub conflicting: Vec<FfiBill>,
-    pub ancestors: Vec<FfiBill>,
+pub struct ConsoleConflictGroup {
+    pub conflicting: Vec<ConsoleBill>,
+    pub ancestors: Vec<ConsoleBill>,
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiSyncDevice {
+pub struct ConsoleSyncDevice {
     pub node_id: String,
     pub label: String,
     pub ledger_names: Vec<String>,
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiBootstrap {
+pub struct ConsoleBootstrap {
     pub device_id: String,
-    pub ledgers: Vec<FfiLedgerSummary>,
-    pub all_users: Vec<FfiUser>,
-    pub devices: Vec<FfiSyncDevice>,
+    pub ledgers: Vec<ConsoleLedgerSummary>,
+    pub all_users: Vec<ConsoleUser>,
+    pub devices: Vec<ConsoleSyncDevice>,
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiLedgerDetail {
+pub struct ConsoleLedgerDetail {
     pub emoji_fingerprint: String,
 
-    pub summary: FfiLedgerSummary,
-    pub users: Vec<FfiUser>,
-    pub devices: Vec<FfiSyncDevice>,
-    pub bills: Vec<FfiBill>,
-    pub conflicts: Vec<FfiConflictGroup>,
-    pub settlement: Vec<FfiTransaction>,
+    pub summary: ConsoleLedgerSummary,
+    pub users: Vec<ConsoleUser>,
+    pub devices: Vec<ConsoleSyncDevice>,
+    pub bills: Vec<ConsoleBill>,
+    pub conflicts: Vec<ConsoleConflictGroup>,
+    pub settlement: Vec<ConsoleTransaction>,
 }
 
 /// Input for save_bill (a participant's share weight).
 #[derive(uniffi::Record)]
-pub struct FfiShareInput {
+pub struct ConsoleShareInput {
     pub user_id: String,
     pub shares: u32,
 }
 
 // sirno:witness:unbill-ffi:begin
 #[derive(uniffi::Enum)]
-pub enum FfiBleState {
+pub enum ConsoleBleState {
     Disabled,
     Active,
     Unavailable { reason: String },
     Closed,
 }
-impl From<unbill_console::model::BleState> for FfiBleState {
+impl From<unbill_console::model::BleState> for ConsoleBleState {
     fn from(value: unbill_console::model::BleState) -> Self {
         match value {
             unbill_console::model::BleState::Disabled => Self::Disabled,
@@ -280,7 +280,7 @@ impl From<unbill_console::model::BleState> for FfiBleState {
     }
 }
 #[derive(uniffi::Enum)]
-pub enum FfiBlePeerPhase {
+pub enum ConsoleBlePeerPhase {
     Discovered,
     PendingDial,
     Connecting,
@@ -291,7 +291,7 @@ pub enum FfiBlePeerPhase {
     Restoring,
     Unknown,
 }
-impl From<unbill_console::model::BlePeerPhase> for FfiBlePeerPhase {
+impl From<unbill_console::model::BlePeerPhase> for ConsoleBlePeerPhase {
     fn from(value: unbill_console::model::BlePeerPhase) -> Self {
         match value {
             unbill_console::model::BlePeerPhase::Discovered => Self::Discovered,
@@ -307,11 +307,11 @@ impl From<unbill_console::model::BlePeerPhase> for FfiBlePeerPhase {
     }
 }
 #[derive(uniffi::Enum)]
-pub enum FfiBleConnectPath {
+pub enum ConsoleBleConnectPath {
     Gatt,
     L2cap,
 }
-impl From<unbill_console::model::BleConnectPath> for FfiBleConnectPath {
+impl From<unbill_console::model::BleConnectPath> for ConsoleBleConnectPath {
     fn from(value: unbill_console::model::BleConnectPath) -> Self {
         match value {
             unbill_console::model::BleConnectPath::Gatt => Self::Gatt,
@@ -320,22 +320,22 @@ impl From<unbill_console::model::BleConnectPath> for FfiBleConnectPath {
     }
 }
 #[derive(uniffi::Record)]
-pub struct FfiBlePeer {
+pub struct ConsoleBlePeer {
     pub device_id: String,
-    pub phase: FfiBlePeerPhase,
+    pub phase: ConsoleBlePeerPhase,
     pub consecutive_failures: u32,
-    pub connect_path: Option<FfiBleConnectPath>,
+    pub connect_path: Option<ConsoleBleConnectPath>,
     pub verified_node_id: Option<String>,
 }
 
 #[derive(uniffi::Record)]
-pub struct FfiBleSnapshot {
-    pub state: FfiBleState,
-    pub peers: Vec<FfiBlePeer>,
+pub struct ConsoleBleSnapshot {
+    pub state: ConsoleBleState,
+    pub peers: Vec<ConsoleBlePeer>,
     pub discovered_node_ids: Vec<String>,
 }
 
-impl From<unbill_console::model::BleSnapshot> for FfiBleSnapshot {
+impl From<unbill_console::model::BleSnapshot> for ConsoleBleSnapshot {
     fn from(value: unbill_console::model::BleSnapshot) -> Self {
         Self {
             state: value.state.into(),
@@ -347,7 +347,7 @@ impl From<unbill_console::model::BleSnapshot> for FfiBleSnapshot {
             peers: value
                 .peers
                 .into_iter()
-                .map(|peer| FfiBlePeer {
+                .map(|peer| ConsoleBlePeer {
                     device_id: peer.device_id,
                     phase: peer.phase.into(),
                     consecutive_failures: peer.consecutive_failures,
@@ -360,16 +360,16 @@ impl From<unbill_console::model::BleSnapshot> for FfiBleSnapshot {
 }
 
 #[uniffi::export(callback_interface)]
-pub trait FfiBleObserver: Send + Sync {
+pub trait ConsoleBleObserver: Send + Sync {
     /// Delivered on a worker thread; dispatch UI changes to the main thread.
-    fn on_snapshot(&self, snapshot: FfiBleSnapshot);
+    fn on_snapshot(&self, snapshot: ConsoleBleSnapshot);
 }
 // sirno:witness:unbill-ffi:end
 
 // ---------- Event stream ----------
 
 #[derive(uniffi::Enum)]
-pub enum FfiServiceEvent {
+pub enum ConsoleServiceEvent {
     LedgerUpdated {
         ledger_id: String,
     },
@@ -390,7 +390,7 @@ pub enum FfiServiceEvent {
     ResyncNeeded,
 }
 
-impl From<ServiceEvent> for FfiServiceEvent {
+impl From<ServiceEvent> for ConsoleServiceEvent {
     fn from(e: ServiceEvent) -> Self {
         match e {
             ServiceEvent::LedgerUpdated { ledger_id } => Self::LedgerUpdated { ledger_id },
@@ -417,26 +417,26 @@ impl From<ServiceEvent> for FfiServiceEvent {
 }
 
 #[uniffi::export(callback_interface)]
-pub trait FfiConsoleObserver: Send + Sync {
+pub trait ConsoleObserver: Send + Sync {
     /// Called from a tokio worker thread — keep it cheap (e.g. yield to a
     /// Swift AsyncStream); do NOT call back into Console here (block_on).
-    fn on_event(&self, event: FfiServiceEvent);
+    fn on_event(&self, event: ConsoleServiceEvent);
 }
 
 /// Handle to an active event subscription; dropping it stops delivery.
 #[derive(uniffi::Object)]
-pub struct FfiSubscription {
+pub struct ConsoleSubscription {
     handle: tokio::task::AbortHandle,
 }
 
 #[uniffi::export]
-impl FfiSubscription {
+impl ConsoleSubscription {
     pub fn cancel(&self) {
         self.handle.abort();
     }
 }
 
-impl Drop for FfiSubscription {
+impl Drop for ConsoleSubscription {
     fn drop(&mut self) {
         self.handle.abort();
     }
@@ -455,7 +455,7 @@ pub struct Console {
 impl Console {
     /// Run a device and console in this process, owning the SQLite data directory.
     #[uniffi::constructor]
-    pub fn open_in_process(dir: String) -> Result<Arc<Self>, FfiError> {
+    pub fn open_in_process(dir: String) -> Result<Arc<Self>, ConsoleError> {
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -468,7 +468,7 @@ impl Console {
                         StorageError::Io(error)
                             if error.kind() == std::io::ErrorKind::WouldBlock =>
                         {
-                            FfiError::DataDirectoryInUse { path: dir.clone() }
+                            ConsoleError::DataDirectoryInUse { path: dir.clone() }
                         }
                         error => err(error),
                     })?;
@@ -482,7 +482,7 @@ impl Console {
             tokio::spawn(async move {
                 let _ = accept.accept_loop().await;
             });
-            Ok::<_, FfiError>(UnbillConsole::open(channel).await)
+            Ok::<_, ConsoleError>(UnbillConsole::open(channel).await)
         })?;
         Ok(Arc::new(Self { rt, inner }))
     }
@@ -496,7 +496,7 @@ impl Console {
 impl Console {
     /// Connect to an existing daemon socket in `dir` (or UNBILL_SOCKET).
     #[uniffi::constructor]
-    pub fn open_rpc(dir: String) -> Result<Arc<Self>, FfiError> {
+    pub fn open_rpc(dir: String) -> Result<Arc<Self>, ConsoleError> {
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
@@ -511,7 +511,7 @@ impl Console {
                     socket.display()
                 ))
             })?;
-            Ok::<_, FfiError>(UnbillConsole::open(channel).await)
+            Ok::<_, ConsoleError>(UnbillConsole::open(channel).await)
         })?;
         Ok(Arc::new(Self { rt, inner }))
     }
@@ -520,10 +520,10 @@ impl Console {
 
 #[uniffi::export]
 impl Console {
-    pub fn service_build_info(&self) -> Result<FfiBuildInfo, FfiError> {
+    pub fn service_build_info(&self) -> Result<ConsoleBuildInfo, ConsoleError> {
         self.rt
             .block_on(self.inner.service_build_info())
-            .map(FfiBuildInfo::from)
+            .map(ConsoleBuildInfo::from)
             .map_err(err)
     }
 
@@ -532,12 +532,12 @@ impl Console {
     }
 
     /// Ledger list + all known users + peer devices.
-    pub fn bootstrap(&self) -> Result<FfiBootstrap, FfiError> {
+    pub fn bootstrap(&self) -> Result<ConsoleBootstrap, ConsoleError> {
         self.rt.block_on(bootstrap(&self.inner)).map_err(err)
     }
 
     /// One ledger's users, devices, bills, conflicts, and settlement.
-    pub fn ledger_detail(&self, ledger_id: String) -> Result<FfiLedgerDetail, FfiError> {
+    pub fn ledger_detail(&self, ledger_id: String) -> Result<ConsoleLedgerDetail, ConsoleError> {
         let lid = parse_ledger_id(&ledger_id)?;
         self.rt
             .block_on(ledger_detail(&self.inner, lid))
@@ -548,9 +548,9 @@ impl Console {
         &self,
         name: String,
         currency: String,
-    ) -> Result<FfiLedgerSummary, FfiError> {
+    ) -> Result<ConsoleLedgerSummary, ConsoleError> {
         let currency = Currency::from_code(&currency)
-            .ok_or_else(|| FfiError::Message(format!("unknown currency code: {currency}")))?;
+            .ok_or_else(|| ConsoleError::Message(format!("unknown currency code: {currency}")))?;
         self.rt
             .block_on(async {
                 let id = self
@@ -568,7 +568,7 @@ impl Console {
         &self,
         ledger_id: String,
         display_name: String,
-    ) -> Result<FfiUser, FfiError> {
+    ) -> Result<ConsoleUser, ConsoleError> {
         let lid = parse_ledger_id(&ledger_id)?;
         self.rt
             .block_on(self.inner.create_user(lid, NewUserName { display_name }))
@@ -577,7 +577,11 @@ impl Console {
     }
 
     /// Add an already-known user (by id) to a ledger.
-    pub fn set_ledger_archived(&self, ledger_id: String, archived: bool) -> Result<(), FfiError> {
+    pub fn set_ledger_archived(
+        &self,
+        ledger_id: String,
+        archived: bool,
+    ) -> Result<(), ConsoleError> {
         let lid = LedgerId::from_string(&ledger_id).map_err(err)?;
         self.rt
             .block_on(self.inner.set_ledger_archived(lid, archived))
@@ -589,7 +593,7 @@ impl Console {
         ledger_id: String,
         user_id: String,
         archived: bool,
-    ) -> Result<(), FfiError> {
+    ) -> Result<(), ConsoleError> {
         let lid = parse_ledger_id(&ledger_id)?;
         let uid = parse_user_id(&user_id)?;
         self.rt
@@ -597,7 +601,11 @@ impl Console {
             .map_err(err)
     }
 
-    pub fn add_user(&self, ledger_id: String, user_id: String) -> Result<FfiUser, FfiError> {
+    pub fn add_user(
+        &self,
+        ledger_id: String,
+        user_id: String,
+    ) -> Result<ConsoleUser, ConsoleError> {
         let lid = parse_ledger_id(&ledger_id)?;
         let uid = parse_user_id(&user_id)?;
         self.rt
@@ -609,10 +617,10 @@ impl Console {
     pub fn preview_bill_split(
         &self,
         amount_cents: i64,
-        payers: Vec<FfiShareInput>,
-        payees: Vec<FfiShareInput>,
+        payers: Vec<ConsoleShareInput>,
+        payees: Vec<ConsoleShareInput>,
         bill_id: String,
-    ) -> Result<FfiBillSplit, FfiError> {
+    ) -> Result<ConsoleBillSplit, ConsoleError> {
         let split = self
             .inner
             .calculate_bill_split(
@@ -625,13 +633,13 @@ impl Console {
         let amounts = |items: Vec<(UserId, i64)>| {
             items
                 .into_iter()
-                .map(|(id, amount_cents)| FfiUserAmount {
+                .map(|(id, amount_cents)| ConsoleUserAmount {
                     user_id: id.to_string(),
                     amount_cents,
                 })
                 .collect()
         };
-        Ok(FfiBillSplit {
+        Ok(ConsoleBillSplit {
             payer_amounts: amounts(split.payer_amounts),
             payee_amounts: amounts(split.payee_amounts),
         })
@@ -643,10 +651,10 @@ impl Console {
         ledger_id: String,
         amount_cents: i64,
         description: String,
-        payers: Vec<FfiShareInput>,
-        payees: Vec<FfiShareInput>,
-        draft: FfiBillDraft,
-    ) -> Result<String, FfiError> {
+        payers: Vec<ConsoleShareInput>,
+        payees: Vec<ConsoleShareInput>,
+        draft: ConsoleBillDraft,
+    ) -> Result<String, ConsoleError> {
         let lid = parse_ledger_id(&ledger_id)?;
         let bill_id = parse_bill_id(&draft.bill_id)?;
         let payers = to_shares(payers)?;
@@ -678,7 +686,7 @@ impl Console {
         ledger_id: String,
         selected_bill_id: String,
         conflicting_bill_ids: Vec<String>,
-    ) -> Result<String, FfiError> {
+    ) -> Result<String, ConsoleError> {
         let lid = parse_ledger_id(&ledger_id)?;
         let selected = parse_bill_id(&selected_bill_id)?;
         let requested = conflicting_bill_ids
@@ -690,14 +698,14 @@ impl Console {
             .map_err(err)
     }
 
-    pub fn create_invitation(&self, ledger_id: String) -> Result<String, FfiError> {
+    pub fn create_invitation(&self, ledger_id: String) -> Result<String, ConsoleError> {
         let lid = parse_ledger_id(&ledger_id)?;
         self.rt
             .block_on(self.inner.create_invitation(lid))
             .map_err(err)
     }
 
-    pub fn join_ledger(&self, url: String, label: String) -> Result<(), FfiError> {
+    pub fn join_ledger(&self, url: String, label: String) -> Result<(), ConsoleError> {
         self.rt
             .block_on(self.inner.join_ledger(
                 &url,
@@ -707,7 +715,7 @@ impl Console {
     }
 
     /// Await network sync without blocking the caller's Swift actor executor.
-    pub async fn sync_once(&self, peer_node_id: String) -> Result<(), FfiError> {
+    pub async fn sync_once(&self, peer_node_id: String) -> Result<(), ConsoleError> {
         let peer = peer_node_id.parse::<NodeId>().map_err(err)?;
         let inner = Arc::clone(&self.inner);
         self.rt
@@ -721,8 +729,8 @@ impl Console {
     /// Cancel or drop the returned subscription to stop callbacks.
     pub async fn observe_ble(
         &self,
-        observer: Box<dyn FfiBleObserver>,
-    ) -> Result<Arc<FfiSubscription>, FfiError> {
+        observer: Box<dyn ConsoleBleObserver>,
+    ) -> Result<Arc<ConsoleSubscription>, ConsoleError> {
         let inner = Arc::clone(&self.inner);
         let mut rx = self
             .rt
@@ -742,11 +750,11 @@ impl Console {
                 }
             })
             .abort_handle();
-        Ok(Arc::new(FfiSubscription { handle }))
+        Ok(Arc::new(ConsoleSubscription { handle }))
     }
 
     /// Subscribe to service events. Delivery stops when the returned handle drops.
-    pub fn observe(&self, observer: Box<dyn FfiConsoleObserver>) -> Arc<FfiSubscription> {
+    pub fn observe(&self, observer: Box<dyn ConsoleObserver>) -> Arc<ConsoleSubscription> {
         use tokio::sync::broadcast::error::RecvError;
         let mut rx = self.inner.subscribe();
         let handle = self
@@ -756,14 +764,14 @@ impl Console {
                     match rx.recv().await {
                         Ok(ev) => observer.on_event(ev.into()),
                         Err(RecvError::Lagged(_)) => {
-                            observer.on_event(FfiServiceEvent::ResyncNeeded)
+                            observer.on_event(ConsoleServiceEvent::ResyncNeeded)
                         }
                         Err(RecvError::Closed) => break,
                     }
                 }
             })
             .abort_handle();
-        Arc::new(FfiSubscription { handle })
+        Arc::new(ConsoleSubscription { handle })
     }
 }
 
@@ -771,7 +779,7 @@ impl Console {
 
 type R<T> = Result<T, unbill_console::error::UnbillError>;
 
-async fn bootstrap(service: &Arc<UnbillConsole>) -> R<FfiBootstrap> {
+async fn bootstrap(service: &Arc<UnbillConsole>) -> R<ConsoleBootstrap> {
     let mut ledgers = Vec::new();
     for meta in service.list_ledgers().await? {
         ledgers.push(summarize_ledger(service, meta).await?);
@@ -783,7 +791,7 @@ async fn bootstrap(service: &Arc<UnbillConsole>) -> R<FfiBootstrap> {
         .map(user_to_dto)
         .collect();
     let devices = load_sync_devices(service).await?;
-    Ok(FfiBootstrap {
+    Ok(ConsoleBootstrap {
         device_id: service.device_id().to_string(),
         ledgers,
         all_users,
@@ -791,7 +799,10 @@ async fn bootstrap(service: &Arc<UnbillConsole>) -> R<FfiBootstrap> {
     })
 }
 
-async fn ledger_detail(service: &Arc<UnbillConsole>, ledger_id: LedgerId) -> R<FfiLedgerDetail> {
+async fn ledger_detail(
+    service: &Arc<UnbillConsole>,
+    ledger_id: LedgerId,
+) -> R<ConsoleLedgerDetail> {
     let meta = find_meta(service, ledger_id).await?;
     let summary = summarize_ledger(service, meta).await?;
     let local = service.device_id().to_string();
@@ -810,7 +821,7 @@ async fn ledger_detail(service: &Arc<UnbillConsole>, ledger_id: LedgerId) -> R<F
         .await?
         .transactions
         .into_iter()
-        .map(|t| FfiTransaction {
+        .map(|t| ConsoleTransaction {
             from_name: names
                 .get(&t.from_user_id)
                 .cloned()
@@ -823,7 +834,7 @@ async fn ledger_detail(service: &Arc<UnbillConsole>, ledger_id: LedgerId) -> R<F
         })
         .collect();
 
-    Ok(FfiLedgerDetail {
+    Ok(ConsoleLedgerDetail {
         emoji_fingerprint: service.ledger_emojis(ledger_id).await?,
         summary,
         users: users.into_iter().map(user_to_dto).collect(),
@@ -831,7 +842,7 @@ async fn ledger_detail(service: &Arc<UnbillConsole>, ledger_id: LedgerId) -> R<F
         bills: map_bills(bills, &names),
         conflicts: conflicts
             .into_iter()
-            .map(|g: ConflictGroup| FfiConflictGroup {
+            .map(|g: ConflictGroup| ConsoleConflictGroup {
                 conflicting: map_bill_vec(g.conflicting, &names),
                 ancestors: map_bill_vec(g.ancestors, &names),
             })
@@ -840,7 +851,7 @@ async fn ledger_detail(service: &Arc<UnbillConsole>, ledger_id: LedgerId) -> R<F
     })
 }
 
-async fn add_user(service: &Arc<UnbillConsole>, lid: LedgerId, uid: UserId) -> R<FfiUser> {
+async fn add_user(service: &Arc<UnbillConsole>, lid: LedgerId, uid: UserId) -> R<ConsoleUser> {
     let existing = service
         .list_all_users()
         .await?
@@ -907,11 +918,14 @@ async fn resolve_conflict(
     Ok(merge.to_string())
 }
 
-async fn summarize_ledger(service: &Arc<UnbillConsole>, meta: LedgerMeta) -> R<FfiLedgerSummary> {
+async fn summarize_ledger(
+    service: &Arc<UnbillConsole>,
+    meta: LedgerMeta,
+) -> R<ConsoleLedgerSummary> {
     let users = service.list_users(meta.ledger_id).await?;
     let bills = service.list_bills(meta.ledger_id).await?;
     let latest_bill_at_ms = bills.iter().map(|b| b.created_at.as_millis()).max();
-    Ok(FfiLedgerSummary {
+    Ok(ConsoleLedgerSummary {
         archived: meta.archived,
         ledger_id: meta.ledger_id.to_string(),
         name: meta.name,
@@ -933,9 +947,9 @@ async fn find_meta(service: &Arc<UnbillConsole>, ledger_id: LedgerId) -> R<Ledge
         .ok_or_else(|| unbill_console::error::UnbillError::LedgerNotFound(ledger_id.to_string()))
 }
 
-async fn load_sync_devices(service: &Arc<UnbillConsole>) -> R<Vec<FfiSyncDevice>> {
+async fn load_sync_devices(service: &Arc<UnbillConsole>) -> R<Vec<ConsoleSyncDevice>> {
     let local = service.device_id().to_string();
-    let mut by_node = BTreeMap::<String, FfiSyncDevice>::new();
+    let mut by_node = BTreeMap::<String, ConsoleSyncDevice>::new();
     let mut metas = service.list_ledgers().await?;
     metas.sort_by_key(|meta| meta.ledger_id);
     for meta in metas {
@@ -943,7 +957,7 @@ async fn load_sync_devices(service: &Arc<UnbillConsole>) -> R<Vec<FfiSyncDevice>
         for d in devices_for_ledger(service, meta.ledger_id, &name, &local).await? {
             let entry = by_node
                 .entry(d.node_id.clone())
-                .or_insert_with(|| FfiSyncDevice {
+                .or_insert_with(|| ConsoleSyncDevice {
                     node_id: d.node_id,
                     label: d.label,
                     ledger_names: Vec::new(),
@@ -968,7 +982,7 @@ async fn devices_for_ledger(
     ledger_id: LedgerId,
     ledger_name: &str,
     local_node_id: &str,
-) -> R<Vec<FfiSyncDevice>> {
+) -> R<Vec<ConsoleSyncDevice>> {
     let mut devices = service
         .list_devices(ledger_id)
         .await?
@@ -978,7 +992,7 @@ async fn devices_for_ledger(
             if node_id == local_node_id {
                 return None;
             }
-            Some(FfiSyncDevice {
+            Some(ConsoleSyncDevice {
                 label: d.label.to_string(),
                 node_id,
                 ledger_names: vec![ledger_name.to_owned()],
@@ -994,7 +1008,7 @@ async fn devices_for_ledger(
     Ok(devices)
 }
 
-fn map_bills(bills: EffectiveBills, names: &HashMap<UserId, String>) -> Vec<FfiBill> {
+fn map_bills(bills: EffectiveBills, names: &HashMap<UserId, String>) -> Vec<ConsoleBill> {
     let mut items = bills
         .into_vec()
         .into_iter()
@@ -1004,7 +1018,7 @@ fn map_bills(bills: EffectiveBills, names: &HashMap<UserId, String>) -> Vec<FfiB
     items
 }
 
-fn map_bill_vec(bills: Vec<Bill>, names: &HashMap<UserId, String>) -> Vec<FfiBill> {
+fn map_bill_vec(bills: Vec<Bill>, names: &HashMap<UserId, String>) -> Vec<ConsoleBill> {
     let mut items = bills
         .into_iter()
         .map(|b| bill_to_dto(b, names))
@@ -1013,8 +1027,8 @@ fn map_bill_vec(bills: Vec<Bill>, names: &HashMap<UserId, String>) -> Vec<FfiBil
     items
 }
 
-fn bill_to_dto(bill: Bill, names: &HashMap<UserId, String>) -> FfiBill {
-    let to_share = |s: Share| FfiShare {
+fn bill_to_dto(bill: Bill, names: &HashMap<UserId, String>) -> ConsoleBill {
+    let to_share = |s: Share| ConsoleShare {
         display_name: names
             .get(&s.user_id)
             .cloned()
@@ -1022,7 +1036,7 @@ fn bill_to_dto(bill: Bill, names: &HashMap<UserId, String>) -> FfiBill {
         user_id: s.user_id.to_string(),
         shares: s.shares,
     };
-    FfiBill {
+    ConsoleBill {
         id: bill.id.to_string(),
         amount_cents: bill.amount_cents,
         description: bill.description,
@@ -1033,8 +1047,8 @@ fn bill_to_dto(bill: Bill, names: &HashMap<UserId, String>) -> FfiBill {
     }
 }
 
-fn user_to_dto(u: User) -> FfiUser {
-    FfiUser {
+fn user_to_dto(u: User) -> ConsoleUser {
+    ConsoleUser {
         user_id: u.user_id.to_string(),
         display_name: u.display_name,
         archived: u.archived,
@@ -1042,7 +1056,7 @@ fn user_to_dto(u: User) -> FfiUser {
     }
 }
 
-fn to_shares(items: Vec<FfiShareInput>) -> Result<Vec<Share>, FfiError> {
+fn to_shares(items: Vec<ConsoleShareInput>) -> Result<Vec<Share>, ConsoleError> {
     items
         .into_iter()
         .map(|i| {
@@ -1054,15 +1068,15 @@ fn to_shares(items: Vec<FfiShareInput>) -> Result<Vec<Share>, FfiError> {
         .collect()
 }
 
-fn parse_ledger_id(v: &str) -> Result<LedgerId, FfiError> {
+fn parse_ledger_id(v: &str) -> Result<LedgerId, ConsoleError> {
     LedgerId::from_string(v).map_err(err)
 }
 
-fn parse_user_id(v: &str) -> Result<UserId, FfiError> {
+fn parse_user_id(v: &str) -> Result<UserId, ConsoleError> {
     UserId::from_string(v).map_err(err)
 }
 
-fn parse_bill_id(v: &str) -> Result<BillId, FfiError> {
+fn parse_bill_id(v: &str) -> Result<BillId, ConsoleError> {
     BillId::from_string(v).map_err(err)
 }
 
@@ -1070,9 +1084,9 @@ fn parse_bill_id(v: &str) -> Result<BillId, FfiError> {
 mod tests {
     #[test]
     fn ble_observer_receives_initial_snapshot_and_releases_on_cancel() {
-        struct Observer(std::sync::mpsc::Sender<FfiBleSnapshot>);
-        impl FfiBleObserver for Observer {
-            fn on_snapshot(&self, snapshot: FfiBleSnapshot) {
+        struct Observer(std::sync::mpsc::Sender<ConsoleBleSnapshot>);
+        impl ConsoleBleObserver for Observer {
+            fn on_snapshot(&self, snapshot: ConsoleBleSnapshot) {
                 let _ = self.0.send(snapshot);
             }
         }
@@ -1084,7 +1098,7 @@ mod tests {
             .block_on(console.observe_ble(Box::new(Observer(tx))))
             .unwrap();
         let snapshot = rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
-        assert!(matches!(snapshot.state, FfiBleState::Disabled));
+        assert!(matches!(snapshot.state, ConsoleBleState::Disabled));
         assert!(snapshot.peers.is_empty());
         subscription.cancel();
         assert!(matches!(
@@ -1249,7 +1263,7 @@ mod tests {
         );
         assert!(matches!(
             Console::open_in_process(path),
-            Err(FfiError::DataDirectoryInUse { .. })
+            Err(ConsoleError::DataDirectoryInUse { .. })
         ));
     }
 
@@ -1268,7 +1282,7 @@ mod tests {
         );
         assert!(matches!(
             Console::open_in_process(path.clone()),
-            Err(FfiError::DataDirectoryInUse { .. })
+            Err(ConsoleError::DataDirectoryInUse { .. })
         ));
         drop(first);
         let reopened = Console::open_in_process(path).unwrap();
@@ -1277,7 +1291,7 @@ mod tests {
 
     fn assert_sqlite_round_trip(
         root: &std::path::Path,
-        open: fn(String) -> Result<Arc<Console>, FfiError>,
+        open: fn(String) -> Result<Arc<Console>, ConsoleError>,
     ) {
         let path = root.to_str().unwrap().to_owned();
         let console = open(path.clone()).unwrap();
@@ -1293,11 +1307,11 @@ mod tests {
             .unwrap();
         let payer_shares = || {
             vec![
-                FfiShareInput {
+                ConsoleShareInput {
                     user_id: alice.user_id.clone(),
                     shares: 1,
                 },
-                FfiShareInput {
+                ConsoleShareInput {
                     user_id: bob.user_id.clone(),
                     shares: 3,
                 },
@@ -1305,11 +1319,11 @@ mod tests {
         };
         let payee_shares = || {
             vec![
-                FfiShareInput {
+                ConsoleShareInput {
                     user_id: alice.user_id.clone(),
                     shares: 1,
                 },
-                FfiShareInput {
+                ConsoleShareInput {
                     user_id: bob.user_id.clone(),
                     shares: 1,
                 },
@@ -1362,7 +1376,7 @@ mod tests {
                 "Dinner".into(),
                 payer_shares(),
                 payee_shares(),
-                FfiBillDraft {
+                ConsoleBillDraft {
                     bill_id: seed.clone(),
                     prev_bill_ids: vec![],
                 },
@@ -1379,7 +1393,7 @@ mod tests {
                 saved_bill.id.clone(),
             )
             .unwrap();
-        let amounts = |entries: Vec<FfiUserAmount>| {
+        let amounts = |entries: Vec<ConsoleUserAmount>| {
             entries
                 .into_iter()
                 .map(|entry| (entry.user_id, entry.amount_cents))
@@ -1401,7 +1415,7 @@ mod tests {
                     "Duplicate".into(),
                     payer_shares(),
                     payee_shares(),
-                    FfiBillDraft {
+                    ConsoleBillDraft {
                         bill_id: seed.clone(),
                         prev_bill_ids: vec![]
                     },
@@ -1415,7 +1429,7 @@ mod tests {
                 "Corrected dinner".into(),
                 payer_shares(),
                 payee_shares(),
-                FfiBillDraft {
+                ConsoleBillDraft {
                     bill_id: new_bill_id(),
                     prev_bill_ids: vec![original.clone()],
                 },

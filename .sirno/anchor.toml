@@ -226,7 +226,7 @@ fingerprint = "sha256:0c64da9a6ea338bd7155dda22367dbb120a675c37eafbbfeb48e5b8ebe
 "core.refines" = ["design-principles"]
 
 [entries.python-bindings]
-fingerprint = "sha256:8bd97f20ade239ff8929f425ee993b99b0c122ac29fa45702a0b4824674c38ba"
+fingerprint = "sha256:ee02a64f9e1c76c7bdac2d1edbeea0130be03cf6d8acfd588aefa5701d984bd1"
 "core.belongs" = [
     "workspace-layout",
     "unbill-ffi",
@@ -342,7 +342,7 @@ fingerprint = "sha256:23bf8421cd46fba5ee8f1b0c4995c7ee4a1579afea376b532d551c00de
 "core.refines" = ["sync-behavior"]
 
 [entries.unbill-ffi]
-fingerprint = "sha256:1cd1acc7af11511827a552cadf050d0b81b22fdff6fdadb4295e29c19f3ea115"
+fingerprint = "sha256:f0bf4ceaafab3d1eb71d2a359b482d9e76d5b8b7c5e31c1e751e896684070be7"
 "core.belongs" = ["workspace-layout"]
 
 [entries.unbill-license]
