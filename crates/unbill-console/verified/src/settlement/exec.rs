@@ -338,15 +338,14 @@ pub open spec fn bal_bounded(bal: i64, n: int) -> bool {
 }
 
 /// Compute per-user balances from effective bills in a ledger.
-/// Takes effective bill indices and remainder indices.
+/// Takes effective bill indices; each bill ID determines its own remainder position.
 /// Proves: seq_sum(result) == 0 (conservation).
 pub fn compute_balances(
     ledger: &LedgerState,
     effective_indices: &Vec<usize>,
-    remainder_indices: &Vec<usize>,
 ) -> (balances: Vec<i64>)
     requires
-        spec::compute_settlement_requires(ledger@, remainder_indices@),
+        spec::compute_settlement_requires(ledger@),
         forall|i: int| 0 <= i < effective_indices.len() ==>
             (#[trigger] effective_indices@[i]) < ledger.bills.len(),
         effective_indices.len() <= ledger.bills.len(),
@@ -469,9 +468,6 @@ pub fn compute_balances(
             forall|bi: int| 0 <= bi < ledger.bills.len() ==>
                 (#[trigger] ledger.bills@[bi]).amount_cents >= 0
                 && ledger.bills@[bi].amount_cents <= i32::MAX as i64,
-            remainder_indices.len() == ledger.bills.len(),
-            forall|i: int| 0 <= i < remainder_indices.len() ==>
-                (#[trigger] remainder_indices@[i]) <= usize::MAX - (i32::MAX as usize),
             // Growing balance bound.
             forall|k: int| 0 <= k < balances.len() ==>
                 bal_bounded(#[trigger] balances@[k], b as int + 1),
@@ -494,18 +490,11 @@ pub fn compute_balances(
         // bnd = (b+1) * bal_M(). Overflow assertions use bnd instead of spec::bal_M() * (b+1).
         let ghost bnd: int = spec::bal_M() * (b as int + 1);
 
-        // sirno:witness:formal-verification:begin
-        assert(bill_idx < remainder_indices.len());
-        #[allow(clippy::indexing_slicing, reason = "Bounds proved by the preceding Verus assertion")]
-        let rem_idx = remainder_indices[bill_idx];
-        // sirno:witness:formal-verification:end
-        assert(rem_idx <= usize::MAX - bill.payers.len());
-        assert(rem_idx <= usize::MAX - bill.payees.len());
         let payer_amounts = split_shares(
-            &bill.payers, amount, rem_idx,
+            &bill.payers, amount, bill.id,
         );
         let payee_amounts = split_shares(
-            &bill.payees, amount, rem_idx,
+            &bill.payees, amount, bill.id,
         );
 
         // Ghost: snapshot balances before payer processing.
@@ -833,15 +822,23 @@ pub fn find_user_index(users: &Vec<User>, user_id: u128) -> (idx: usize)
 pub fn split_shares(
     shares: &Vec<Share>,
     total_cents: i64,
-    remainder_recipient_idx: usize,
+    bill_id: u128,
 ) -> (result: Vec<i64>)
     requires
         split_shares_requires(shares_to_specs(shares@), total_cents),
-        remainder_recipient_idx <= usize::MAX - shares.len(),
     ensures
         spec::split_shares_ensures(shares_to_specs(shares@), total_cents, result@),
 {
     let ghost spec_shares: Seq<ShareSpec> = shares_to_specs(shares@);
+
+    // Reduce the fixed-width bill ID before converting to an array index.
+    // This preserves the same cent allocation on 32- and 64-bit targets.
+    assert(shares.len() > 0);
+    assert(shares.len() <= i32::MAX as usize);
+    let share_count: u128 = shares.len() as u128;
+    let remainder_recipient_idx: usize = (bill_id % share_count) as usize;
+    assert(remainder_recipient_idx < shares.len());
+    assert(remainder_recipient_idx <= usize::MAX - shares.len());
 
     // Sum weights.
     let mut tw: u64 = 0;
@@ -1107,13 +1104,12 @@ pub fn split_shares(
 // sirno:witness:formal-invariants:begin
 
 /// Full settlement pipeline: filter effective bills → split → accumulate → settle.
-/// Takes a LedgerState and remainder indices, returns settlement transactions.
+/// Takes a LedgerState and derives remainder positions from its bill IDs.
 pub fn compute_settlement(
     ledger: &LedgerState,
-    remainder_indices: &Vec<usize>,
 ) -> (transactions: Vec<Transaction>)
     requires
-        spec::compute_settlement_requires(ledger@, remainder_indices@),
+        spec::compute_settlement_requires(ledger@),
     ensures
         spec::compute_settlement_ensures(transactions_to_specs(transactions@)),
         // Empty ledger produces no transactions.
@@ -1162,7 +1158,7 @@ pub fn compute_settlement(
     let effective_indices = effective::filter_effective_indices(&ledger.bills);
 
     // Step 2: Accumulate balances from effective bills.
-    let balances = compute_balances(ledger, &effective_indices, remainder_indices);
+    let balances = compute_balances(ledger, &effective_indices);
 
     // Step 3: Build user_id vector for greedy matching.
     let mut user_ids: Vec<u128> = Vec::new();

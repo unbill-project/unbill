@@ -31,8 +31,8 @@ pub struct BillSplit {
 
 /// Calculate the exact cent amounts for each payer and payee of a bill.
 ///
-/// Uses the bill's own ID as the rounding seed, so the result is identical
-/// to what `compute_settlement` would derive for the same bill.
+/// Uses the bill's own ID to choose who receives rounding cents, so the
+/// result is identical to what `compute_settlement` derives for the same bill.
 /// Callers must satisfy the verified splitter's numerical preconditions.
 /// [`crate::service::UnbillConsole::calculate_bill_split`] validates those inputs.
 // sirno:witness:settlement:begin
@@ -55,13 +55,7 @@ pub fn calculate_bill_split(
 /// `compute_settlement` in `unbill-console-verified`.
 pub fn compute_settlement(ledger: &Ledger) -> Settlement {
     let model = unbill_model::verified_bridge::ledger_to_model(ledger);
-    let remainder_indices: Vec<usize> = ledger
-        .bills
-        .iter()
-        .map(|b| fnv1a(b.id.to_string().as_bytes()) as usize)
-        .collect();
-    let verified_txns =
-        unbill_console_verified::settlement::exec::compute_settlement(&model, &remainder_indices);
+    let verified_txns = unbill_console_verified::settlement::exec::compute_settlement(&model);
     Settlement {
         currency: ledger.currency,
         transactions: verified_txns
@@ -79,8 +73,8 @@ pub fn compute_settlement(ledger: &Ledger) -> Settlement {
 ///
 /// Each user receives `floor((total_cents × share_weight) / total_weight)`.
 /// The rounding remainder is distributed one cent at a time to consecutive
-/// users starting at `fnv1a(bill_id) mod len(shares)`, making the result
-/// deterministic across all peers for the same bill.
+/// users starting at `bill_id mod len(shares)`, making the result deterministic
+/// across 32- and 64-bit peers for the same bill.
 ///
 /// Delegates to the formally verified `split_shares` in `unbill-console-verified`.
 pub fn split_shares(
@@ -88,13 +82,9 @@ pub fn split_shares(
     total_cents: i64,
     bill_id: BillId,
 ) -> Vec<(UserId, i64)> {
-    // Normalize before the verified loop adds offsets to this index.
-    // For a validated share count, index + count fits usize on 32- and 64-bit targets.
-    let Some(remainder_idx) =
-        (fnv1a(bill_id.to_string().as_bytes()) as usize).checked_rem(shares.len())
-    else {
+    if shares.is_empty() {
         return vec![];
-    };
+    }
     if shares.iter().all(|share| share.shares == 0) {
         return shares.iter().map(|s| (s.user_id, 0)).collect();
     }
@@ -110,7 +100,7 @@ pub fn split_shares(
     let verified_amounts = unbill_console_verified::settlement::exec::split_shares(
         &model_shares,
         total_cents,
-        remainder_idx,
+        bill_id.to_u128(),
     );
 
     // Pair amounts with user_ids by position.
@@ -121,17 +111,6 @@ pub fn split_shares(
         .collect()
 }
 // sirno:witness:settlement:end
-
-/// FNV-1a hash over a byte slice. Used to deterministically select the
-/// remainder recipient in `split_shares`.
-fn fnv1a(data: &[u8]) -> u64 {
-    let mut hash: u64 = 14695981039346656037;
-    for &byte in data {
-        hash ^= byte as u64;
-        hash = hash.wrapping_mul(1099511628211);
-    }
-    hash
-}
 
 #[cfg(test)]
 mod tests {
@@ -264,6 +243,49 @@ mod tests {
             "exactly one user should receive the remainder"
         );
         assert_eq!(low_count, 2);
+    }
+
+    #[test]
+    fn test_full_bill_id_controls_rounding_in_preview_and_settlement() {
+        // 2^64 has zero low 64 bits but selects the second participant mod 3.
+        // A platform-sized cast before taking the modulo would select Alice.
+        let bill_id = 1u128 << 64;
+        let shares = vec![
+            Share {
+                user_id: alice(),
+                shares: 1,
+            },
+            Share {
+                user_id: bob(),
+                shares: 1,
+            },
+            Share {
+                user_id: carol(),
+                shares: 1,
+            },
+        ];
+        assert_eq!(
+            split_shares(&shares, 1000, bid(bill_id)),
+            vec![(alice(), 333), (bob(), 334), (carol(), 333)]
+        );
+
+        let ledger = make_ledger(
+            vec![user(alice()), user(bob()), user(carol())],
+            vec![equal_bill(
+                bill_id,
+                alice(),
+                1000,
+                &[alice(), bob(), carol()],
+            )],
+        );
+        let transactions = compute_settlement(&ledger).transactions;
+        assert_eq!(transactions.len(), 2);
+        assert!(transactions.iter().any(|t| {
+            t.from_user_id == bob() && t.to_user_id == alice() && t.amount_cents == 334
+        }));
+        assert!(transactions.iter().any(|t| {
+            t.from_user_id == carol() && t.to_user_id == alice() && t.amount_cents == 333
+        }));
     }
 
     #[test]

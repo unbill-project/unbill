@@ -159,12 +159,8 @@ pub open spec fn bal_M() -> int {
 /// Only settlement-specific requirements remain here.
 pub open spec fn compute_settlement_requires(
     ledger: LedgerStateSpec,
-    remainder_indices: Seq<usize>,
 ) -> bool {
-    &&& ledger_invariant(ledger)
-    &&& remainder_indices.len() == ledger.bills.len()
-    &&& forall|i: int| 0 <= i < remainder_indices.len() ==>
-        (#[trigger] remainder_indices[i]) <= usize::MAX - (i32::MAX as usize)
+    ledger_invariant(ledger)
 }
 
 /// Postcondition for compute_settlement.

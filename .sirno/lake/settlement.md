@@ -32,8 +32,11 @@ Negative balances mean that user owes the system.
 
 Share splitting floors each proportional amount,
 then distributes the remainder one cent at a time to consecutive participants.
-The starting index is derived from a fixed FNV-1a hash of the bill ID bytes modulo the share count.
-This makes every peer arrive at the same cent allocation.
+The starting index is the bill's full `u128` ULID value modulo the share
+count. The verified settlement code computes this index separately for the
+payer and payee lists, then converts the bounded result to `usize` for
+indexing. The same bill state produces the same cent allocation on 32- and
+64-bit peers; no platform-sized conversion occurs before the modulo.
 
 The console's bill split calculation validates both sides before invoking
 the verified algorithm and returns payer and payee allocations together.
@@ -42,8 +45,8 @@ The console method and the pure settlement function share the name
 The total must lie between zero and `i32::MAX` cents, each side must be nonempty
 and have at most `i32::MAX` entries, and every weight must be positive.
 Those bounds keep the verified products and weight totals within `i64`.
-The Rust bridge normalizes the rounding index before the verified call
-and does not sum weights in a narrower integer type.
+The Rust bridge passes the bill ID as `u128` to the verified splitter and
+does not sum weights in a narrower integer type.
 Each side preserves input order and independently sums to the bill total.
 
 Reduction partitions balances into creditors and debtors.
