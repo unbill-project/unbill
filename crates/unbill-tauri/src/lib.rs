@@ -352,6 +352,25 @@ async fn set_user_archived(
 }
 
 #[tauri::command]
+async fn rename_device(
+    state: State<'_, AppState>,
+    ledger_id: String,
+    node_id: String,
+    name: String,
+) -> std::result::Result<(), String> {
+    let lid = parse_ledger_id(&ledger_id).map_err(stringify_error)?;
+    let node = node_id
+        .parse::<unbill_console::model::NodeId>()
+        .map_err(stringify_error)?;
+    let label = unbill_console::model::DeviceLabel::new(name).map_err(stringify_error)?;
+    state
+        .service
+        .set_device_label(lid, node, label)
+        .await
+        .map_err(stringify_error)
+}
+
+#[tauri::command]
 async fn add_user(
     input: AddUserInput,
     state: State<'_, AppState>,
@@ -596,7 +615,8 @@ async fn load_sync_devices(service: &Arc<UnbillConsole>) -> Result<Vec<SyncDevic
         let ledger_id = meta.ledger_id;
         let ledger_name = meta.name.clone();
         for device in
-            load_sync_devices_for_ledger(service, ledger_id, &ledger_name, &local_node_id).await?
+            load_sync_devices_for_ledger(service, ledger_id, &ledger_name, &local_node_id, false)
+                .await?
         {
             let entry = by_node_id
                 .entry(device.node_id.clone())
@@ -626,6 +646,7 @@ async fn load_sync_devices_for_ledger(
     ledger_id: LedgerId,
     ledger_name: &str,
     local_node_id: &str,
+    include_local: bool,
 ) -> Result<Vec<SyncDeviceDto>> {
     let mut devices = service
         .list_devices(ledger_id)
@@ -633,7 +654,7 @@ async fn load_sync_devices_for_ledger(
         .into_iter()
         .filter_map(|device| {
             let node_id = device.node_id.to_string();
-            if node_id == local_node_id {
+            if !include_local && node_id == local_node_id {
                 return None;
             }
 
@@ -668,7 +689,8 @@ async fn load_ledger_detail_inner(
     let summary = summarize_ledger(service, meta).await?;
     let local_node_id = service.device_id().to_string();
     let devices =
-        load_sync_devices_for_ledger(service, ledger_id, &summary.name, &local_node_id).await?;
+        load_sync_devices_for_ledger(service, ledger_id, &summary.name, &local_node_id, true)
+            .await?;
     let users = service.list_users(ledger_id).await?;
     let bills = service.list_bills(ledger_id).await?;
     let conflicts = service.detect_conflicts(ledger_id).await?;
@@ -1068,6 +1090,7 @@ pub fn run() {
             create_user,
             add_user,
             set_user_archived,
+            rename_device,
             set_ledger_archived,
             create_invitation,
             join_ledger,
@@ -1269,10 +1292,20 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(detail.devices.len(), 1);
-        assert_eq!(detail.devices[0].node_id, kitchen.device_id().to_string());
-        assert_eq!(detail.devices[0].label, "Kitchen iPad");
-        assert_eq!(detail.devices[0].ledger_names, vec!["Groceries"]);
+        assert_eq!(detail.devices.len(), 2);
+        assert!(
+            detail
+                .devices
+                .iter()
+                .any(|device| device.node_id == host.device_id().to_string())
+        );
+        let kitchen_device = detail
+            .devices
+            .iter()
+            .find(|device| device.node_id == kitchen.device_id().to_string())
+            .unwrap();
+        assert_eq!(kitchen_device.label, "Kitchen iPad");
+        assert_eq!(kitchen_device.ledger_names, vec!["Groceries"]);
     }
 
     #[tokio::test]

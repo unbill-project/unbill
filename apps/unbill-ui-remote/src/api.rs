@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use unbill_console::model::{
-    BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, UserId,
+    BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, UserId,
 };
 use unbill_console::service::UnbillConsole;
 use unbill_ui_components::bill_editor::{
@@ -258,8 +258,7 @@ async fn load_ledger_detail_from_service(
         .ok_or_else(|| format!("ledger {lid} not found"))?;
 
     let summary = summarize_ledger(svc, meta).await?;
-    let local_node_id = svc.device_id().to_string();
-    let devices = load_devices_for_ledger(svc, lid, &local_node_id).await?;
+    let devices = load_devices_for_ledger(svc, lid).await?;
     let users = svc.list_users(lid).await.map_err(|e| e.to_string())?;
     let bills = svc.list_bills(lid).await.map_err(|e| e.to_string())?;
     let conflicts = svc.detect_conflicts(lid).await.map_err(|e| e.to_string())?;
@@ -335,6 +334,15 @@ pub async fn set_user_archived(
             parse_user_id(user_id)?,
             archived,
         )
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn rename_device(ledger_id: &str, node_id: &str, name: String) -> Result<(), String> {
+    let svc = get_service()?;
+    let node = node_id.parse::<NodeId>().map_err(|e| e.to_string())?;
+    let label = unbill_console::model::DeviceLabel::new(name).map_err(|e| e.to_string())?;
+    svc.set_device_label(parse_ledger_id(ledger_id)?, node, label)
         .await
         .map_err(|e| e.to_string())
 }
@@ -627,23 +635,19 @@ async fn summarize_ledger(
 async fn load_devices_for_ledger(
     svc: &Arc<UnbillConsole>,
     ledger_id: LedgerId,
-    local_node_id: &str,
 ) -> Result<Vec<SyncDevice>, String> {
     let devices = svc
         .list_devices(ledger_id)
         .await
         .map_err(|e| e.to_string())?
         .into_iter()
-        .filter_map(|device| {
+        .map(|device| {
             let node_id = device.node_id.to_string();
-            if node_id == local_node_id {
-                return None;
-            }
-            Some(SyncDevice {
+            SyncDevice {
                 label: device.label.to_string(),
                 node_id,
                 ledger_names: vec![],
-            })
+            }
         })
         .collect();
     Ok(devices)

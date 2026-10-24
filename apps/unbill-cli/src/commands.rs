@@ -451,6 +451,21 @@ pub async fn ledger_devices(
     Ok(())
 }
 
+pub async fn ledger_rename_device(
+    svc: &UnbillConsole,
+    ledger_id: &str,
+    node_id: &str,
+    name: String,
+) -> anyhow::Result<()> {
+    svc.set_device_label(
+        parse_ledger_id(ledger_id)?,
+        node_id.parse::<NodeId>()?,
+        unbill_console::model::DeviceLabel::new(name)?,
+    )
+    .await?;
+    Ok(())
+}
+
 pub async fn ledger_invite(svc: &UnbillConsole, ledger_id: &str, json: bool) -> anyhow::Result<()> {
     let url = svc.create_invitation(parse_ledger_id(ledger_id)?).await?;
     if json {

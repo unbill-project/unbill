@@ -73,8 +73,10 @@ The command layer maps service state into frontend DTOs.
 Bootstrap data includes known peer devices across local ledgers.
 Ledger summaries include user display names so the frontend can show them
 without loading full ledger detail.
-Ledger detail includes only peer devices authorized for that ledger,
-so the frontend can render ledger-scoped sync actions without recomputing authorization.
+Ledger detail includes the local device and authorized peers for that ledger.
+The frontend uses the local device ID to omit self-sync while offering rename
+for every row. Bootstrap continues to include peers only.
+The `rename_device` command changes one shared ledger label through the console.
 
 The crate registers `tauri-plugin-deep-link` to handle `unbill://` URLs.
 On desktop, `tauri-plugin-single-instance` ensures only one instance runs.

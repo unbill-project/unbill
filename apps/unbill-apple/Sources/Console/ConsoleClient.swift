@@ -21,6 +21,8 @@ protocol ConsoleClient {
     @discardableResult
     func setLedgerArchived(ledgerID: String, archived: Bool) async throws
     func setUserArchived(ledgerID: String, userID: String, archived: Bool) async throws
+    // The shared name of an authorized device in one ledger.
+    func renameDevice(ledgerID: String, nodeID: String, name: String) async throws
     func createUser(ledgerID: String, displayName: String) async throws -> User
     // All users known on this device (across ledgers) — for importing.
     func knownUsers() async throws -> [User]

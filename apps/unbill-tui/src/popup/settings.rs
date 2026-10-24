@@ -6,7 +6,9 @@ use ratatui::{
     text::Line,
     widgets::{Block, Paragraph},
 };
-use unbill_console::model::{LedgerId, LedgerMeta, NewUser, NewUserName, User};
+use unbill_console::model::{
+    Device, DeviceLabel, LedgerId, LedgerMeta, NewUser, NewUserName, User,
+};
 
 use super::{
     LedgerFingerprints, PopupAction, PopupOutcome, PopupView, TextInput, render_popup_base,
@@ -47,6 +49,7 @@ enum LedgerFocus {
 enum LedgerSubTab {
     Manage,
     Users,
+    Devices,
     Invite,
 }
 
@@ -67,6 +70,7 @@ pub struct SettingsPopup {
     // Ledger tab state
     ledgers: Vec<LedgerMeta>,
     ledger_users_map: Vec<Vec<User>>,
+    ledger_devices_map: Vec<Vec<Device>>,
     fingerprints: LedgerFingerprints,
     all_users: Vec<User>,
     ledger_cursor: usize,
@@ -76,6 +80,9 @@ pub struct SettingsPopup {
     show_archived: bool,
     creating_new_user: bool,
     create_user_input: TextInput,
+    device_cursor: usize,
+    renaming_device: bool,
+    rename_device_input: TextInput,
 
     error: Option<String>,
 }
@@ -99,6 +106,7 @@ impl SettingsPopup {
             device_field: DeviceField::PeerSync,
             ledgers,
             ledger_users_map,
+            ledger_devices_map: Vec::new(),
             fingerprints: LedgerFingerprints::new(),
             all_users,
             ledger_cursor: initial_ledger_cursor,
@@ -108,6 +116,9 @@ impl SettingsPopup {
             show_archived: false,
             creating_new_user: false,
             create_user_input: TextInput::new("Name"),
+            device_cursor: 0,
+            renaming_device: false,
+            rename_device_input: TextInput::new("Device name"),
             error: None,
         }
     }
@@ -131,6 +142,18 @@ impl SettingsPopup {
     pub fn with_service_build(mut self, info: Option<unbill_build_info::BuildInfo>) -> Self {
         self.service_build = info;
         self
+    }
+
+    pub fn with_ledger_devices(mut self, devices: Vec<Vec<Device>>) -> Self {
+        self.ledger_devices_map = devices;
+        self
+    }
+
+    fn selected_devices(&self) -> &[Device] {
+        self.ledger_devices_map
+            .get(self.ledger_cursor)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
     }
 
     fn manageable_users(&self) -> Vec<User> {
@@ -205,7 +228,7 @@ impl PopupView for SettingsPopup {
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> PopupOutcome {
-        if key.code == KeyCode::Esc {
+        if key.code == KeyCode::Esc && !self.renaming_device && !self.creating_new_user {
             return PopupOutcome::Cancelled;
         }
         match self.top_tab {
@@ -417,6 +440,7 @@ impl SettingsPopup {
         let content_title = match self.ledger_sub_tab {
             LedgerSubTab::Manage => "Manage users [m]",
             LedgerSubTab::Users => "Users [m] manage",
+            LedgerSubTab::Devices => "Devices",
             LedgerSubTab::Invite => "Invite",
         };
         let content_block = Block::bordered()
@@ -433,31 +457,25 @@ impl SettingsPopup {
         .areas::<2>(content_inner);
 
         let sub_tab_cols =
-            Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-                .areas::<2>(inner_rows[0]);
-
-        let users_style = if content_focused && self.ledger_sub_tab == LedgerSubTab::Users {
-            Style::default().add_modifier(Modifier::REVERSED)
-        } else if self.ledger_sub_tab == LedgerSubTab::Users {
-            Style::default().fg(Color::Yellow)
-        } else {
-            Style::default().fg(Color::DarkGray)
-        };
-        let invite_style = if content_focused && self.ledger_sub_tab == LedgerSubTab::Invite {
-            Style::default().add_modifier(Modifier::REVERSED)
-        } else if self.ledger_sub_tab == LedgerSubTab::Invite {
-            Style::default().fg(Color::Yellow)
-        } else {
-            Style::default().fg(Color::DarkGray)
-        };
-        frame.render_widget(
-            Paragraph::new(" Users ").style(users_style),
-            sub_tab_cols[0],
-        );
-        frame.render_widget(
-            Paragraph::new(" Invite ").style(invite_style),
-            sub_tab_cols[1],
-        );
+            Layout::horizontal([Constraint::Percentage(25); 4]).areas::<4>(inner_rows[0]);
+        for ((label, tab), area) in [
+            (" Manage [m] ", LedgerSubTab::Manage),
+            (" Add [h] ", LedgerSubTab::Users),
+            (" Devices [d] ", LedgerSubTab::Devices),
+            (" Invite [l] ", LedgerSubTab::Invite),
+        ]
+        .into_iter()
+        .zip(sub_tab_cols)
+        {
+            let style = if content_focused && self.ledger_sub_tab == tab {
+                Style::default().add_modifier(Modifier::REVERSED)
+            } else if self.ledger_sub_tab == tab {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::DarkGray)
+            };
+            frame.render_widget(Paragraph::new(label).style(style), area);
+        }
 
         let ledger_users = self
             .ledger_users_map
@@ -563,6 +581,54 @@ impl SettingsPopup {
                     }
                 }
             }
+            LedgerSubTab::Devices => {
+                let [device_rows, edit_row, note_row] = Layout::vertical([
+                    Constraint::Min(0),
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                ])
+                .areas::<3>(list_area);
+                if self.selected_devices().is_empty() {
+                    frame.render_widget(Paragraph::new("No authorized devices."), device_rows);
+                }
+                let first_visible = self
+                    .device_cursor
+                    .saturating_sub(usize::from(device_rows.height).saturating_sub(1));
+                for ((index, device), row) in self
+                    .selected_devices()
+                    .iter()
+                    .enumerate()
+                    .skip(first_visible)
+                    .zip(device_rows.rows())
+                {
+                    let short_id: String = device.node_id.to_string().chars().take(8).collect();
+                    let local = if device.node_id.to_string() == self.device_id {
+                        " (this device)"
+                    } else {
+                        ""
+                    };
+                    let style = if content_focused && index == self.device_cursor {
+                        Style::default().add_modifier(Modifier::REVERSED)
+                    } else {
+                        Style::default()
+                    };
+                    frame.render_widget(
+                        Paragraph::new(format!("{}{}  {short_id}", device.label, local))
+                            .style(style),
+                        row,
+                    );
+                }
+                if self.renaming_device {
+                    render_text_field(frame, edit_row, &self.rename_device_input, true);
+                } else {
+                    frame.render_widget(Paragraph::new("[Enter] rename selected device"), edit_row);
+                }
+                frame.render_widget(
+                    Paragraph::new("Names are shared in this ledger.")
+                        .style(Style::default().fg(Color::DarkGray)),
+                    note_row,
+                );
+            }
             LedgerSubTab::Invite => {
                 frame.render_widget(
                     Paragraph::new("Press Enter to generate an invite URL.")
@@ -578,10 +644,12 @@ impl SettingsPopup {
                 hint_row,
             );
         } else {
-            let hint = if selector_focused {
+            let hint = if self.renaming_device {
+                "[Enter] save name  [Esc] cancel"
+            } else if selector_focused {
                 "[j/k] select ledger  [X] archive/restore ledger  [Tab] to content  [Esc] close"
             } else {
-                "[j/k] move  [Enter] confirm  [h] add  [l] invite  [m] manage  [a] archived  [Tab] next tab  [Esc] close"
+                "[j/k] move  [Enter] confirm  [h] add  [d] devices  [l] invite  [m] manage  [Tab] next tab  [Esc] close"
             };
             frame.render_widget(
                 Paragraph::new(hint).style(Style::default().fg(Color::DarkGray)),
@@ -591,6 +659,49 @@ impl SettingsPopup {
     }
 
     fn handle_ledger_key(&mut self, key: KeyEvent) -> PopupOutcome {
+        if self.renaming_device {
+            match key.code {
+                KeyCode::Esc => {
+                    self.renaming_device = false;
+                    self.error = None;
+                }
+                KeyCode::Enter => {
+                    let Some(ledger_id) = self.current_ledger_id() else {
+                        return PopupOutcome::Pending;
+                    };
+                    let Some(node_id) = self
+                        .selected_devices()
+                        .get(self.device_cursor)
+                        .map(|device| device.node_id.clone())
+                    else {
+                        return PopupOutcome::Pending;
+                    };
+                    match DeviceLabel::new(self.rename_device_input.value.clone()) {
+                        Ok(label) => {
+                            self.renaming_device = false;
+                            self.error = None;
+                            return PopupOutcome::Action(PopupAction::RenameDevice {
+                                ledger_id,
+                                node_id,
+                                label,
+                            });
+                        }
+                        Err(error) => self.error = Some(error.to_string()),
+                    }
+                }
+                KeyCode::Char(c) if !key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.rename_device_input.push(c);
+                    self.error = None;
+                }
+                KeyCode::Backspace => {
+                    self.rename_device_input.pop();
+                    self.error = None;
+                }
+                _ => {}
+            }
+            return PopupOutcome::Pending;
+        }
+
         // When in "create new user" text-entry mode, intercept all keys.
         if self.creating_new_user {
             match key.code {
@@ -639,6 +750,11 @@ impl SettingsPopup {
             if key.code == KeyCode::Char('m') {
                 self.ledger_sub_tab = LedgerSubTab::Manage;
                 self.add_cursor = 0;
+                return PopupOutcome::Pending;
+            }
+            if key.code == KeyCode::Char('d') {
+                self.ledger_sub_tab = LedgerSubTab::Devices;
+                self.device_cursor = 0;
                 return PopupOutcome::Pending;
             }
             if self.ledger_sub_tab == LedgerSubTab::Manage {
@@ -725,6 +841,7 @@ impl SettingsPopup {
                                 .saturating_add(1)
                                 .min(self.ledgers.len().saturating_sub(1));
                             self.add_cursor = 0;
+                            self.device_cursor = 0;
                         }
                     }
                     LedgerFocus::Content => {
@@ -734,6 +851,11 @@ impl SettingsPopup {
                                 .add_cursor
                                 .saturating_add(1)
                                 .min(self.addable_users().len());
+                        } else if self.ledger_sub_tab == LedgerSubTab::Devices {
+                            self.device_cursor = self
+                                .device_cursor
+                                .saturating_add(1)
+                                .min(self.selected_devices().len().saturating_sub(1));
                         }
                     }
                 }
@@ -744,10 +866,13 @@ impl SettingsPopup {
                     LedgerFocus::Selector => {
                         self.ledger_cursor = self.ledger_cursor.saturating_sub(1);
                         self.add_cursor = 0;
+                        self.device_cursor = 0;
                     }
                     LedgerFocus::Content => {
                         if self.ledger_sub_tab == LedgerSubTab::Users {
                             self.add_cursor = self.add_cursor.saturating_sub(1);
+                        } else if self.ledger_sub_tab == LedgerSubTab::Devices {
+                            self.device_cursor = self.device_cursor.saturating_sub(1);
                         }
                     }
                 }
@@ -768,6 +893,15 @@ impl SettingsPopup {
             }
             KeyCode::Enter => match self.ledger_sub_tab {
                 LedgerSubTab::Manage => PopupOutcome::Pending,
+                LedgerSubTab::Devices => {
+                    let Some(device) = self.selected_devices().get(self.device_cursor) else {
+                        return PopupOutcome::Pending;
+                    };
+                    self.rename_device_input.value = device.label.to_string();
+                    self.renaming_device = true;
+                    self.error = None;
+                    PopupOutcome::Pending
+                }
                 LedgerSubTab::Users => {
                     let addable = self.addable_users();
                     let Some(ledger_id) = self.current_ledger_id() else {
@@ -901,6 +1035,42 @@ mod tests {
         assert!(
             matches!(popup.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)), PopupOutcome::Action(PopupAction::SetUserArchived { ledger_id: lid, user_id: uid, archived: false }) if lid == ledger_id && uid == user_id)
         );
+    }
+
+    #[test]
+    fn ledger_device_rename_targets_the_selected_authorized_device() {
+        let ledger_id = LedgerId::from_u128(1);
+        let node_id = unbill_console::model::NodeId::new(format!("{:064x}", 2));
+        let now = unbill_console::model::Timestamp::from_millis(0);
+        let mut popup = SettingsPopup::new(
+            TopTab::Ledger,
+            String::new(),
+            vec![],
+            vec![LedgerMeta {
+                archived: false,
+                ledger_id,
+                name: "Trip".into(),
+                currency: unbill_console::model::Currency::from_code("USD").unwrap(),
+                created_at: now,
+                updated_at: now,
+            }],
+            vec![vec![]],
+            0,
+        )
+        .with_ledger_devices(vec![vec![Device {
+            node_id: node_id.clone(),
+            label: DeviceLabel::new("Phone".into()).unwrap(),
+            added_at: now,
+        }]]);
+        popup.ledger_focus = LedgerFocus::Content;
+        popup.handle_key(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
+        popup.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        popup.rename_device_input.value = "Kitchen iPad".into();
+        assert!(matches!(
+            popup.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)),
+            PopupOutcome::Action(PopupAction::RenameDevice { ledger_id: id, node_id: node, label })
+                if id == ledger_id && node == node_id && label.as_str() == "Kitchen iPad"
+        ));
     }
 
     #[test]

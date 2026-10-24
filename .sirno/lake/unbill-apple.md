@@ -167,6 +167,10 @@ Global Devices and Ledger Settings reuse the same peer-device row, including
 name, truncated secondary Node ID, ledger names, bordered Sync/Retry button,
 in-place progress indicator, completion timestamp, and per-peer errors. Both
 sheets guard duplicate sync requests and disable dismissal while syncing.
+Ledger Settings also lists this device and offers Rename on every authorized
+device. Its name editor validates 1–100 characters, explains that the name is
+shared in the selected ledger, and refreshes the ledger after saving. The local
+device row omits Sync. Global Devices points users to Ledger Settings to rename.
 
 Add Person always displays From Other Ledgers with explicit Import actions,
 excluding people already in the current ledger and sorting candidates by name.

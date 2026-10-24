@@ -701,6 +701,14 @@ async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<Unb
             }
             Err(error) => state.status_message = Some(format!("archive user: {error}")),
         },
+        PopupAction::RenameDevice {
+            ledger_id,
+            node_id,
+            label,
+        } => match svc.set_device_label(ledger_id, node_id, label).await {
+            Ok(()) => state.status_message = Some("Device renamed in this ledger.".into()),
+            Err(error) => state.status_message = Some(format!("rename device: {error}")),
+        },
         PopupAction::CreateUser { ledger_id, input } => {
             match svc.create_user(ledger_id, input).await {
                 Ok(_) => {
@@ -760,9 +768,12 @@ async fn open_settings_popup(tab: TopTab, state: &mut AppState, svc: &Arc<Unbill
     };
     let ledgers = state.ledgers.clone();
     let mut ledger_users_map = Vec::with_capacity(ledgers.len());
+    let mut ledger_devices_map = Vec::with_capacity(ledgers.len());
     for ledger in &ledgers {
         let users = svc.list_users(ledger.ledger_id).await.unwrap_or_default();
         ledger_users_map.push(users);
+        let devices = svc.list_devices(ledger.ledger_id).await.unwrap_or_default();
+        ledger_devices_map.push(devices);
     }
     state.popup = Some(Box::new(
         SettingsPopup::new(
@@ -773,6 +784,7 @@ async fn open_settings_popup(tab: TopTab, state: &mut AppState, svc: &Arc<Unbill
             ledger_users_map,
             state.ledger_cursor,
         )
+        .with_ledger_devices(ledger_devices_map)
         .with_service_build(service_build),
     ));
     if let Some(popup) = &mut state.popup {
@@ -1073,7 +1085,7 @@ mod tests {
             }],
             prev: vec![],
             created_at: unbill_console::model::Timestamp::from_millis(0),
-            created_by_device: unbill_console::model::NodeId::from_seed(1),
+            created_by_device: unbill_console::model::NodeId::new(format!("{:064x}", 1)),
         };
         let amended = build_amend_editor(LedgerId::from_u128(1), &bill, users);
         assert!(

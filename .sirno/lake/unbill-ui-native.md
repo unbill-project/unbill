@@ -87,9 +87,13 @@ is compiled into the frontend, so opening it does not invoke Tauri or the daemon
 Ledger Settings shows the ledger selector,
 ledger users,
 known-user picker,
-authorized peer devices,
+all authorized devices including the local device,
 and invitation actions.
 Ledger-scoped sync actions refresh bootstrap state and selected ledger detail.
+Each ledger device row offers a shared rename action; the local row omits sync.
+The rename sheet validates a 1–100 character name and refreshes the ledger
+detail after the Tauri command succeeds. General settings directs users to
+Ledger Settings for scoped renaming.
 
 The native join action may prefill from the Tauri clipboard bridge.
 Clipboard failures produce feedback,

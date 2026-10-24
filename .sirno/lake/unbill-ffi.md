@@ -19,6 +19,9 @@ in the caller's process. Desktop storage retains exclusive directory ownership.
 `open_rpc` connects to an existing daemon using the configured data directory
 and optional socket override, without opening storage itself.
 Both constructors return the same console operation surface.
+`rename_device` accepts a ledger ID, NodeId, and validated shared name.
+Ledger detail lists the local device alongside authorized peers so clients can
+rename either; bootstrap continues to list peers only.
 
 In-process construction is available on all supported native platforms.
 Daemon construction and RPC dependencies are absent on Android and on iOS device

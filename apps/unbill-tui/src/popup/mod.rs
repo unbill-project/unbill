@@ -66,6 +66,11 @@ pub enum PopupAction {
         user_id: unbill_console::model::UserId,
         archived: bool,
     },
+    RenameDevice {
+        ledger_id: LedgerId,
+        node_id: unbill_console::model::NodeId,
+        label: unbill_console::model::DeviceLabel,
+    },
     CreateUser {
         ledger_id: LedgerId,
         input: NewUserName,
