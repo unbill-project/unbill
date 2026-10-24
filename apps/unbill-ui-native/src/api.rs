@@ -212,6 +212,14 @@ pub async fn set_user_archived(
     .await
 }
 
+pub async fn rename_device(ledger_id: &str, node_id: &str, name: String) -> Result<(), String> {
+    invoke(
+        "rename_device",
+        &serde_json::json!({"ledgerId": ledger_id, "nodeId": node_id, "name": name}),
+    )
+    .await
+}
+
 pub async fn add_user(input: AddUserInput) -> Result<User, String> {
     invoke("add_user", &serde_json::json!({ "input": input })).await
 }

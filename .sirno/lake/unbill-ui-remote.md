@@ -80,6 +80,10 @@ Ledger Settings provides ledger selection,
 ledger users,
 add-user picker,
 and invitation generation.
+Ledger Settings lists the server device and authorized peers. Each row can
+rename its shared ledger label; the server row omits sync. The rename sheet
+validates a 1–100 character name and refreshes ledger detail after success.
+General settings directs users to Ledger Settings for scoped renaming.
 
 Invitation URLs are written through the browser clipboard API.
 

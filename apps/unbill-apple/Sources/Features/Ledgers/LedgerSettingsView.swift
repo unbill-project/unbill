@@ -5,7 +5,11 @@ import UIKit
 struct LedgerSettingsView: View {
     let console: ConsoleClient
     let detail: LedgerDetail
+    var onRenamed: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var devices: [SyncDevice]
+    @State private var localNodeID = ""
+    @State private var renameTarget: SyncDevice?
     @State private var copied = false
     @State private var blePeers = BlePeerConnections()
     @State private var syncingNodeID: String?
@@ -16,6 +20,13 @@ struct LedgerSettingsView: View {
     @State private var archiveError: String?
 
     private var busy: Bool { syncingNodeID != nil || archiving }
+
+    init(console: ConsoleClient, detail: LedgerDetail, onRenamed: @escaping () -> Void) {
+        self.console = console
+        self.detail = detail
+        self.onRenamed = onRenamed
+        _devices = State(initialValue: detail.devices)
+    }
 
     var body: some View {
         NavigationStack {
@@ -39,8 +50,8 @@ struct LedgerSettingsView: View {
                     .padding(.vertical, 4)
                 }
                 Section {
-                    if detail.devices.isEmpty { Text("No peer devices").foregroundStyle(.secondary) }
-                    ForEach(detail.devices) { peer in
+                    if devices.isEmpty { Text("No authorized devices").foregroundStyle(.secondary) }
+                    ForEach(devices) { peer in
                         PeerDeviceRow(
                             peer: peer,
                             bleConnected: blePeers.connected.contains(peer.nodeID),
@@ -48,7 +59,9 @@ struct LedgerSettingsView: View {
                             syncing: syncingNodeID == peer.nodeID,
                             disabled: busy,
                             lastSyncedAt: lastSyncedAt[peer.nodeID],
-                            syncError: syncErrors[peer.nodeID]
+                            syncError: syncErrors[peer.nodeID],
+                            isLocal: peer.nodeID == localNodeID,
+                            onRename: { renameTarget = peer }
                         ) {
                             Task { await sync(peer.nodeID) }
                         }
@@ -56,7 +69,10 @@ struct LedgerSettingsView: View {
                 } header: {
                     Text("Ledger Devices")
                 } footer: {
-                    BluetoothLegend()
+                    VStack(alignment: .leading) {
+                        Text("Names are shared with other devices in this ledger.")
+                        BluetoothLegend()
+                    }
                 }
                 Section {
                     Button(detail.summary.archived ? "Restore Ledger" : "Archive Ledger") {
@@ -85,6 +101,7 @@ struct LedgerSettingsView: View {
             }
         }
         .task {
+            localNodeID = (try? await console.deviceID()) ?? ""
             do {
                 let updates = try await console.blePeerConnections()
                 for await peers in updates {
@@ -95,6 +112,17 @@ struct LedgerSettingsView: View {
             blePeers = BlePeerConnections()
         }
         .interactiveDismissDisabled(busy)
+        .sheet(item: $renameTarget) { peer in
+            RenameDeviceSheet(name: peer.label, ledgerName: detail.summary.name) { name in
+                try await console.renameDevice(ledgerID: detail.summary.ledgerID, nodeID: peer.nodeID, name: name)
+                devices = devices.map { device in
+                    guard device.nodeID == peer.nodeID else { return device }
+                    return SyncDevice(nodeID: device.nodeID, label: name.trimmingCharacters(in: .whitespacesAndNewlines), ledgerNames: device.ledgerNames)
+                }
+                onRenamed()
+            }
+        }
+        .onChange(of: detail.devices) { _, updated in devices = updated }
         .onChange(of: detail.emojiFingerprint) { _, _ in copied = false }
     }
 
@@ -111,5 +139,59 @@ struct LedgerSettingsView: View {
         }
     }
 
+}
+
+private struct RenameDeviceSheet: View {
+    let name: String
+    let ledgerName: String
+    let onSave: (String) async throws -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var editedName: String
+    @State private var saving = false
+    @State private var error: String?
+
+    init(name: String, ledgerName: String, onSave: @escaping (String) async throws -> Void) {
+        self.name = name
+        self.ledgerName = ledgerName
+        self.onSave = onSave
+        _editedName = State(initialValue: name)
+    }
+
+    private var trimmedName: String { editedName.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Device name", text: $editedName)
+                        .textInputAutocapitalization(.words)
+                } footer: {
+                    Text("Other devices in \(ledgerName) will see this name after syncing.")
+                }
+                if let error { Text(error).foregroundStyle(.red) }
+            }
+            .navigationTitle("Rename Device")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.disabled(saving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        Task {
+                            saving = true
+                            defer { saving = false }
+                            do {
+                                try await onSave(trimmedName)
+                                dismiss()
+                            } catch { self.error = error.localizedDescription }
+                        }
+                    }
+                    .disabled(saving || trimmedName.isEmpty || trimmedName.count > 100 || trimmedName == name)
+                }
+            }
+        }
+        .interactiveDismissDisabled(saving)
+    }
 }
 // sirno:witness:unbill-apple:end

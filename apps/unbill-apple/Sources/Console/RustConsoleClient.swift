@@ -56,6 +56,10 @@ actor RustConsoleClient: ConsoleClient {
         try console.setUserArchived(ledgerId: ledgerID, userId: userID, archived: archived)
     }
 
+    func renameDevice(ledgerID: String, nodeID: String, name: String) async throws {
+        try console.renameDevice(ledgerId: ledgerID, nodeId: nodeID, name: name)
+    }
+
     func createUser(ledgerID: String, displayName: String) async throws -> User {
         Self.user(try console.createUser(ledgerId: ledgerID, displayName: displayName))
     }

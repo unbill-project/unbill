@@ -601,6 +601,21 @@ impl Console {
             .map_err(err)
     }
 
+    /// Change the shared name of an authorized device in one ledger.
+    pub fn rename_device(
+        &self,
+        ledger_id: String,
+        node_id: String,
+        name: String,
+    ) -> Result<(), ConsoleError> {
+        let lid = parse_ledger_id(&ledger_id)?;
+        let node = node_id.parse::<NodeId>().map_err(err)?;
+        let label = unbill_console::model::DeviceLabel::new(name).map_err(err)?;
+        self.rt
+            .block_on(self.inner.set_device_label(lid, node, label))
+            .map_err(err)
+    }
+
     pub fn add_user(
         &self,
         ledger_id: String,
@@ -806,7 +821,7 @@ async fn ledger_detail(
     let meta = find_meta(service, ledger_id).await?;
     let summary = summarize_ledger(service, meta).await?;
     let local = service.device_id().to_string();
-    let devices = devices_for_ledger(service, ledger_id, &summary.name, &local).await?;
+    let devices = devices_for_ledger(service, ledger_id, &summary.name, &local, true).await?;
     let users = service.list_users(ledger_id).await?;
     let bills = service.list_bills(ledger_id).await?;
     let conflicts = service.detect_conflicts(ledger_id).await?;
@@ -954,7 +969,7 @@ async fn load_sync_devices(service: &Arc<UnbillConsole>) -> R<Vec<ConsoleSyncDev
     metas.sort_by_key(|meta| meta.ledger_id);
     for meta in metas {
         let name = meta.name.clone();
-        for d in devices_for_ledger(service, meta.ledger_id, &name, &local).await? {
+        for d in devices_for_ledger(service, meta.ledger_id, &name, &local, false).await? {
             let entry = by_node
                 .entry(d.node_id.clone())
                 .or_insert_with(|| ConsoleSyncDevice {
@@ -982,6 +997,7 @@ async fn devices_for_ledger(
     ledger_id: LedgerId,
     ledger_name: &str,
     local_node_id: &str,
+    include_local: bool,
 ) -> R<Vec<ConsoleSyncDevice>> {
     let mut devices = service
         .list_devices(ledger_id)
@@ -989,7 +1005,7 @@ async fn devices_for_ledger(
         .into_iter()
         .filter_map(|d| {
             let node_id = d.node_id.to_string();
-            if node_id == local_node_id {
+            if !include_local && node_id == local_node_id {
                 return None;
             }
             Some(ConsoleSyncDevice {
@@ -1226,6 +1242,29 @@ mod tests {
     fn sqlite_identity_and_ledger_survive_in_process_reopening() {
         let dir = tempfile::tempdir().unwrap();
         assert_sqlite_round_trip(dir.path(), Console::open_in_process);
+    }
+
+    #[test]
+    fn rename_device_changes_the_selected_ledgers_shared_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let console = Console::open_in_process(dir.path().to_str().unwrap().to_owned()).unwrap();
+        let first = console.create_ledger("Home".into(), "USD".into()).unwrap();
+        let second = console.create_ledger("Trip".into(), "USD".into()).unwrap();
+        let node_id = console.device_id();
+
+        console
+            .rename_device(first.ledger_id.clone(), node_id.clone(), "My Mac".into())
+            .unwrap();
+        let first_detail = console.ledger_detail(first.ledger_id.clone()).unwrap();
+        assert_eq!(first_detail.devices.len(), 1);
+        assert_eq!(first_detail.devices[0].label, "My Mac");
+        let second_detail = console.ledger_detail(second.ledger_id).unwrap();
+        assert_eq!(second_detail.devices[0].label, "Unnamed device");
+        assert!(
+            console
+                .rename_device(first.ledger_id, node_id, "  ".into())
+                .is_err()
+        );
     }
 
     #[cfg(not(any(

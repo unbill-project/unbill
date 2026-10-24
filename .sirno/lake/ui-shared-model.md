@@ -88,8 +88,9 @@ manual invitation entry must remain available when clipboard access fails.
 
 Ledger Settings owns ledger-scoped users and invitations.
 It provides a ledger selector,
-renders users and authorized peer devices for the selected ledger,
+renders users and all authorized devices, including the local device, for the selected ledger,
 offers sync actions for those peers,
+and offers a shared rename action for each authorized device,
 adds users from all users known on this device or by creating a new named user,
 and keeps generated invitation URLs in popup state.
 

@@ -107,6 +107,12 @@ pub enum LedgerCmd {
     Devices {
         ledger_id: String,
     },
+    /// Change a device's shared name in this ledger.
+    RenameDevice {
+        ledger_id: String,
+        node_id: String,
+        name: String,
+    },
     /// Generate an unbill://join/... URL authorizing a new device to access this ledger.
     Invite {
         ledger_id: String,
@@ -289,6 +295,11 @@ async fn run() -> anyhow::Result<()> {
             LedgerCmd::Devices { ledger_id } => {
                 commands::ledger_devices(&svc, &ledger_id, json).await
             }
+            LedgerCmd::RenameDevice {
+                ledger_id,
+                node_id,
+                name,
+            } => commands::ledger_rename_device(&svc, &ledger_id, &node_id, name).await,
             LedgerCmd::Invite { ledger_id } => {
                 commands::ledger_invite(&svc, &ledger_id, json).await
             }

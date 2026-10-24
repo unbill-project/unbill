@@ -53,7 +53,10 @@ struct DevicesView: View {
                 } header: {
                     Text("Peers")
                 } footer: {
-                    BluetoothLegend()
+                    VStack(alignment: .leading) {
+                        Text("To rename a device, open a ledger’s settings.")
+                        BluetoothLegend()
+                    }
                 }
 
                 if let status {
@@ -155,6 +158,8 @@ struct PeerDeviceRow: View {
     let disabled: Bool
     let lastSyncedAt: Date?
     let syncError: String?
+    var isLocal: Bool = false
+    var onRename: (() -> Void)? = nil
     var onSync: () -> Void
 
     var body: some View {
@@ -162,6 +167,11 @@ struct PeerDeviceRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 5) {
                     Text(peer.label.isEmpty ? "Unnamed device" : peer.label)
+                    if isLocal {
+                        Text("This device")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     if bleConnected || bleDiscovered { BluetoothBadge(connected: bleConnected) }
                 }
                 Text(peer.nodeID)
@@ -190,20 +200,27 @@ struct PeerDeviceRow: View {
                 }
             }
             Spacer()
-            Button {
-                onSync()
-            } label: {
-                ZStack {
-                    Text(syncError == nil ? "Sync" : "Retry")
-                        .opacity(syncing ? 0 : 1)
-                    if syncing {
-                        ProgressView().controlSize(.small)
+            if let onRename {
+                Button("Rename", action: onRename)
+                    .buttonStyle(.borderless)
+                    .disabled(disabled)
+            }
+            if !isLocal {
+                Button {
+                    onSync()
+                } label: {
+                    ZStack {
+                        Text(syncError == nil ? "Sync" : "Retry")
+                            .opacity(syncing ? 0 : 1)
+                        if syncing {
+                            ProgressView().controlSize(.small)
+                        }
                     }
                 }
+                .buttonStyle(.bordered)
+                .disabled(disabled)
+                .accessibilityLabel(syncing ? "Syncing" : (syncError == nil ? "Sync" : "Retry"))
             }
-            .buttonStyle(.bordered)
-            .disabled(disabled)
-            .accessibilityLabel(syncing ? "Syncing" : (syncError == nil ? "Sync" : "Retry"))
         }
     }
 }

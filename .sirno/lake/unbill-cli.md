@@ -73,6 +73,8 @@ name and exposes it as emoji_fingerprint in JSON output.
 
 Joining requires `--label`, the joining device's shared name in that ledger.
 The ledger devices command includes each device's shared label in text and JSON.
+`ledger rename-device <ledger-id> <node-id> <name>` changes one authorized
+device's shared name in that ledger through the console service.
 
 Ledger-scoped user archive and restore commands change shared user metadata.
 User JSON includes archived, and text listings mark archived memberships.

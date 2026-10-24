@@ -284,6 +284,8 @@ fn SyncDeviceRow(
     node_id: String,
     ble_peers: RwSignal<api::BlePeerIndicators>,
     #[prop(optional, into)] detail: Option<String>,
+    #[prop(optional)] is_local: bool,
+    #[prop(optional)] on_rename: Option<Callback<()>>,
     on_sync: Callback<(String, Callback<()>)>,
 ) -> impl IntoView {
     let ble_node = node_id.clone();
@@ -302,17 +304,29 @@ fn SyncDeviceRow(
                     }}
                 </p>
                 <p class="row-meta mono-copy">{node_id.clone()}</p>
+                {is_local.then(|| view! { <p class="row-detail">"This device"</p> })}
                 {detail.map(|d| view! { <p class="row-detail">{d}</p> })}
             </div>
-            <IconButton
-                kind=IconButtonKind::Sync
-                tone=ButtonTone::Quiet
-                working=working
-                on_press=Callback::new(move |_| {
-                    working.set(true);
-                    on_sync.run((node_id.clone(), done));
-                })
-            />
+            <div class="row-actions">
+                {on_rename.map(|rename| view! {
+                    <ActionButton
+                        label="Rename".to_owned()
+                        tone=ButtonTone::Quiet
+                        on_press=Callback::new(move |_| rename.run(()))
+                    />
+                })}
+                {(!is_local).then(|| view! {
+                    <IconButton
+                        kind=IconButtonKind::Sync
+                        tone=ButtonTone::Quiet
+                        working=working
+                        on_press=Callback::new(move |_| {
+                            working.set(true);
+                            on_sync.run((node_id.clone(), done));
+                        })
+                    />
+                })}
+            </div>
         </div>
     }
 }
@@ -339,6 +353,7 @@ pub fn SettingsPopup(
     on_join_ledger: Callback<()>,
     on_add_ledger_user: Callback<()>,
     on_set_user_archived: Callback<(String, bool)>,
+    on_rename_device: Callback<(String, String, String)>,
     on_set_ledger_archived: Callback<(String, bool)>,
     on_sync_device: Callback<(String, Callback<()>)>,
     on_create_invitation: Callback<()>,
@@ -481,6 +496,7 @@ pub fn SettingsPopup(
                                                 .into_any()
                                         }}
                                     </div>
+                                <p class="row-meta">"To rename a device, open a ledger’s settings."</p>
                                 <unbill_ui_components::bluetooth::BluetoothLegend />
                                 </SectionCard>
                                 <SectionCard title="Project".to_owned()>
@@ -558,6 +574,7 @@ pub fn SettingsPopup(
 
                                 {if let Some(detail) = ledger_detail {
                                     let sync_devices = detail.devices.clone();
+                                    let ledger_id = detail.summary.ledger_id.clone();
                                     view! {
                                         <SectionCard title="Authorized devices".to_owned()>
                                             <div class="stack-gap">
@@ -573,11 +590,17 @@ pub fn SettingsPopup(
                                                             } else {
                                                                 device.label
                                                             };
+                                                            let is_local = node_id == device_id;
+                                                            let rename_node_id = node_id.clone();
+                                                            let rename_name = title.clone();
+                                                            let rename_ledger_id = ledger_id.clone();
                                                             view! {
                                                                 <SyncDeviceRow
                                                                     ble_peers=ble_peers
                                                                     title=title
                                                                     node_id=node_id
+                                                                    is_local=is_local
+                                                                    on_rename=Callback::new(move |_| on_rename_device.run((rename_ledger_id.clone(), rename_node_id.clone(), rename_name.clone())))
                                                                     on_sync=on_sync_device
                                                                 />
                                                             }
@@ -586,6 +609,7 @@ pub fn SettingsPopup(
                                                         .into_any()
                                                 }}
                                             </div>
+                                        <p class="row-meta">"Names are shared with other devices in this ledger."</p>
                                         <unbill_ui_components::bluetooth::BluetoothLegend />
                                     </SectionCard>
 
@@ -744,6 +768,64 @@ pub fn AddLedgerUserSheet(
                     }
                     .into_any()
                 }}
+            </div>
+        </ModalSheet>
+    }
+}
+
+#[component]
+pub fn RenameDeviceSheet(
+    ledger_id: String,
+    ledger_name: String,
+    node_id: String,
+    current_name: String,
+    on_cancel: Callback<()>,
+    on_saved: Callback<()>,
+) -> impl IntoView {
+    let name = RwSignal::new(current_name.clone());
+    let saving = RwSignal::new(false);
+    let error = RwSignal::new(None::<String>);
+    let unchanged = current_name.trim().to_owned();
+
+    view! {
+        <ModalSheet
+            title="Rename Device".to_owned()
+            description=format!("This name is shared with other devices in {ledger_name}.")
+            on_close=Callback::new(move |_| { if !saving.get() { on_cancel.run(()); } })
+        >
+            <div class="stack-gap">
+                <FieldBlock label="Name in this ledger".to_owned() hint="1–100 characters".to_owned()>
+                    <input
+                        class="ui-input"
+                        maxlength="100"
+                        prop:value=move || name.get()
+                        on:input=move |event| name.set(event_target_value(&event))
+                    />
+                </FieldBlock>
+                {move || error.get().map(|message| view! { <p class="form-error" role="alert">{message}</p> })}
+                <button
+                    type="button"
+                    class="action-button action-button-primary action-button-block"
+                    disabled=move || {
+                        let value = name.get();
+                        let trimmed = value.trim();
+                        saving.get() || trimmed.is_empty() || trimmed.chars().count() > 100 || trimmed == unchanged
+                    }
+                    on:click=move |_| {
+                        let ledger_id = ledger_id.clone();
+                        let node_id = node_id.clone();
+                        let new_name = name.get().trim().to_owned();
+                        saving.set(true);
+                        error.set(None);
+                        spawn_local(async move {
+                            match api::rename_device(&ledger_id, &node_id, new_name).await {
+                                Ok(()) => on_saved.run(()),
+                                Err(message) => error.set(Some(message)),
+                            }
+                            saving.set(false);
+                        });
+                    }
+                >"Save"</button>
             </div>
         </ModalSheet>
     }

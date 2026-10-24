@@ -130,7 +130,9 @@ struct LedgerDetailView: View {
         }
         .sheet(isPresented: $showingSettings) {
             if let detail {
-                LedgerSettingsView(console: console, detail: detail)
+                LedgerSettingsView(console: console, detail: detail) {
+                    Task { await load() }
+                }
             }
         }
         .refreshable { await load() }

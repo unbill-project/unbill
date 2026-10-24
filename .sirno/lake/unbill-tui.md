@@ -112,6 +112,8 @@ protocol; clipboard support depends on the terminal.
 
 Ledger Settings opens user management; Enter archives or restores the selected
 member, and a expands the Archived group. h opens user creation/import and l invitations.
+The d sub-tab lists authorized devices, including this device. Enter edits the
+selected device's shared name for the current ledger; Esc cancels the edit.
 Bill editors use a to expand archived participants, with active members selected
 for new bills and original membership preserved for amendments.
 

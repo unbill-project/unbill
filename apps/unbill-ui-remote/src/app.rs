@@ -4,7 +4,8 @@ use crate::api::{
 };
 use crate::components::{EmptyColumn, use_toast};
 use crate::pages::{
-    AddLedgerUserSheet, CreateLedgerSheet, JoinLedgerSheet, LedgerPage, LedgersPage, SettingsPopup,
+    AddLedgerUserSheet, CreateLedgerSheet, JoinLedgerSheet, LedgerPage, LedgersPage,
+    RenameDeviceSheet, SettingsPopup,
 };
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -134,8 +135,16 @@ pub(crate) fn compact_composition(
 #[derive(Clone, PartialEq)]
 pub(crate) enum OverlayKind {
     CreateLedger,
-    JoinLedger { url: String },
+    JoinLedger {
+        url: String,
+    },
     AddUser,
+    RenameDevice {
+        ledger_id: String,
+        ledger_name: String,
+        node_id: String,
+        name: String,
+    },
 }
 
 #[component]
@@ -657,6 +666,23 @@ pub fn App() -> impl IntoView {
                 }
                 .into_any()
             }
+            OverlayKind::RenameDevice { ledger_id, ledger_name, node_id, name } => {
+                view! {
+                    <RenameDeviceSheet
+                        ledger_id=ledger_id
+                        ledger_name=ledger_name
+                        node_id=node_id
+                        current_name=name
+                        on_cancel=Callback::new(move |_| overlay.set(None))
+                        on_saved=Callback::new(move |_| {
+                            overlay.set(None);
+                            reload_bootstrap();
+                            toast.show("Device renamed in this ledger.".to_owned());
+                        })
+                    />
+                }
+                .into_any()
+            }
             OverlayKind::AddUser => {
                 view! {
                     <AddLedgerUserSheet
@@ -807,6 +833,18 @@ pub fn App() -> impl IntoView {
                     on_select_ledger=Callback::new(select_settings_ledger)
                     on_join_ledger=Callback::new(move |_| overlay.set(Some(OverlayKind::JoinLedger { url: String::new() })))
                     on_add_ledger_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddUser)))
+                    on_rename_device=Callback::new(move |(ledger_id, node_id, name): (String, String, String)| {
+                        if let Some(detail) = settings_ledger_detail.get_untracked()
+                            && detail.summary.ledger_id == ledger_id
+                        {
+                            overlay.set(Some(OverlayKind::RenameDevice {
+                                ledger_id,
+                                ledger_name: detail.summary.name,
+                                node_id,
+                                name,
+                            }));
+                        }
+                    })
                     on_set_ledger_archived=Callback::new(set_ledger_archived)
                     on_set_user_archived=Callback::new(move |(user_id, archived): (String, bool)| {
                         if let Some(detail) = settings_ledger_detail.get() {
