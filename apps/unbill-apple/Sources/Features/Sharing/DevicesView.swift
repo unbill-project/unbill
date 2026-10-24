@@ -199,28 +199,35 @@ struct PeerDeviceRow: View {
                     Text(message).font(.caption).foregroundStyle(.red)
                 }
             }
-            Spacer()
-            if let onRename {
-                Button("Rename", action: onRename)
-                    .buttonStyle(.borderless)
-                    .disabled(disabled)
-            }
-            if !isLocal {
-                Button {
-                    onSync()
-                } label: {
-                    ZStack {
-                        Text(syncError == nil ? "Sync" : "Retry")
-                            .opacity(syncing ? 0 : 1)
-                        if syncing {
-                            ProgressView().controlSize(.small)
+            Spacer(minLength: 12)
+            HStack(spacing: 12) {
+                if !isLocal {
+                    Button {
+                        onSync()
+                    } label: {
+                        ZStack {
+                            Text(syncError == nil ? "Sync" : "Retry")
+                                .opacity(syncing ? 0 : 1)
+                            if syncing {
+                                ProgressView().controlSize(.small)
+                            }
                         }
+                        .frame(minWidth: 48)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.accentColor)
+                    .disabled(disabled)
+                    .accessibilityLabel(syncing ? "Syncing" : (syncError == nil ? "Sync" : "Retry"))
                 }
-                .buttonStyle(.bordered)
-                .disabled(disabled)
-                .accessibilityLabel(syncing ? "Syncing" : (syncError == nil ? "Sync" : "Retry"))
+                if let onRename {
+                    Button("Rename", action: onRename)
+                        .buttonStyle(.bordered)
+                        .tint(.gray)
+                        .disabled(disabled)
+                }
             }
+            .controlSize(.regular)
+            .fixedSize(horizontal: true, vertical: false)
         }
     }
 }
