@@ -311,7 +311,7 @@ fn SyncDeviceRow(
                 {(!is_local).then(|| view! {
                     <IconButton
                         kind=IconButtonKind::Sync
-                        tone=ButtonTone::Quiet
+                        tone=ButtonTone::Primary
                         working=working
                         on_press=Callback::new(move |_| {
                             working.set(true);
@@ -322,7 +322,7 @@ fn SyncDeviceRow(
                 {on_rename.map(|rename| view! {
                     <ActionButton
                         label="Rename".to_owned()
-                        tone=ButtonTone::Quiet
+                        tone=ButtonTone::Secondary
                         on_press=Callback::new(move |_| rename.run(()))
                     />
                 })}

@@ -302,7 +302,25 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  justify-self: end;
   gap: 12px;
+}
+
+.row-actions .action-button {
+  min-width: 88px;
+}
+
+.row-actions .icon-button.action-button-primary:hover {
+  border-color: var(--bg-accent);
+  background: var(--bg-accent);
+  color: var(--text-inverse);
+  filter: brightness(1.1);
+}
+
+.row-actions .action-button.action-button-secondary:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-selected);
+  color: var(--accent-text);
 }
 
 .row-title {
