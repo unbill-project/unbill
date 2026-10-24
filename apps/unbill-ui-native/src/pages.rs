@@ -308,13 +308,6 @@ fn SyncDeviceRow(
                 {detail.map(|d| view! { <p class="row-detail">{d}</p> })}
             </div>
             <div class="row-actions">
-                {on_rename.map(|rename| view! {
-                    <ActionButton
-                        label="Rename".to_owned()
-                        tone=ButtonTone::Quiet
-                        on_press=Callback::new(move |_| rename.run(()))
-                    />
-                })}
                 {(!is_local).then(|| view! {
                     <IconButton
                         kind=IconButtonKind::Sync
@@ -324,6 +317,13 @@ fn SyncDeviceRow(
                             working.set(true);
                             on_sync.run((node_id.clone(), done));
                         })
+                    />
+                })}
+                {on_rename.map(|rename| view! {
+                    <ActionButton
+                        label="Rename".to_owned()
+                        tone=ButtonTone::Quiet
+                        on_press=Callback::new(move |_| rename.run(()))
                     />
                 })}
             </div>

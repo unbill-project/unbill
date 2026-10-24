@@ -298,6 +298,13 @@
   min-width: 0;
 }
 
+.row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
 .row-title {
   margin: 0;
   overflow: hidden;
