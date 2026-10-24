@@ -17,5 +17,6 @@ and every share is within one minor unit (1 cent) of `total / n`.
 Split completeness holds exactly:
 e.g. 100 cents split 3 ways produces 34/33/33, never 33/33/33 (which silently loses a cent).
 
-The remainder recipient is selected deterministically via FNV-1a hash of the bill ID,
-so all peers agree on who absorbs the rounding cent.
+The remainder recipient is selected by taking the full `u128` bill ID modulo
+the share count before converting the result to a list index. This gives
+32- and 64-bit peers the same rounding allocation.

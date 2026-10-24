@@ -836,6 +836,7 @@ pub fn split_shares(
     assert(shares.len() > 0);
     assert(shares.len() <= i32::MAX as usize);
     let share_count: u128 = shares.len() as u128;
+    #[allow(clippy::arithmetic_side_effects, reason = "the asserted share count is nonzero")]
     let remainder_recipient_idx: usize = (bill_id % share_count) as usize;
     assert(remainder_recipient_idx < shares.len());
     assert(remainder_recipient_idx <= usize::MAX - shares.len());
