@@ -793,7 +793,7 @@ mod tests {
         let alice = UserId::from_u128(1).to_string();
         let bob = UserId::from_u128(2).to_string();
         let mut input = BillSplitRequest {
-            bill_id: BillId::from_u128(0).to_string(),
+            bill_id: BillId::from_u128(1).to_string(),
             amount_cents: 101,
             payers: vec![BillShareInput {
                 user_id: alice.clone(),
@@ -818,7 +818,7 @@ mod tests {
                 amount_cents: 101,
             }]
         );
-        // This seed assigns the leftover cent to Bob, unlike the old UI splitter.
+        // This bill ID assigns the leftover cent to Bob, unlike the old UI splitter.
         assert_eq!(
             split.payee_amounts,
             vec![

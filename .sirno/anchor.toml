@@ -185,7 +185,7 @@ fingerprint = "sha256:5ea6809b16460265bf57932afc992dcc9dc68a90a3c24f67dc0201e7fd
 "core.refines" = ["settlement"]
 
 [entries.invariant-rounding-fairness]
-fingerprint = "sha256:39ae2065080bdb70b7ed44d98c490b11016a09b34f405a34e47c10ca71133496"
+fingerprint = "sha256:3258749c75cb3faf9b286aa7b3387b887a55a958e1a510994ee7e7b2500afce7"
 "core.belongs" = ["formal-invariants"]
 "core.refines" = ["settlement"]
 
@@ -246,7 +246,7 @@ fingerprint = "sha256:173e8e06ae4ca1f7c3aa9dfda004336f0302d8fe533b2ecf8fb0323e25
 "core.refines" = ["unbill-server"]
 
 [entries.settlement]
-fingerprint = "sha256:01f56ac5fdfe1f98274bdf82bc2874522d9fa81b7111e66ff90cf5acaa6a50b1"
+fingerprint = "sha256:41daff75842967eb0b95e51a3bdf7fae34dbed893c5199cd03f76565eb96c5bb"
 "core.belongs" = [
     "unbill",
     "unbill-console",
