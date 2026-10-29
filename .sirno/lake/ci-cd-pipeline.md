@@ -102,7 +102,11 @@ and uploads them as platform artifacts.
 The Tauri action receives `TAURI_SIGNING_PRIVATE_KEY` and
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` from repository secrets
 so it signs installers and generates `.sig` signature files.
-On Windows the build generates `latest.json` from the signature file
+Artifact renaming preserves compound signature extensions such as `.exe.sig` and
+`.msi.sig`, keeping each signature paired with its installer. Windows prefers a
+signed NSIS `.exe` pair and falls back to a signed `.msi` pair; a missing pair
+fails packaging rather than silently omitting the updater manifest.
+On Windows the build generates `latest.json` from the matching signature file
 and the release tag,
 containing the version, download URL, and signature
 for the `windows-x86_64` platform.

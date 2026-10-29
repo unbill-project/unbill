@@ -164,6 +164,10 @@ jobs:
         run: |
           echo '${{ steps.tauri.outputs.artifactPaths }}' | jq -r '.[]' | tr -d '\r' | while read -r path; do
             ext="${path##*.}"
+            if [ "$ext" = "sig" ]; then
+              installer_path="${path%.sig}"
+              ext="${installer_path##*.}.sig"
+            fi
             mv "$path" "unbill-${{ matrix.suffix }}.${ext}"
           done
 
@@ -175,19 +179,20 @@ jobs:
           find . -maxdepth 1 -name 'unbill-${{ matrix.suffix }}.*' 2>/dev/null || echo "No matching files found"
           echo "::endgroup::"
 
-          sig_file=$(find . -maxdepth 1 -name 'unbill-${{ matrix.suffix }}.*.sig' -print -quit)
-          if [ -z "$sig_file" ]; then
-            echo "No signature file found, skipping latest.json"
-            exit 0
-          fi
-          echo "Using signature file: $sig_file"
-          signature=$(cat "$sig_file")
-
-          installer=$(find . -maxdepth 1 \( -name 'unbill-${{ matrix.suffix }}.exe' -o -name 'unbill-${{ matrix.suffix }}.msi' \) -print -quit)
+          installer=""
+          for extension in exe msi; do
+            candidate="unbill-${{ matrix.suffix }}.${extension}"
+            if [ -f "$candidate" ] && [ -s "${candidate}.sig" ]; then
+              installer="$candidate"
+              break
+            fi
+          done
           if [ -z "$installer" ]; then
-            echo "::error::No installer (.exe or .msi) found"
+            echo "::error::No matching Windows installer and signature pair found"
             exit 1
           fi
+          echo "Using signature file: ${installer}.sig"
+          signature=$(cat "${installer}.sig")
           installer_name=$(basename "$installer")
           echo "Using installer: $installer_name"
 
