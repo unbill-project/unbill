@@ -85,3 +85,24 @@ Cargo verifies the archives before returning them under `target/package`.
 After configuring crates.io access and checking the package names, publish the
 same library set explicitly with `python3 bindings/rust/package.py --publish`.
 Cargo orders the dependency uploads. The FFI adapter and applications are excluded.
+
+### Automatic releases
+
+`.github/workflows/rust.yml` runs on `v*` tag pushes. It tests the binding and
+adapter, checks the dependency graph, and verifies all package archives before
+the publishing job runs. The tag must equal `v` followed by every selected
+library's version (for example, `v0.0.9`). Ordinary CI calls the same verification
+workflow; manual dispatch also verifies without publishing.
+
+Set the `CARGO_REGISTRY_TOKEN` GitHub Actions secret on the repository or its
+`crates-io` environment. The crates.io token needs publish access to `unbill` and
+all selected `unbill-*` libraries, including permission to create new crates for
+the first release. Confirm those names are available or owned by the publishing
+account. Only the publishing step receives the token. Missing credentials fail
+the release with a setup message.
+
+After merging the workflow and configuring the secret, the next matching version
+tag publishes the Rust libraries alongside the existing Python release. Local
+`cargo release` continues to create the version tag without uploading to crates.io.
+To exercise the same version check locally without uploading, run
+`python3 bindings/rust/package.py --tag v0.0.9` with the current workspace version.

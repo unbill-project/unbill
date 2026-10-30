@@ -1,11 +1,13 @@
-"""Exercise the release cleanliness guard against real Git states."""
+"""Exercise checkout cleanliness and release-version guards before publishing."""
 
+import json
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
-from package import require_clean_checkout
+from package import main, require_clean_checkout, require_release_tag
 
 
 class CleanCheckoutTests(unittest.TestCase):
@@ -43,6 +45,41 @@ class CleanCheckoutTests(unittest.TestCase):
         (self.root / "new.rs").write_text("// new source\n")
         with self.assertRaisesRegex(RuntimeError, "uncommitted changes"):
             require_clean_checkout(self.root)
+
+
+class ReleaseTagTests(unittest.TestCase):
+    def test_matching_shared_version_is_accepted(self):
+        for version in ("0.0.9", "1.0.0-rc.1"):
+            with self.subTest(version=version):
+                require_release_tag(f"v{version}", [
+                    {"name": "unbill", "version": version},
+                    {"name": "unbill-console", "version": version},
+                ])
+
+    def test_wrong_version_and_nonrelease_tags_are_rejected(self):
+        for tag in ("v0.0.10", "0.0.9", "nightly-20261030", "main", ""):
+            with self.subTest(tag=tag):
+                with self.assertRaisesRegex(RuntimeError, "does not match"):
+                    require_release_tag(tag, [{"name": "unbill", "version": "0.0.9"}])
+
+    def test_mismatched_dependency_stops_publish_before_building(self):
+        metadata = {"packages": [
+            {"name": "unbill", "version": "0.0.9", "dependencies": [
+                {"name": "unbill-console", "path": "crates/unbill-console"},
+            ]},
+            {"name": "unbill-console", "version": "0.0.8", "dependencies": []},
+        ]}
+        with (
+            patch("sys.argv", ["package.py", "--publish", "--tag", "v0.0.9"]),
+            patch("package.require_clean_checkout"),
+            patch("package.run", return_value=json.dumps(metadata)) as run,
+        ):
+            with self.assertRaisesRegex(RuntimeError, r"unbill-console \(0.0.8\)"):
+                main()
+        run.assert_called_once_with(
+            "cargo", "metadata", "--format-version=1", "--no-deps", "--locked",
+            capture=True,
+        )
 
 
 if __name__ == "__main__":

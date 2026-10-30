@@ -30,10 +30,24 @@ def require_clean_checkout(root=ROOT):
         )
 
 
+def require_release_tag(tag, packages):
+    mismatched = [
+        f"{package['name']} ({package['version']})"
+        for package in packages
+        if tag != f"v{package['version']}"
+    ]
+    if mismatched:
+        raise RuntimeError(
+            f"Release tag {tag!r} does not match package versions: "
+            + ", ".join(mismatched)
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--allow-dirty", action="store_true")
     parser.add_argument("--publish", action="store_true", help="Upload to crates.io")
+    parser.add_argument("--tag", help="Require v<version> to match every package")
     args = parser.parse_args()
     if not args.allow_dirty:
         require_clean_checkout()
@@ -53,6 +67,8 @@ def main():
                 visit(dependency["name"])
 
     visit("unbill")
+    if args.tag is not None:
+        require_release_tag(args.tag, [packages[name] for name in sorted(selected)])
     selection = [arg for name in sorted(selected) for arg in ("-p", name)]
     print("Rust packages: " + ", ".join(sorted(selected)), flush=True)
 

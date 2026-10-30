@@ -78,21 +78,7 @@ jobs:
 
   rust-package:
     name: Rust package
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: rust-package
-      - name: Package standalone Rust libraries
-        run: |
-          cargo fetch --locked
-          python3 bindings/rust/test_packaging.py
-          cargo tree -p unbill -e normal,build --prefix none > "$RUNNER_TEMP/rust-dependencies.txt"
-          if grep -E '^uniffi([_-]| )' "$RUNNER_TEMP/rust-dependencies.txt"; then
-            echo 'The native Rust package must not depend on UniFFI.' >&2
-            exit 1
-          fi
-          python3 bindings/rust/package.py
+    uses: ./.github/workflows/rust.yml
+    permissions:
+      contents: read
 # sirno:witness:ci-cd-pipeline:end

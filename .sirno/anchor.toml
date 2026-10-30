@@ -52,7 +52,7 @@ fingerprint = "sha256:fd3302642d25a1dbc341cd4954cce29d25ad7b8674cb91320ff080ed94
 "core.belongs" = ["unbill"]
 
 [entries.ci-cd-pipeline]
-fingerprint = "sha256:3517ebe0be07572e2c17192beb410ce63a15d97ca730d15cc623b016fe4812ab"
+fingerprint = "sha256:02a129273319b19c39adf9fc3d498258cdea5ea7661f9433d7cf509eb5877187"
 "core.belongs" = ["distribution-and-release"]
 
 [entries.compiled-markdown-artifacts]
@@ -130,7 +130,7 @@ fingerprint = "sha256:3f90bf67804a1024b5acde51ac1fcb064fe21ed40b8efa3605c88cf5d0
 "core.refines" = ["design-principles"]
 
 [entries.distribution-and-release]
-fingerprint = "sha256:53b4450b5cc42d64ff937cdce14df890fcddfed2ea0f34adbed8727d39fd656f"
+fingerprint = "sha256:863a582357ab6d9d094bd1cd5b083f192fc6e37301b8069376f19348a42502a2"
 "core.belongs" = ["unbill"]
 
 [entries.emoji-fingerprint]
@@ -233,7 +233,7 @@ fingerprint = "sha256:b79e02f9a8a7d94e4448709da193a402f8f680f561fc27202affa15820
 ]
 
 [entries.rust-bindings]
-fingerprint = "sha256:a11a6041584e1a1fa10c35c49ee512d9dca6e5f6c88853785d26300f3b533204"
+fingerprint = "sha256:f15493921dbd3b5abab34c0137f64ed63c3da248450e750f1b6cc901edb12c3b"
 "core.belongs" = ["workspace-layout"]
 
 [entries.security-model]

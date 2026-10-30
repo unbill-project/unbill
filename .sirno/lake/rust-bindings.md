@@ -24,3 +24,10 @@ back into the checkout. CI checks packaging and the absence of UniFFI from the R
 binding's normal and build dependency graph.
 The packaging helper requires a clean source checkout by default, before staging
 the generated catalog. An explicit allow-dirty option permits development builds.
+
+Version-tag CI publishes this same library set after tests, dependency checks,
+and standalone packaging succeed. The release tag must be exactly v followed by
+the shared package version, including every selected dependency. The rust.yml
+workflow uses the crates-io environment and a CARGO_REGISTRY_TOKEN secret with
+publish access to the selected libraries, including permission to create them
+on the first release. Ordinary CI and manual workflow runs only verify packages.
