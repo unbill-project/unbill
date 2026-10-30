@@ -21,6 +21,14 @@
       "category": "utilities",
       "versions": [
         {
+          "version": "0.0.9",
+          "date": "2026-10-30",
+          "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.9/unbill-apple-ios.ipa",
+          "size": 10514510,
+          "minOSVersion": "17.0",
+          "localizedDescription": "Rename devices per ledger, consistent settlement rounding across platforms, and clearer sync controls. Update all clients sharing a ledger to 0.0.9."
+        },
+        {
           "version": "0.0.8",
           "date": "2026-10-23",
           "downloadURL": "https://github.com/unbill-project/unbill/releases/download/v0.0.8/unbill-apple-ios.ipa",
