@@ -30,11 +30,11 @@ Existing flat-file data remains untouched and is not automatically imported.
 The new-ledger currency picker obtains the complete Rust currency catalog through `ConsoleClient`
 and UniFFI, sorted by currency code, rather than maintaining a Swift shortlist.
 
-`unbill-ffi` is a Cargo workspace member that exposes the shared `Console` interface to Swift with UniFFI.
+`unbill-ffi` in `bindings/ffi` is a Cargo workspace member that exposes the `unbill` crate's shared `Console` interface to Swift with UniFFI.
 It mirrors the aggregated command granularity of the Tauri bridge rather than the raw console methods:
 bootstrap, ledger detail, create ledger, create and import users, save bill, resolve conflict,
 create invitation, join, sync, and a `ServiceEvent` callback stream.
-The DTO assembly is ported from `unbill-tauri`; a shared `unbill-shell` crate would remove that duplication.
+The shared API and DTO assembly live in `bindings/rust`. Tauri retains its own DTO assembly.
 
 The project lives at `apps/unbill-apple`, outside the Cargo workspace.
 An `xcodegen` `project.yml` defines one application target for iOS device, simulator, and Mac Catalyst.

@@ -5,10 +5,14 @@ core.category:
   - core.concept
 core.belongs:
   - workspace-layout
+  - rust-bindings
 ---
 
-`unbill-ffi` exposes `Console` to Python and Swift through UniFFI.
-Public console naming belongs to this shared interface rather than language-specific aliases.
+`unbill-ffi` lives in `bindings/ffi` and exposes the `unbill` crate's `Console`
+to Python and Swift through UniFFI. It owns only foreign records, enums, errors,
+callback adapters, and forwarding methods. The shared implementation lives in
+`bindings/rust`; native Rust callers have no UniFFI dependency.
+Public console naming belongs to the shared Rust interface rather than language-specific aliases.
 Exported records, enums, errors, callbacks, and subscriptions use `Console` names
 without an `Ffi` prefix. The bridge and generated low-level symbols remain implementation details.
 The underlying orchestration remains in `UnbillConsole`.

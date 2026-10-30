@@ -8,9 +8,9 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
-unbill-storage = { path = "../unbill-storage" }
-unbill-model = { path = "../unbill-model" }
-unbill-event = { path = "../unbill-event" }
+unbill-storage = { path = "../unbill-storage", version = "0.0.9" }
+unbill-model = { path = "../unbill-model", version = "0.0.9" }
+unbill-event = { path = "../unbill-event", version = "0.0.9" }
 async-trait.workspace = true
 diesel = { version = "2.3", default-features = false, features = ["sqlite"] }
 diesel_migrations = { version = "2.3", features = ["sqlite"] }
@@ -23,6 +23,6 @@ tracing.workspace = true
 tokio = { workspace = true, features = ["rt", "time"] }
 
 [dev-dependencies]
-unbill-store-memory = { path = "../unbill-store-memory" }
+unbill-store-memory = { path = "../unbill-store-memory", version = "0.0.9" }
 tempfile = "3"
 tokio = { workspace = true, features = ["rt", "macros"] }

@@ -8,8 +8,8 @@ core.belongs:
   - unbill-ffi
 ---
 
-Python clients reuse the UniFFI exports of `unbill-ffi` through an installable
-`unbill` package. Console behavior remains in the shared Rust implementation.
+Python clients reuse the UniFFI exports of `unbill-ffi` in `bindings/ffi` through an installable
+`unbill` package. Console behavior lives in the native `unbill` Cargo package in `bindings/rust`.
 
 The package contains generated Python bindings and a shared Rust library built
 for the host platform. Builds use the workspace-pinned generator and version.

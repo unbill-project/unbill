@@ -12,6 +12,11 @@ package-manager publishing, and image publishing.
 Entry-point workflows are thin orchestrators.
 Reusable workflows hold the build and release logic.
 
+The Rust package job calls `rust.yml` to test the native binding and FFI adapter,
+check that the native `unbill` dependency graph excludes UniFFI, and package its
+library dependency closure with Cargo. Packaging captures the license catalog
+and verifies standalone archives. Calls from ordinary CI only verify packages.
+
 ```mermaid
 flowchart TB
     subgraph GitHub[".github"]
@@ -56,11 +61,12 @@ flowchart LR
 
 `ci.yml` runs on pushes to `main` and pull requests targeting `main`.
 It sets warnings as errors.
-It runs four parallel jobs:
+It runs five parallel jobs:
 Sirno lake and anchor validation,
 lint through `prek run --all-files`,
 Clippy for the workspace excluding `unbill-tauri`,
-and tests for the workspace excluding `unbill-tauri`.
+tests for the workspace excluding `unbill-tauri`,
+and Rust library package verification through `rust.yml`.
 Clippy explicitly enables `arithmetic_side_effects`, `indexing_slicing`,
 `string_slice`, `unwrap_used`, `expect_used`, `panic`, `unreachable`, and `todo`.
 The warnings-as-errors policy makes findings from these lints fail CI.
@@ -188,10 +194,18 @@ Homebrew formulae,
 and the macOS Cask.
 
 Versions are managed by `cargo release`.
-`release.toml` disables crates.io publishing,
+`release.toml` disables local crates.io publishing by `cargo release`,
 uses one shared workspace version,
 and emits a single workspace tag `v{version}`.
 Workspace crates inherit the version from `[workspace.package]` in `Cargo.toml`.
+
+`rust.yml` also runs directly on `v*` tag pushes and manual dispatch.
+It verifies the release tag against every selected library's shared version
+before packaging. The publish job depends on successful tests and archive
+verification, runs only for version-tag pushes, and uses the `crates-io`
+environment. Its upload step receives the `CARGO_REGISTRY_TOKEN` secret;
+missing credentials fail with a setup message. Manual dispatch only verifies.
+Release runs for the same ref are serialized without cancelling an active upload.
 
 `python.yml` builds and tests the platform wheels described by `python-bindings`.
 It runs independently on the same `v*` tag pushes as `version.yml`, and checks

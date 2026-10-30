@@ -1,15 +1,30 @@
-//! Shared `Console` API bridging `UnbillConsole` to Swift and Python via UniFFI.
+//! Native Rust access to the shared Unbill `Console` interface.
 //!
-//! Mirrors the aggregated command granularity of the Tauri bridge (bootstrap /
-//! ledger-detail / mutations) rather than the raw console methods — fewer, UI-
-//! shaped crossings. The DTO assembly is ported from `unbill-tauri`; the two
-//! should eventually share an `unbill-shell` crate to avoid drift.
+//! This crate owns the API used by Rust, Python, and Swift. Rust callers use
+//! ordinary methods; foreign-language adapters wrap this implementation.
 //!
-//! Methods are synchronous and `block_on` a stored tokio runtime; the caller
-//! must invoke them off any tokio thread. The `ServiceEvent` stream is
-//! delivered through a callback interface driven by a spawned forwarding task.
+//! [`Console::open_in_process`] owns an embedded SQLite device and its runtime.
+//! On desktop, `Console::open_rpc` connects to an already-running daemon.
+//! Synchronous methods and final `Console` release must run outside an async
+//! runtime context. Use `tokio::task::spawn_blocking` when integrating with Tokio.
+//! [`Console::sync_once`] and [`Console::observe_ble`] are asynchronous.
+//! Observer callbacks run on worker threads and should forward work to their
+//! owning thread before invoking synchronous console methods.
+//!
+//! ```no_run
+//! let console = unbill::Console::open_in_process("./household-data".into())?;
+//! let ledger = console.create_ledger("Household".into(), "USD".into())?;
+//! let detail = console.ledger_detail(ledger.ledger_id)?;
+//! assert_eq!(detail.summary.name, "Household");
+//! # Ok::<(), unbill::ConsoleError>(())
+//! ```
 
-build_info::build_info!(fn compiled_build_info);
+fn compiled_build_info() -> unbill_build_info::BuildInfo {
+    unbill_build_info::BuildInfo {
+        version: env!("CARGO_PKG_VERSION").to_owned(),
+        built_at_utc: env!("UNBILL_BUILT_AT_UTC").to_owned(),
+    }
+}
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::PathBuf;
@@ -29,23 +44,21 @@ use unbill_console::model::{
 use unbill_console::service::{ConflictGroup, UnbillConsole};
 use unbill_store_sqlite::SqliteStore;
 
-uniffi::setup_scaffolding!();
-
 // sirno:witness:unbill-license:begin
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleLegalSoftware {
     pub name: String,
     pub versions: Vec<String>,
     pub license_expressions: Vec<String>,
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleLegalDocument {
     pub title: String,
     pub text: String,
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleLegalPackage {
     pub package_id: String,
     pub name: String,
@@ -57,7 +70,6 @@ pub struct ConsoleLegalPackage {
 }
 
 /// Local compiled information; never opens storage or contacts a daemon.
-#[uniffi::export]
 pub fn license_software_summaries() -> Vec<ConsoleLegalSoftware> {
     unbill_license::software_summaries()
         .into_iter()
@@ -69,7 +81,6 @@ pub fn license_software_summaries() -> Vec<ConsoleLegalSoftware> {
         .collect()
 }
 
-#[uniffi::export]
 pub fn license_software_details(name: String) -> Vec<ConsoleLegalPackage> {
     unbill_license::software(&name)
         .iter()
@@ -96,7 +107,6 @@ pub fn license_software_details(name: String) -> Vec<ConsoleLegalPackage> {
 // sirno:witness:unbill-license:end
 
 /// Complete currency catalog for frontend pickers, sorted by ISO code.
-#[uniffi::export]
 pub fn supported_currency_codes() -> Vec<String> {
     let mut codes: Vec<_> = Currency::all()
         .map(|currency| currency.code().to_owned())
@@ -106,7 +116,6 @@ pub fn supported_currency_codes() -> Vec<String> {
 }
 
 /// Shared desktop data-directory default, including UNBILL_DATA_DIR overrides.
-#[uniffi::export]
 pub fn default_data_directory() -> Result<String, ConsoleError> {
     let root = unbill_storage::UNBILL_PATH.data_dir().map_err(err)?;
     root.into_os_string()
@@ -114,7 +123,7 @@ pub fn default_data_directory() -> Result<String, ConsoleError> {
         .map_err(|_| err("data directory is not UTF-8"))
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleBuildInfo {
     pub version: String,
     pub built_at_utc: String,
@@ -129,14 +138,13 @@ impl From<unbill_build_info::BuildInfo> for ConsoleBuildInfo {
     }
 }
 
-#[uniffi::export]
 pub fn client_build_info() -> ConsoleBuildInfo {
-    unbill_build_info::BuildInfo::from(crate::compiled_build_info()).into()
+    compiled_build_info().into()
 }
 
 // ---------- Errors ----------
 
-#[derive(Debug, thiserror::Error, uniffi::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ConsoleError {
     #[error("data directory is already in use: {path}")]
     DataDirectoryInUse { path: String },
@@ -150,7 +158,7 @@ fn err(e: impl std::fmt::Display) -> ConsoleError {
 
 // ---------- DTOs (mirror unbill-tauri) ----------
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleLedgerSummary {
     pub archived: bool,
     pub ledger_id: String,
@@ -163,7 +171,7 @@ pub struct ConsoleLedgerSummary {
     pub latest_bill_at_ms: Option<i64>,
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleUser {
     pub user_id: String,
     pub display_name: String,
@@ -171,14 +179,14 @@ pub struct ConsoleUser {
     pub added_at_ms: i64,
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleShare {
     pub user_id: String,
     pub shares: u32,
     pub display_name: String,
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleBill {
     pub id: String,
     pub amount_cents: i64,
@@ -189,52 +197,51 @@ pub struct ConsoleBill {
     pub prev: Vec<String>,
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleUserAmount {
     pub user_id: String,
     pub amount_cents: i64,
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleBillSplit {
     pub payer_amounts: Vec<ConsoleUserAmount>,
     pub payee_amounts: Vec<ConsoleUserAmount>,
 }
 
 /// Identity of a draft and the bills it supersedes when saved.
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleBillDraft {
     pub bill_id: String,
     pub prev_bill_ids: Vec<String>,
 }
 
 /// Allocate a real bill ID for previewing and saving a new bill or amendment.
-#[uniffi::export]
 pub fn new_bill_id() -> String {
     BillId::new().to_string()
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleTransaction {
     pub from_name: String,
     pub to_name: String,
     pub amount_cents: i64,
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleConflictGroup {
     pub conflicting: Vec<ConsoleBill>,
     pub ancestors: Vec<ConsoleBill>,
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleSyncDevice {
     pub node_id: String,
     pub label: String,
     pub ledger_names: Vec<String>,
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleBootstrap {
     pub device_id: String,
     pub ledgers: Vec<ConsoleLedgerSummary>,
@@ -242,7 +249,7 @@ pub struct ConsoleBootstrap {
     pub devices: Vec<ConsoleSyncDevice>,
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleLedgerDetail {
     pub emoji_fingerprint: String,
 
@@ -255,14 +262,14 @@ pub struct ConsoleLedgerDetail {
 }
 
 /// Input for save_bill (a participant's share weight).
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleShareInput {
     pub user_id: String,
     pub shares: u32,
 }
 
-// sirno:witness:unbill-ffi:begin
-#[derive(uniffi::Enum)]
+// sirno:witness:rust-bindings:begin
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConsoleBleState {
     Disabled,
     Active,
@@ -279,7 +286,7 @@ impl From<unbill_console::model::BleState> for ConsoleBleState {
         }
     }
 }
-#[derive(uniffi::Enum)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConsoleBlePeerPhase {
     Discovered,
     PendingDial,
@@ -306,7 +313,7 @@ impl From<unbill_console::model::BlePeerPhase> for ConsoleBlePeerPhase {
         }
     }
 }
-#[derive(uniffi::Enum)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConsoleBleConnectPath {
     Gatt,
     L2cap,
@@ -319,7 +326,7 @@ impl From<unbill_console::model::BleConnectPath> for ConsoleBleConnectPath {
         }
     }
 }
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleBlePeer {
     pub device_id: String,
     pub phase: ConsoleBlePeerPhase,
@@ -328,7 +335,7 @@ pub struct ConsoleBlePeer {
     pub verified_node_id: Option<String>,
 }
 
-#[derive(uniffi::Record)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleBleSnapshot {
     pub state: ConsoleBleState,
     pub peers: Vec<ConsoleBlePeer>,
@@ -359,16 +366,15 @@ impl From<unbill_console::model::BleSnapshot> for ConsoleBleSnapshot {
     }
 }
 
-#[uniffi::export(callback_interface)]
 pub trait ConsoleBleObserver: Send + Sync {
     /// Delivered on a worker thread; dispatch UI changes to the main thread.
     fn on_snapshot(&self, snapshot: ConsoleBleSnapshot);
 }
-// sirno:witness:unbill-ffi:end
+// sirno:witness:rust-bindings:end
 
 // ---------- Event stream ----------
 
-#[derive(uniffi::Enum)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConsoleServiceEvent {
     LedgerUpdated {
         ledger_id: String,
@@ -416,7 +422,6 @@ impl From<ServiceEvent> for ConsoleServiceEvent {
     }
 }
 
-#[uniffi::export(callback_interface)]
 pub trait ConsoleObserver: Send + Sync {
     /// Called from a tokio worker thread — keep it cheap (e.g. yield to a
     /// Swift AsyncStream); do NOT call back into Console here (block_on).
@@ -424,12 +429,10 @@ pub trait ConsoleObserver: Send + Sync {
 }
 
 /// Handle to an active event subscription; dropping it stops delivery.
-#[derive(uniffi::Object)]
 pub struct ConsoleSubscription {
     handle: tokio::task::AbortHandle,
 }
 
-#[uniffi::export]
 impl ConsoleSubscription {
     pub fn cancel(&self) {
         self.handle.abort();
@@ -444,17 +447,14 @@ impl Drop for ConsoleSubscription {
 
 // ---------- Console handle ----------
 
-// sirno:witness:unbill-ffi:begin
-#[derive(uniffi::Object)]
+// sirno:witness:rust-bindings:begin
 pub struct Console {
     rt: tokio::runtime::Runtime,
     inner: Arc<UnbillConsole>,
 }
 
-#[uniffi::export]
 impl Console {
     /// Run a device and console in this process, owning the SQLite data directory.
-    #[uniffi::constructor]
     pub fn open_in_process(dir: String) -> Result<Arc<Self>, ConsoleError> {
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -472,12 +472,9 @@ impl Console {
                         }
                         error => err(error),
                     })?;
-            let channel = LocalAsymChannel::open(
-                Arc::new(store),
-                unbill_build_info::BuildInfo::from(crate::compiled_build_info()),
-            )
-            .await
-            .map_err(err)?;
+            let channel = LocalAsymChannel::open(Arc::new(store), compiled_build_info())
+                .await
+                .map_err(err)?;
             let accept = Arc::clone(&channel);
             tokio::spawn(async move {
                 let _ = accept.accept_loop().await;
@@ -492,10 +489,8 @@ impl Console {
     target_os = "android",
     all(target_os = "ios", not(target_abi = "macabi"))
 )))]
-#[uniffi::export]
 impl Console {
     /// Connect to an existing daemon socket in `dir` (or UNBILL_SOCKET).
-    #[uniffi::constructor]
     pub fn open_rpc(dir: String) -> Result<Arc<Self>, ConsoleError> {
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -516,9 +511,8 @@ impl Console {
         Ok(Arc::new(Self { rt, inner }))
     }
 }
-// sirno:witness:unbill-ffi:end
+// sirno:witness:rust-bindings:end
 
-#[uniffi::export]
 impl Console {
     pub fn service_build_info(&self) -> Result<ConsoleBuildInfo, ConsoleError> {
         self.rt
@@ -729,7 +723,7 @@ impl Console {
             .map_err(err)
     }
 
-    /// Await network sync without blocking the caller's Swift actor executor.
+    /// Await network sync without blocking the caller's executor.
     pub async fn sync_once(&self, peer_node_id: String) -> Result<(), ConsoleError> {
         let peer = peer_node_id.parse::<NodeId>().map_err(err)?;
         let inner = Arc::clone(&self.inner);
@@ -790,7 +784,7 @@ impl Console {
     }
 }
 
-// ---------- Assembly (ported from unbill-tauri) ----------
+// ---------- Shared Console projections ----------
 
 type R<T> = Result<T, unbill_console::error::UnbillError>;
 
@@ -1134,13 +1128,13 @@ mod tests {
             project
                 .documents
                 .iter()
-                .any(|document| document.text == include_str!("../../../LICENSE-MIT"))
+                .any(|document| document.text == include_str!("../LICENSE-MIT"))
         );
         assert!(
             project
                 .documents
                 .iter()
-                .any(|document| document.text == include_str!("../../../LICENSE-APACHE"))
+                .any(|document| document.text == include_str!("../LICENSE-APACHE"))
         );
         assert!(super::license_software_details("unknown-software".to_owned()).is_empty());
     }

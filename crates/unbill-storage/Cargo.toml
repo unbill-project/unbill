@@ -8,8 +8,8 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
-unbill-model = { path = "../unbill-model" }
-unbill-event = { path = "../unbill-event" }
+unbill-model = { path = "../unbill-model", version = "0.0.9" }
+unbill-event = { path = "../unbill-event", version = "0.0.9" }
 automerge.workspace = true
 async-trait.workspace = true
 serde_json.workspace = true
@@ -23,4 +23,4 @@ tokio = { workspace = true, features = ["sync", "rt"] }
 tokio = { version = "1", default-features = false, features = ["sync"] }
 
 [dev-dependencies]
-unbill-model = { path = "../unbill-model", features = ["test-helpers"] }
+unbill-model = { path = "../unbill-model", version = "0.0.9", features = ["test-helpers"] }

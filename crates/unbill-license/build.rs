@@ -12,6 +12,18 @@ use types::{LegalDictionary, LicenseText, SoftwareLegalInfo, TextOrigin};
 // sirno:witness:unbill-license:begin
 fn main() -> Result<()> {
     let crate_root = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
+    let destination = PathBuf::from(env::var("OUT_DIR")?).join("legal.json.gz");
+    // Registry packages contain the catalog captured from the release workspace.
+    // They cannot reconstruct the complete application graph from this crate alone.
+    if !crate_root.ancestors().nth(2).is_some_and(|root| {
+        root.join("crates/unbill-license") == crate_root && root.join("Cargo.toml").is_file()
+    }) {
+        let snapshot = crate_root.join("catalog.json.gz");
+        println!("cargo:rerun-if-changed={}", snapshot.display());
+        fs::copy(&snapshot, &destination)
+            .context("missing packaged catalog; package with bindings/rust/package.py")?;
+        return Ok(());
+    }
     let workspace = crate_root
         .parent()
         .and_then(|path| path.parent())
@@ -212,13 +224,17 @@ fn main() -> Result<()> {
     if project.license_texts.is_empty() {
         bail!("Unbill's original root license texts must be available");
     }
+    // The native Rust binding has the project's name and workspace identity.
+    // Replace that record with the project record, retaining distinct sources.
+    if let Some(records) = dictionary.get_mut("unbill") {
+        records.retain(|record| record.package_id != project.package_id);
+    }
     build_support::insert(&mut dictionary, project);
     let packed = packed::PackedCatalog::pack(&dictionary)?;
     let json = serde_json::to_vec(&packed)?;
     let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
     encoder.write_all(&json)?;
     let compressed = encoder.finish()?;
-    let destination = PathBuf::from(env::var("OUT_DIR")?).join("legal.json.gz");
     fs::write(destination, compressed)?;
     Ok(())
 }

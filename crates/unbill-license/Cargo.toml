@@ -5,7 +5,8 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "Compiled license texts and notices for Unbill's Rust software"
-publish.workspace = true
+publish = true
+include = ["src/**", "build.rs", "build_support.rs", "README.md", "catalog.json.gz"]
 
 [dependencies]
 flate2 = "1"

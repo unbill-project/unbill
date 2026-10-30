@@ -8,11 +8,11 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
-unbill-build-info = { path = "../unbill-build-info" }
-unbill-console-verified = { path = "verified" }
-unbill-model = { path = "../unbill-model" }
-unbill-event = { path = "../unbill-event" }
-unbill-asymmetric-channel = { path = "../unbill-asymmetric-channel" }
+unbill-build-info = { path = "../unbill-build-info", version = "0.0.9" }
+unbill-console-verified = { path = "verified", version = "0.0.9" }
+unbill-model = { path = "../unbill-model", version = "0.0.9" }
+unbill-event = { path = "../unbill-event", version = "0.0.9" }
+unbill-asymmetric-channel = { path = "../unbill-asymmetric-channel", version = "0.0.9" }
 automerge.workspace = true
 autosurgeon.workspace = true
 async-trait.workspace = true
@@ -29,7 +29,7 @@ qrcode.workspace = true
 emojis = "=0.9.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-tokio = { workspace = true, features = ["rt"] }
+tokio = { workspace = true, features = ["rt", "macros"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 tokio = { version = "1", default-features = false, features = ["sync", "macros"] }
@@ -37,9 +37,9 @@ wasm-bindgen-futures.workspace = true
 
 
 [dev-dependencies]
-unbill-model = { path = "../unbill-model", features = ["test-helpers"] }
-unbill-storage = { path = "../unbill-storage" }
-unbill-store-memory = { path = "../unbill-store-memory" }
+unbill-model = { path = "../unbill-model", version = "0.0.9", features = ["test-helpers"] }
+unbill-storage = { path = "../unbill-storage", version = "0.0.9" }
+unbill-store-memory = { path = "../unbill-store-memory", version = "0.0.9" }
 proptest.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "test-util"] }
 tempfile = "3"

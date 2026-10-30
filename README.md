@@ -170,7 +170,8 @@ Unbill is a Rust workspace built from focused crates and thin applications.
 | `crates/unbill-symmetric-channel` | Device-to-device Iroh sync and join |
 | `crates/unbill-asymmetric-channel` | Device-to-console transports |
 | `crates/unbill-tauri`, `crates/unbill-ui-components` | Desktop and web UI |
-| `crates/unbill-ffi` | Shared UniFFI bridge for Swift and Python |
+| [`bindings/rust`](bindings/rust/README.md) | Native `unbill` Rust package and shared Console API |
+| `bindings/ffi` | UniFFI adapter for Swift and Python |
 | [`bindings/python`](bindings/python/README.md) | Installable Python bindings and native library |
 | `crates/unbill-license` | Compiled Rust dependency licenses and attribution notices |
 | `crates/unbill-about` | Shared About content, acknowledgements, and project links for every frontend |

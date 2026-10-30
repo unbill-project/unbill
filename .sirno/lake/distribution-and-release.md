@@ -1,9 +1,6 @@
 ---
 core.desc: The installation channels and release mechanics described by the repository.
 core.name: Distribution And Release
-meta:
-  frozen:
-    - reviewed
 core.category:
   - core.concept
 core.belongs:
@@ -35,6 +32,9 @@ User-friendly installation includes:
 - **GHCR Docker image** for the relay server.
 - **PyPI Python wheels** for Linux x86_64, macOS ARM64, and Windows x86_64,
   published by version-tag CI through Trusted Publishing.
+- **crates.io Rust libraries**, including the native `unbill` Console binding,
+  published with its supporting libraries by version-tag CI after verification.
+  The `crates-io` job environment uses a `CARGO_REGISTRY_TOKEN` publish secret.
 - **Windows auto-updater** via `tauri-plugin-updater`.
   The Windows desktop app checks for updates on startup
   against `latest.json` hosted on the latest GitHub release.

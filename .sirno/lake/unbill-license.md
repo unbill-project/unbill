@@ -41,6 +41,16 @@ texts, so repeated license content does not obscure package-specific notices.
 The catalog does not cover non-Cargo components, prove legal compliance, or
 provide corresponding source itself.
 
+The native Rust package shares the project's `unbill` name and workspace identity;
+its workspace catalog record is represented by the project record with the original
+root license texts. Records from different registry sources remain distinct.
+
+Registry archives contain a generated compressed catalog snapshot. Repository
+builds regenerate the catalog from the locked workspace; standalone builds copy
+the packaged snapshot without requiring the repository or running Cargo metadata.
+The Rust packaging command generates that snapshot before packaging and removes
+its temporary source copy afterward.
+
 The binary embeds only losslessly gzip-compressed catalog data. Repeated legal
 text shares compression data without removing package-specific copyright or
 NOTICE content. The dictionary is decoded once on first access; the full JSON
