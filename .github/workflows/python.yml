@@ -6,7 +6,7 @@ on:
     tags: ['v*']
     paths:
       - '.github/workflows/python.yml'
-      - 'bindings/python/**'
+      - 'bindings/**'
       - 'crates/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
@@ -15,7 +15,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/python.yml'
-      - 'bindings/python/**'
+      - 'bindings/**'
       - 'crates/**'
       - 'Cargo.toml'
       - 'Cargo.lock'

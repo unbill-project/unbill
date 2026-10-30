@@ -12,6 +12,10 @@ package-manager publishing, and image publishing.
 Entry-point workflows are thin orchestrators.
 Reusable workflows hold the build and release logic.
 
+The Rust package job checks that the native `unbill` dependency graph excludes
+UniFFI and packages its library dependency closure with Cargo. Packaging captures
+the license catalog and verifies standalone archives; this job does not publish.
+
 ```mermaid
 flowchart TB
     subgraph GitHub[".github"]

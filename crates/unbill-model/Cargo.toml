@@ -11,7 +11,7 @@ homepage.workspace = true
 test-helpers = []
 
 [dependencies]
-unbill-model-verified = { path = "verified", features = ["thiserror"] }
+unbill-model-verified = { path = "verified", version = "0.0.9", features = ["thiserror"] }
 garde.workspace = true
 thiserror.workspace = true
 automerge.workspace = true

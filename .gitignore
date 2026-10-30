@@ -2,6 +2,10 @@
 # Cargo.lock is committed: this workspace contains a binary crate (unbill-cli).
 /target/
 
+# Generated only while packaging the Rust libraries.
+/crates/unbill-license/catalog.json.gz
+/bindings/**/__pycache__/
+
 # Node / pnpm
 node_modules/
 apps/*/node_modules/

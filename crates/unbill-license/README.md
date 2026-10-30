@@ -42,6 +42,11 @@ cargo fetch --locked
 cargo test --locked -p unbill-license
 ```
 
+Registry packages contain a compressed snapshot generated from the release
+workspace. Their build script uses that snapshot without needing the checkout or
+collecting the consuming application's dependencies. Prepare and verify these
+archives with `python3 bindings/rust/package.py` from the repository root.
+
 Original LICENSE, COPYING, NOTICE, COPYRIGHT, AUTHORS, ATTRIBUTION and PATENTS
 files are retained, including nested vendored documents. Shared workspace license
 files are included for local packages. Canonical SPDX fallback texts are marked
