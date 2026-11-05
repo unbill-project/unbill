@@ -48,6 +48,10 @@ actor RustConsoleClient: ConsoleClient {
     }
 
     @discardableResult
+    func cloneLedger(ledgerID: String) async throws -> String {
+        try console.cloneLedger(ledgerId: ledgerID)
+    }
+
     func setLedgerArchived(ledgerID: String, archived: Bool) async throws {
         try console.setLedgerArchived(ledgerId: ledgerID, archived: archived)
     }

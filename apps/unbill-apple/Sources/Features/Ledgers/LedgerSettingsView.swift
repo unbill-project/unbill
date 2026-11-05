@@ -18,8 +18,11 @@ struct LedgerSettingsView: View {
 
     @State private var archiving = false
     @State private var archiveError: String?
+    @State private var cloning = false
+    @State private var cloneError: String?
+    @State private var cloned = false
 
-    private var busy: Bool { syncingNodeID != nil || archiving }
+    private var busy: Bool { syncingNodeID != nil || archiving || cloning }
 
     init(console: ConsoleClient, detail: LedgerDetail, onRenamed: @escaping () -> Void) {
         self.console = console
@@ -75,6 +78,22 @@ struct LedgerSettingsView: View {
                     }
                 }
                 Section {
+                    // sirno:witness:ledger-clone:begin
+                    Button(cloning ? "Cloning Ledger…" : "Clone Ledger") {
+                        Task {
+                            guard !busy else { return }
+                            cloning = true
+                            cloned = false
+                            cloneError = nil
+                            defer { cloning = false }
+                            do {
+                                try await console.cloneLedger(ledgerID: detail.summary.ledgerID)
+                                cloned = true
+                            } catch { cloneError = error.localizedDescription }
+                        }
+                    }
+                    .disabled(busy)
+                    // sirno:witness:ledger-clone:end
                     Button(detail.summary.archived ? "Restore Ledger" : "Archive Ledger") {
                         Task {
                             guard !busy else { return }
@@ -87,6 +106,8 @@ struct LedgerSettingsView: View {
                         }
                     }
                     .disabled(busy)
+                    if cloned { Text("Ledger cloned.").foregroundStyle(.secondary) }
+                    if let cloneError { Text(cloneError).foregroundStyle(.red) }
                     if let archiveError { Text(archiveError).foregroundStyle(.red) }
                 } footer: {
                     Text("Archiving hides this ledger on this device. Its data and syncing are retained.")

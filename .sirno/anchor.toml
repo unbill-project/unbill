@@ -204,6 +204,13 @@ fingerprint = "sha256:ae774b4839707c6908281f840d4e70b68dc910ba1ff7c4d0b43d4c09a7
 "core.belongs" = ["formal-invariants"]
 "core.refines" = ["data-model"]
 
+[entries.ledger-clone]
+fingerprint = "sha256:5bb93412dcd09b11360f9c6e3d63ded176dad32191bb057efd71a8c1003bcb5e"
+"core.belongs" = [
+    "console-service",
+    "ui-shared-model",
+]
+
 [entries.ledger-doc]
 fingerprint = "sha256:4f4bb163361991a38009b550632e82f97bcfecda09c081f7176865549c668dfe"
 "core.belongs" = [

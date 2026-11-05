@@ -647,7 +647,7 @@ impl SettingsPopup {
             let hint = if self.renaming_device {
                 "[Enter] save name  [Esc] cancel"
             } else if selector_focused {
-                "[j/k] select ledger  [X] archive/restore ledger  [Tab] to content  [Esc] close"
+                "[j/k] select  [C] clone  [X] archive/restore  [Tab] content  [Esc] close"
             } else {
                 "[j/k] move  [Enter] confirm  [h] add  [d] devices  [l] invite  [m] manage  [Tab] next tab  [Esc] close"
             };
@@ -738,6 +738,13 @@ impl SettingsPopup {
             return PopupOutcome::Pending;
         }
 
+        // sirno:witness:ledger-clone:begin
+        if key.code == KeyCode::Char('C')
+            && let Some(ledger_id) = self.current_ledger_id()
+        {
+            return PopupOutcome::Action(PopupAction::CloneLedger { ledger_id });
+        }
+        // sirno:witness:ledger-clone:end
         if key.code == KeyCode::Char('X')
             && let Some(meta) = self.ledgers.get(self.ledger_cursor)
         {

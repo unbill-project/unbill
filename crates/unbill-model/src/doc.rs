@@ -3,7 +3,7 @@
 use crate::error::UnbillError;
 use crate::{
     AddBillOpError, AddDeviceOpError, AddUserOpError, BillId, Currency, Device, EffectiveBills,
-    Ledger, LedgerId, NewBill, NewDevice, NewUser, NodeId, Timestamp, User,
+    Ledger, LedgerId, LedgerMeta, NewBill, NewDevice, NewUser, NodeId, Timestamp, User,
 };
 
 use crate::ops;
@@ -90,6 +90,48 @@ impl LedgerDoc {
     pub fn get_ledger(&self) -> Result<Ledger> {
         ops::get_ledger(&self.doc)
     }
+
+    // sirno:witness:ledger-clone:begin
+    /// Copy ledger content into a fresh history with only the cloning device authorized.
+    pub fn clone_as(
+        &self,
+        ledger_id: LedgerId,
+        device: NewDevice,
+        now: Timestamp,
+    ) -> Result<(Self, LedgerMeta)> {
+        let mut ledger = self.get_ledger()?;
+        const SUFFIX: &str = " (copy)";
+        let name_limit = crate::user::MAX_LEDGER_NAME_LEN.saturating_sub(SUFFIX.len());
+        ledger
+            .name
+            .truncate(ledger.name.floor_char_boundary(name_limit));
+        ledger.name.push_str(SUFFIX);
+        ledger.ledger_id = ledger_id;
+        ledger.created_at = now;
+        // A bill's author must be an authorized device. Keep bill IDs (the
+        // rounding seeds) and amendment links, but never carry over peer access.
+        for bill in &mut ledger.bills {
+            bill.created_by_device = device.node_id.clone();
+        }
+        ledger.devices = vec![Device {
+            node_id: device.node_id,
+            label: device.label,
+            added_at: now,
+        }];
+        let mut doc = Self::empty();
+        autosurgeon::reconcile(&mut doc.doc, &ledger)
+            .map_err(|error| UnbillError::Reconcile(error.to_string()))?;
+        let meta = LedgerMeta {
+            archived: false,
+            ledger_id,
+            name: ledger.name,
+            currency: ledger.currency,
+            created_at: now,
+            updated_at: now,
+        };
+        Ok((doc, meta))
+    }
+    // sirno:witness:ledger-clone:end
 
     pub fn list_all_bills(&self) -> Result<Vec<crate::Bill>> {
         ops::list_all_bills(&self.doc)

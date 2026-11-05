@@ -642,6 +642,13 @@ async fn try_confirm_editor(state: &mut AppState, svc: &Arc<UnbillConsole>) {
 
 async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<UnbillConsole>) {
     match action {
+        PopupAction::CloneLedger { ledger_id } => match svc.clone_ledger(ledger_id).await {
+            Ok(_) => {
+                state.status_message = Some("Ledger cloned.".into());
+                refresh_ledgers(svc, state).await;
+            }
+            Err(error) => state.status_message = Some(format!("clone ledger: {error}")),
+        },
         PopupAction::SetLedgerArchived {
             ledger_id,
             archived,

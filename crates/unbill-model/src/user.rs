@@ -50,11 +50,13 @@ pub struct NewUserName {
 /// Input type for creating a new ledger.
 #[derive(Clone, Debug, garde::Validate)]
 pub struct NewLedger {
-    #[garde(length(min = 1, max = 100))]
+    #[garde(length(min = 1, max = MAX_LEDGER_NAME_LEN))]
     pub name: String,
     #[garde(skip)]
     pub currency: crate::Currency,
 }
+
+pub(crate) const MAX_LEDGER_NAME_LEN: usize = 100;
 
 /// Input type for directly adding a user to a ledger.
 #[derive(Clone, Debug, garde::Validate)]

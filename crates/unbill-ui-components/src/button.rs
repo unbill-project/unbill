@@ -223,6 +223,7 @@ pub fn ActionButton(
     #[prop(into)] label: String,
     #[prop(optional)] tone: ButtonTone,
     #[prop(optional)] full_width: bool,
+    #[prop(optional)] disabled: Option<Signal<bool>>,
     #[prop(optional)] on_press: Option<Callback<ev::MouseEvent>>,
 ) -> impl IntoView {
     let class_name = if full_width {
@@ -235,6 +236,7 @@ pub fn ActionButton(
         <button
             type="button"
             class=class_name
+            disabled=move || disabled.is_some_and(|disabled| disabled.get())
             on:click=move |event| {
                 if let Some(handler) = on_press.as_ref() {
                     handler.run(event);

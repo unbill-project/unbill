@@ -57,6 +57,9 @@ pub enum PopupAction {
         ledger_id: LedgerId,
         user: NewUser,
     },
+    CloneLedger {
+        ledger_id: LedgerId,
+    },
     SetLedgerArchived {
         ledger_id: LedgerId,
         archived: bool,

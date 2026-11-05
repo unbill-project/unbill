@@ -115,6 +115,17 @@ pub async fn ledger_create(
     let currency = Currency::from_code(&currency)
         .ok_or_else(|| anyhow::anyhow!("unknown currency code: {currency}"))?;
     let id = svc.create_ledger(NewLedger { name, currency }).await?;
+    print_ledger_id(id, json)
+}
+
+// sirno:witness:ledger-clone:begin
+pub async fn ledger_clone(svc: &UnbillConsole, ledger_id: &str, json: bool) -> anyhow::Result<()> {
+    let id = svc.clone_ledger(parse_ledger_id(ledger_id)?).await?;
+    print_ledger_id(id, json)
+}
+// sirno:witness:ledger-clone:end
+
+fn print_ledger_id(id: LedgerId, json: bool) -> anyhow::Result<()> {
     if json {
         print_json(&serde_json::json!({ "ledger_id": id }))?;
     } else {

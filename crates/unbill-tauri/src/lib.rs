@@ -322,6 +322,20 @@ async fn create_user(
 }
 
 #[tauri::command]
+async fn clone_ledger(
+    state: State<'_, AppState>,
+    ledger_id: String,
+) -> std::result::Result<String, String> {
+    let source_id = parse_ledger_id(&ledger_id).map_err(stringify_error)?;
+    state
+        .service
+        .clone_ledger(source_id)
+        .await
+        .map(|id| id.to_string())
+        .map_err(stringify_error)
+}
+
+#[tauri::command]
 async fn set_ledger_archived(
     state: tauri::State<'_, AppState>,
     ledger_id: String,
@@ -1091,6 +1105,7 @@ pub fn run() {
             add_user,
             set_user_archived,
             rename_device,
+            clone_ledger,
             set_ledger_archived,
             create_invitation,
             join_ledger,

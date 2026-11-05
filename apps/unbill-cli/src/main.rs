@@ -94,6 +94,10 @@ pub enum LedgerCmd {
         #[arg(long)]
         archived: bool,
     },
+    /// Create an independent copy of a ledger.
+    Clone {
+        ledger_id: String,
+    },
     Archive {
         ledger_id: String,
     },
@@ -285,6 +289,7 @@ async fn run() -> anyhow::Result<()> {
             LedgerCmd::List { all, archived } => {
                 commands::ledger_list(&svc, json, all, archived).await
             }
+            LedgerCmd::Clone { ledger_id } => commands::ledger_clone(&svc, &ledger_id, json).await,
             LedgerCmd::Archive { ledger_id } => {
                 commands::ledger_archive(&svc, &ledger_id, true).await
             }

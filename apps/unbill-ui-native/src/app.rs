@@ -749,6 +749,24 @@ pub fn App() -> impl IntoView {
         })
     };
 
+    let cloning_ledger = RwSignal::new(false);
+    let clone_ledger = move |id: String| {
+        if cloning_ledger.get_untracked() {
+            return;
+        }
+        cloning_ledger.set(true);
+        spawn_local(async move {
+            match api::clone_ledger(&id).await {
+                Ok(_) => {
+                    reload_bootstrap();
+                    toast.show("Ledger cloned.".to_owned());
+                }
+                Err(error) => toast.error(error),
+            }
+            cloning_ledger.set(false);
+        });
+    };
+
     let set_ledger_archived = move |(id, archived): (String, bool)| {
         spawn_local(async move {
             match api::set_ledger_archived(&id, archived).await {
@@ -854,6 +872,8 @@ pub fn App() -> impl IntoView {
                             }));
                         }
                     })
+                    cloning_ledger=cloning_ledger
+                    on_clone_ledger=Callback::new(clone_ledger)
                     on_set_ledger_archived=Callback::new(set_ledger_archived)
                     on_set_user_archived=Callback::new(move |(user_id, archived): (String, bool)| {
                         if let Some(detail) = settings_ledger_detail.get() {

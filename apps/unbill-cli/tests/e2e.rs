@@ -130,6 +130,22 @@ fn create_ledger(env: &Env) -> String {
     v["ledger_id"].as_str().unwrap().to_owned()
 }
 
+#[test]
+fn clone_archived_ledger_creates_an_active_copy() {
+    let env = Env::new();
+    let source = create_ledger(&env);
+    env.ok(&["ledger", "archive", &source]);
+    let copy = env.json(&["ledger", "clone", &source]);
+    let copy_id = copy["ledger_id"].as_str().unwrap();
+    assert_ne!(copy_id, source);
+    let active = env.json(&["ledger", "list"]);
+    assert_eq!(active.as_array().unwrap().len(), 1);
+    assert_eq!(active[0]["id"], copy_id);
+    assert_eq!(active[0]["name"], "Household (copy)");
+    let archived = env.json(&["ledger", "list", "--archived"]);
+    assert_eq!(archived[0]["id"], source);
+}
+
 fn add_user(env: &Env, ledger_id: &str, user_id: &str, name: &str) {
     env.ok(&[
         "user",
