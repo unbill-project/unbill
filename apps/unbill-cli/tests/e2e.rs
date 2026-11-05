@@ -3,21 +3,31 @@
 // Each test gets an isolated temporary data directory via `Env`. Commands are
 // run against the real compiled binary. Assertions use `--json` output.
 //
-// Each `Env` automatically starts an `unbill-daemon` process (via `cargo run`)
-// that owns the data directory. CLI commands connect to the daemon over the
-// local socket. The daemon is killed when the `Env` is dropped.
+// The CLI is a subprocess; the daemon services run on an isolated runtime
+// thread in the test process and speak the normal RPC and peer protocols.
 
-use std::io::{BufRead, BufReader};
-use std::process::{Child, Command, Output, Stdio};
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output};
+use std::sync::{Arc, mpsc};
+use std::thread::{self, JoinHandle};
+use std::time::Duration;
+
+use anyhow::{Context as _, Result, anyhow, bail};
 use tempfile::TempDir;
+use tokio::sync::oneshot;
+use unbill_asymmetric_channel::{AsymChannel as _, local::LocalAsymChannel, rpc};
+use unbill_store_sqlite::SqliteStore;
 
 // ---------------------------------------------------------------------------
 // Test harness
 // ---------------------------------------------------------------------------
 
+// sirno:witness:unbill-cli:begin
 struct Env {
+    // Drop the daemon (including its socket and SQLite connections) first.
+    _daemon: TestDaemon,
     dir: TempDir,
-    daemon: Child,
+    socket: PathBuf,
     /// The Iroh NodeId of this env's daemon — pass to `sync once` to dial it.
     node_id: String,
 }
@@ -33,34 +43,12 @@ fn device_ble_reports_daemon_snapshot_as_json() {
 impl Env {
     fn new() -> Self {
         let dir = tempfile::tempdir().unwrap();
-        let mut child = Command::new("cargo")
-            .args([
-                "run",
-                "-q",
-                "-p",
-                "unbill-daemon",
-                "--features",
-                "test-helpers",
-            ])
-            .env("UNBILL_DATA_DIR", dir.path())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("failed to spawn unbill-daemon");
-        let stdout = child.stdout.take().unwrap();
-        let mut reader = BufReader::new(stdout);
-        let mut line = String::new();
-        reader
-            .read_line(&mut line)
-            .expect("failed to read daemon stdout");
-        let node_id = line
-            .strip_prefix("listening on: ")
-            .unwrap_or_else(|| panic!("unexpected daemon output: {line:?}"))
-            .trim()
-            .to_string();
+        let socket = dir.path().join("unbill.sock");
+        let (daemon, node_id) = TestDaemon::start(dir.path(), &socket).unwrap();
         Env {
+            _daemon: daemon,
             dir,
-            daemon: child,
+            socket,
             node_id,
         }
     }
@@ -68,6 +56,7 @@ impl Env {
     fn run(&self, args: &[&str]) -> Output {
         Command::new(env!("CARGO_BIN_EXE_unbill-cli"))
             .env("UNBILL_DATA_DIR", self.dir.path())
+            .env("UNBILL_SOCKET", &self.socket)
             .args(args)
             .output()
             .expect("failed to spawn unbill")
@@ -110,12 +99,115 @@ impl Env {
     }
 }
 
-impl Drop for Env {
-    fn drop(&mut self) {
-        self.daemon.kill().ok();
-        self.daemon.wait().ok();
+struct TestDaemon {
+    stop: Option<oneshot::Sender<()>>,
+    thread: Option<JoinHandle<Result<()>>>,
+}
+
+impl TestDaemon {
+    fn start(root: &Path, socket: &Path) -> Result<(Self, String)> {
+        let (stop, stopped) = oneshot::channel();
+        let (ready, wait_ready) = mpsc::channel();
+        let root = root.to_owned();
+        let socket = socket.to_owned();
+
+        let thread = thread::Builder::new()
+            .name("unbill-cli-test-daemon".into())
+            .spawn(move || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()?;
+                rt.block_on(async {
+                    tokio::select! {
+                        biased;
+                        _ = stopped => Ok(()),
+                        result = Self::serve(root, socket, ready) => result,
+                    }
+                })
+            })?;
+
+        let mut daemon = Self {
+            stop: Some(stop),
+            thread: Some(thread),
+        };
+        match wait_ready.recv_timeout(Duration::from_secs(15)) {
+            Ok(node_id) => Ok((daemon, node_id)),
+            Err(error) => {
+                daemon
+                    .shutdown()
+                    .context("test daemon failed during startup")?;
+                Err(error).context("waiting for test daemon RPC readiness")
+            }
+        }
+    }
+
+    async fn serve(root: PathBuf, socket: PathBuf, ready: mpsc::Sender<String>) -> Result<()> {
+        let store = Arc::new(
+            SqliteStore::open(root)
+                .await
+                .context("open test SQLite store")?,
+        );
+        let channel = LocalAsymChannel::open(
+            store,
+            unbill_build_info::BuildInfo {
+                version: "cli-test-daemon".into(),
+                built_at_utc: "2025-01-01T00:00:00Z".into(),
+            },
+        )
+        .await
+        .context("open test device")?;
+
+        let signal_ready = async {
+            while !socket.exists() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            // connect fetches the device ID over RPC before it returns.
+            let rpc = rpc::RpcAsymChannel::connect(&socket)
+                .await
+                .context("probe test RPC socket")?;
+            ready
+                .send(rpc.device_id().to_string())
+                .context("signal test RPC readiness")?;
+            std::future::pending::<Result<()>>().await
+        };
+        tokio::select! {
+            result = rpc::serve(Arc::clone(&channel), &socket) => {
+                result.context("test RPC listener")?;
+                bail!("test RPC listener stopped unexpectedly");
+            }
+            result = channel.accept_loop() => {
+                result.context("test peer listener")?;
+                bail!("test peer listener stopped unexpectedly");
+            }
+            result = signal_ready => result,
+        }
+    }
+
+    fn shutdown(&mut self) -> Result<()> {
+        if let Some(stop) = self.stop.take() {
+            let _ = stop.send(());
+        }
+        if let Some(thread) = self.thread.take() {
+            thread
+                .join()
+                .map_err(|_| anyhow!("test daemon thread panicked"))??;
+        }
+        Ok(())
     }
 }
+
+impl Drop for TestDaemon {
+    fn drop(&mut self) {
+        if let Err(error) = self.shutdown() {
+            if thread::panicking() {
+                eprintln!("test daemon: {error:#}");
+            } else {
+                panic!("test daemon: {error:#}");
+            }
+        }
+    }
+}
+// sirno:witness:unbill-cli:end
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -234,7 +326,8 @@ fn test_device_id_is_stable_across_calls() {
 fn test_device_show_returns_id_and_data_dir() {
     let env = Env::new();
     let v = env.json(&["device", "show"]);
-    assert_eq!(v["device_id"].as_str().unwrap().len(), 64);
+    assert_eq!(v["device_id"], env.node_id);
+    assert_eq!(v["service_build"]["version"], "cli-test-daemon");
     assert!(
         v["data_dir"].as_str().unwrap().contains("unbill")
             || !v["data_dir"].as_str().unwrap().is_empty()
