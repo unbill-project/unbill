@@ -615,6 +615,34 @@ fn test_ledger_devices_lists_own_device_after_create() {
 // Two-env peer tests (join, sync, user import)
 // ---------------------------------------------------------------------------
 
+#[test]
+fn ledger_rename_syncs_in_both_directions() {
+    let host = Env::new();
+    let joiner = Env::new();
+    let id = create_ledger(&host);
+    let invite = host.json(&["ledger", "invite", &id]);
+    let url = invite["url"].as_str().unwrap();
+    joiner.ok(&["ledger", "join", url, "--label", "joiner"]);
+    joiner.ok(&["ledger", "archive", &id]);
+
+    host.ok(&["ledger", "rename", &id, "  Shared trip  "]);
+    assert_eq!(host.json(&["ledger", "list"])[0]["name"], "Shared trip");
+    assert_eq!(
+        joiner.json(&["ledger", "list", "--archived"])[0]["name"],
+        "Household"
+    );
+    joiner.ok(&["sync", "once", &host.node_id]);
+    let archived = joiner.json(&["ledger", "list", "--archived"]);
+    assert_eq!(archived[0]["id"], id);
+    assert_eq!(archived[0]["name"], "Shared trip");
+
+    joiner.ok(&["ledger", "rename", &id, "Return trip"]);
+    host.ok(&["sync", "once", &joiner.node_id]);
+    let active = host.json(&["ledger", "list"]);
+    assert_eq!(active[0]["id"], id);
+    assert_eq!(active[0]["name"], "Return trip");
+}
+
 /// Host creates a ledger and generates an invite URL; joiner calls
 /// `ledger join`; the joiner's ledger list contains exactly the host's ledger.
 #[test]

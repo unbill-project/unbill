@@ -139,6 +139,10 @@ pub(crate) enum OverlayKind {
         url: String,
     },
     AddUser,
+    RenameLedger {
+        ledger_id: String,
+        name: String,
+    },
     RenameDevice {
         ledger_id: String,
         ledger_name: String,
@@ -666,6 +670,26 @@ pub fn App() -> impl IntoView {
                 }
                 .into_any()
             }
+            OverlayKind::RenameLedger { ledger_id, name } => {
+                view! {
+                    <unbill_ui_components::ledger::RenameLedgerSheet
+                        current_name=name
+                        on_cancel=Callback::new(move |_| overlay.set(None))
+                        on_saved=Callback::new(move |_| {
+                            overlay.set(None);
+                            reload_bootstrap();
+                            toast.show("Ledger renamed.".to_owned());
+                        })
+                        on_submit=Callback::new(move |(name, complete): unbill_ui_components::ledger::RenameLedgerRequest| {
+                            let ledger_id = ledger_id.clone();
+                            spawn_local(async move {
+                                complete.run(api::rename_ledger(&ledger_id, name).await);
+                            });
+                        })
+                    />
+                }
+                .into_any()
+            }
             OverlayKind::RenameDevice { ledger_id, ledger_name, node_id, name } => {
                 view! {
                     <RenameDeviceSheet
@@ -851,6 +875,9 @@ pub fn App() -> impl IntoView {
                     on_select_ledger=Callback::new(select_settings_ledger)
                     on_join_ledger=Callback::new(move |_| overlay.set(Some(OverlayKind::JoinLedger { url: String::new() })))
                     on_add_ledger_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddUser)))
+                    on_rename_ledger=Callback::new(move |(ledger_id, name): (String, String)| {
+                        overlay.set(Some(OverlayKind::RenameLedger { ledger_id, name }));
+                    })
                     on_rename_device=Callback::new(move |(ledger_id, node_id, name): (String, String, String)| {
                         if let Some(detail) = settings_ledger_detail.get_untracked()
                             && detail.summary.ledger_id == ledger_id

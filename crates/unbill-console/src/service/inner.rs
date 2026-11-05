@@ -168,6 +168,19 @@ impl UnbillConsole {
     }
     // sirno:witness:ledger-clone:end
 
+    // sirno:witness:ledger-rename:begin
+    pub async fn rename_ledger(&self, ledger_id: LedgerId, name: &str) -> Result<()> {
+        let mut doc = self.take_doc(ledger_id).await?;
+        if let Err(error) = doc.rename(name) {
+            self.put_doc(ledger_id, doc).await;
+            return Err(error);
+        }
+        sync_doc(&*self.channel, ledger_id, &mut doc).await?;
+        self.put_doc(ledger_id, doc).await;
+        Ok(())
+    }
+    // sirno:witness:ledger-rename:end
+
     // sirno:witness:emoji-fingerprint:begin
     /// Return the current projected ledger state's six-emoji fingerprint.
     ///
@@ -946,6 +959,28 @@ mod tests {
         assert_eq!(ledgers[0].ledger_id, id);
         assert_eq!(ledgers[0].name, "Household");
         assert_eq!(ledgers[0].currency.code(), "USD");
+    }
+
+    #[tokio::test]
+    async fn rename_ledger_updates_list_metadata_and_preserves_local_archive() {
+        let svc = open().await;
+        let id = svc
+            .create_ledger(NewLedger {
+                name: "Original".into(),
+                currency: usd(),
+            })
+            .await
+            .unwrap();
+        svc.set_ledger_archived(id, true).await.unwrap();
+        let before = svc.ledger_emojis(id).await.unwrap();
+        assert!(svc.rename_ledger(id, " ").await.is_err());
+        assert_eq!(svc.ledger_emojis(id).await.unwrap(), before);
+        svc.rename_ledger(id, "  Updated  ").await.unwrap();
+        let ledgers = svc.list_ledgers().await.unwrap();
+        assert_eq!(ledgers[0].name, "Updated");
+        assert_eq!(ledgers[0].ledger_id, id);
+        assert!(ledgers[0].archived);
+        assert_ne!(svc.ledger_emojis(id).await.unwrap(), before);
     }
 
     #[tokio::test]

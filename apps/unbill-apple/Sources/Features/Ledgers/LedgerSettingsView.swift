@@ -10,6 +10,7 @@ struct LedgerSettingsView: View {
     @State private var devices: [SyncDevice]
     @State private var localNodeID = ""
     @State private var renameTarget: SyncDevice?
+    @State private var renamingLedger = false
     @State private var copied = false
     @State private var blePeers = BlePeerConnections()
     @State private var syncingNodeID: String?
@@ -78,6 +79,10 @@ struct LedgerSettingsView: View {
                     }
                 }
                 Section {
+                    // sirno:witness:ledger-rename:begin
+                    Button("Rename Ledger") { renamingLedger = true }
+                        .disabled(busy)
+                    // sirno:witness:ledger-rename:end
                     // sirno:witness:ledger-clone:begin
                     Button(cloning ? "Cloning Ledger…" : "Clone Ledger") {
                         Task {
@@ -133,8 +138,14 @@ struct LedgerSettingsView: View {
             blePeers = BlePeerConnections()
         }
         .interactiveDismissDisabled(busy)
+        .sheet(isPresented: $renamingLedger) {
+            RenameNameSheet(name: detail.summary.name, target: .ledger) { name in
+                try await console.renameLedger(ledgerID: detail.summary.ledgerID, name: name)
+                onRenamed()
+            }
+        }
         .sheet(item: $renameTarget) { peer in
-            RenameDeviceSheet(name: peer.label, ledgerName: detail.summary.name) { name in
+            RenameNameSheet(name: peer.label, target: .device(ledgerName: detail.summary.name)) { name in
                 try await console.renameDevice(ledgerID: detail.summary.ledgerID, nodeID: peer.nodeID, name: name)
                 devices = devices.map { device in
                     guard device.nodeID == peer.nodeID else { return device }
@@ -162,9 +173,14 @@ struct LedgerSettingsView: View {
 
 }
 
-private struct RenameDeviceSheet: View {
+private struct RenameNameSheet: View {
+    enum Target {
+        case ledger
+        case device(ledgerName: String)
+    }
+
     let name: String
-    let ledgerName: String
+    let target: Target
     let onSave: (String) async throws -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -172,27 +188,58 @@ private struct RenameDeviceSheet: View {
     @State private var saving = false
     @State private var error: String?
 
-    init(name: String, ledgerName: String, onSave: @escaping (String) async throws -> Void) {
+    init(name: String, target: Target, onSave: @escaping (String) async throws -> Void) {
         self.name = name
-        self.ledgerName = ledgerName
+        self.target = target
         self.onSave = onSave
         _editedName = State(initialValue: name)
     }
 
     private var trimmedName: String { editedName.trimmingCharacters(in: .whitespacesAndNewlines) }
 
+    private var title: String {
+        switch target {
+        case .ledger: "Rename Ledger"
+        case .device: "Rename Device"
+        }
+    }
+
+    private var fieldLabel: String {
+        switch target {
+        case .ledger: "Ledger name"
+        case .device: "Device name"
+        }
+    }
+
+    private var footer: String {
+        switch target {
+        case .ledger: "The name is shared with other devices when the ledger syncs."
+        case .device(let ledgerName): "Other devices in \(ledgerName) will see this name after syncing."
+        }
+    }
+
+    private var lengthError: String? {
+        switch target {
+        case .ledger:
+            trimmedName.utf8.count > 100 ? "Ledger names can be at most 100 UTF-8 bytes." : nil
+        case .device:
+            trimmedName.count > 100 ? "Device names can be at most 100 characters." : nil
+        }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Device name", text: $editedName)
+                    TextField(fieldLabel, text: $editedName)
                         .textInputAutocapitalization(.words)
                 } footer: {
-                    Text("Other devices in \(ledgerName) will see this name after syncing.")
+                    Text(footer)
                 }
+                if let lengthError { Text(lengthError).foregroundStyle(.red) }
                 if let error { Text(error).foregroundStyle(.red) }
             }
-            .navigationTitle("Rename Device")
+            .navigationTitle(title)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }.disabled(saving)
@@ -208,7 +255,7 @@ private struct RenameDeviceSheet: View {
                             } catch { self.error = error.localizedDescription }
                         }
                     }
-                    .disabled(saving || trimmedName.isEmpty || trimmedName.count > 100 || trimmedName == name)
+                    .disabled(saving || trimmedName.isEmpty || lengthError != nil || trimmedName == name)
                 }
             }
         }

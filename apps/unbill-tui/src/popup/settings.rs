@@ -11,8 +11,8 @@ use unbill_console::model::{
 };
 
 use super::{
-    LedgerFingerprints, PopupAction, PopupOutcome, PopupView, TextInput, render_popup_base,
-    render_text_field,
+    LedgerFingerprints, PopupAction, PopupOutcome, PopupView, TextInput,
+    rename_ledger::RenameLedgerPopup, render_popup_base, render_text_field,
 };
 
 // ---------------------------------------------------------------------------
@@ -647,7 +647,7 @@ impl SettingsPopup {
             let hint = if self.renaming_device {
                 "[Enter] save name  [Esc] cancel"
             } else if selector_focused {
-                "[j/k] select  [C] clone  [X] archive/restore  [Tab] content  [Esc] close"
+                "[j/k] select  [R] rename  [C] clone  [X] archive/restore  [Tab] content"
             } else {
                 "[j/k] move  [Enter] confirm  [h] add  [d] devices  [l] invite  [m] manage  [Tab] next tab  [Esc] close"
             };
@@ -738,6 +738,16 @@ impl SettingsPopup {
             return PopupOutcome::Pending;
         }
 
+        // sirno:witness:ledger-rename:begin
+        if key.code == KeyCode::Char('R')
+            && let Some(ledger) = self.ledgers.get(self.ledger_cursor)
+        {
+            return PopupOutcome::OpenNext(Box::new(RenameLedgerPopup::new(
+                ledger.ledger_id,
+                ledger.name.clone(),
+            )));
+        }
+        // sirno:witness:ledger-rename:end
         // sirno:witness:ledger-clone:begin
         if key.code == KeyCode::Char('C')
             && let Some(ledger_id) = self.current_ledger_id()

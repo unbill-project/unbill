@@ -353,6 +353,7 @@ pub fn SettingsPopup(
     on_join_ledger: Callback<()>,
     on_add_ledger_user: Callback<()>,
     on_set_user_archived: Callback<(String, bool)>,
+    on_rename_ledger: Callback<(String, String)>,
     on_rename_device: Callback<(String, String, String)>,
     cloning_ledger: RwSignal<bool>,
     on_clone_ledger: Callback<String>,
@@ -525,9 +526,16 @@ pub fn SettingsPopup(
                                             />
                                         </SectionCard>
                                         // sirno:witness:ui-shared-model:end
-                                        // sirno:witness:ledger-clone:begin
                                         <SectionCard title="Ledger Actions".to_owned()>
                                             <div class="stack-gap">
+                                                {
+                                                    let id = detail.summary.ledger_id.clone();
+                                                    let name = detail.summary.name.clone();
+                                                    view! {
+                                                        <ActionButton label="Rename Ledger" tone=ButtonTone::Quiet disabled=cloning_ledger.into() on_press=Callback::new(move |_| on_rename_ledger.run((id.clone(), name.clone()))) />
+                                                    }
+                                                }
+                                                // sirno:witness:ledger-clone:begin
                                                 {
                                                     let id = detail.summary.ledger_id.clone();
                                                     let clone_id = id.clone();
@@ -537,10 +545,10 @@ pub fn SettingsPopup(
                                                         <ActionButton label=if archived { "Restore Ledger" } else { "Archive Ledger" } tone=ButtonTone::Quiet disabled=cloning_ledger.into() on_press=Callback::new(move |_| on_set_ledger_archived.run((id.clone(), !archived))) />
                                                     }
                                                 }
+                                                // sirno:witness:ledger-clone:end
                                                 <p class="row-meta">"Archiving hides this ledger on this device. Its data and syncing are retained."</p>
                                             </div>
                                         </SectionCard>
-                                        // sirno:witness:ledger-clone:end
                                         <SectionCard title="Users".to_owned()>
                                             <div class="stack-gap">
                                                 {if detail.users.is_empty() {

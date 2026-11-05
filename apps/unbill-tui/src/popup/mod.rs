@@ -11,6 +11,7 @@ use unbill_console::model::{LedgerId, NewBill, NewUser, NewUserName};
 pub mod about;
 pub mod create_ledger;
 pub mod invite;
+pub mod rename_ledger;
 pub mod settings;
 
 pub type BlePeerIndicators = (Vec<String>, Vec<String>);
@@ -59,6 +60,10 @@ pub enum PopupAction {
     },
     CloneLedger {
         ledger_id: LedgerId,
+    },
+    RenameLedger {
+        ledger_id: LedgerId,
+        name: String,
     },
     SetLedgerArchived {
         ledger_id: LedgerId,

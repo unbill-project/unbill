@@ -610,6 +610,14 @@ impl Console {
             .map_err(err)
     }
 
+    /// Change the ledger's shared name without changing its ID.
+    pub fn rename_ledger(&self, ledger_id: String, name: String) -> Result<(), ConsoleError> {
+        let id = parse_ledger_id(&ledger_id)?;
+        self.rt
+            .block_on(self.inner.rename_ledger(id, &name))
+            .map_err(err)
+    }
+
     /// Change the shared name of an authorized device in one ledger.
     pub fn rename_device(
         &self,

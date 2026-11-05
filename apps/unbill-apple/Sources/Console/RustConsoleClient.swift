@@ -52,6 +52,10 @@ actor RustConsoleClient: ConsoleClient {
         try console.cloneLedger(ledgerId: ledgerID)
     }
 
+    func renameLedger(ledgerID: String, name: String) async throws {
+        try console.renameLedger(ledgerId: ledgerID, name: name)
+    }
+
     func setLedgerArchived(ledgerID: String, archived: Bool) async throws {
         try console.setLedgerArchived(ledgerId: ledgerID, archived: archived)
     }

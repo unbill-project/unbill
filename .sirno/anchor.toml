@@ -219,6 +219,14 @@ fingerprint = "sha256:4f4bb163361991a38009b550632e82f97bcfecda09c081f7176865549c
 ]
 "core.refines" = ["unbill-storage"]
 
+[entries.ledger-rename]
+fingerprint = "sha256:0aa985954aeae5680301908f1e89b95b8aabc006e1140d7a42df6ec4ace96516"
+"core.belongs" = [
+    "console-service",
+    "ui-shared-model",
+    "storage",
+]
+
 [entries.memory-store]
 fingerprint = "sha256:691cdc7cfd5f9c1b93793f68b0d5bdee2d20396d2bdc24a8222571927c8cb829"
 "core.belongs" = [

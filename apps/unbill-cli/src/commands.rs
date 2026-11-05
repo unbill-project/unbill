@@ -118,6 +118,11 @@ pub async fn ledger_create(
     print_ledger_id(id, json)
 }
 
+pub async fn ledger_rename(svc: &UnbillConsole, ledger_id: &str, name: &str) -> anyhow::Result<()> {
+    svc.rename_ledger(parse_ledger_id(ledger_id)?, name).await?;
+    Ok(())
+}
+
 // sirno:witness:ledger-clone:begin
 pub async fn ledger_clone(svc: &UnbillConsole, ledger_id: &str, json: bool) -> anyhow::Result<()> {
     let id = svc.clone_ledger(parse_ledger_id(ledger_id)?).await?;

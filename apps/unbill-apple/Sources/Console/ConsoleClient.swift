@@ -19,6 +19,7 @@ protocol ConsoleClient {
     func createLedger(name: String, currency: String) async throws -> LedgerSummary
     @discardableResult
     func cloneLedger(ledgerID: String) async throws -> String
+    func renameLedger(ledgerID: String, name: String) async throws
     func setLedgerArchived(ledgerID: String, archived: Bool) async throws
     func setUserArchived(ledgerID: String, userID: String, archived: Bool) async throws
     // The shared name of an authorized device in one ledger.

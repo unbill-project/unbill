@@ -220,6 +220,14 @@ pub async fn set_user_archived(
     .await
 }
 
+pub async fn rename_ledger(ledger_id: &str, name: String) -> Result<(), String> {
+    invoke(
+        "rename_ledger",
+        &serde_json::json!({ "ledgerId": ledger_id, "name": name }),
+    )
+    .await
+}
+
 pub async fn rename_device(ledger_id: &str, node_id: &str, name: String) -> Result<(), String> {
     invoke(
         "rename_device",

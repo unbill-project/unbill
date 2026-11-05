@@ -147,6 +147,11 @@ impl LedgerDoc {
 
     // --- write operations ---
 
+    /// Change only the shared name, as a single Automerge scalar.
+    pub fn rename(&mut self, name: &str) -> Result<()> {
+        ops::rename_ledger(&mut self.doc, name)
+    }
+
     pub fn add_bill(
         &mut self,
         input: NewBill,
@@ -261,6 +266,49 @@ mod tests {
             Timestamp::from_millis(2000),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn rename_validates_and_concurrent_renames_converge() {
+        let mut original = ledger();
+        let before = original.state_hash();
+        assert!(original.rename("  ").is_err());
+        assert!(original.rename(&"💸".repeat(26)).is_err());
+        original.rename("  Shared expenses  ").unwrap();
+        assert_eq!(original.state_hash(), before);
+
+        let bytes = original.save();
+        let mut left = LedgerDoc::from_bytes(&bytes).unwrap();
+        let mut right = LedgerDoc::from_bytes(&bytes).unwrap();
+        let left_name = "💸".repeat(25);
+        left.rename(&format!(" {left_name} ")).unwrap();
+        right.rename("Updated on the right").unwrap();
+        assert_eq!(left.get_ledger().unwrap().name, left_name);
+        left.merge(&mut right).unwrap();
+        right.merge(&mut left).unwrap();
+        let winner = left.get_ledger().unwrap().name;
+        assert!(winner == left_name || winner == "Updated on the right");
+        assert_eq!(right.get_ledger().unwrap().name, winner);
+        assert_eq!(left.state_hash(), right.state_hash());
+    }
+
+    #[test]
+    fn rename_preserves_concurrent_updates_to_existing_users() {
+        let mut renamed = ledger();
+        add_user(&mut renamed, 1);
+        let mut peer = LedgerDoc::from_bytes(&renamed.save()).unwrap();
+
+        renamed.rename("Renamed").unwrap();
+        assert_eq!(renamed.doc.get_last_local_change().unwrap().len(), 1);
+        peer.set_user_archived(&UserId::from_u128(1), true).unwrap();
+        renamed.merge(&mut peer).unwrap();
+        peer.merge(&mut renamed).unwrap();
+
+        for replica in [&renamed, &peer] {
+            let ledger = replica.get_ledger().unwrap();
+            assert_eq!(ledger.name, "Renamed");
+            assert!(ledger.users.first().unwrap().archived);
+        }
     }
 
     #[test]
