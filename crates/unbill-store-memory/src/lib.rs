@@ -8,8 +8,8 @@ use rand::TryRng as _;
 use tokio::sync::broadcast;
 use unbill_event::ServiceEvent;
 
-use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
 use unbill_model::{Invitation, LedgerDoc};
+use unbill_model::{LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
 use unbill_storage::{LedgerStore, StorageResult as Result};
 
 // sirno:witness:memory-store:begin
@@ -48,19 +48,40 @@ struct StoredLedger {
     bytes: Vec<u8>,
 }
 
+fn metadata(doc: &LedgerDoc, updated_at: Timestamp) -> Result<LedgerMeta> {
+    let ledger = doc
+        .get_ledger()
+        .map_err(|error| StorageError::Serialization(error.to_string()))?;
+    Ok(LedgerMeta {
+        archived: false,
+        ledger_id: ledger.ledger_id,
+        name: ledger.name,
+        currency: ledger.currency,
+        created_at: ledger.created_at,
+        updated_at,
+    })
+}
+
 #[async_trait]
 impl LedgerStore for InMemoryStore {
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
         let mut inner = self.lock_inner();
         let id = meta.ledger_id.to_string();
-        inner
-            .ledgers
-            .entry(id)
-            .and_modify(|s| s.meta = meta.clone())
-            .or_insert_with(|| StoredLedger {
-                meta: meta.clone(),
-                bytes: vec![],
-            });
+        match inner.ledgers.get_mut(&id) {
+            Some(stored) if !stored.bytes.is_empty() => {
+                stored.meta.updated_at = stored.meta.updated_at.max(meta.updated_at);
+            }
+            Some(stored) => stored.meta = meta.clone(),
+            None => {
+                inner.ledgers.insert(
+                    id,
+                    StoredLedger {
+                        meta: meta.clone(),
+                        bytes: vec![],
+                    },
+                );
+            }
+        }
         Ok(())
     }
 
@@ -108,28 +129,21 @@ impl LedgerStore for InMemoryStore {
     }
 
     async fn save_ledger(&self, ledger_id: &str, doc: &mut LedgerDoc) -> Result<()> {
+        let mut meta = metadata(doc, Timestamp::now().map_err(std::io::Error::other)?)?;
+        if meta.ledger_id.to_string() != ledger_id {
+            return Err(StorageError::Serialization(
+                "document ledger ID does not match storage key".into(),
+            ));
+        }
         let bytes = doc.save();
         {
             let mut inner = self.lock_inner();
+            if let Some(stored) = inner.ledgers.get(ledger_id) {
+                meta.updated_at = meta.updated_at.max(stored.meta.updated_at);
+            }
             inner
                 .ledgers
-                .entry(ledger_id.to_owned())
-                .and_modify(|s| s.bytes = bytes.clone())
-                .or_insert_with(|| StoredLedger {
-                    meta: LedgerMeta {
-                        archived: false,
-                        ledger_id: LedgerId::from_u128(0),
-                        name: String::new(),
-                        #[allow(
-                            clippy::unwrap_used,
-                            reason = "USD is a fixed ISO currency code supported by Currency"
-                        )]
-                        currency: Currency::from_code("USD").unwrap(),
-                        created_at: Timestamp::from_millis(0),
-                        updated_at: Timestamp::from_millis(0),
-                    },
-                    bytes,
-                });
+                .insert(ledger_id.to_owned(), StoredLedger { meta, bytes });
         }
         let _ = self.events.send(ServiceEvent::LedgerUpdated {
             ledger_id: ledger_id.to_owned(),
@@ -204,6 +218,7 @@ impl LedgerStore for InMemoryStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use unbill_model::Currency;
 
     #[tokio::test]
     async fn poisoned_lock_preserves_ledger_and_accepts_updates() -> Result<()> {

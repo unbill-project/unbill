@@ -204,6 +204,13 @@ fingerprint = "sha256:ae774b4839707c6908281f840d4e70b68dc910ba1ff7c4d0b43d4c09a7
 "core.belongs" = ["formal-invariants"]
 "core.refines" = ["data-model"]
 
+[entries.ledger-clone]
+fingerprint = "sha256:5bb93412dcd09b11360f9c6e3d63ded176dad32191bb057efd71a8c1003bcb5e"
+"core.belongs" = [
+    "console-service",
+    "ui-shared-model",
+]
+
 [entries.ledger-doc]
 fingerprint = "sha256:4f4bb163361991a38009b550632e82f97bcfecda09c081f7176865549c668dfe"
 "core.belongs" = [
@@ -211,6 +218,14 @@ fingerprint = "sha256:4f4bb163361991a38009b550632e82f97bcfecda09c081f7176865549c
     "unbill-console",
 ]
 "core.refines" = ["unbill-storage"]
+
+[entries.ledger-rename]
+fingerprint = "sha256:0aa985954aeae5680301908f1e89b95b8aabc006e1140d7a42df6ec4ace96516"
+"core.belongs" = [
+    "console-service",
+    "ui-shared-model",
+    "storage",
+]
 
 [entries.memory-store]
 fingerprint = "sha256:691cdc7cfd5f9c1b93793f68b0d5bdee2d20396d2bdc24a8222571927c8cb829"
@@ -314,7 +329,7 @@ fingerprint = "sha256:0444cd2b0a05d1202cb5cea57e0a70a77b7ed70b9fe065598309f1a249
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-cli]
-fingerprint = "sha256:23ed3983e2a23518d3cdff93ace942a1ec959ffc40ec6d808b57c668729933c3"
+fingerprint = "sha256:ef1924b8cb6274da066329b61acdba5d8b7e8d6623c10a00ecfb6aaa886a8fd4"
 "core.belongs" = ["applications"]
 "core.refines" = ["device-console-split"]
 

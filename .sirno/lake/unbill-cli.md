@@ -59,14 +59,14 @@ and dispatches to `commands.rs`.
 `output.rs` owns human-readable and JSON output shapes.
 
 End-to-end tests run the real binary against isolated temporary data directories.
-Each test environment starts `unbill-daemon`,
-waits for the daemon readiness line with the node ID,
-uses the temp socket,
-and kills the daemon on drop.
-The suite covers JSON output,
-multi-process persistence,
-join,
-and one-shot peer sync flows.
+Each environment runs the real SQLite-backed device, RPC service, and peer
+listener on a dedicated runtime thread in the test process. Startup is bounded
+and the harness returns only after the isolated socket answers an RPC request
+with the device ID. Teardown stops and joins the daemon before removing its
+temporary directory. This exercises the CLI executable and real transports,
+not startup of the standalone daemon executable.
+The suite covers JSON output, repeated CLI processes over the same ledger,
+join, and one-shot peer sync.
 
 Ledger show includes the console-generated emoji fingerprint beneath the ledger
 name and exposes it as emoji_fingerprint in JSON output.

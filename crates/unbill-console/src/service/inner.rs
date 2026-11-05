@@ -129,9 +129,7 @@ impl UnbillConsole {
             created_at: now,
             updated_at: now,
         };
-        self.channel.save_ledger_meta(&meta).await?;
-        sync_doc(&*self.channel, ledger_id, &mut doc).await?;
-        self.put_doc(ledger_id, doc).await;
+        self.persist_new_ledger(doc, &meta).await?;
         Ok(ledger_id)
     }
 
@@ -144,6 +142,44 @@ impl UnbillConsole {
         self.channel.list_ledgers().await
     }
     // sirno:witness:console-service:end
+
+    // sirno:witness:ledger-clone:begin
+    /// Create an independent, active copy of a local ledger, even if it is archived.
+    pub async fn clone_ledger(&self, source_id: LedgerId) -> Result<LedgerId> {
+        let now = Timestamp::now()?;
+        let ledger_id = LedgerId::new();
+        let device = NewDevice {
+            node_id: self.channel.device_id(),
+            label: unbill_model::DeviceLabel::new("Unnamed device".into())?,
+        };
+        let source = self.take_doc(source_id).await?;
+        let copy = source.clone_as(ledger_id, device, now);
+        self.put_doc(source_id, source).await;
+        let (doc, meta) = copy?;
+        self.persist_new_ledger(doc, &meta).await?;
+        Ok(ledger_id)
+    }
+
+    async fn persist_new_ledger(&self, mut doc: LedgerDoc, meta: &LedgerMeta) -> Result<()> {
+        self.channel.save_ledger_meta(meta).await?;
+        sync_doc(&*self.channel, meta.ledger_id, &mut doc).await?;
+        self.put_doc(meta.ledger_id, doc).await;
+        Ok(())
+    }
+    // sirno:witness:ledger-clone:end
+
+    // sirno:witness:ledger-rename:begin
+    pub async fn rename_ledger(&self, ledger_id: LedgerId, name: &str) -> Result<()> {
+        let mut doc = self.take_doc(ledger_id).await?;
+        if let Err(error) = doc.rename(name) {
+            self.put_doc(ledger_id, doc).await;
+            return Err(error);
+        }
+        sync_doc(&*self.channel, ledger_id, &mut doc).await?;
+        self.put_doc(ledger_id, doc).await;
+        Ok(())
+    }
+    // sirno:witness:ledger-rename:end
 
     // sirno:witness:emoji-fingerprint:begin
     /// Return the current projected ledger state's six-emoji fingerprint.
@@ -923,6 +959,131 @@ mod tests {
         assert_eq!(ledgers[0].ledger_id, id);
         assert_eq!(ledgers[0].name, "Household");
         assert_eq!(ledgers[0].currency.code(), "USD");
+    }
+
+    #[tokio::test]
+    async fn rename_ledger_updates_list_metadata_and_preserves_local_archive() {
+        let svc = open().await;
+        let id = svc
+            .create_ledger(NewLedger {
+                name: "Original".into(),
+                currency: usd(),
+            })
+            .await
+            .unwrap();
+        svc.set_ledger_archived(id, true).await.unwrap();
+        let before = svc.ledger_emojis(id).await.unwrap();
+        assert!(svc.rename_ledger(id, " ").await.is_err());
+        assert_eq!(svc.ledger_emojis(id).await.unwrap(), before);
+        svc.rename_ledger(id, "  Updated  ").await.unwrap();
+        let ledgers = svc.list_ledgers().await.unwrap();
+        assert_eq!(ledgers[0].name, "Updated");
+        assert_eq!(ledgers[0].ledger_id, id);
+        assert!(ledgers[0].archived);
+        assert_ne!(svc.ledger_emojis(id).await.unwrap(), before);
+    }
+
+    #[tokio::test]
+    async fn clone_ledger_persists_independent_history_without_peer_access() {
+        let store = mem_store();
+        let channel = MockAsymChannel::new(store.clone()).await;
+        let svc = UnbillConsole::open(channel.clone()).await;
+        let source_id = svc
+            .create_ledger(NewLedger {
+                name: format!("ab{}", "💸".repeat(24)),
+                currency: usd(),
+            })
+            .await
+            .unwrap();
+        seed_users(&svc, source_id).await;
+        let now = Timestamp::from_millis(1);
+        let peer = NodeId::from_seed(42);
+        let mut source = svc.take_doc(source_id).await.unwrap();
+        source
+            .add_device(
+                NewDevice {
+                    node_id: peer.clone(),
+                    label: unbill_model::DeviceLabel::new("Peer".into()).unwrap(),
+                },
+                now,
+            )
+            .unwrap();
+        let original_id = source.add_bill(two_way_bill(101), peer, now).unwrap();
+        svc.put_doc(source_id, source).await;
+        let mut amendment = two_way_bill(103);
+        amendment.prev = vec![original_id];
+        let amended_id = svc.add_bill(source_id, amendment).await.unwrap();
+        let bob = UserId::from_u128(2);
+        svc.set_user_archived(source_id, bob, true).await.unwrap();
+        svc.set_ledger_archived(source_id, true).await.unwrap();
+        let source_fingerprint = svc.ledger_emojis(source_id).await.unwrap();
+
+        let copy_id = svc.clone_ledger(source_id).await.unwrap();
+        assert_ne!(source_id, copy_id);
+        let metas = svc.list_ledgers().await.unwrap();
+        assert!(
+            metas
+                .iter()
+                .find(|m| m.ledger_id == source_id)
+                .unwrap()
+                .archived
+        );
+        let copy_meta = metas.iter().find(|m| m.ledger_id == copy_id).unwrap();
+        assert!(!copy_meta.archived);
+        assert_eq!(copy_meta.name, format!("ab{} (copy)", "💸".repeat(22)));
+        assert_eq!(copy_meta.currency, usd());
+        let mut copy = store
+            .load_ledger(&copy_id.to_string())
+            .await
+            .unwrap()
+            .unwrap();
+        let copied_ledger = copy.get_ledger().unwrap();
+        assert_eq!(copied_ledger.ledger_id, copy_id);
+        assert_eq!(copied_ledger.name, copy_meta.name);
+        assert_eq!(copied_ledger.created_at, copy_meta.created_at);
+        assert_eq!(copied_ledger.devices.len(), 1);
+        assert_eq!(copied_ledger.devices[0].node_id, svc.device_id());
+        assert!(
+            copied_ledger
+                .users
+                .iter()
+                .find(|u| u.user_id == bob)
+                .unwrap()
+                .archived
+        );
+        assert_eq!(copied_ledger.bills.len(), 2);
+        assert_eq!(copied_ledger.bills[0].id, original_id);
+        assert_eq!(copied_ledger.bills[0].created_at, now);
+        assert_eq!(copied_ledger.bills[0].created_by_device, svc.device_id());
+        assert_eq!(copied_ledger.bills[1].prev, vec![original_id]);
+        assert_eq!(copy.list_bills().unwrap().into_vec()[0].id, amended_id);
+        let mut source = store
+            .load_ledger(&source_id.to_string())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            copy.heads()
+                .iter()
+                .all(|head| !source.heads().contains(head))
+        );
+        assert_eq!(source.list_devices().unwrap().len(), 2);
+
+        // Open another console to exercise the normal load path after persistence.
+        let reloaded = UnbillConsole::open(channel).await;
+        reloaded
+            .set_user_archived(copy_id, bob, false)
+            .await
+            .unwrap();
+        assert_eq!(
+            reloaded.ledger_emojis(source_id).await.unwrap(),
+            source_fingerprint
+        );
+        assert!(matches!(
+            svc.clone_ledger(LedgerId::new()).await,
+            Err(UnbillError::LedgerNotFound(_))
+        ));
+        assert_eq!(svc.list_ledgers().await.unwrap().len(), 2);
     }
 
     #[tokio::test]

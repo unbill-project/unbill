@@ -192,6 +192,14 @@ pub async fn create_user(input: CreateUserInput) -> Result<User, String> {
     invoke("create_user", &serde_json::json!({ "input": input })).await
 }
 
+pub async fn clone_ledger(ledger_id: &str) -> Result<String, String> {
+    invoke(
+        "clone_ledger",
+        &serde_json::json!({ "ledgerId": ledger_id }),
+    )
+    .await
+}
+
 pub async fn set_ledger_archived(ledger_id: &str, archived: bool) -> Result<(), String> {
     invoke(
         "set_ledger_archived",
@@ -208,6 +216,14 @@ pub async fn set_user_archived(
     invoke(
         "set_user_archived",
         &serde_json::json!({"ledgerId": ledger_id, "userId": user_id, "archived": archived}),
+    )
+    .await
+}
+
+pub async fn rename_ledger(ledger_id: &str, name: String) -> Result<(), String> {
+    invoke(
+        "rename_ledger",
+        &serde_json::json!({ "ledgerId": ledger_id, "name": name }),
     )
     .await
 }

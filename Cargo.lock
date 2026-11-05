@@ -9197,8 +9197,10 @@ dependencies = [
  "unbill-asymmetric-channel",
  "unbill-build-info",
  "unbill-console",
+ "unbill-device",
  "unbill-license",
  "unbill-storage",
+ "unbill-store-sqlite",
 ]
 
 [[package]]
