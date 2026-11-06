@@ -13,6 +13,10 @@ Python clients reuse the UniFFI exports of `unbill-ffi` in `bindings/ffi` throug
 
 The package contains generated Python bindings and a shared Rust library built
 for the host platform. Builds use the workspace-pinned generator and version.
+The PyPI project description comes from a user-facing `bindings/python/README.md`
+that explains the product, supported wheels, first use, and runtime behavior.
+Source-build and release instructions live in `bindings/python/DEVELOPMENT.md`.
+The generated package metadata uses a concise description of the Python API.
 The package exports only the named console API; generated bindings live in a
 private `_native` module, and public names do not expose bridge terminology.
 Generated bindings and native artifacts stay out of version control.
