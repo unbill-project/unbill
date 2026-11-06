@@ -8,7 +8,8 @@ import unittest
 from unittest.mock import patch
 
 from package import (
-    main, require_clean_checkout, require_registry_metadata, require_release_tag,
+    main, publish_with_rate_limit, require_clean_checkout,
+    require_registry_metadata, require_release_tag, unpublished_packages,
 )
 
 
@@ -96,6 +97,39 @@ class RegistryMetadataTests(unittest.TestCase):
                 "name": "unbill-build-info", "description": "Build metadata",
                 "repository": None,
             }])
+
+
+class PublishRetryTests(unittest.TestCase):
+    def test_registry_lookup_skips_published_versions(self):
+        packages = [
+            {"name": "unbill-build-info", "version": "0.0.10"},
+            {"name": "unbill-model", "version": "0.0.10"},
+        ]
+        with patch("package.subprocess.run", side_effect=[
+            subprocess.CompletedProcess([], 0, stdout="published", stderr=""),
+            subprocess.CompletedProcess([], 101, stderr=(
+                "error: could not find `unbill-model@0.0.10` in registry `crates-io`"
+            )),
+        ]):
+            self.assertEqual(unpublished_packages(packages), packages[1:])
+
+    def test_rate_limit_retries_remaining_packages(self):
+        package = {"name": "unbill-model", "version": "0.0.10"}
+        with (
+            patch("package.unpublished_packages", side_effect=[[package], [package]]) as lookup,
+            patch("package.subprocess.run", side_effect=[
+                subprocess.CompletedProcess([], 101, stderr=(
+                    "status 429 Too Many Requests: Please try again after "
+                    "Fri, 06 Nov 2026 06:27:36 GMT"
+                ), stdout=""),
+                subprocess.CompletedProcess([], 0, stdout="published", stderr=""),
+            ]) as publish,
+            patch("package.time.sleep") as sleep,
+        ):
+            publish_with_rate_limit([package])
+        self.assertEqual(lookup.call_count, 2)
+        self.assertEqual(publish.call_count, 2)
+        sleep.assert_called_once()
 
 
 if __name__ == "__main__":

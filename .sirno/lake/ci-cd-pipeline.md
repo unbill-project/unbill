@@ -209,6 +209,8 @@ recovery branch, and uses the `crates-io`
 environment. Its upload step receives the `CARGO_REGISTRY_TOKEN` secret;
 missing credentials fail with a setup message. Manual dispatch only verifies.
 Release runs for the same ref are serialized without cancelling an active upload.
+The Rust publisher resumes after a partial upload by checking registry versions
+and honors crates.io's retry time when its new-crate rate limit is reached.
 
 `python.yml` builds and tests the platform wheels described by `python-bindings`.
 It runs independently on the same `v*` tag pushes as `version.yml`, and checks

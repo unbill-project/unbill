@@ -2,9 +2,14 @@
 """Package the Rust Console and supporting libraries; publish only with --publish."""
 
 import argparse
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 import json
 from pathlib import Path
+import re
 import subprocess
+import sys
+import time
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,6 +57,47 @@ def require_registry_metadata(packages):
     ]
     if missing:
         raise RuntimeError("Missing registry metadata: " + ", ".join(missing))
+
+
+def unpublished_packages(packages):
+    remaining = []
+    for package in packages:
+        spec = f"{package['name']}@{package['version']}"
+        result = subprocess.run(
+            ["cargo", "info", spec, "--registry", "crates-io"],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            print(f"Already published: {spec}", flush=True)
+        elif f"could not find `{spec}` in registry" in result.stderr:
+            remaining.append(package)
+        else:
+            raise RuntimeError(f"Could not check registry status for {spec}: {result.stderr}")
+    return remaining
+
+
+def publish_with_rate_limit(packages):
+    for attempt in range(10):
+        remaining = unpublished_packages(packages)
+        if not remaining:
+            return
+        selection = [arg for package in remaining for arg in ("-p", package["name"])]
+        result = subprocess.run(
+            ["cargo", "publish", "--registry=crates-io", *selection, "--allow-dirty"],
+            cwd=ROOT, capture_output=True, text=True,
+        )
+        sys.stdout.write(result.stdout)
+        sys.stderr.write(result.stderr)
+        if result.returncode == 0:
+            return
+        match = re.search(r"Please try again after ([^\n]+? GMT)", result.stderr)
+        if result.returncode != 101 or not match:
+            raise subprocess.CalledProcessError(result.returncode, result.args)
+        retry_at = parsedate_to_datetime(match.group(1))
+        delay = max(0, (retry_at - datetime.now(timezone.utc)).total_seconds()) + 10
+        print(f"crates.io rate limit; retrying in {delay:.0f} seconds", flush=True)
+        time.sleep(delay)
+    raise RuntimeError("crates.io rate limit persisted after 10 attempts")
 
 
 def main():
@@ -104,10 +150,12 @@ def main():
     previous = snapshot.read_bytes() if snapshot.exists() else None
     try:
         snapshot.write_bytes(catalog.read_bytes())
-        command = "publish" if args.publish else "package"
         # The checkout was checked before generating the intentionally untracked
         # catalog. Cargo must now allow that generated file in the archive.
-        run("cargo", command, "--registry=crates-io", *selection, "--allow-dirty")
+        if args.publish:
+            publish_with_rate_limit([packages[name] for name in sorted(selected)])
+        else:
+            run("cargo", "package", "--registry=crates-io", *selection, "--allow-dirty")
     finally:
         if previous is None:
             snapshot.unlink(missing_ok=True)
