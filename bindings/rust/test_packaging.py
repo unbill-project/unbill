@@ -7,7 +7,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from package import main, require_clean_checkout, require_release_tag
+from package import (
+    main, require_clean_checkout, require_registry_metadata, require_release_tag,
+)
 
 
 class CleanCheckoutTests(unittest.TestCase):
@@ -80,6 +82,20 @@ class ReleaseTagTests(unittest.TestCase):
             "cargo", "metadata", "--format-version=1", "--no-deps", "--locked",
             capture=True,
         )
+
+
+class RegistryMetadataTests(unittest.TestCase):
+    def test_missing_description_or_repository_is_rejected(self):
+        with self.assertRaisesRegex(RuntimeError, "unbill-build-info \\(description\\)"):
+            require_registry_metadata([{
+                "name": "unbill-build-info", "description": None,
+                "repository": "https://github.com/unbill-project/unbill",
+            }])
+        with self.assertRaisesRegex(RuntimeError, "unbill-build-info \\(repository\\)"):
+            require_registry_metadata([{
+                "name": "unbill-build-info", "description": "Build metadata",
+                "repository": None,
+            }])
 
 
 if __name__ == "__main__":

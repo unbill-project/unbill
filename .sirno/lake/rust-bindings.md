@@ -32,4 +32,9 @@ and standalone packaging succeed. The release tag must be exactly v followed by
 the shared package version, including every selected dependency. The rust.yml
 workflow uses the crates-io environment and a CARGO_REGISTRY_TOKEN secret with
 publish access to the selected libraries, including permission to create them
-on the first release. Ordinary CI and manual workflow runs only verify packages.
+on the first release. A `release/crates-v{version}` branch can retry registry
+publication from a corrected commit when the original tag workflow fails.
+Its branch-derived tag must still match every selected package version.
+Ordinary CI and manual workflow runs only verify packages.
+The packaging helper checks descriptions and repository URLs before building,
+so crates.io metadata rejection is caught before any upload.

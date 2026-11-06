@@ -204,7 +204,8 @@ Workspace crates inherit the version from `[workspace.package]` in `Cargo.toml`.
 `rust.yml` also runs directly on `v*` tag pushes and manual dispatch.
 It verifies the release tag against every selected library's shared version
 before packaging. The publish job depends on successful tests and archive
-verification, runs only for version-tag pushes, and uses the `crates-io`
+verification, runs for version-tag pushes or a `release/crates-v{version}`
+recovery branch, and uses the `crates-io`
 environment. Its upload step receives the `CARGO_REGISTRY_TOKEN` secret;
 missing credentials fail with a setup message. Manual dispatch only verifies.
 Release runs for the same ref are serialized without cancelling an active upload.

@@ -43,6 +43,17 @@ def require_release_tag(tag, packages):
         )
 
 
+def require_registry_metadata(packages):
+    missing = [
+        f"{package['name']} ({field})"
+        for package in packages
+        for field in ("description", "repository")
+        if not package.get(field)
+    ]
+    if missing:
+        raise RuntimeError("Missing registry metadata: " + ", ".join(missing))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--allow-dirty", action="store_true")
@@ -69,6 +80,7 @@ def main():
     visit("unbill")
     if args.tag is not None:
         require_release_tag(args.tag, [packages[name] for name in sorted(selected)])
+    require_registry_metadata([packages[name] for name in sorted(selected)])
     selection = [arg for name in sorted(selected) for arg in ("-p", name)]
     print("Rust packages: " + ", ".join(sorted(selected)), flush=True)
 
