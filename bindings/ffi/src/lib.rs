@@ -7,6 +7,41 @@ use std::sync::Arc;
 
 uniffi::setup_scaffolding!();
 
+#[uniffi::export]
+pub fn validate_bill_amount(amount_cents: i64) -> Result<(), ConsoleError> {
+    unbill::validate_bill_amount(amount_cents).map_err(Into::into)
+}
+
+#[uniffi::export]
+pub fn parse_bill_amount_text(input: String) -> Result<i64, ConsoleError> {
+    unbill::parse_bill_amount_text(input).map_err(Into::into)
+}
+
+#[uniffi::export]
+pub fn validate_bill_description(description: String) -> Result<(), ConsoleError> {
+    unbill::validate_bill_description(description).map_err(Into::into)
+}
+
+#[uniffi::export]
+pub fn validate_share_weight(shares: u32) -> Result<(), ConsoleError> {
+    unbill::validate_share_weight(shares).map_err(Into::into)
+}
+
+#[uniffi::export]
+pub fn validate_ledger_name(name: String) -> Result<(), ConsoleError> {
+    unbill::validate_ledger_name(name).map_err(Into::into)
+}
+
+#[uniffi::export]
+pub fn validate_user_name(name: String) -> Result<(), ConsoleError> {
+    unbill::validate_user_name(name).map_err(Into::into)
+}
+
+#[uniffi::export]
+pub fn validate_device_name(name: String) -> Result<(), ConsoleError> {
+    unbill::validate_device_name(name).map_err(Into::into)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct ConsoleLegalSoftware {
     pub name: String,

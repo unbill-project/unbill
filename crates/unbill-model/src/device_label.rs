@@ -9,11 +9,7 @@ pub struct DeviceLabel(String);
 impl DeviceLabel {
     pub fn new(value: String) -> Result<Self, UnbillError> {
         let value = value.trim();
-        if value.is_empty() || value.chars().count() > 100 {
-            return Err(UnbillError::Validation(
-                "device name must contain 1 to 100 characters".into(),
-            ));
-        }
+        crate::validation::device_name(value).map_err(UnbillError::Validation)?;
         Ok(Self(value.to_owned()))
     }
     pub fn as_str(&self) -> &str {

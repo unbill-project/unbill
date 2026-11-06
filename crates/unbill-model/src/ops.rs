@@ -50,12 +50,7 @@ pub(super) fn get_ledger(doc: &AutoCommit) -> Result<Ledger> {
 // sirno:witness:ledger-rename:begin
 pub(super) fn rename_ledger(doc: &mut AutoCommit, name: &str) -> Result<()> {
     let name = name.trim();
-    if name.is_empty() || name.len() > crate::user::MAX_LEDGER_NAME_LEN {
-        return Err(UnbillError::Validation(format!(
-            "ledger name must be 1–{} UTF-8 bytes",
-            crate::user::MAX_LEDGER_NAME_LEN
-        )));
-    }
+    crate::validation::ledger_name(name).map_err(UnbillError::Validation)?;
     let mut ledger = get_ledger(doc)?;
     if ledger.name == name {
         return Ok(());

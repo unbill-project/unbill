@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use unbill_model::validation;
 
 use crate::layout::{FieldBlock, ModalSheet};
 
@@ -16,7 +17,7 @@ pub fn RenameLedgerSheet(
     let name = RwSignal::new(current_name.clone());
     let saving = RwSignal::new(false);
     let error = RwSignal::new(None::<String>);
-    let valid = move |value: &str| !value.is_empty() && value.len() <= 100 && value != current_name;
+    let valid = move |value: &str| validation::ledger_name(value).is_ok() && value != current_name;
     let valid_submit = valid.clone();
 
     view! {
@@ -52,8 +53,8 @@ pub fn RenameLedgerSheet(
                         on:input=move |event| name.set(event_target_value(&event))
                     />
                 </FieldBlock>
-                {move || (name.get().trim().len() > 100).then(|| view! {
-                    <p class="form-error">"Ledger names can be at most 100 UTF-8 bytes."</p>
+                {move || validation::ledger_name(name.get().trim()).err().map(|message| view! {
+                    <p class="form-error">{message}</p>
                 })}
                 {move || error.get().map(|message| view! { <p class="form-error" role="alert">{message}</p> })}
                 <button

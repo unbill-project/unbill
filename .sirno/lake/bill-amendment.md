@@ -20,6 +20,9 @@ bills whose IDs are not referenced by another bill's `prev`.
 
 One bill can replace one earlier bill.
 One bill can also merge several earlier bills into a single successor.
+An amendment with amount zero can cancel the financial effect of an earlier
+bill. The zero-amount successor remains an effective bill, and the superseded
+bill remains in the append-only history; neither record is deleted.
 
 ```mermaid
 flowchart LR

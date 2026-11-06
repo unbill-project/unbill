@@ -156,6 +156,34 @@ fn err(e: impl std::fmt::Display) -> ConsoleError {
     ConsoleError::Message(e.to_string())
 }
 
+pub fn validate_bill_amount(amount_cents: i64) -> Result<(), ConsoleError> {
+    unbill_console::model::validation::bill_amount(amount_cents).map_err(err)
+}
+
+pub fn parse_bill_amount_text(input: String) -> Result<i64, ConsoleError> {
+    unbill_console::model::validation::parse_bill_amount_text(&input).map_err(err)
+}
+
+pub fn validate_bill_description(description: String) -> Result<(), ConsoleError> {
+    unbill_console::model::validation::bill_description(&description).map_err(err)
+}
+
+pub fn validate_share_weight(shares: u32) -> Result<(), ConsoleError> {
+    unbill_console::model::validation::share_weight(shares).map_err(err)
+}
+
+pub fn validate_ledger_name(name: String) -> Result<(), ConsoleError> {
+    unbill_console::model::validation::ledger_name(&name).map_err(err)
+}
+
+pub fn validate_user_name(name: String) -> Result<(), ConsoleError> {
+    unbill_console::model::validation::user_name(&name).map_err(err)
+}
+
+pub fn validate_device_name(name: String) -> Result<(), ConsoleError> {
+    unbill_console::model::validation::device_name(&name).map_err(err)
+}
+
 // ---------- DTOs (mirror unbill-tauri) ----------
 
 #[derive(Debug, Clone, PartialEq, Eq)]

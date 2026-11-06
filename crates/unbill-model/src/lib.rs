@@ -18,6 +18,7 @@ mod user;
 
 mod doc;
 pub(crate) mod ops;
+pub mod validation;
 pub mod verified_bridge;
 
 pub use amendment::EffectiveBills;

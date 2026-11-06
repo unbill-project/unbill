@@ -31,16 +31,16 @@ pub struct Bill {
 pub struct Share {
     #[garde(skip)]
     pub user_id: UserId,
-    #[garde(range(min = 1))]
+    #[garde(custom(crate::validation::share_weight_rule))]
     pub shares: u32,
 }
 
 /// Input type for adding a new bill via the service layer.
 #[derive(Clone, Debug, garde::Validate)]
 pub struct NewBill {
-    #[garde(range(min = 1))]
+    #[garde(custom(crate::validation::bill_amount_rule))]
     pub amount_cents: i64,
-    #[garde(length(min = 1, max = 1000))]
+    #[garde(custom(crate::validation::bill_description_rule))]
     pub description: String,
     #[garde(length(min = 1), dive)]
     pub payers: Vec<Share>,

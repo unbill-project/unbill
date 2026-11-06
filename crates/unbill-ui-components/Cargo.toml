@@ -10,6 +10,7 @@ homepage.workspace = true
 [dependencies]
 unbill-about = { path = "../unbill-about" }
 unbill-license = { path = "../unbill-license" }
+unbill-model = { path = "../unbill-model" }
 leptos = { version = "0.8.14", features = ["csr"] }
 serde = { workspace = true, features = ["derive"] }
 iso_currency = { workspace = true, features = ["iterator"] }

@@ -67,19 +67,20 @@ impl AddBillPopup {
 
     fn try_confirm(&mut self) -> PopupOutcome {
         let description = self.description.value.trim().to_string();
-        if description.is_empty() {
-            self.error = Some("Description must not be empty".to_string());
+        if let Err(message) = unbill_console::model::validation::bill_description(&description) {
+            self.error = Some(message);
             return PopupOutcome::Pending;
         }
 
         let amount_str = self.amount.value.trim();
-        let amount_cents = match parse_amount_cents(amount_str) {
-            Some(v) if v > 0 => v,
-            _ => {
-                self.error = Some("Enter a valid positive amount (e.g. 12.50)".to_string());
-                return PopupOutcome::Pending;
-            }
-        };
+        let amount_cents =
+            match unbill_console::model::validation::parse_bill_amount_text(amount_str) {
+                Ok(value) => value,
+                Err(message) => {
+                    self.error = Some(message);
+                    return PopupOutcome::Pending;
+                }
+            };
 
         if self.users.is_empty() {
             self.error = Some("No users in ledger".to_string());
@@ -321,22 +322,7 @@ impl PopupView for AddBillPopup {
 /// Parse a decimal string like "12.50" or "12" into integer cents.
 /// "12.50" → 1250, "12" → 1200.
 pub fn parse_amount_cents(s: &str) -> Option<i64> {
-    let s = s.trim();
-    if s.is_empty() {
-        return None;
-    }
-    if let Some((whole, frac)) = s.split_once('.') {
-        let whole: i64 = whole.parse().ok()?;
-        let frac = match frac.len() {
-            0 => 0i64,
-            1 => frac.parse::<i64>().ok()? * 10,
-            _ => frac[..2].parse::<i64>().ok()?,
-        };
-        Some(whole * 100 + frac)
-    } else {
-        let whole: i64 = s.parse().ok()?;
-        Some(whole * 100)
-    }
+    unbill_console::model::validation::parse_bill_amount_text(s).ok()
 }
 
 /// Format cents as a decimal string. 1250 → "12.50".

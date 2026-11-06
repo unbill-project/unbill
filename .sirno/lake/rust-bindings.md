@@ -14,6 +14,8 @@ The public interface preserves the existing Console names, string identifiers, d
 Construction selects either an in-process SQLite device or an existing daemon through RPC. Mobile targets omit RPC at compilation. Storage ownership, runtime tasks, projections, and subscriptions retain their existing behavior.
 
 unbill-console remains the underlying orchestration library. bindings/ffi contains unbill-ffi, which adapts the unbill interface through UniFFI records, errors, callbacks, and thin forwarding methods. Business operations and projection assembly live only in the Rust binding. The Python package remains under bindings/python.
+The Rust package forwards the model's Garde-backed field validators and shared
+decimal parser to foreign-language adapters without duplicating limits.
 
 The Cargo package inherits the workspace version. Registry publication requires the supporting library crates and versioned dependencies; applications and the UniFFI bridge are not part of the Rust package.
 

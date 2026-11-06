@@ -1,5 +1,6 @@
 use iso_currency::IntoEnumIterator;
 use leptos::prelude::*;
+use unbill_model::validation;
 
 #[component]
 pub fn TextInput(
@@ -36,13 +37,12 @@ pub fn AmountInput(
         <input
             type="number"
             step="0.01"
-            min="0"
             prop:value=display
             disabled=disabled
             on:input=move |ev| {
                 let raw = event_target_value(&ev);
-                if let Ok(f) = raw.parse::<f64>() {
-                    on_change.run((f * 100.0).round() as i64);
+                if let Ok(cents) = validation::parse_bill_amount_text(&raw) {
+                    on_change.run(cents);
                 }
             }
         />

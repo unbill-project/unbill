@@ -16,6 +16,9 @@ Public console naming belongs to the shared Rust interface rather than language-
 Exported records, enums, errors, callbacks, and subscriptions use `Console` names
 without an `Ffi` prefix. The bridge and generated low-level symbols remain implementation details.
 The underlying orchestration remains in `UnbillConsole`.
+UniFFI also exports the shared bill amount parser and field validation functions.
+Swift uses those Rust functions for the same Garde limits and error text as
+the Rust frontends; the bridge contains no separate validation rules.
 
 Construction explicitly selects the deployment topology.
 `open_in_process` owns a SQLite-backed device service and its background tasks

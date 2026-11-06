@@ -15,6 +15,9 @@ core.refines:
 
 `unbill-ui-native` is the Leptos frontend used by the Tauri desktop shell.
 It implements the shared UI model with a dense native utility style.
+Its ledger, user, and device forms call the model's Garde-backed validators
+for size limits and inline error messages.
+The wasm build enables the JavaScript randomness backend required by model dependencies.
 
 The visual system favors full-height panes,
 list rows,
