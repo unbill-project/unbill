@@ -120,7 +120,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "unbill"
 version = VERSION
-description = "Python bindings for the Unbill console"
+description = "Python API for offline-first shared expense ledgers"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT OR Apache-2.0"
