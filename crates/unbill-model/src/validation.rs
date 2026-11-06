@@ -31,7 +31,13 @@ pub fn parse_bill_amount_text(input: &str) -> Result<i64, String> {
             let value = digits
                 .parse::<i64>()
                 .map_err(|_| "Amount is too large.".to_owned())?;
-            if digits.len() == 1 { value * 10 } else { value }
+            if digits.len() == 1 {
+                value
+                    .checked_mul(10)
+                    .ok_or_else(|| "Amount is too large.".to_owned())?
+            } else {
+                value
+            }
         }
         Some(digits) if digits.len() > 2 && digits.bytes().all(|byte| byte.is_ascii_digit()) => {
             return Err("Use at most two decimal places.".to_owned());
