@@ -125,8 +125,8 @@ participant control is used for active and archived members in both sections.
 UniFFI allocates a real bill ID when a draft opens; preview and save use that same ID,
 so displayed amounts match saved amounts. Amendments allocate a new ID rather than
 reusing the original bill ID. Amendments preserve archived
-participants and original weights. Decimal input rejects excess precision,
-nonpositive amounts, and overflow rather than truncating it.
+participants and original weights. Decimal input accepts zero for new bills and amendments
+and rejects excess precision, negative amounts, and overflow rather than truncating it.
 Bill rows show participants and timestamps with neutral text styling. On iOS,
 swiping left reveals an Edit action. Mac Catalyst bill rows are selectable across
 the whole row and show a large neutral trailing chevron that opens the third column;

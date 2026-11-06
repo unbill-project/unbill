@@ -24,6 +24,7 @@ Names may be changed without changing device identity or authorization.
 
 A bill is an expense record with payer shares, payee shares, amount in cents,
 timestamp, description, and optional `prev` links to superseded bills.
+Its amount may be zero, but never negative.
 Effective bills are the bills not named by another bill's `prev`.
 
 Invitation tokens are short-lived join credentials.

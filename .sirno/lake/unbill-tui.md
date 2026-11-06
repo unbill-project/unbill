@@ -96,6 +96,8 @@ Both the saved-bill detail view and the editor's live split use
 Calculation failures appear in the detail or editor area instead of entering
 the unchecked settlement function.
 The editor and confirmation path share the same amount parser.
+Bill entry and amendment accept zero amounts so corrections can cancel a bill
+without removing its history; negative amounts remain invalid.
 
 Invitation popups keep the URL visible and show an error message when QR encoding fails.
 Unit tests cover this fallback,

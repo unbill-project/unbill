@@ -90,9 +90,9 @@ impl AmendBillPopup {
 
         let amount_str = self.amount.value.trim();
         let amount_cents = match parse_amount_cents(amount_str) {
-            Some(v) if v > 0 => v,
+            Some(v) if v >= 0 => v,
             _ => {
-                self.error = Some("Enter a valid positive amount (e.g. 12.50)".to_string());
+                self.error = Some("Enter a valid non-negative amount (e.g. 0.00)".to_string());
                 return PopupOutcome::Pending;
             }
         };

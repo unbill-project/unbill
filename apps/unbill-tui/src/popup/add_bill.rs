@@ -74,9 +74,9 @@ impl AddBillPopup {
 
         let amount_str = self.amount.value.trim();
         let amount_cents = match parse_amount_cents(amount_str) {
-            Some(v) if v > 0 => v,
+            Some(v) if v >= 0 => v,
             _ => {
-                self.error = Some("Enter a valid positive amount (e.g. 12.50)".to_string());
+                self.error = Some("Enter a valid non-negative amount (e.g. 0.00)".to_string());
                 return PopupOutcome::Pending;
             }
         };
@@ -322,7 +322,7 @@ impl PopupView for AddBillPopup {
 /// "12.50" → 1250, "12" → 1200.
 pub fn parse_amount_cents(s: &str) -> Option<i64> {
     let s = s.trim();
-    if s.is_empty() {
+    if s.is_empty() || s.starts_with('-') {
         return None;
     }
     if let Some((whole, frac)) = s.split_once('.') {

@@ -1324,6 +1324,50 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn zero_amount_amendment_preserves_history_and_clears_settlement() -> Result<()> {
+        let store = mem_store();
+        let channel = MockAsymChannel::new(Arc::clone(&store)).await;
+        let svc = UnbillConsole::open(channel).await;
+        let ledger_id = svc
+            .create_ledger(NewLedger {
+                name: "Corrections".into(),
+                currency: usd(),
+            })
+            .await?;
+        seed_users(&svc, ledger_id).await;
+
+        assert!(matches!(
+            svc.add_bill(ledger_id, two_way_bill(-1)).await,
+            Err(UnbillError::Validation(_))
+        ));
+        let original = svc.add_bill(ledger_id, two_way_bill(100)).await?;
+        assert_eq!(svc.settle_ledger(ledger_id).await?.transactions.len(), 1);
+
+        let replacement = svc
+            .add_bill(
+                ledger_id,
+                NewBill {
+                    prev: vec![original],
+                    ..two_way_bill(0)
+                },
+            )
+            .await?;
+        let effective = svc.list_bills(ledger_id).await?;
+        assert_eq!(effective.0.len(), 1);
+        assert_eq!(effective.0[0].id, replacement);
+        assert_eq!(effective.0[0].amount_cents, 0);
+        assert_eq!(effective.0[0].prev, vec![original]);
+        assert!(svc.settle_ledger(ledger_id).await?.transactions.is_empty());
+
+        let persisted = store
+            .load_ledger(&ledger_id.to_string())
+            .await?
+            .expect("ledger must be persisted");
+        assert_eq!(persisted.list_all_bills()?.len(), 2);
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_compute_settlement_no_bills_is_empty() {
         let svc = open().await;
         let lid = svc

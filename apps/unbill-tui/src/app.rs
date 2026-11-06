@@ -1028,7 +1028,7 @@ fn build_amend_editor(ledger_id: LedgerId, bill: &Bill, mut users: Vec<User>) ->
 // sirno:witness:unbill-tui:begin
 pub(crate) fn parse_amount_cents(s: &str) -> Option<i64> {
     let s = s.trim();
-    if s.is_empty() {
+    if s.is_empty() || s.starts_with('-') {
         return None;
     }
     if let Some((whole, frac)) = s.split_once('.') {
@@ -1121,6 +1121,8 @@ mod tests {
     #[test]
     fn amount_parsing_handles_cent_boundaries() {
         for (input, expected) in [
+            ("0", 0),
+            ("0.00", 0),
             ("12", 1200),
             ("12.", 1200),
             ("12.3", 1230),
@@ -1134,6 +1136,7 @@ mod tests {
             "92233720368547759",
             "92233720368547758.08",
             "-92233720368547759",
+            "-0.01",
         ] {
             assert_eq!(parse_amount_cents(input), None, "{input}");
         }

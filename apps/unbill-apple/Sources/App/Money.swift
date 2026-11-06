@@ -20,8 +20,8 @@ enum Money {
         }
         let (base, overflow) = units.multipliedReportingOverflow(by: 100)
         let (cents, additionOverflow) = base.addingReportingOverflow(Int64(fraction.padding(toLength: 2, withPad: "0", startingAt: 0)) ?? 0)
-        guard !overflow, !additionOverflow, cents > 0, cents <= Int64(Int32.max) else {
-            throw BillInputError.invalid("Amount must be positive and no greater than 21474836.47.")
+        guard !overflow, !additionOverflow, cents >= 0, cents <= Int64(Int32.max) else {
+            throw BillInputError.invalid("Amount must be between 0 and 21474836.47.")
         }
         return cents
     }

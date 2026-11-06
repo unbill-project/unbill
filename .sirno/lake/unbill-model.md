@@ -17,6 +17,8 @@ ledger records, users, devices, invitations,
 input structs (`NewBill`, `NewUser`, `NewUserName`, `NewDevice`, `NewLedger`),
 `LedgerMeta` for lightweight ledger summaries without Automerge bytes,
 and error enums.
+`NewBill` accepts a zero-cent amount so an amendment can retain history while
+removing the superseded bill's financial effect. Negative amounts are invalid.
 
 `Currency::all` enumerates the complete currency catalog accepted by `Currency::from_code`,
 using the same underlying ISO currency definitions.

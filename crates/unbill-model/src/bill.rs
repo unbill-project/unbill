@@ -38,7 +38,7 @@ pub struct Share {
 /// Input type for adding a new bill via the service layer.
 #[derive(Clone, Debug, garde::Validate)]
 pub struct NewBill {
-    #[garde(range(min = 1))]
+    #[garde(range(min = 0))]
     pub amount_cents: i64,
     #[garde(length(min = 1, max = 1000))]
     pub description: String,
