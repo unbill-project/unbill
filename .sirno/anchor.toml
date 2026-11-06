@@ -52,7 +52,7 @@ fingerprint = "sha256:fd3302642d25a1dbc341cd4954cce29d25ad7b8674cb91320ff080ed94
 "core.belongs" = ["unbill"]
 
 [entries.ci-cd-pipeline]
-fingerprint = "sha256:d9068a4e6ef64dd4abf4d6ecf3becd1ecb59e8556d3e6a8e71650c4c6a5dd895"
+fingerprint = "sha256:7859c74649a10ed30100d0230e198e42dd83324b638f28b4e1863a55806f00db"
 "core.belongs" = ["distribution-and-release"]
 
 [entries.compiled-markdown-artifacts]
@@ -248,7 +248,7 @@ fingerprint = "sha256:c787e3e9ed7ca2a1f87d1b4c04a0b092c1b4e4ab7326157cba253cc45c
 ]
 
 [entries.rust-bindings]
-fingerprint = "sha256:88696642ad75a248aa20015ae59848d5c087ccc44059f41e7176eecda42b99a6"
+fingerprint = "sha256:62819b41ce0a0c35494573bfef85cbb89f2d92a178f3254afe6bddb44fd2c7f3"
 "core.belongs" = ["workspace-layout"]
 
 [entries.security-model]

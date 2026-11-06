@@ -38,3 +38,6 @@ Its branch-derived tag must still match every selected package version.
 Ordinary CI and manual workflow runs only verify packages.
 The packaging helper checks descriptions and repository URLs before building,
 so crates.io metadata rejection is caught before any upload.
+Publication checks which versions the registry already has, skips them on a
+recovery run, and waits until the registry-provided retry time after a 429
+rate-limit response before continuing with unpublished libraries.
