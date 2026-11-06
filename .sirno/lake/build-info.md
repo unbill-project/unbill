@@ -9,7 +9,7 @@ core.belongs:
 ---
 
 `unbill-build-info` only provides the wire data type and display format.
-Each application crate and the Apple FFI crate use `build-info-build` in their
+Each application crate uses `build-info-build` in its
 own build script and `build-info` in their own code to embed their workspace
 version and UTC RFC 3339 timestamp. Git collection is disabled. Build scripts
 explicitly choose the current UTC time instead of the reproducible-build
@@ -18,6 +18,12 @@ converts each application's generated metadata into the two public fields.
 Cargo caches unchanged build-script output; timestamps update when the
 application build script reruns. No environment setup or runtime clock lookup
 is required. Independently compiled crates or targets can have different timestamps.
+
+The `unbill` Rust binding embeds the same two fields directly from Cargo's package
+version and a UTC compile timestamp. Its build script does not recursively resolve
+Cargo metadata, so archive verification works before sibling crates are published.
+The UniFFI adapter forwards the Rust binding's client build information. Rust,
+Python, and Swift therefore report the same compiled Console library metadata.
 
 LocalAsymChannel receives service build information explicitly from its owning
 application, rather than reading metadata compiled into a shared dependency.

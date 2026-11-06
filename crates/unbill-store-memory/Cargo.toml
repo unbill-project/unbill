@@ -8,9 +8,9 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
-unbill-storage = { path = "../unbill-storage" }
-unbill-model = { path = "../unbill-model" }
-unbill-event = { path = "../unbill-event" }
+unbill-storage = { path = "../unbill-storage", version = "0.0.9" }
+unbill-model = { path = "../unbill-model", version = "0.0.9" }
+unbill-event = { path = "../unbill-event", version = "0.0.9" }
 async-trait.workspace = true
 iroh.workspace = true
 rand.workspace = true

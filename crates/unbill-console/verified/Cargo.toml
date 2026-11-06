@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
-unbill-model-verified = { path = "../../unbill-model/verified" }
+unbill-model-verified = { path = "../../unbill-model/verified", version = "0.0.9" }
 vstd = "=0.0.0-2026-05-31-0205"
 
 [package.metadata.verus]

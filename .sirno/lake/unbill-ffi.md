@@ -5,10 +5,14 @@ core.category:
   - core.concept
 core.belongs:
   - workspace-layout
+  - rust-bindings
 ---
 
-`unbill-ffi` exposes `Console` to Python and Swift through UniFFI.
-Public console naming belongs to this shared interface rather than language-specific aliases.
+`unbill-ffi` lives in `bindings/ffi` and exposes the `unbill` crate's `Console`
+to Python and Swift through UniFFI. It owns only foreign records, enums, errors,
+callback adapters, and forwarding methods. The shared implementation lives in
+`bindings/rust`; native Rust callers have no UniFFI dependency.
+Public console naming belongs to the shared Rust interface rather than language-specific aliases.
 Exported records, enums, errors, callbacks, and subscriptions use `Console` names
 without an `Ffi` prefix. The bridge and generated low-level symbols remain implementation details.
 The underlying orchestration remains in `UnbillConsole`.
@@ -19,6 +23,9 @@ in the caller's process. Desktop storage retains exclusive directory ownership.
 `open_rpc` connects to an existing daemon using the configured data directory
 and optional socket override, without opening storage itself.
 Both constructors return the same console operation surface.
+The adapter forwards ledger rename and clone to the native Console API, so
+generated Swift and Python clients can use both operations. Cloning returns the
+new ledger ID; renaming updates the shared ledger name.
 `rename_device` accepts a ledger ID, NodeId, and validated shared name.
 Ledger detail lists the local device alongside authorized peers so clients can
 rename either; bootstrap continues to list peers only.

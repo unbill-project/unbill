@@ -24,7 +24,8 @@ members = [
     "crates/unbill-store-sqlite",
     "crates/unbill-tauri",
     "crates/unbill-ui-components",
-    "crates/unbill-ffi",
+    "bindings/rust",
+    "bindings/ffi",
 ]
 # sirno:witness:workspace-layout:end
 

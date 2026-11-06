@@ -16,15 +16,15 @@ http = ["dep:reqwest", "dep:serde_json", "dep:futures-util"]
 rpc = ["dep:tarpc", "dep:interprocess", "dep:tokio-util", "dep:tokio-stream", "dep:serde_json", "dep:futures-util", "tokio/rt"]
 
 [dependencies]
-unbill-build-info = { path = "../unbill-build-info" }
-unbill-model = { path = "../unbill-model" }
+unbill-build-info = { path = "../unbill-build-info", version = "0.0.9" }
+unbill-model = { path = "../unbill-model", version = "0.0.9" }
 async-trait.workspace = true
 serde = { workspace = true, features = ["derive"] }
 tokio = { workspace = true, features = ["sync"] }
 
 # local
-unbill-device = { path = "../unbill-device", optional = true }
-unbill-storage = { path = "../unbill-storage", optional = true }
+unbill-device = { path = "../unbill-device", version = "0.0.9", optional = true }
+unbill-storage = { path = "../unbill-storage", version = "0.0.9", optional = true }
 
 # http
 automerge = { workspace = true, optional = true }

@@ -75,4 +75,10 @@ jobs:
         run: |
           cargo fetch --locked
           cargo test --workspace --exclude unbill-tauri
+
+  rust-package:
+    name: Rust package
+    uses: ./.github/workflows/rust.yml
+    permissions:
+      contents: read
 # sirno:witness:ci-cd-pipeline:end

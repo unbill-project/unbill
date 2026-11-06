@@ -11,8 +11,8 @@ homepage.workspace = true
 test-helpers = []
 
 [dependencies]
-unbill-model = { path = "../unbill-model" }
-unbill-storage = { path = "../unbill-storage" }
+unbill-model = { path = "../unbill-model", version = "0.0.9" }
+unbill-storage = { path = "../unbill-storage", version = "0.0.9" }
 iroh.workspace = true
 iroh-mdns-address-lookup = "0.6"
 futures-util.workspace = true
@@ -31,6 +31,6 @@ dbus = { version = "0.9", features = ["vendored"] }
 
 [dev-dependencies]
 tracing-subscriber.workspace = true
-unbill-model = { path = "../unbill-model", features = ["test-helpers"] }
-unbill-store-memory = { path = "../unbill-store-memory" }
+unbill-model = { path = "../unbill-model", version = "0.0.9", features = ["test-helpers"] }
+unbill-store-memory = { path = "../unbill-store-memory", version = "0.0.9" }
 tokio = { workspace = true, features = ["rt", "macros", "io-util", "test-util"] }

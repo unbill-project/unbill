@@ -1,0 +1,30 @@
+[package]
+name = "unbill"
+description = "Native Rust Console API for Unbill shared expense ledgers."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "README.md"
+include = ["src/**", "build.rs", "README.md", "LICENSE*"]
+
+[dependencies]
+unbill-build-info = { path = "../../crates/unbill-build-info", version = "0.0.9" }
+unbill-license = { path = "../../crates/unbill-license", version = "0.0.9" }
+unbill-console = { path = "../../crates/unbill-console", version = "0.0.9" }
+unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", version = "0.0.9", features = ["local"] }
+unbill-storage = { path = "../../crates/unbill-storage", version = "0.0.9" }
+unbill-store-sqlite = { path = "../../crates/unbill-store-sqlite", version = "0.0.9" }
+tokio = { version = "1", features = ["rt-multi-thread"] }
+thiserror.workspace = true
+
+[target.'cfg(not(any(target_os = "android", all(target_os = "ios", not(target_abi = "macabi")))))'.dependencies]
+unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", version = "0.0.9", features = ["rpc"] }
+
+[dev-dependencies]
+unbill-symmetric-channel = { path = "../../crates/unbill-symmetric-channel", version = "0.0.9", features = ["test-helpers"] }
+tempfile = "3"
+
+[build-dependencies]
+chrono.workspace = true

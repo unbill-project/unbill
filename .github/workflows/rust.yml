@@ -1,0 +1,75 @@
+name: Rust Bindings
+
+on:
+  push:
+    tags: ['v*']
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-bindings-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+# sirno:witness:rust-bindings:begin
+jobs:
+  verify:
+    name: Verify Rust packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: rust-package
+      - name: Test and package standalone Rust libraries
+        shell: bash
+        run: |
+          cargo fetch --locked
+          python3 bindings/rust/test_packaging.py
+          cargo test -p unbill -p unbill-ffi -p unbill-license --locked
+          cargo tree -p unbill -e normal,build --prefix none > "$RUNNER_TEMP/rust-dependencies.txt"
+          if grep -E '^uniffi([_-]| )' "$RUNNER_TEMP/rust-dependencies.txt"; then
+            echo 'The native Rust package must not depend on UniFFI.' >&2
+            exit 1
+          fi
+          tag_args=()
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" == v* ]]; then
+            tag_args=(--tag "$GITHUB_REF_NAME")
+          fi
+          python3 bindings/rust/package.py "${tag_args[@]}"
+
+  # sirno:witness:distribution-and-release:begin
+  publish:
+    name: Publish to crates.io
+    needs: verify
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment:
+      name: crates-io
+      url: https://crates.io/crates/unbill
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: rust-package
+      - name: Fetch locked dependencies
+        run: cargo fetch --locked
+      - name: Publish Rust libraries
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then
+            echo '::error::Set CARGO_REGISTRY_TOKEN in repository secrets or the crates-io environment with publish access to unbill and its supporting crates.'
+            exit 1
+          fi
+          python3 bindings/rust/package.py --publish --tag "$GITHUB_REF_NAME"
+  # sirno:witness:distribution-and-release:end
+# sirno:witness:rust-bindings:end

@@ -1,0 +1,29 @@
+[package]
+name = "unbill-ffi"
+description = "UniFFI adapter for the shared unbill Console API."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+publish = false
+
+[lib]
+# sirno:witness:python-bindings:begin
+crate-type = ["staticlib", "cdylib", "lib"]
+# sirno:witness:python-bindings:end
+name = "unbill_ffi"
+
+[dependencies]
+unbill = { path = "../rust" }
+uniffi = { version = "0.28", features = ["cli"] }
+thiserror.workspace = true
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { workspace = true, features = ["rt", "time"] }
+unbill-symmetric-channel = { path = "../../crates/unbill-symmetric-channel", features = ["test-helpers"] }
