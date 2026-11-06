@@ -184,7 +184,13 @@ async fn incompatible_documents_are_rejected_without_losing_caller_state() {
     let store = SqliteStore::open(dir.path().into()).await.unwrap();
     let id = meta("Original").ledger_id.to_string();
     store.save_ledger(&id, &mut doc("Original")).await.unwrap();
-    let mut incompatible = doc("Different");
+    let mut incompatible = LedgerDoc::new(
+        meta("Original").ledger_id,
+        "Different".into(),
+        Currency::from_code("EUR").unwrap(),
+        meta("Original").created_at,
+    )
+    .unwrap();
     assert!(store.save_ledger(&id, &mut incompatible).await.is_err());
     assert_eq!(incompatible.get_ledger().unwrap().name, "Different");
     let wrong_id = LedgerId::from_u128(99).to_string();
@@ -207,6 +213,45 @@ async fn incompatible_documents_are_rejected_without_losing_caller_state() {
             .name,
         "Original"
     );
+}
+
+#[tokio::test]
+async fn renamed_document_updates_replica_metadata_and_stale_metadata_cannot_undo_it() {
+    let left_dir = tempfile::tempdir().unwrap();
+    let right_dir = tempfile::tempdir().unwrap();
+    let left = SqliteStore::open(left_dir.path().into()).await.unwrap();
+    let right = SqliteStore::open(right_dir.path().into()).await.unwrap();
+    let ledger_id = meta("Original").ledger_id;
+    let id = ledger_id.to_string();
+    let mut initial = doc("Original");
+    left.save_ledger(&id, &mut initial).await.unwrap();
+    right.save_ledger(&id, &mut initial).await.unwrap();
+    right.set_ledger_archived(ledger_id, true).await.unwrap();
+    let stale_meta = right.list_ledgers().await.unwrap().remove(0);
+
+    let mut renamed = left.load_ledger(&id).await.unwrap().unwrap();
+    renamed.rename("Renamed").unwrap();
+    left.save_ledger(&id, &mut renamed).await.unwrap();
+    right.save_ledger(&id, &mut renamed).await.unwrap();
+    right.save_ledger_meta(&stale_meta).await.unwrap();
+    let meta = right.list_ledgers().await.unwrap().remove(0);
+    assert_eq!(meta.name, "Renamed");
+    assert_eq!(meta.ledger_id, ledger_id);
+    assert_eq!(meta.currency, stale_meta.currency);
+    assert_eq!(meta.created_at, stale_meta.created_at);
+    assert!(meta.archived);
+    assert_eq!(
+        right
+            .load_ledger(&id)
+            .await
+            .unwrap()
+            .unwrap()
+            .get_ledger()
+            .unwrap()
+            .name,
+        "Renamed"
+    );
+    assert!(!left.list_ledgers().await.unwrap()[0].archived);
 }
 
 #[tokio::test]

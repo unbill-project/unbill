@@ -316,6 +316,14 @@ pub async fn create_user(input: CreateUserInput) -> Result<User, String> {
     .map_err(|e| e.to_string())
 }
 
+pub async fn clone_ledger(ledger_id: &str) -> Result<String, String> {
+    get_service()?
+        .clone_ledger(parse_ledger_id(ledger_id)?)
+        .await
+        .map(|id| id.to_string())
+        .map_err(|error| error.to_string())
+}
+
 pub async fn set_ledger_archived(ledger_id: &str, archived: bool) -> Result<(), String> {
     get_service()?
         .set_ledger_archived(parse_ledger_id(ledger_id)?, archived)
@@ -336,6 +344,13 @@ pub async fn set_user_archived(
         )
         .await
         .map_err(|e| e.to_string())
+}
+
+pub async fn rename_ledger(ledger_id: &str, name: String) -> Result<(), String> {
+    get_service()?
+        .rename_ledger(parse_ledger_id(ledger_id)?, &name)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 pub async fn rename_device(ledger_id: &str, node_id: &str, name: String) -> Result<(), String> {

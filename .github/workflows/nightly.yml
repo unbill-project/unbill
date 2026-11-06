@@ -9,14 +9,34 @@ on:
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
-      tag: ${{ steps.ts.outputs.tag }}
+      tag: ${{ steps.nightly.outputs.tag }}
     steps:
-      - id: ts
-        run: echo "tag=nightly-$(date -u +'%Y%m%d-%H%M%S')" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check for changes since the last nightly
+        id: nightly
+        shell: bash
+        run: |
+          latest=$(git for-each-ref --sort=-refname --count=1 --format='%(refname)' 'refs/tags/nightly-????????-??????')
+          if [[ -n "$latest" ]]; then
+            latest_tree=$(git rev-parse "${latest}^{tree}")
+            current_tree=$(git rev-parse 'HEAD^{tree}')
+            if [[ "$latest_tree" == "$current_tree" ]]; then
+              echo "No changes since ${latest#refs/tags/}; skipping nightly."
+              exit 0
+            fi
+          fi
+
+          echo "tag=nightly-$(date -u +'%Y%m%d-%H%M%S')" >> "$GITHUB_OUTPUT"
 
   build:
     needs: prepare
+    if: needs.prepare.outputs.tag != ''
     uses: ./.github/workflows/build.yml
     with:
       tag: ${{ needs.prepare.outputs.tag }}

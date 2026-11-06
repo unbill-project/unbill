@@ -255,14 +255,16 @@ impl LedgerStore for SqliteStore {
                     let mut merged = if let Some(current) = current {
                         let mut current = LedgerDoc::from_bytes(&current).map_err(serialization)?;
                         let current_meta = metadata(&current, incoming_meta.updated_at)?;
+                        // sirno:witness:ledger-rename:begin
+                        // The name is mutable CRDT data, not an identity field.
                         if current_meta.ledger_id != incoming_meta.ledger_id
-                            || current_meta.name != incoming_meta.name
                             || current_meta.currency != incoming_meta.currency
                             || current_meta.created_at != incoming_meta.created_at
                         {
                             return Err(serialization("incompatible immutable ledger fields"));
                         }
                         current.merge(&mut incoming).map_err(serialization)?;
+                        // sirno:witness:ledger-rename:end
                         current
                     } else {
                         incoming

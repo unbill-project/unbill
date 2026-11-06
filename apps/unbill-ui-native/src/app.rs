@@ -140,6 +140,10 @@ pub(crate) enum OverlayKind {
         url: String,
     },
     AddUser,
+    RenameLedger {
+        ledger_id: String,
+        name: String,
+    },
     RenameDevice {
         ledger_id: String,
         ledger_name: String,
@@ -661,6 +665,26 @@ pub fn App() -> impl IntoView {
                 }
                 .into_any()
             }
+            OverlayKind::RenameLedger { ledger_id, name } => {
+                view! {
+                    <unbill_ui_components::ledger::RenameLedgerSheet
+                        current_name=name
+                        on_cancel=Callback::new(move |_| overlay.set(None))
+                        on_saved=Callback::new(move |_| {
+                            overlay.set(None);
+                            reload_bootstrap();
+                            toast.show("Ledger renamed.".to_owned());
+                        })
+                        on_submit=Callback::new(move |(name, complete): unbill_ui_components::ledger::RenameLedgerRequest| {
+                            let ledger_id = ledger_id.clone();
+                            spawn_local(async move {
+                                complete.run(api::rename_ledger(&ledger_id, name).await);
+                            });
+                        })
+                    />
+                }
+                .into_any()
+            }
             OverlayKind::RenameDevice { ledger_id, ledger_name, node_id, name } => {
                 view! {
                     <RenameDeviceSheet
@@ -747,6 +771,24 @@ pub fn App() -> impl IntoView {
                 .into_any()
             }
         })
+    };
+
+    let cloning_ledger = RwSignal::new(false);
+    let clone_ledger = move |id: String| {
+        if cloning_ledger.get_untracked() {
+            return;
+        }
+        cloning_ledger.set(true);
+        spawn_local(async move {
+            match api::clone_ledger(&id).await {
+                Ok(_) => {
+                    reload_bootstrap();
+                    toast.show("Ledger cloned.".to_owned());
+                }
+                Err(error) => toast.error(error),
+            }
+            cloning_ledger.set(false);
+        });
     };
 
     let set_ledger_archived = move |(id, archived): (String, bool)| {
@@ -842,6 +884,9 @@ pub fn App() -> impl IntoView {
                     on_select_ledger=Callback::new(select_settings_ledger)
                     on_join_ledger=Callback::new(move |_| open_join_from_clipboard())
                     on_add_ledger_user=Callback::new(move |_| overlay.set(Some(OverlayKind::AddUser)))
+                    on_rename_ledger=Callback::new(move |(ledger_id, name): (String, String)| {
+                        overlay.set(Some(OverlayKind::RenameLedger { ledger_id, name }));
+                    })
                     on_rename_device=Callback::new(move |(ledger_id, node_id, name): (String, String, String)| {
                         if let Some(detail) = settings_ledger_detail.get_untracked()
                             && detail.summary.ledger_id == ledger_id
@@ -854,6 +899,8 @@ pub fn App() -> impl IntoView {
                             }));
                         }
                     })
+                    cloning_ledger=cloning_ledger
+                    on_clone_ledger=Callback::new(clone_ledger)
                     on_set_ledger_archived=Callback::new(set_ledger_archived)
                     on_set_user_archived=Callback::new(move |(user_id, archived): (String, bool)| {
                         if let Some(detail) = settings_ledger_detail.get() {

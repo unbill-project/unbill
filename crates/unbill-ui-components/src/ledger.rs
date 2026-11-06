@@ -1,6 +1,72 @@
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::layout::{FieldBlock, ModalSheet};
+
+pub type RenameLedgerRequest = (String, Callback<Result<(), String>>);
+
+// sirno:witness:ledger-rename:begin
+#[component]
+pub fn RenameLedgerSheet(
+    current_name: String,
+    on_cancel: Callback<()>,
+    on_saved: Callback<()>,
+    on_submit: Callback<RenameLedgerRequest>,
+) -> impl IntoView {
+    let name = RwSignal::new(current_name.clone());
+    let saving = RwSignal::new(false);
+    let error = RwSignal::new(None::<String>);
+    let valid = move |value: &str| !value.is_empty() && value.len() <= 100 && value != current_name;
+    let valid_submit = valid.clone();
+
+    view! {
+        <ModalSheet
+            title="Rename Ledger".to_owned()
+            description="The name is shared with other devices when the ledger syncs.".to_owned()
+            on_close=Callback::new(move |_| { if !saving.get_untracked() { on_cancel.run(()); } })
+        >
+            <form class="stack-gap" on:submit={
+                move |event: leptos::ev::SubmitEvent| {
+                    event.prevent_default();
+                    let value = name.get_untracked().trim().to_owned();
+                    if saving.get_untracked() || !valid_submit(&value) {
+                        return;
+                    }
+                    saving.set(true);
+                    error.set(None);
+                    on_submit.run((value, Callback::new(move |result| {
+                        saving.set(false);
+                        match result {
+                            Ok(()) => on_saved.run(()),
+                            Err(message) => error.set(Some(message)),
+                        }
+                    })));
+                }
+            }>
+                <FieldBlock label="Ledger name".to_owned()>
+                    <input
+                        aria-label="Ledger name"
+                        class="ui-input"
+                        prop:value=move || name.get()
+                        disabled=move || saving.get()
+                        on:input=move |event| name.set(event_target_value(&event))
+                    />
+                </FieldBlock>
+                {move || (name.get().trim().len() > 100).then(|| view! {
+                    <p class="form-error">"Ledger names can be at most 100 UTF-8 bytes."</p>
+                })}
+                {move || error.get().map(|message| view! { <p class="form-error" role="alert">{message}</p> })}
+                <button
+                    type="submit"
+                    class="action-button action-button-primary action-button-block"
+                    disabled=move || saving.get() || !valid(name.get().trim())
+                >"Save"</button>
+            </form>
+        </ModalSheet>
+    }
+}
+// sirno:witness:ledger-rename:end
+
 // sirno:witness:ui-components:begin
 #[component]
 pub fn LedgerFingerprint(fingerprint: String, on_copy: Callback<String>) -> impl IntoView {

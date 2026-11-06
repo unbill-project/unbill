@@ -726,6 +726,10 @@ impl Console {
             .map_err(Into::into)
     }
 
+    pub fn clone_ledger(&self, ledger_id: String) -> Result<String, ConsoleError> {
+        self.inner.clone_ledger(ledger_id).map_err(Into::into)
+    }
+
     pub fn set_ledger_archived(
         &self,
         ledger_id: String,
@@ -744,6 +748,12 @@ impl Console {
     ) -> Result<(), ConsoleError> {
         self.inner
             .set_user_archived(ledger_id, user_id, archived)
+            .map_err(Into::into)
+    }
+
+    pub fn rename_ledger(&self, ledger_id: String, name: String) -> Result<(), ConsoleError> {
+        self.inner
+            .rename_ledger(ledger_id, name)
             .map_err(Into::into)
     }
 
@@ -943,6 +953,14 @@ mod tests {
         assert_eq!(detail, native.into());
         assert_eq!(detail.bills[0].id, bill_id);
         assert_eq!(detail.bills[0].payers[0].display_name, "Alice");
+        console
+            .rename_ledger(ledger.ledger_id.clone(), "Renamed".into())
+            .unwrap();
+        let clone_id = console.clone_ledger(ledger.ledger_id.clone()).unwrap();
+        let cloned = console.ledger_detail(clone_id.clone()).unwrap();
+        assert_eq!(cloned.summary.name, "Renamed (copy)");
+        assert_eq!(cloned.bills[0].id, bill_id);
+        assert_ne!(clone_id, ledger.ledger_id);
         assert_eq!(
             console.bootstrap().unwrap(),
             console.inner.bootstrap().unwrap().into()
@@ -956,9 +974,10 @@ mod tests {
         // Rust consumers can reopen the exact data created through the adapter.
         let native = unbill::Console::open_in_process(path).unwrap();
         assert_eq!(
-            native.ledger_detail(ledger.ledger_id).unwrap().bills[0].id,
-            bill_id
+            native.ledger_detail(ledger.ledger_id).unwrap().summary.name,
+            "Renamed"
         );
+        assert_eq!(native.ledger_detail(clone_id).unwrap().bills[0].id, bill_id);
     }
 
     #[test]

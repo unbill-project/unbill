@@ -52,7 +52,7 @@ fingerprint = "sha256:fd3302642d25a1dbc341cd4954cce29d25ad7b8674cb91320ff080ed94
 "core.belongs" = ["unbill"]
 
 [entries.ci-cd-pipeline]
-fingerprint = "sha256:02a129273319b19c39adf9fc3d498258cdea5ea7661f9433d7cf509eb5877187"
+fingerprint = "sha256:3c21e2dce95905e18accb8dc081e5fc6e0a28fb7390fbaada2704068603d556f"
 "core.belongs" = ["distribution-and-release"]
 
 [entries.compiled-markdown-artifacts]
@@ -204,6 +204,13 @@ fingerprint = "sha256:ae774b4839707c6908281f840d4e70b68dc910ba1ff7c4d0b43d4c09a7
 "core.belongs" = ["formal-invariants"]
 "core.refines" = ["data-model"]
 
+[entries.ledger-clone]
+fingerprint = "sha256:5bb93412dcd09b11360f9c6e3d63ded176dad32191bb057efd71a8c1003bcb5e"
+"core.belongs" = [
+    "console-service",
+    "ui-shared-model",
+]
+
 [entries.ledger-doc]
 fingerprint = "sha256:4f4bb163361991a38009b550632e82f97bcfecda09c081f7176865549c668dfe"
 "core.belongs" = [
@@ -211,6 +218,14 @@ fingerprint = "sha256:4f4bb163361991a38009b550632e82f97bcfecda09c081f7176865549c
     "unbill-console",
 ]
 "core.refines" = ["unbill-storage"]
+
+[entries.ledger-rename]
+fingerprint = "sha256:0aa985954aeae5680301908f1e89b95b8aabc006e1140d7a42df6ec4ace96516"
+"core.belongs" = [
+    "console-service",
+    "ui-shared-model",
+    "storage",
+]
 
 [entries.memory-store]
 fingerprint = "sha256:691cdc7cfd5f9c1b93793f68b0d5bdee2d20396d2bdc24a8222571927c8cb829"
@@ -318,7 +333,7 @@ fingerprint = "sha256:bc3287d3e76367e8e185d41ea1b61028d2bb97b91708d58226eed6c104
 "core.refines" = ["ui-shared-model"]
 
 [entries.unbill-cli]
-fingerprint = "sha256:23ed3983e2a23518d3cdff93ace942a1ec959ffc40ec6d808b57c668729933c3"
+fingerprint = "sha256:ef1924b8cb6274da066329b61acdba5d8b7e8d6623c10a00ecfb6aaa886a8fd4"
 "core.belongs" = ["applications"]
 "core.refines" = ["device-console-split"]
 
@@ -346,7 +361,7 @@ fingerprint = "sha256:23bf8421cd46fba5ee8f1b0c4995c7ee4a1579afea376b532d551c00de
 "core.refines" = ["sync-behavior"]
 
 [entries.unbill-ffi]
-fingerprint = "sha256:74e2d478b03b4ee2a036edc58b2663e5d630dd6dbe0edc2725694a432d205e01"
+fingerprint = "sha256:199f1fb045e5d306da0ba2d41c420938d9aab83f458d67f7f06f0db39e332b1c"
 "core.belongs" = [
     "workspace-layout",
     "rust-bindings",

@@ -23,6 +23,9 @@ in the caller's process. Desktop storage retains exclusive directory ownership.
 `open_rpc` connects to an existing daemon using the configured data directory
 and optional socket override, without opening storage itself.
 Both constructors return the same console operation surface.
+The adapter forwards ledger rename and clone to the native Console API, so
+generated Swift and Python clients can use both operations. Cloning returns the
+new ledger ID; renaming updates the shared ledger name.
 `rename_device` accepts a ledger ID, NodeId, and validated shared name.
 Ledger detail lists the local device alongside authorized peers so clients can
 rename either; bootstrap continues to list peers only.

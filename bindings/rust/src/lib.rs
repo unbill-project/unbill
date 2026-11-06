@@ -570,7 +570,16 @@ impl Console {
             .map_err(err)
     }
 
-    /// Add an already-known user (by id) to a ledger.
+    /// Create an independent copy and return its new ledger ID.
+    pub fn clone_ledger(&self, ledger_id: String) -> Result<String, ConsoleError> {
+        let source_id = parse_ledger_id(&ledger_id)?;
+        self.rt
+            .block_on(self.inner.clone_ledger(source_id))
+            .map(|id| id.to_string())
+            .map_err(err)
+    }
+
+    /// Archive or restore a ledger on the connected device.
     pub fn set_ledger_archived(
         &self,
         ledger_id: String,
@@ -592,6 +601,14 @@ impl Console {
         let uid = parse_user_id(&user_id)?;
         self.rt
             .block_on(self.inner.set_user_archived(lid, uid, archived))
+            .map_err(err)
+    }
+
+    /// Change the ledger's shared name without changing its ID.
+    pub fn rename_ledger(&self, ledger_id: String, name: String) -> Result<(), ConsoleError> {
+        let id = parse_ledger_id(&ledger_id)?;
+        self.rt
+            .block_on(self.inner.rename_ledger(id, &name))
             .map_err(err)
     }
 

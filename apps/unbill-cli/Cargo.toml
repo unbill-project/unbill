@@ -29,6 +29,10 @@ serde_json.workspace = true
 
 [dev-dependencies]
 tempfile = "3"
+tokio = { workspace = true, features = ["time"] }
+unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["local"] }
+unbill-device = { path = "../../crates/unbill-device", features = ["test-helpers"] }
+unbill-store-sqlite = { path = "../../crates/unbill-store-sqlite" }
 
 [build-dependencies]
 chrono.workspace = true

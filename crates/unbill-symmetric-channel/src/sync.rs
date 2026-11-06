@@ -713,38 +713,40 @@ mod tests {
         Ok(())
     }
 
+    // sirno:witness:symmetric-channel:begin
     #[tokio::test]
     async fn test_sync_unauthorized_device_rejected() -> Result<(), Box<dyn std::error::Error>> {
-        let node_a = NodeId::from_seed(1);
-        let node_b = NodeId::from_seed(2);
+        use crate::protocol::{Hello, SyncFrame, read_msg, write_msg};
 
-        // A's ledger does NOT authorize B.
-        let store_a = Arc::new(StoreServer::spawn(make_store()));
-        let store_b = Arc::new(StoreServer::spawn(make_store()));
+        let store = StoreServer::spawn(make_store());
+        let ledger_id = LedgerId::new();
+        let mut private = LedgerDoc::new(ledger_id, "Private".into(), usd(), Timestamp::now()?)?;
+        save_doc(&store, &mut private).await?;
 
-        let mut doc_a = LedgerDoc::new(
-            LedgerId::new(),
-            "Private".to_string(),
-            usd(),
-            Timestamp::now()?,
+        // An unauthorized initiator can name a real ledger in Hello even
+        // though an honest initiator would filter it out.
+        let (host, peer) = tokio::io::duplex(64 * 1024);
+        let (reader, writer) = tokio::io::split(host);
+        let host = tokio::spawn(async move {
+            run_sync_session(false, NodeId::from_seed(2), &store, reader, writer).await
+        });
+        let (mut reader, mut writer) = tokio::io::split(peer);
+        let id = ledger_id.to_string();
+        write_msg(
+            &mut writer,
+            &SyncFrame::Hello(Hello {
+                ledger_ids: vec![id.clone()],
+            }),
         )
-        .unwrap();
-        let id = doc_a.get_ledger().unwrap().ledger_id.to_string();
-        save_doc(&store_a, &mut doc_a).await?;
+        .await?;
 
-        // B has the same ledger ID.
-        let mut doc_b = LedgerDoc::new(
-            LedgerId::new(),
-            "Same id?".to_string(),
-            usd(),
-            Timestamp::now()?,
-        )
-        .unwrap();
-        // Manually set the same ID by saving with A's id key.
-        store_b.save_ledger(&id, &mut doc_b).await.unwrap();
-
-        sync_pair(store_a, store_b, node_a, node_b).await;
-        // No panic — A just rejects the ledger.
+        let SyncFrame::HelloAck(ack) = read_msg(&mut reader).await? else {
+            panic!("expected HelloAck");
+        };
+        assert!(ack.accepted.is_empty());
+        assert_eq!(ack.rejected, vec![id]);
+        assert!(host.await??.is_empty());
         Ok(())
     }
+    // sirno:witness:symmetric-channel:end
 }

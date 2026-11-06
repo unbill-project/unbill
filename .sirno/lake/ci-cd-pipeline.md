@@ -183,9 +183,11 @@ The tap repository holds `Formula/` for CLI/TUI formulas
 and `Casks/` for the desktop app.
 
 `nightly.yml` runs at midnight UTC and by manual dispatch.
-It creates a timestamp tag in the form `nightly-YYYYMMDD-HHMMSS`,
-calls the reusable build workflow,
-then publishes a prerelease targeting nightly AUR packages.
+Before building, it compares the triggering commit's Git tree with the tree
+at the newest timestamped nightly tag. If the trees match, it skips the build
+and release. If no nightly tag exists or the trees differ, it calls the reusable
+build workflow, then publishes a prerelease targeting nightly AUR packages.
+The new `nightly-YYYYMMDD-HHMMSS` tag points to the commit that was built.
 
 `version.yml` runs when a `v*` git tag is pushed.
 It calls the reusable build workflow with the tag,
