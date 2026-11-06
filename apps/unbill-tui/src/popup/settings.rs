@@ -712,8 +712,8 @@ impl SettingsPopup {
                 }
                 KeyCode::Enter => {
                     let name = self.create_user_input.value.trim().to_string();
-                    if name.is_empty() {
-                        self.error = Some("Enter a name".to_string());
+                    if let Err(message) = unbill_console::model::validation::user_name(&name) {
+                        self.error = Some(message);
                         return PopupOutcome::Pending;
                     }
                     let Some(ledger_id) = self.current_ledger_id() else {

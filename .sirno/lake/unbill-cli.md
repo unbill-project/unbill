@@ -36,7 +36,8 @@ proximity or grant ledger access.
 Invalid IDs,
 invalid amounts,
 and invalid node IDs fail before service calls.
-Amount parsing rejects cent-conversion overflow and invalid UTF-8 fraction boundaries.
+Amount parsing uses the shared model parser and Garde-backed bounds, returning
+the same format and range messages as the graphical and terminal editors.
 Strict Clippy exceptions stay local to character-boundary truncation and bounded display numbering.
 Service errors surface as non-zero exits with human-readable stderr.
 Invitation QR encoding errors also propagate to stderr and a non-zero exit; the URL is printed first.

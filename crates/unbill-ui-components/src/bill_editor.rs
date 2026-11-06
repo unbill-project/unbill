@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
+use unbill_model::validation;
 
 use crate::button::{ButtonTone, IconButton, IconButtonKind, TagPill};
 use crate::layout::{FieldBlock, ScreenFrame, SectionCard};
@@ -195,44 +196,7 @@ pub fn amend_bill_seed(
 
 // sirno:witness:ui-components:begin
 pub fn parse_amount_text(input: &str) -> Result<i64, String> {
-    let trimmed = input.trim();
-    if trimmed.is_empty() {
-        return Err("Enter an amount before saving.".to_owned());
-    }
-    if trimmed.starts_with('-') {
-        return Err("Amount must be zero or greater.".to_owned());
-    }
-
-    let mut parts = trimmed.split('.');
-    let units = parts
-        .next()
-        .unwrap_or_default()
-        .parse::<i64>()
-        .map_err(|_| "Amount must use digits and an optional decimal point.".to_owned())?;
-    let cents = match parts.next() {
-        None => 0,
-        Some(raw) => {
-            if parts.next().is_some() {
-                return Err("Amount can contain only one decimal point.".to_owned());
-            }
-            let padded = if raw.len() == 1 {
-                format!("{raw}0")
-            } else {
-                raw.to_owned()
-            };
-            if padded.len() != 2 {
-                return Err("Amount must use at most two decimal places.".to_owned());
-            }
-            padded
-                .parse::<i64>()
-                .map_err(|_| "Amount cents must be numeric.".to_owned())?
-        }
-    };
-
-    units
-        .checked_mul(100)
-        .and_then(|amount| amount.checked_add(cents))
-        .ok_or_else(|| "Amount is too large.".to_owned())
+    validation::parse_bill_amount_text(input)
 }
 // sirno:witness:ui-components:end
 
@@ -246,6 +210,7 @@ pub fn build_bill_save_request(
     share_rows: &[BillShareDraft],
 ) -> Result<BillSaveRequest, String> {
     let amount_cents = parse_amount_text(amount_text)?;
+    validation::bill_description(&description)?;
 
     let active_payer_rows = payer_rows
         .iter()
@@ -262,10 +227,7 @@ pub fn build_bill_save_request(
             let shares = if payer_mode == ShareMode::Equal {
                 1
             } else {
-                parse_required_share_weight(
-                    &row.shares,
-                    "Custom payer shares must be positive whole numbers.",
-                )?
+                parse_required_share_weight(&row.shares, validation::SHARE_WEIGHT_ERROR)?
             };
 
             Ok(BillShareInput {
@@ -290,10 +252,7 @@ pub fn build_bill_save_request(
             let shares = if share_mode == ShareMode::Equal {
                 1
             } else {
-                parse_required_share_weight(
-                    &share_row.shares,
-                    "Custom shares must be positive whole numbers.",
-                )?
+                parse_required_share_weight(&share_row.shares, validation::SHARE_WEIGHT_ERROR)?
             };
 
             Ok(BillShareInput {
@@ -357,7 +316,7 @@ where
         let amount = amount_text.get();
         build_bill_save_request(
             None,
-            String::new(),
+            "Preview".to_owned(),
             payer_mode.get(),
             &payer_rows.get(),
             if amount.trim().is_empty() {
@@ -688,12 +647,14 @@ where
 }
 
 fn parse_required_share_weight(input: &str, error: &str) -> Result<u32, String> {
-    parse_share_weight(input).ok_or_else(|| error.to_owned())
+    let value = parse_share_weight(input).ok_or_else(|| error.to_owned())?;
+    validation::share_weight(value)?;
+    Ok(value)
 }
 
 fn parse_share_weight(input: &str) -> Option<u32> {
     parse_share_weight_expression(input)
-        .filter(|shares| *shares > 0 && *shares <= u32::MAX as i64)
+        .filter(|shares| *shares >= 0 && *shares <= u32::MAX as i64)
         .map(|shares| shares as u32)
 }
 
@@ -868,8 +829,15 @@ mod tests {
     }
 
     #[test]
-    fn amount_conversion_checks_multiplication_and_addition_overflow() {
-        assert_eq!(parse_amount_text("92233720368547758.07"), Ok(i64::MAX));
+    fn amount_conversion_uses_garde_bounds_and_checks_overflow() {
+        assert_eq!(parse_amount_text("0.00"), Ok(0));
+        assert_eq!(parse_amount_text("20000000.00"), Ok(2_000_000_000));
+        for input in ["20000000.01", "92233720368547758.07"] {
+            assert_eq!(
+                parse_amount_text(input),
+                Err(validation::BILL_AMOUNT_ERROR.to_owned())
+            );
+        }
         for input in [
             "92233720368547758.08",
             "92233720368547759",
@@ -992,7 +960,7 @@ mod tests {
             Ok(_) => panic!("invalid custom payer shares should fail on submission"),
             Err(error) => error,
         };
-        assert_eq!(error, "Custom payer shares must be positive whole numbers.");
+        assert_eq!(error, validation::SHARE_WEIGHT_ERROR);
     }
 
     #[test]
@@ -1055,7 +1023,7 @@ mod tests {
             Ok(_) => panic!("non-positive share arithmetic should fail on submission"),
             Err(error) => error,
         };
-        assert_eq!(error, "Custom shares must be positive whole numbers.");
+        assert_eq!(error, validation::SHARE_WEIGHT_ERROR);
     }
 
     #[test]

@@ -33,13 +33,15 @@ struct AddBillView: View {
 
     private func shares(_ weights: [String: String], custom: Bool) throws -> [BillShareInput] {
         let inputs = try users.filter { weights[$0.userID] != nil }.map { user -> BillShareInput in
-            guard let weight = custom ? UInt32(weights[user.userID] ?? "") : 1, weight > 0 else {
-                throw BillInputError.invalid("Shares must be whole numbers from 1 to 4294967295.")
-            }
-            return BillShareInput(userID: user.userID, shares: custom ? weight : 1)
+            let weight = try InputValidation.parseShareWeight(custom ? (weights[user.userID] ?? "") : "1")
+            return BillShareInput(userID: user.userID, shares: weight)
         }
         guard !inputs.isEmpty else { throw BillInputError.invalid("Select at least one payer and one participant.") }
         return inputs
+    }
+
+    private func validatedAmount() throws -> Int64 {
+        try InputValidation.parseBillAmount(amount)
     }
 
     @ViewBuilder var body: some View {
@@ -76,6 +78,10 @@ struct AddBillView: View {
                 if let previewError {
                     Section { Text(previewError).foregroundStyle(.red) }
                 }
+                if !description.isEmpty,
+                   let descriptionError = InputValidation.billDescription(description.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                    Section { Text(descriptionError).foregroundStyle(.red) }
+                }
                 if let bill {
                     Section("Original bill") {
                         Text(Date(timeIntervalSince1970: Double(bill.createdAtMs) / 1000), format: .dateTime.year().month().day().hour().minute())
@@ -89,7 +95,7 @@ struct AddBillView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { if let onCancel { onCancel() } else { dismiss() } }.keyboardShortcut(.cancelAction) }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") { Task { await save() } }.keyboardShortcut("s", modifiers: .command)
-                        .disabled(description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || preview == nil || isSaving)
+                        .disabled(InputValidation.billDescription(description.trimmingCharacters(in: .whitespacesAndNewlines)) != nil || preview == nil || isSaving)
                 }
             }
             .onAppear { seed() }
@@ -172,7 +178,7 @@ struct AddBillView: View {
         guard initialized, !amount.isEmpty else { return }
         let key = draftKey
         do {
-            let split = try await console.previewBill(amountCents: Money.parse(amount),
+            let split = try await console.previewBill(amountCents: validatedAmount(),
                 payers: shares(payerWeights, custom: customPayers), payees: shares(payeeWeights, custom: customPayees), previewID: previewID)
             guard !Task.isCancelled, key == draftKey else { return }
             preview = split
@@ -186,8 +192,10 @@ struct AddBillView: View {
         isSaving = true
         error = nil
         do {
-            try await console.saveBill(ledgerID: ledgerID, description: description.trimmingCharacters(in: .whitespacesAndNewlines),
-                amountCents: Money.parse(amount), payers: shares(payerWeights, custom: customPayers),
+            let billDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let message = InputValidation.billDescription(billDescription) { throw BillInputError.invalid(message) }
+            try await console.saveBill(ledgerID: ledgerID, description: billDescription,
+                amountCents: validatedAmount(), payers: shares(payerWeights, custom: customPayers),
                 payees: shares(payeeWeights, custom: customPayees), previousBillIDs: bill.map { [$0.id] } ?? [], billID: previewID)
             onSaved()
             if !embedded { dismiss() }

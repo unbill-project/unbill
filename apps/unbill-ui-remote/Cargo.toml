@@ -13,6 +13,7 @@ unbill-build-info = { path = "../../crates/unbill-build-info" }
 console_error_panic_hook = "0.1"
 leptos = { version = "0.8.14", features = ["csr"] }
 unbill-ui-components = { path = "../../crates/unbill-ui-components" }
+unbill-model = { path = "../../crates/unbill-model" }
 unbill-console = { path = "../../crates/unbill-console" }
 unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["http"] }
 serde = { workspace = true, features = ["derive"] }

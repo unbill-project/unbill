@@ -19,6 +19,12 @@ struct JoinLedgerView: View {
         url.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var trimmedDeviceName: String {
+        deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var deviceNameError: String? { InputValidation.deviceName(trimmedDeviceName) }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -59,6 +65,9 @@ struct JoinLedgerView: View {
                 Section("This Device’s Name in This Ledger") {
                     TextField("Device name", text: $deviceName)
                 }
+                if !deviceName.isEmpty, let deviceNameError {
+                    Section { Text(deviceNameError).foregroundStyle(.red) }
+                }
 
                 if isJoining {
                     Section { HStack { ProgressView(); Text("Joining…").foregroundStyle(.secondary) } }
@@ -76,7 +85,7 @@ struct JoinLedgerView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Join") { Task { await join(trimmedURL) } }
-                        .disabled(trimmedURL.isEmpty || deviceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isJoining)
+                        .disabled(trimmedURL.isEmpty || deviceNameError != nil || isJoining)
                 }
             }
             #if !targetEnvironment(macCatalyst)
@@ -101,11 +110,12 @@ struct JoinLedgerView: View {
 
     private func join(_ link: String) async {
         let link = link.trimmingCharacters(in: .whitespacesAndNewlines)
-        let name = deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !link.isEmpty, !name.isEmpty else { return }
+        let name = trimmedDeviceName
+        guard !link.isEmpty else { return }
         isJoining = true
         error = nil
         do {
+            if let deviceNameError { throw BillInputError.invalid(deviceNameError) }
             try await console.joinLedger(url: link, label: name)
             onJoined()
             dismiss()

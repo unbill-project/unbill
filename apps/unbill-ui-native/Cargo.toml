@@ -13,12 +13,15 @@ unbill-build-info = { path = "../../crates/unbill-build-info" }
 console_error_panic_hook = "0.1"
 leptos = { version = "0.8.14", features = ["csr"] }
 unbill-ui-components = { path = "../../crates/unbill-ui-components" }
+unbill-model = { path = "../../crates/unbill-model" }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 js-sys = "0.3"
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
 web-sys = { version = "0.3", features = ["Event", "EventTarget", "Window"] }
+getrandom3 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
+getrandom4 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
 
 [build-dependencies]
 chrono.workspace = true

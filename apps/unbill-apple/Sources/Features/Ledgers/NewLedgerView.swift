@@ -18,6 +18,8 @@ struct NewLedgerView: View {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var nameError: String? { InputValidation.ledgerName(trimmedName) }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -32,6 +34,9 @@ struct NewLedgerView: View {
                         }
                     }
                 }
+                if !name.isEmpty, let nameError {
+                    Section { Text(nameError).foregroundStyle(.red) }
+                }
                 if let error {
                     Section {
                         Text(error).foregroundStyle(.red)
@@ -45,7 +50,7 @@ struct NewLedgerView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") { Task { await create() } }
-                        .disabled(trimmedName.isEmpty || !currencies.contains(currency) || isSaving)
+                        .disabled(nameError != nil || !currencies.contains(currency) || isSaving)
                 }
             }
             .task {
@@ -58,6 +63,7 @@ struct NewLedgerView: View {
         isSaving = true
         error = nil
         do {
+            if let nameError { throw BillInputError.invalid(nameError) }
             let summary = try await console.createLedger(name: trimmedName, currency: currency)
             onCreated(summary)
             dismiss()

@@ -13,6 +13,8 @@ core.refines:
 `unbill-ui-remote` is a browser-only Leptos application compiled to WASM with Trunk.
 It connects to a running `unbill-server` instance over HTTP.
 All ledger state lives on the server-side device.
+Its ledger, user, and device forms call the model's Garde-backed validators
+for size limits and inline error messages.
 
 Startup resolves the server base URL from `UNBILL_SERVER_URL`
 or the browser same-origin URL.

@@ -7,6 +7,7 @@ use crate::components::{
 };
 use crate::components::{LedgerFingerprint, OpenSourceLicenses};
 use leptos::prelude::*;
+use unbill_model::validation;
 
 // sirno:witness:unbill-ui-remote:begin
 const MAX_VISIBLE_NAMES: usize = 3;
@@ -696,13 +697,19 @@ pub fn CreateLedgerSheet(
                         on:input=move |event| name.set(event_target_value(&event))
                     />
                 </FieldBlock>
+                {move || {
+                    let value = name.get();
+                    (!value.is_empty()).then(|| validation::ledger_name(value.trim()).err()).flatten()
+                        .map(|message| view! { <p class="form-error" role="alert">{message}</p> })
+                }}
                 <FieldBlock label="Currency".to_owned()>
                     <CurrencyCombobox value=currency />
                 </FieldBlock>
                 <ActionButton
                     label="Create Ledger".to_owned()
                     full_width=true
-                    on_press=Callback::new(move |_| on_submit.run((name.get(), currency.get())))
+                    disabled=Signal::derive(move || validation::ledger_name(name.get().trim()).is_err())
+                    on_press=Callback::new(move |_| on_submit.run((name.get().trim().to_owned(), currency.get())))
                 />
             </div>
         </ModalSheet>
@@ -743,13 +750,19 @@ pub fn AddLedgerUserSheet(
                                 on:input=move |event| new_name.set(event_target_value(&event))
                             />
                         </FieldBlock>
+                        {move || {
+                            let value = new_name.get();
+                            (!value.is_empty()).then(|| validation::user_name(value.trim()).err()).flatten()
+                                .map(|message| view! { <p class="form-error" role="alert">{message}</p> })
+                        }}
                         <ActionButton
                             label="Create".to_owned()
                             tone=ButtonTone::Secondary
+                            disabled=Signal::derive(move || validation::user_name(new_name.get().trim()).is_err())
                             on_press=Callback::new(move |_| {
                                 let name = new_name.get();
-                                if !name.trim().is_empty() {
-                                    on_create_user.run(name);
+                                if validation::user_name(name.trim()).is_ok() {
+                                    on_create_user.run(name.trim().to_owned());
                                 }
                             })
                         />
@@ -810,14 +823,18 @@ pub fn RenameDeviceSheet(
             on_close=Callback::new(move |_| { if !saving.get() { on_cancel.run(()); } })
         >
             <div class="stack-gap">
-                <FieldBlock label="Name in this ledger".to_owned() hint="1–100 characters".to_owned()>
+                <FieldBlock label="Name in this ledger".to_owned()>
                     <input
                         class="ui-input"
-                        maxlength="100"
                         prop:value=move || name.get()
                         on:input=move |event| name.set(event_target_value(&event))
                     />
                 </FieldBlock>
+                {move || {
+                    let value = name.get();
+                    (!value.is_empty()).then(|| validation::device_name(value.trim()).err()).flatten()
+                        .map(|message| view! { <p class="form-error" role="alert">{message}</p> })
+                }}
                 {move || error.get().map(|message| view! { <p class="form-error" role="alert">{message}</p> })}
                 <button
                     type="button"
@@ -825,7 +842,7 @@ pub fn RenameDeviceSheet(
                     disabled=move || {
                         let value = name.get();
                         let trimmed = value.trim();
-                        saving.get() || trimmed.is_empty() || trimmed.chars().count() > 100 || trimmed == unchanged
+                        saving.get() || validation::device_name(trimmed).is_err() || trimmed == unchanged
                     }
                     on:click=move |_| {
                         let ledger_id = ledger_id.clone();

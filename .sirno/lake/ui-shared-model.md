@@ -68,6 +68,9 @@ raw draft input,
 and save-time validation feedback.
 New and amended bills accept a zero-cent total so an incorrect bill can be
 financially canceled without deleting its history; negative totals are invalid.
+All frontends use the model's Garde-backed field validators for numerical and
+length limits. The shared amount parser gives the same format and range errors
+in Web, terminal, and Apple editors; Apple calls it through UniFFI.
 New bills seed from active ledger users with equal shares; archived users remain available for explicit selection.
 Amend mode seeds from the selected bill and preserves its effective participant set.
 Payers and payees use positive integer share weights with live per-participant amount preview.

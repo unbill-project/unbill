@@ -6,6 +6,7 @@ use futures::StreamExt as _;
 use ratatui::{Terminal, backend::CrosstermBackend};
 use tokio::sync::mpsc;
 use tokio::time::{Duration, interval};
+use unbill_console::model::validation;
 use unbill_console::model::{
     Bill, BillId, Currency, LedgerId, LedgerMeta, NewBill, NewLedger, NodeId, Share, User,
 };
@@ -574,16 +575,33 @@ async fn try_confirm_editor(state: &mut AppState, svc: &Arc<UnbillConsole>) {
         };
 
         let description = editor.description.trim().to_string();
-        let amount_cents = match parse_amount_cents(&editor.amount_str) {
-            Some(v) => v,
-            None => {
+        let amount_cents = match validation::parse_bill_amount_text(&editor.amount_str) {
+            Ok(value) => value,
+            Err(message) => {
                 return {
                     if let Some(e) = state.bill_editor.as_mut() {
-                        e.error = Some("Enter a valid amount (e.g. 12.50)".to_string());
+                        e.error = Some(message);
                     }
                 };
             }
         };
+        if let Some(message) = validation::bill_amount(amount_cents)
+            .err()
+            .or_else(|| validation::bill_description(&description).err())
+            .or_else(|| {
+                editor
+                    .payers
+                    .iter()
+                    .chain(editor.payees.iter())
+                    .filter(|row| row.selected)
+                    .find_map(|row| validation::share_weight(row.weight).err())
+            })
+        {
+            if let Some(editor) = state.bill_editor.as_mut() {
+                editor.error = Some(message);
+            }
+            return;
+        }
 
         let payers: Vec<Share> = editor
             .payers
@@ -1027,22 +1045,7 @@ fn build_amend_editor(ledger_id: LedgerId, bill: &Bill, mut users: Vec<User>) ->
 
 // sirno:witness:unbill-tui:begin
 pub(crate) fn parse_amount_cents(s: &str) -> Option<i64> {
-    let s = s.trim();
-    if s.is_empty() || s.starts_with('-') {
-        return None;
-    }
-    if let Some((whole, frac)) = s.split_once('.') {
-        let whole: i64 = whole.parse().ok()?;
-        let frac = match frac.len() {
-            0 => 0i64,
-            1 => frac.parse::<i64>().ok()?.checked_mul(10)?,
-            _ => frac.get(..2)?.parse::<i64>().ok()?,
-        };
-        whole.checked_mul(100)?.checked_add(frac)
-    } else {
-        let whole: i64 = s.parse().ok()?;
-        whole.checked_mul(100)
-    }
+    validation::parse_bill_amount_text(s).ok()
 }
 // sirno:witness:unbill-tui:end
 
@@ -1127,8 +1130,8 @@ mod tests {
             ("12.", 1200),
             ("12.3", 1230),
             ("12.34", 1234),
-            ("12.345", 1234),
-            ("92233720368547758.07", i64::MAX),
+            ("12,34", 1234),
+            ("20000000.00", 2_000_000_000),
         ] {
             assert_eq!(parse_amount_cents(input), Some(expected), "{input}");
         }
@@ -1137,6 +1140,8 @@ mod tests {
             "92233720368547758.08",
             "-92233720368547759",
             "-0.01",
+            "12.345",
+            "20000000.01",
         ] {
             assert_eq!(parse_amount_cents(input), None, "{input}");
         }

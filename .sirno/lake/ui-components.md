@@ -11,7 +11,8 @@ core.refines:
 ---
 
 `unbill-ui-components` contains reusable pure Leptos components.
-It imports no Tauri, no HTTP transport, and no domain crates.
+It imports no Tauri or HTTP transport. It uses `unbill-model` input validation
+to apply the same Garde limits and messages as the service layer.
 
 Operations that touch external state are callback props.
 The caller wires those callbacks to Tauri, HTTP, mocks, or tests.
@@ -105,9 +106,8 @@ and animates in and out via CSS transitions on a wrapper element.
 `bill_editor.rs` owns the shared bill editor draft model.
 Custom share weights stay as raw text until submission.
 Preview parsing is tolerant and supports simple addition and subtraction expressions.
-The save-request builder performs strict amount,
-participant,
-and share-weight validation.
+The save-request builder performs strict amount, description, participant,
+and share-weight validation through the shared model rules.
 Amount conversion returns a validation error if the cent value overflows.
 Local Clippy allowances document bounded ASCII parsing, collection-derived display indices,
 and the practical lifetime bound on the toast counter.

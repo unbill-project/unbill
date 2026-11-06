@@ -221,9 +221,9 @@ private struct RenameNameSheet: View {
     private var lengthError: String? {
         switch target {
         case .ledger:
-            trimmedName.utf8.count > 100 ? "Ledger names can be at most 100 UTF-8 bytes." : nil
+            InputValidation.ledgerName(trimmedName)
         case .device:
-            trimmedName.count > 100 ? "Device names can be at most 100 characters." : nil
+            InputValidation.deviceName(trimmedName)
         }
     }
 
@@ -255,7 +255,7 @@ private struct RenameNameSheet: View {
                             } catch { self.error = error.localizedDescription }
                         }
                     }
-                    .disabled(saving || trimmedName.isEmpty || lengthError != nil || trimmedName == name)
+                    .disabled(saving || lengthError != nil || trimmedName == name)
                 }
             }
         }

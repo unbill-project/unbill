@@ -7,7 +7,7 @@ use ratatui::{
 };
 use unbill_console::model::{Bill, BillId, LedgerId, NewBill, Share, User};
 
-use super::add_bill::{format_cents, parse_amount_cents};
+use super::add_bill::format_cents;
 use super::{
     PopupAction, PopupOutcome, PopupView, TextInput, render_popup_base, render_text_field,
 };
@@ -83,19 +83,20 @@ impl AmendBillPopup {
 
     fn try_confirm(&mut self) -> PopupOutcome {
         let description = self.description.value.trim().to_string();
-        if description.is_empty() {
-            self.error = Some("Description must not be empty".to_string());
+        if let Err(message) = unbill_console::model::validation::bill_description(&description) {
+            self.error = Some(message);
             return PopupOutcome::Pending;
         }
 
         let amount_str = self.amount.value.trim();
-        let amount_cents = match parse_amount_cents(amount_str) {
-            Some(v) if v >= 0 => v,
-            _ => {
-                self.error = Some("Enter a valid non-negative amount (e.g. 0.00)".to_string());
-                return PopupOutcome::Pending;
-            }
-        };
+        let amount_cents =
+            match unbill_console::model::validation::parse_bill_amount_text(amount_str) {
+                Ok(value) => value,
+                Err(message) => {
+                    self.error = Some(message);
+                    return PopupOutcome::Pending;
+                }
+            };
 
         if self.users.is_empty() {
             self.error = Some("No users in ledger".to_string());

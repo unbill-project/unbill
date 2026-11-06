@@ -101,7 +101,7 @@ impl LedgerDoc {
     ) -> Result<(Self, LedgerMeta)> {
         let mut ledger = self.get_ledger()?;
         const SUFFIX: &str = " (copy)";
-        let name_limit = crate::user::MAX_LEDGER_NAME_LEN.saturating_sub(SUFFIX.len());
+        let name_limit = crate::validation::MAX_NAME_BYTES.saturating_sub(SUFFIX.len());
         ledger
             .name
             .truncate(ledger.name.floor_char_boundary(name_limit));

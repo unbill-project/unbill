@@ -156,28 +156,7 @@ pub fn fmt_amount(cents: i64) -> String {
 /// Whole numbers are treated as full currency units (e.g. "12" → 1200).
 // sirno:witness:unbill-cli:begin
 pub fn parse_amount(s: &str) -> anyhow::Result<i64> {
-    if let Some((whole, frac)) = s.split_once('.') {
-        let whole: i64 = whole
-            .parse()
-            .map_err(|_| anyhow::anyhow!("invalid amount: {s:?}"))?;
-        let frac_padded = format!("{:0<2}", frac);
-        let cents: i64 = frac_padded
-            .get(..2)
-            .ok_or_else(|| anyhow::anyhow!("invalid amount fraction: {s:?}"))?
-            .parse()
-            .map_err(|_| anyhow::anyhow!("invalid amount fraction: {s:?}"))?;
-        whole
-            .checked_mul(100)
-            .and_then(|units| units.checked_add(cents))
-            .ok_or_else(|| anyhow::anyhow!("amount is too large: {s:?}"))
-    } else {
-        let whole: i64 = s
-            .parse()
-            .map_err(|_| anyhow::anyhow!("invalid amount: {s:?}"))?;
-        whole
-            .checked_mul(100)
-            .ok_or_else(|| anyhow::anyhow!("amount is too large: {s:?}"))
-    }
+    unbill_console::model::validation::parse_bill_amount_text(s).map_err(anyhow::Error::msg)
 }
 // sirno:witness:unbill-cli:end
 
@@ -201,12 +180,13 @@ mod tests {
     #[test]
     fn amount_parsing_handles_cent_boundaries() -> anyhow::Result<()> {
         for (input, expected) in [
+            ("0", 0),
             ("12", 1200),
             ("12.", 1200),
             ("12.3", 1230),
             ("12.34", 1234),
-            ("12.345", 1234),
-            ("92233720368547758.07", i64::MAX),
+            ("12,34", 1234),
+            ("20000000.00", 2_000_000_000),
         ] {
             assert_eq!(parse_amount(input)?, expected, "{input}");
         }
@@ -214,6 +194,8 @@ mod tests {
             "92233720368547759",
             "92233720368547758.08",
             "-92233720368547759",
+            "12.345",
+            "20000000.01",
         ] {
             assert!(parse_amount(input).is_err(), "{input}");
         }

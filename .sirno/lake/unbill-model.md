@@ -19,6 +19,10 @@ input structs (`NewBill`, `NewUser`, `NewUserName`, `NewDevice`, `NewLedger`),
 and error enums.
 `NewBill` accepts a zero-cent amount so an amendment can retain history while
 removing the superseded bill's financial effect. Negative amounts are invalid.
+`validation` runs Garde rules for bill amount and description, share weights,
+ledger and user names, and device names. Bill amount is bounded by the verified
+model's 2,000,000,000-cent limit. The shared decimal parser applies that rule
+after syntax and overflow checks, and returns stable user-facing errors.
 
 `Currency::all` enumerates the complete currency catalog accepted by `Currency::from_code`,
 using the same underlying ISO currency definitions.

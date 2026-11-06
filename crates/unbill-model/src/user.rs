@@ -43,20 +43,18 @@ pub struct Device {
 /// Input type for creating a brand-new user (allocates a new UserId).
 #[derive(Clone, Debug, garde::Validate)]
 pub struct NewUserName {
-    #[garde(length(min = 1, max = 100))]
+    #[garde(custom(crate::validation::user_name_rule))]
     pub display_name: String,
 }
 
 /// Input type for creating a new ledger.
 #[derive(Clone, Debug, garde::Validate)]
 pub struct NewLedger {
-    #[garde(length(min = 1, max = MAX_LEDGER_NAME_LEN))]
+    #[garde(custom(crate::validation::ledger_name_rule))]
     pub name: String,
     #[garde(skip)]
     pub currency: crate::Currency,
 }
-
-pub(crate) const MAX_LEDGER_NAME_LEN: usize = 100;
 
 /// Input type for directly adding a user to a ledger.
 #[derive(Clone, Debug, garde::Validate)]

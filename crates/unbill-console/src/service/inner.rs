@@ -1340,6 +1340,14 @@ mod tests {
             svc.add_bill(ledger_id, two_way_bill(-1)).await,
             Err(UnbillError::Validation(_))
         ));
+        assert!(matches!(
+            svc.add_bill(
+                ledger_id,
+                two_way_bill(crate::model::validation::MAX_BILL_AMOUNT_CENTS + 1),
+            )
+            .await,
+            Err(UnbillError::Validation(_))
+        ));
         let original = svc.add_bill(ledger_id, two_way_bill(100)).await?;
         assert_eq!(svc.settle_ledger(ledger_id).await?.transactions.len(), 1);
 

@@ -79,8 +79,8 @@ impl PopupView for CreateLedgerPopup {
             KeyCode::Enter => {
                 let name = self.name.value.trim().to_string();
                 let currency = self.currency.value.trim().to_string();
-                if name.is_empty() {
-                    self.error = Some("Name must not be empty".to_string());
+                if let Err(message) = unbill_console::model::validation::ledger_name(&name) {
+                    self.error = Some(message);
                     return PopupOutcome::Pending;
                 }
                 if currency.is_empty() {

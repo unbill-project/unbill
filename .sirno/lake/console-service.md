@@ -34,6 +34,8 @@ delegates to `settlement::calculate_bill_split`,
 and returns either both allocations or a validation error.
 It accepts zero totals. Bill submission also accepts zero, while still requiring
 a description and valid payer and payee shares.
+Bill submission's Garde amount limit uses the verified splitter's same
+2,000,000,000-cent maximum, so preview and save agree at the boundary.
 It does not validate ledger membership or bill descriptions.
 Repeated calls with the same inputs return the same allocations.
 An unsaved draft's rounding seed must remain stable while editing;

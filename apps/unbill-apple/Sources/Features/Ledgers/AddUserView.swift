@@ -20,6 +20,8 @@ struct AddUserView: View {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var nameError: String? { InputValidation.userName(trimmedName) }
+
     // Known users not already in this ledger.
     private var importable: [User] {
         known.filter { !existingUserIDs.contains($0.userID) }
@@ -32,6 +34,9 @@ struct AddUserView: View {
                 Section("New Person") {
                     TextField("Name", text: $name)
                         .textInputAutocapitalization(.words)
+                }
+                if !name.isEmpty, let nameError {
+                    Section { Text(nameError).foregroundStyle(.red) }
                 }
 
                 Section("From Other Ledgers") {
@@ -72,7 +77,7 @@ struct AddUserView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") { Task { await createNew() } }
-                        .disabled(trimmedName.isEmpty || isSaving)
+                        .disabled(nameError != nil || isSaving)
                 }
             }
             .task { await loadKnownUsers() }
@@ -94,10 +99,11 @@ struct AddUserView: View {
     }
 
     private func createNew() async {
-        guard !isSaving, !trimmedName.isEmpty else { return }
+        guard !isSaving else { return }
         isSaving = true
         error = nil
         do {
+            if let nameError { throw BillInputError.invalid(nameError) }
             try await console.createUser(ledgerID: ledgerID, displayName: trimmedName)
             onSaved()
             dismiss()

@@ -44,7 +44,10 @@ impl PopupView for RenameLedgerPopup {
         .areas(inner);
         render_text_field(frame, input, &self.name, true);
         let (text, color) = if self.invalid {
-            ("Ledger name must be 1–100 UTF-8 bytes.", Color::Red)
+            (
+                unbill_console::model::validation::LEDGER_NAME_ERROR,
+                Color::Red,
+            )
         } else {
             ("The name is shared when the ledger syncs.", Color::DarkGray)
         };
@@ -61,7 +64,7 @@ impl PopupView for RenameLedgerPopup {
             KeyCode::Esc => return PopupOutcome::Cancelled,
             KeyCode::Enter => {
                 let name = self.name.value.trim();
-                if !name.is_empty() && name.len() <= 100 {
+                if unbill_console::model::validation::ledger_name(name).is_ok() {
                     return PopupOutcome::Action(PopupAction::RenameLedger {
                         ledger_id: self.ledger_id,
                         name: name.to_owned(),
