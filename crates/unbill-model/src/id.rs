@@ -168,6 +168,7 @@ macro_rules! define_id {
 define_id!(LedgerId);
 define_id!(BillId);
 define_id!(UserId);
+define_id!(ProfileId);
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -210,6 +211,7 @@ mod tests {
         let _: LedgerId = LedgerId::new();
         let _: BillId = BillId::new();
         let _: UserId = UserId::new();
+        let _: ProfileId = ProfileId::new();
     }
 
     #[test]

@@ -17,6 +17,10 @@ ledger records, users, devices, invitations,
 input structs (`NewBill`, `NewUser`, `NewUserName`, `NewDevice`, `NewLedger`),
 `LedgerMeta` for lightweight ledger summaries without Automerge bytes,
 and error enums.
+`ProfileId` is a typed ULID distinct from the ledger's accounting `UserId`.
+`DeviceId` has a tagged `Iroh(NodeId)` branch and a tagged
+`ServerProfile { node_id: NodeId, profile_id: ProfileId }` branch. Both
+serialize through Automerge and JSON; ledger fields do not yet use this type.
 `NewBill` accepts a zero-cent amount so an amendment can retain history while
 removing the superseded bill's financial effect. Negative amounts are invalid.
 `validation` runs Garde rules for bill amount and description, share weights,
