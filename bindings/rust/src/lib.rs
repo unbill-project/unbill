@@ -225,19 +225,25 @@ pub struct ConsoleBill {
     pub prev: Vec<String>,
 }
 
+/// One participant's integer minor-unit amount in a bill split.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleUserAmount {
     pub user_id: String,
     pub amount_cents: i64,
 }
 
+/// Integer minor-unit totals assigned to each participant by a bill preview.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleBillSplit {
     pub payer_amounts: Vec<ConsoleUserAmount>,
     pub payee_amounts: Vec<ConsoleUserAmount>,
 }
 
-/// Identity of a draft and the bills it supersedes when saved.
+/// Identity assigned to a bill before it is previewed and saved.
+///
+/// Set `prev_bill_ids` to the bills this entry amends. Leave it empty for a new
+/// bill. The same `bill_id` should be passed to [`Console::preview_bill_split`]
+/// and then saved here so both operations use the same deterministic rounding.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleBillDraft {
     pub bill_id: String,
@@ -289,7 +295,10 @@ pub struct ConsoleLedgerDetail {
     pub settlement: Vec<ConsoleTransaction>,
 }
 
-/// Input for save_bill (a participant's share weight).
+/// A participant and their relative weight in a bill's payer or payee group.
+///
+/// For an equal split among two payees, give each one `shares: 1`; a 2:1 split
+/// uses `shares: 2` and `shares: 1`. Weights are not currency amounts.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConsoleShareInput {
     pub user_id: String,
@@ -476,6 +485,12 @@ impl Drop for ConsoleSubscription {
 // ---------- Console handle ----------
 
 // sirno:witness:rust-bindings:begin
+/// Synchronous interface to an Unbill ledger and device.
+///
+/// Each instance owns a Tokio runtime. Run constructors and synchronous methods
+/// outside another async runtime; use `tokio::task::spawn_blocking` when calling
+/// them from a Tokio application. The final `Console` handle must also be
+/// dropped outside an async runtime context.
 pub struct Console {
     rt: tokio::runtime::Runtime,
     inner: Arc<UnbillConsole>,
@@ -483,6 +498,9 @@ pub struct Console {
 
 impl Console {
     /// Run a device and console in this process, owning the SQLite data directory.
+    ///
+    /// On desktop, this instance exclusively owns `dir` until its final handle
+    /// is dropped. Use [`Console::open_rpc`] to connect to an existing daemon.
     pub fn open_in_process(dir: String) -> Result<Arc<Self>, ConsoleError> {
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -566,6 +584,7 @@ impl Console {
             .map_err(err)
     }
 
+    /// Create a ledger using a supported ISO 4217 currency code such as `USD`.
     pub fn create_ledger(
         &self,
         name: String,
@@ -667,7 +686,11 @@ impl Console {
             .map_err(err)
     }
 
-    /// Calculate a draft using the same verified splitting algorithm as other clients.
+    /// Preview a bill split using the same verified algorithm as other clients.
+    ///
+    /// Amounts are integer minor units (for example, cents for USD); `payers`
+    /// and `payees` contain relative share weights. Use [`new_bill_id`] to get
+    /// an ID, then reuse it in [`Console::save_bill`] via [`ConsoleBillDraft`].
     pub fn preview_bill_split(
         &self,
         amount_cents: i64,
@@ -699,7 +722,52 @@ impl Console {
         })
     }
 
-    /// Save a new bill or an amendment (supersedes `prev_bill_ids`). Returns the new bill id.
+    /// Save a new bill or an amendment and return its bill ID.
+    ///
+    /// `amount_cents` is expressed in integer minor units, and the share inputs
+    /// are relative weights. For an amendment, `draft.prev_bill_ids` lists the
+    /// entries it supersedes. Reuse the ID given to `preview_bill_split` so the
+    /// preview and saved amounts agree.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use unbill::{
+    ///     Console, ConsoleBillDraft, ConsoleError, ConsoleShareInput, new_bill_id,
+    /// };
+    ///
+    /// fn add_dinner() -> Result<(), ConsoleError> {
+    ///     let console = Console::open_in_process("./household-data".into())?;
+    ///     let ledger = console.create_ledger("Household".into(), "USD".into())?;
+    ///     let alice = console.create_user(ledger.ledger_id.clone(), "Alice".into())?;
+    ///     let bob = console.create_user(ledger.ledger_id.clone(), "Bob".into())?;
+    ///
+    ///     let amount_cents = 4_200;
+    ///     let payers = vec![ConsoleShareInput {
+    ///         user_id: alice.user_id.clone(),
+    ///         shares: 1,
+    ///     }];
+    ///     let payees = vec![
+    ///         ConsoleShareInput { user_id: alice.user_id, shares: 1 },
+    ///         ConsoleShareInput { user_id: bob.user_id, shares: 1 },
+    ///     ];
+    ///     let bill_id = new_bill_id();
+    ///     let preview = console.preview_bill_split(
+    ///         amount_cents, payers.clone(), payees.clone(), bill_id.clone(),
+    ///     )?;
+    ///     assert_eq!(preview.payee_amounts.len(), 2);
+    ///
+    ///     console.save_bill(
+    ///         ledger.ledger_id,
+    ///         amount_cents,
+    ///         "Dinner".into(),
+    ///         payers,
+    ///         payees,
+    ///         ConsoleBillDraft { bill_id, prev_bill_ids: vec![] },
+    ///     )?;
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn save_bill(
         &self,
         ledger_id: String,
