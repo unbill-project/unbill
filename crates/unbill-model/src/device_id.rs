@@ -1,4 +1,5 @@
 use autosurgeon::{Hydrate, Reconcile};
+use std::fmt;
 
 use crate::{NodeId, ProfileId};
 
@@ -20,6 +21,18 @@ impl DeviceId {
     pub fn node_id(&self) -> &NodeId {
         match self {
             Self::Iroh(node_id) | Self::ServerProfile { node_id, .. } => node_id,
+        }
+    }
+}
+
+impl fmt::Display for DeviceId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Iroh(node_id) => node_id.fmt(f),
+            Self::ServerProfile {
+                node_id,
+                profile_id,
+            } => write!(f, "{node_id}/{profile_id}"),
         }
     }
 }

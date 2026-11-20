@@ -1,7 +1,7 @@
 use autosurgeon::{Hydrate, Reconcile};
 
 use crate::id::{BillId, UserId};
-use crate::node_id::NodeId;
+use crate::DeviceId;
 use crate::timestamp::Timestamp;
 
 #[derive(Clone, Debug, Reconcile, Hydrate)]
@@ -22,8 +22,8 @@ pub struct Bill {
     /// A bill whose ID appears in any other bill's `prev` is no longer effective.
     pub prev: Vec<BillId>,
     pub created_at: Timestamp,
-    /// The iroh NodeId of the device that created this bill entry.
-    pub created_by_device: NodeId,
+    /// The ledger device identity that created this bill entry.
+    pub created_by_device: DeviceId,
     // sirno:witness:data-model:end
 }
 

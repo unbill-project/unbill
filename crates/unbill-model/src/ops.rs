@@ -8,10 +8,10 @@ use autosurgeon::{hydrate, reconcile};
 
 use unbill_model_verified::ledger::exec as v;
 
-use crate::verified_bridge::{ledger_to_model, model_to_ledger};
+use crate::verified_bridge::{device_id_bytes, ledger_to_model, model_to_ledger};
 use crate::{
     AddBillOpError, AddDeviceOpError, AddUserOpError, Bill, BillId, Currency, Device,
-    EffectiveBills, Ledger, LedgerId, NewBill, NewDevice, NewUser, NodeId, Timestamp, UnbillError,
+    DeviceId, EffectiveBills, Ledger, LedgerId, NewBill, NewDevice, NewUser, Timestamp, UnbillError,
     User,
 };
 
@@ -67,7 +67,7 @@ pub(super) fn rename_ledger(doc: &mut AutoCommit, name: &str) -> Result<()> {
 pub(super) fn add_bill(
     doc: &mut AutoCommit,
     input: NewBill,
-    created_by_device: NodeId,
+    created_by_device: DeviceId,
     now: Timestamp,
     bill_id: BillId,
 ) -> std::result::Result<BillId, AddBillOpError> {
@@ -97,7 +97,7 @@ pub(super) fn add_bill(
                 .collect(),
             prev: input.prev.iter().map(|id| id.to_u128()).collect(),
             created_at: now.as_millis(),
-            created_by_device: created_by_device.to_string().into_bytes(),
+            created_by_device: device_id_bytes(&created_by_device),
         },
     )?;
     let ledger = model_to_ledger(&model).map_err(|e| AddBillOpError::Reconcile(e.0))?;
@@ -190,7 +190,7 @@ pub(super) fn add_device(
     v::try_add_device(
         &mut model,
         v::Device {
-            node_id: input.node_id.to_string().into_bytes(),
+            node_id: device_id_bytes(&input.device_id),
             label: input.label.to_string().into_bytes(),
             added_at: now.as_millis(),
         },
@@ -202,15 +202,15 @@ pub(super) fn add_device(
 // Renaming changes only presentation metadata; membership and accounting stay intact.
 pub(super) fn set_device_label(
     doc: &mut AutoCommit,
-    node_id: &NodeId,
+    device_id: &DeviceId,
     label: crate::DeviceLabel,
 ) -> Result<()> {
     let mut ledger = get_ledger(doc)?;
     let device = ledger
         .devices
         .iter_mut()
-        .find(|device| &device.node_id == node_id)
-        .ok_or_else(|| UnbillError::DeviceNotFound(node_id.to_string()))?;
+        .find(|device| &device.device_id == device_id)
+        .ok_or_else(|| UnbillError::DeviceNotFound(device_id.to_string()))?;
     device.label = label;
     reconcile(doc, &ledger).map_err(|error| UnbillError::Reconcile(error.to_string()))
 }
@@ -227,11 +227,11 @@ pub(super) fn list_devices(doc: &AutoCommit) -> Result<Vec<Device>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Currency, Share, UserId};
+    use crate::{Currency, NodeId, Share, UserId};
     use unbill_model_verified::ledger::check as vc;
 
-    fn device() -> NodeId {
-        NodeId::from_seed(1)
+    fn device() -> DeviceId {
+        DeviceId::Iroh(NodeId::from_seed(1))
     }
 
     fn ts(ms: i64) -> Timestamp {
@@ -264,7 +264,7 @@ mod tests {
         add_device(
             &mut doc,
             NewDevice {
-                node_id: device(),
+                device_id: device(),
                 label: crate::DeviceLabel::new("Device".into()).unwrap(),
             },
             ts(0),
@@ -389,7 +389,7 @@ mod tests {
         add_device(
             &mut doc,
             NewDevice {
-                node_id: NodeId::from_seed(1),
+                device_id: device(),
                 label: crate::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             ts(0),
@@ -397,7 +397,7 @@ mod tests {
         .unwrap();
         let devices = list_devices(&doc).unwrap();
         assert_eq!(devices.len(), 1);
-        assert_eq!(devices[0].node_id, NodeId::from_seed(1));
+        assert_eq!(devices[0].device_id, device());
     }
 
     #[test]
@@ -406,7 +406,7 @@ mod tests {
         add_device(
             &mut doc,
             NewDevice {
-                node_id: NodeId::from_seed(1),
+                device_id: device(),
                 label: crate::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             ts(0),
@@ -415,7 +415,7 @@ mod tests {
         let result = add_device(
             &mut doc,
             NewDevice {
-                node_id: NodeId::from_seed(1),
+                device_id: device(),
                 label: crate::DeviceLabel::new("Unnamed device".into()).unwrap(),
             },
             ts(1),

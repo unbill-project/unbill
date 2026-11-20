@@ -12,7 +12,7 @@ use crate::error::{Result, UnbillError};
 use garde::validate::Validate as _;
 
 use crate::model::{
-    BillId, Currency, Device, EffectiveBills, LedgerId, LedgerMeta, NewBill, NewDevice, NewLedger,
+    BillId, Currency, Device, DeviceId, EffectiveBills, LedgerId, LedgerMeta, NewBill, NewDevice, NewLedger,
     NewUser, NewUserName, NodeId, Timestamp, User, UserId,
 };
 
@@ -116,7 +116,7 @@ impl UnbillConsole {
         let mut doc = LedgerDoc::new(ledger_id, input.name.clone(), input.currency, now)?;
         doc.add_device(
             NewDevice {
-                node_id: self.channel.device_id(),
+                device_id: self.channel.ledger_device_id(),
                 label: unbill_model::DeviceLabel::new("Unnamed device".into())?,
             },
             now,
@@ -149,7 +149,7 @@ impl UnbillConsole {
         let now = Timestamp::now()?;
         let ledger_id = LedgerId::new();
         let device = NewDevice {
-            node_id: self.channel.device_id(),
+            device_id: self.channel.ledger_device_id(),
             label: unbill_model::DeviceLabel::new("Unnamed device".into())?,
         };
         let source = self.take_doc(source_id).await?;
@@ -216,7 +216,7 @@ impl UnbillConsole {
             .map_err(|e| UnbillError::Validation(e.to_string()))?;
         let now = Timestamp::now()?;
         let mut doc = self.take_doc(ledger_id).await?;
-        let bill_id = doc.add_bill_with_id(input, self.channel.device_id(), now, bill_id)?;
+        let bill_id = doc.add_bill_with_id(input, self.channel.ledger_device_id(), now, bill_id)?;
         sync_doc(&*self.channel, ledger_id, &mut doc).await?;
         self.put_doc(ledger_id, doc).await;
         self.touch_meta(ledger_id, now).await?;
@@ -355,7 +355,7 @@ impl UnbillConsole {
     ) -> Result<()> {
         let now = Timestamp::now()?;
         let mut doc = self.take_doc(ledger_id).await?;
-        let result = doc.set_device_label(&node_id, label);
+        let result = doc.set_device_label(&DeviceId::Iroh(node_id), label);
         if let Err(error) = result {
             self.put_doc(ledger_id, doc).await;
             return Err(error);
@@ -608,6 +608,10 @@ impl UnbillConsole {
 
     pub fn device_id(&self) -> NodeId {
         self.channel.device_id()
+    }
+
+    pub fn ledger_device_id(&self) -> DeviceId {
+        self.channel.ledger_device_id()
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<ServiceEvent> {

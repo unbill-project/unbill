@@ -3,7 +3,7 @@
 use crate::error::UnbillError;
 use crate::{
     AddBillOpError, AddDeviceOpError, AddUserOpError, BillId, Currency, Device, EffectiveBills,
-    Ledger, LedgerId, LedgerMeta, NewBill, NewDevice, NewUser, NodeId, Timestamp, User,
+    DeviceId, Ledger, LedgerId, LedgerMeta, NewBill, NewDevice, NewUser, NodeId, Timestamp, User,
 };
 
 use crate::ops;
@@ -111,10 +111,10 @@ impl LedgerDoc {
         // A bill's author must be an authorized device. Keep bill IDs (the
         // rounding seeds) and amendment links, but never carry over peer access.
         for bill in &mut ledger.bills {
-            bill.created_by_device = device.node_id.clone();
+            bill.created_by_device = device.device_id.clone();
         }
         ledger.devices = vec![Device {
-            node_id: device.node_id,
+            device_id: device.device_id,
             label: device.label,
             added_at: now,
         }];
@@ -155,7 +155,7 @@ impl LedgerDoc {
     pub fn add_bill(
         &mut self,
         input: NewBill,
-        created_by_device: NodeId,
+        created_by_device: DeviceId,
         now: Timestamp,
     ) -> std::result::Result<BillId, AddBillOpError> {
         self.add_bill_with_id(input, created_by_device, now, BillId::new())
@@ -165,7 +165,7 @@ impl LedgerDoc {
     pub fn add_bill_with_id(
         &mut self,
         input: NewBill,
-        created_by_device: NodeId,
+        created_by_device: DeviceId,
         now: Timestamp,
         bill_id: BillId,
     ) -> std::result::Result<BillId, AddBillOpError> {
@@ -192,8 +192,8 @@ impl LedgerDoc {
         ops::add_device(&mut self.doc, input, now)
     }
 
-    pub fn set_device_label(&mut self, node_id: &NodeId, label: crate::DeviceLabel) -> Result<()> {
-        ops::set_device_label(&mut self.doc, node_id, label)
+    pub fn set_device_label(&mut self, device_id: &DeviceId, label: crate::DeviceLabel) -> Result<()> {
+        ops::set_device_label(&mut self.doc, device_id, label)
     }
 
     pub fn list_devices(&self) -> Result<Vec<Device>> {
@@ -237,7 +237,7 @@ impl LedgerDoc {
     // sirno:witness:users-and-devices:begin
     pub fn is_device_authorized(&self, node_id: &NodeId) -> Result<bool> {
         let ledger = ops::get_ledger(&self.doc)?;
-        Ok(ledger.devices.iter().any(|d| &d.node_id == node_id))
+        Ok(ledger.devices.iter().any(|d| d.device_id.node_id() == node_id))
     }
     // sirno:witness:users-and-devices:end
 }
@@ -405,7 +405,7 @@ mod tests {
 #[cfg(test)]
 mod device_label_tests {
     use crate::{
-        Currency, DeviceLabel, LedgerDoc, LedgerId, NewDevice, NewUser, NodeId, Timestamp,
+        Currency, DeviceId, DeviceLabel, LedgerDoc, LedgerId, NewDevice, NewUser, NodeId, Timestamp,
         UnbillError, UserId,
     };
     fn doc() -> LedgerDoc {
@@ -418,7 +418,7 @@ mod device_label_tests {
         .unwrap();
         doc.add_device(
             NewDevice {
-                node_id: NodeId::new("peer".into()),
+                device_id: DeviceId::Iroh(NodeId::new("peer".into())),
                 label: DeviceLabel::new("Phone".into()).unwrap(),
             },
             Timestamp::from_millis(2),
@@ -443,7 +443,7 @@ mod device_label_tests {
         let before = local.state_hash();
         local
             .set_device_label(
-                &NodeId::new("peer".into()),
+                &DeviceId::Iroh(NodeId::new("peer".into())),
                 DeviceLabel::new("Kitchen iPad".into()).unwrap(),
             )
             .unwrap();
@@ -471,7 +471,7 @@ mod device_label_tests {
         let second = doc();
         first
             .set_device_label(
-                &NodeId::new("peer".into()),
+                &DeviceId::Iroh(NodeId::new("peer".into())),
                 DeviceLabel::new("Laptop".into()).unwrap(),
             )
             .unwrap();
@@ -479,7 +479,7 @@ mod device_label_tests {
         let before = first.state_hash();
         assert!(matches!(
             first.set_device_label(
-                &NodeId::new("stranger".into()),
+                &DeviceId::Iroh(NodeId::new("stranger".into())),
                 DeviceLabel::new("Unknown".into()).unwrap()
             ),
             Err(UnbillError::DeviceNotFound(_))

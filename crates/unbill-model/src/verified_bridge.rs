@@ -6,6 +6,11 @@ use unbill_model_verified::ledger::exec as v;
 
 use crate::bill::{Bill, Share};
 use crate::user::{Device, Ledger, User};
+use crate::DeviceId;
+
+pub(crate) fn device_id_bytes(id: &DeviceId) -> Vec<u8> {
+    serde_json::to_vec(id).expect("DeviceId contains only serializable values")
+}
 
 // ---------------------------------------------------------------------------
 // Production → Verified model
@@ -29,7 +34,7 @@ fn user_to_model(user: &User) -> v::User {
 
 fn device_to_model(device: &Device) -> v::Device {
     v::Device {
-        node_id: device.node_id.to_string().into_bytes(),
+        node_id: device_id_bytes(&device.device_id),
         label: device.label.to_string().into_bytes(),
         added_at: device.added_at.as_millis(),
     }
@@ -44,7 +49,7 @@ fn bill_to_model(bill: &Bill) -> v::Bill {
         payees: bill.payees.iter().map(share_to_model).collect(),
         prev: bill.prev.iter().map(|id| id.to_u128()).collect(),
         created_at: bill.created_at.as_millis(),
-        created_by_device: bill.created_by_device.to_string().into_bytes(),
+        created_by_device: device_id_bytes(&bill.created_by_device),
     }
 }
 
@@ -68,7 +73,6 @@ pub fn ledger_to_model(ledger: &Ledger) -> v::LedgerState {
 
 use crate::currency::Currency;
 use crate::id::{BillId, LedgerId, UserId};
-use crate::node_id::NodeId;
 use crate::timestamp::Timestamp;
 
 /// Error returned when a verified model cannot be converted back to production types.
@@ -108,11 +112,9 @@ fn model_to_user(user: &v::User) -> Result<User, BridgeError> {
 }
 
 fn model_to_device(device: &v::Device) -> Result<Device, BridgeError> {
-    let id_str = bytes_to_string(&device.node_id)?;
     Ok(Device {
-        node_id: id_str
-            .parse::<NodeId>()
-            .map_err(|e| BridgeError(format!("node_id: {e}")))?,
+        device_id: serde_json::from_slice(&device.node_id)
+            .map_err(|e| BridgeError(format!("device_id: {e}")))?,
         label: crate::DeviceLabel::new(bytes_to_string(&device.label)?)
             .map_err(|e| BridgeError(e.to_string()))?,
         added_at: Timestamp::from_millis(device.added_at),
@@ -128,8 +130,7 @@ fn model_to_bill(bill: &v::Bill) -> Result<Bill, BridgeError> {
         payees: bill.payees.iter().map(model_to_share).collect(),
         prev: bill.prev.iter().map(|&id| u128_to_bill_id(id)).collect(),
         created_at: Timestamp::from_millis(bill.created_at),
-        created_by_device: bytes_to_string(&bill.created_by_device)?
-            .parse::<NodeId>()
+        created_by_device: serde_json::from_slice(&bill.created_by_device)
             .map_err(|e| BridgeError(format!("created_by_device: {e}")))?,
     })
 }
@@ -249,10 +250,10 @@ mod tests {
                 ],
                 prev: vec![],
                 created_at: ts(300),
-                created_by_device: NodeId::from_seed(1),
+                created_by_device: DeviceId::Iroh(NodeId::from_seed(1)),
             }],
             devices: vec![Device {
-                node_id: NodeId::from_seed(1),
+                device_id: DeviceId::Iroh(NodeId::from_seed(1)),
                 label: crate::DeviceLabel::new("Phone".into()).unwrap(),
                 added_at: ts(50),
             }],

@@ -4,6 +4,7 @@ use crate::currency::Currency;
 use crate::id::{LedgerId, UserId};
 use crate::invite_token::InviteToken;
 use crate::node_id::NodeId;
+use crate::DeviceId;
 use crate::timestamp::Timestamp;
 
 #[derive(Clone, Debug, Reconcile, Hydrate)]
@@ -34,8 +35,8 @@ pub struct User {
 
 #[derive(Clone, Debug, Reconcile, Hydrate)]
 pub struct Device {
-    /// The iroh NodeId (a 32-byte Ed25519 public key).
-    pub node_id: NodeId,
+    /// The ledger identity of this authorized device or server profile.
+    pub device_id: DeviceId,
     pub label: crate::DeviceLabel,
     pub added_at: Timestamp,
 }
@@ -68,7 +69,7 @@ pub struct NewUser {
 /// Input type for adding a device to a ledger.
 #[derive(Clone, Debug)]
 pub struct NewDevice {
-    pub node_id: NodeId,
+    pub device_id: DeviceId,
     pub label: crate::DeviceLabel,
 }
 // sirno:witness:users-and-devices:end

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use tokio::sync::broadcast;
 use unbill_model::error::Result;
-use unbill_model::{LedgerId, LedgerMeta, NodeId};
+use unbill_model::{DeviceId, LedgerId, LedgerMeta, NodeId};
 
 #[cfg(feature = "http")]
 pub mod http;
@@ -55,6 +55,12 @@ pub trait AsymChannel: MaybeSend + MaybeSync {
 
     /// Return the device's node ID.
     fn device_id(&self) -> NodeId;
+
+    /// Ledger identity for this console. A multiuser server can override this
+    /// with the authenticated server profile while retaining one Iroh NodeId.
+    fn ledger_device_id(&self) -> DeviceId {
+        DeviceId::Iroh(self.device_id())
+    }
 
     /// Build information from the connected device service.
     async fn build_info(&self) -> Result<unbill_build_info::BuildInfo>;
