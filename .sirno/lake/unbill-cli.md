@@ -16,6 +16,8 @@ It is a thin client.
 It connects to a running `unbill-daemon` over the local socket and forwards commands over RPC.
 
 The surface covers device initialization and display,
+account registration, login, logout, switching by login, password change,
+and local ledger sharing,
 ledger create, list, show, invite (with terminal QR code), join, and devices,
 bill add, list, amend, and conflicts,
 user create, add, list, archive, and restore,

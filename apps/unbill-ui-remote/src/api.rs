@@ -29,6 +29,28 @@ fn get_service() -> Result<Arc<UnbillConsole>, String> {
     })
 }
 
+pub async fn logout() -> Result<(), String> {
+    let service = get_service()?;
+    service.logout().await.map_err(|e| e.to_string())?;
+    SERVICE.with(|cell| *cell.borrow_mut() = None);
+    Ok(())
+}
+
+pub async fn change_password(old: &str, new: &str) -> Result<(), String> {
+    get_service()?
+        .change_password(old, new)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn share_ledger(id: &str, account_name: &str) -> Result<(), String> {
+    let id = LedgerId::from_string(id).map_err(|e| e.to_string())?;
+    get_service()?
+        .share_ledger(id, account_name)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 // ---------------------------------------------------------------------------
 // DTOs
 // ---------------------------------------------------------------------------

@@ -45,12 +45,14 @@ impl Env {
         let dir = tempfile::tempdir().unwrap();
         let socket = dir.path().join("unbill.sock");
         let (daemon, node_id) = TestDaemon::start(dir.path(), &socket).unwrap();
-        Env {
+        let env = Env {
             _daemon: daemon,
             dir,
             socket,
             node_id,
-        }
+        };
+        env.ok(&["account", "register", "test", "test-password"]);
+        env
     }
 
     fn run(&self, args: &[&str]) -> Output {
@@ -220,6 +222,22 @@ const CAROL: &str = "00000000000000000000000003";
 fn create_ledger(env: &Env) -> String {
     let v = env.json(&["ledger", "create", "Household", "USD"]);
     v["ledger_id"].as_str().unwrap().to_owned()
+}
+
+#[test]
+fn account_switch_and_local_share_limit_ledger_visibility() {
+    let env = Env::new();
+    let ledger = create_ledger(&env);
+    env.ok(&["account", "register", "bob", "bob-password"]);
+    assert!(env.json(&["ledger", "list"]).as_array().unwrap().is_empty());
+    assert!(env.fail(&["ledger", "show", &ledger]).contains("ledger"));
+    env.ok(&["account", "login", "test", "test-password"]);
+    env.ok(&["ledger", "share", &ledger, "bob"]);
+    env.ok(&["account", "login", "bob", "bob-password"]);
+    assert_eq!(env.json(&["ledger", "list"]).as_array().unwrap().len(), 1);
+    env.ok(&["account", "change-password", "bob-password", "new-password"]);
+    assert!(env.fail(&["ledger", "list"]).contains("log in first"));
+    env.ok(&["account", "login", "bob", "new-password"]);
 }
 
 #[test]
@@ -772,6 +790,40 @@ fn test_join_flow() {
             .unwrap();
         assert_eq!(inviter["label"], "Unnamed device");
     }
+}
+
+#[test]
+fn joining_an_existing_device_ledger_grants_current_account_without_duplicate_device() {
+    let host = Env::new();
+    let joiner = Env::new();
+    let id = create_ledger(&host);
+    let first = host.json(&["ledger", "invite", &id]);
+    let first_url = first["url"].as_str().unwrap();
+    joiner.ok(&["ledger", "join", first_url, "--label", "joiner"]);
+
+    joiner.ok(&["account", "register", "bob", "bob-password"]);
+    assert!(
+        joiner
+            .json(&["ledger", "list"])
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let second = host.json(&["ledger", "invite", &id]);
+    let second_url = second["url"].as_str().unwrap();
+    joiner.ok(&["ledger", "join", second_url, "--label", "joiner"]);
+    assert_eq!(
+        joiner.json(&["ledger", "list"]).as_array().unwrap().len(),
+        1
+    );
+    let devices = host.json(&["ledger", "devices", &id]);
+    let count = devices
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|device| device["node_id"].as_str() == Some(joiner.node_id.as_str()))
+        .count();
+    assert_eq!(count, 1);
 }
 
 /// After joining, the host adds a bill. The joiner runs `sync once` against

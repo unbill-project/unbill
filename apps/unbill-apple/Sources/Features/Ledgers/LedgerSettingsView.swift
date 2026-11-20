@@ -22,6 +22,8 @@ struct LedgerSettingsView: View {
     @State private var cloning = false
     @State private var cloneError: String?
     @State private var cloned = false
+    @State private var shareAccountName = ""
+    @State private var shareFeedback: String?
 
     private var busy: Bool { syncingNodeID != nil || archiving || cloning }
 
@@ -77,6 +79,23 @@ struct LedgerSettingsView: View {
                         Text("Names are shared with other devices in this ledger.")
                         BluetoothLegend()
                     }
+                }
+                Section {
+                    TextField("Existing account name", text: $shareAccountName)
+                        .textInputAutocapitalization(.never)
+                    Button("Share ledger") {
+                        Task {
+                            do {
+                                try await console.shareLedger(ledgerID: detail.summary.ledgerID,
+                                    accountName: shareAccountName.trimmingCharacters(in: .whitespacesAndNewlines))
+                                shareFeedback = "Shared with \(shareAccountName)."
+                            } catch { shareFeedback = error.localizedDescription }
+                        }
+                    }
+                    .disabled(shareAccountName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    if let shareFeedback { Text(shareFeedback).font(.caption) }
+                } header: {
+                    Text("Share with an account")
                 }
                 Section {
                     // sirno:witness:ledger-rename:begin

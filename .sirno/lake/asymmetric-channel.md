@@ -15,6 +15,9 @@ The console depends on the trait,
 not on any concrete device process or transport.
 
 The trait has four planes plus identity.
+It also exposes registration, login, session resume and logout, password change,
+account listing, and local ledger sharing. Ledger operations run through the
+authenticated account view; peer sync remains device-wide.
 The control plane creates invitations, joins ledgers, and triggers peer sync.
 The data plane runs one Automerge sync round per `asym_sync` call.
 The metadata plane lists ledgers and reads and writes ledger metadata.
@@ -32,6 +35,8 @@ Implementations:
 It translates `ServiceEvent` into `AsymChannelEvent` through a background task.
 
 `RpcAsymChannel` uses tarpc over a Unix local socket.
+The server keeps one authenticated session per connection. A token file next to
+the socket allows a client to resume that session after restart.
 The server side lives in `rpc::serve`.
 Peer-sync requests set a 120-second RPC deadline for connection, exchange, and
 persistence. Deadline expiry reports Peer sync timed out after 120 seconds.
@@ -41,6 +46,7 @@ Poisoned queue locks reuse the contained event vector;
 appending or draining events requires no multi-step state repair.
 
 `HttpAsymChannel` wraps a `reqwest::Client` with base URL and bearer token.
+The token is an account session, not a device API key.
 It maps trait methods to the `unbill-server` REST API.
 It also runs an SSE task that connects to the events endpoint,
 parses `data:` lines as JSON events,

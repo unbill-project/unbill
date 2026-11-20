@@ -19,6 +19,10 @@ and exposes user-facing service results.
 `service/` is the public entry point through `UnbillConsole`.
 Persistent operations are delegated to the asymmetric channel.
 The console holds no durable ledger state of its own.
+It forwards account registration, login, session resume, logout, password changes,
+account listing, and same-device ledger sharing to the channel. Login and resume
+rebuild its ledger projection for the authorized account; logout clears it.
+Before serving a cached ledger document, it checks the current account's grant list.
 
 `settlement/` and `conflict/` are pure logic modules.
 They operate over projected ledger state.

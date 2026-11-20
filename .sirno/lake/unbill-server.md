@@ -13,9 +13,10 @@ core.refines:
 It is the remote backend for one device identity and one set of ledgers.
 
 The server lets a remote console reach the device API over a network instead of a local socket.
-A single running instance serves authenticated clients identified by one static API key.
+A single running instance serves clients authenticated by device-local accounts.
 
-All endpoints require a bearer token.
+Ledger, device, and event endpoints require an account session bearer token.
+Registration and login endpoints are public.
 Missing or wrong tokens receive unauthorized responses.
 
 The API covers ledgers,
@@ -40,16 +41,13 @@ Clients reconnect when it drops.
 Device labels are shared ledger fields carried by sync; no local label endpoints or generic device metadata access are exposed.
 
 Configuration comes from environment variables.
-`API_KEY` is required.
 `PORT` defaults to 8080.
 The data directory follows `UNBILL_DATA_DIR` when set,
 otherwise the platform default from `unbill-storage::UNBILL_PATH`.
 
 Boundaries:
-one API key,
 one device namespace,
-no multi-tenancy,
-no ledger-level access control beyond the API key,
+device-local accounts with ledger grants,
 and no built-in TLS termination.
 TLS belongs at a reverse proxy.
 

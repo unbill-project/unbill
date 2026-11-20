@@ -18,6 +18,8 @@ use unbill::{Console, ConsoleError};
 
 fn main() -> Result<(), ConsoleError> {
     let console = Console::open_in_process("./household-data".into())?;
+    console.register_account("alice".into(), "a private password".into())?;
+    let _session = console.login_account("alice".into(), "a private password".into())?;
     let ledger = console.create_ledger("Household".into(), "USD".into())?;
     let person = console.create_user(ledger.ledger_id.clone(), "Alice".into())?;
     let detail = console.ledger_detail(ledger.ledger_id)?;
@@ -30,6 +32,14 @@ On desktop, connect to an existing daemon with
 `Console::open_rpc(unbill::default_data_directory()?)`. RPC honors `UNBILL_SOCKET`
 and does not open the database. Android and iOS device and Simulator builds omit
 this constructor; Mac Catalyst supports both constructors.
+
+Accounts are local to a device. `register_account` creates one without ledger
+access, and `login_account` returns a persistent session token. Call
+`resume_account` with that token after reopening an in-process console; daemon
+RPC consoles also resume the saved local session automatically. Use
+`share_ledger` to grant an existing account access. `logout_account` revokes the
+current session, and `change_account_password` revokes all of that account's
+sessions.
 
 Both constructors return `Arc<Console>` and expose the same operations and record
 types. IDs remain strings, amounts remain integer minor units, and errors use

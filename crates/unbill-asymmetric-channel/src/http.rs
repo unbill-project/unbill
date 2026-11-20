@@ -29,6 +29,16 @@ struct JoinBody {
     label: unbill_model::DeviceLabel,
 }
 
+#[derive(Serialize)]
+struct Credentials<'a> {
+    name: &'a str,
+    password: &'a str,
+}
+#[derive(Deserialize)]
+struct SessionJson {
+    token: String,
+}
+
 #[derive(Deserialize, Serialize)]
 struct MetaJson {
     #[serde(default)]
@@ -45,24 +55,58 @@ struct MetaJson {
 pub struct HttpAsymChannel {
     client: Client,
     base_url: String,
-    api_key: String,
+    session_token: String,
+    account_name: String,
     device_node_id: NodeId,
     events: broadcast::Sender<AsymChannelEvent>,
 }
 // sirno:witness:asymmetric-channel:end
 
 impl HttpAsymChannel {
+    pub async fn register_at(base_url: &str, name: &str, password: &str) -> Result<()> {
+        let url = format!(
+            "{}/api/v1/accounts/register",
+            base_url.trim_end_matches('/')
+        );
+        let resp = Client::new()
+            .post(url)
+            .json(&Credentials { name, password })
+            .send()
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
+        Self::check(resp).await?;
+        Ok(())
+    }
+
+    pub async fn login_at(base_url: &str, name: &str, password: &str) -> Result<String> {
+        let url = format!("{}/api/v1/accounts/login", base_url.trim_end_matches('/'));
+        let resp = Client::new()
+            .post(url)
+            .json(&Credentials { name, password })
+            .send()
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
+        let session: SessionJson = Self::check(resp)
+            .await?
+            .json()
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
+        Ok(session.token)
+    }
     // sirno:witness:server-http-api:begin
     /// Connect to an unbill-server and fetch the remote device identity.
-    pub async fn open(base_url: impl Into<String>, api_key: impl Into<String>) -> Result<Self> {
+    pub async fn open(
+        base_url: impl Into<String>,
+        session_token: impl Into<String>,
+    ) -> Result<Self> {
         let (events, _) = broadcast::channel(256);
-        let api_key = api_key.into();
+        let session_token = session_token.into();
         let base_url = format!("{}/api/v1", base_url.into().trim_end_matches('/'));
         let client = Client::new();
 
         let resp = client
             .get(format!("{base_url}/device/id"))
-            .bearer_auth(&api_key)
+            .bearer_auth(&session_token)
             .send()
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?;
@@ -76,17 +120,29 @@ impl HttpAsymChannel {
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?;
         let device_node_id = NodeId::new(id_str.trim().to_owned());
+        let account_name: String = client
+            .get(format!("{base_url}/accounts/me"))
+            .bearer_auth(&session_token)
+            .send()
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .error_for_status()
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .json()
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
 
         let channel = Self {
             client: client.clone(),
             base_url: base_url.clone(),
-            api_key: api_key.clone(),
+            session_token: session_token.clone(),
+            account_name,
             device_node_id,
             events: events.clone(),
         };
 
         let sse_url = format!("{base_url}/events");
-        let task = sse_task(client, sse_url, api_key, events);
+        let task = sse_task(client, sse_url, session_token, events);
 
         #[cfg(not(target_arch = "wasm32"))]
         tokio::spawn(task);
@@ -101,7 +157,7 @@ impl HttpAsymChannel {
     }
 
     fn auth(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        req.bearer_auth(&self.api_key)
+        req.bearer_auth(&self.session_token)
     }
 
     async fn check(resp: reqwest::Response) -> Result<reqwest::Response> {
@@ -119,10 +175,60 @@ impl HttpAsymChannel {
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 // sirno:witness:server-http-api:begin
 impl AsymChannel for HttpAsymChannel {
+    async fn resume_session(&self, _token: &str) -> Result<String> {
+        Ok(self.account_name.clone())
+    }
+    async fn current_account(&self) -> Result<String> {
+        Ok(self.account_name.clone())
+    }
+    async fn logout(&self) -> Result<()> {
+        Self::check(
+            self.auth(self.client.post(self.url("/accounts/logout")))
+                .send()
+                .await
+                .map_err(|e| UnbillError::Network(e.to_string()))?,
+        )
+        .await?;
+        Ok(())
+    }
+    async fn change_password(&self, old: &str, new: &str) -> Result<()> {
+        Self::check(
+            self.auth(self.client.put(self.url("/accounts/password")))
+                .json(&serde_json::json!({"old_password":old,"new_password":new}))
+                .send()
+                .await
+                .map_err(|e| UnbillError::Network(e.to_string()))?,
+        )
+        .await?;
+        Ok(())
+    }
+    async fn list_accounts(&self) -> Result<Vec<String>> {
+        Self::check(
+            self.auth(self.client.get(self.url("/accounts")))
+                .send()
+                .await
+                .map_err(|e| UnbillError::Network(e.to_string()))?,
+        )
+        .await?
+        .json()
+        .await
+        .map_err(|e| UnbillError::Network(e.to_string()))
+    }
+    async fn share_ledger(&self, id: LedgerId, name: &str) -> Result<()> {
+        Self::check(
+            self.auth(self.client.post(self.url(&format!("/ledgers/{id}/share"))))
+                .json(&serde_json::json!({"account_name":name}))
+                .send()
+                .await
+                .map_err(|e| UnbillError::Network(e.to_string()))?,
+        )
+        .await?;
+        Ok(())
+    }
     async fn ble_snapshot(&self) -> Result<unbill_model::BleSnapshot> {
         self.client
             .get(self.url("/device/ble"))
-            .bearer_auth(&self.api_key)
+            .bearer_auth(&self.session_token)
             .send()
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?
@@ -140,7 +246,7 @@ impl AsymChannel for HttpAsymChannel {
     async fn build_info(&self) -> Result<unbill_build_info::BuildInfo> {
         self.client
             .get(self.url("/build-info"))
-            .bearer_auth(&self.api_key)
+            .bearer_auth(&self.session_token)
             .send()
             .await
             .map_err(|e| UnbillError::Network(e.to_string()))?
@@ -296,11 +402,11 @@ impl AsymChannel for HttpAsymChannel {
 async fn sse_task(
     client: Client,
     url: String,
-    api_key: String,
+    session_token: String,
     tx: broadcast::Sender<AsymChannelEvent>,
 ) {
     loop {
-        let _ = run_sse(&client, &url, &api_key, &tx).await;
+        let _ = run_sse(&client, &url, &session_token, &tx).await;
         reconnect_delay().await;
     }
 }
@@ -316,12 +422,12 @@ async fn reconnect_delay() {}
 async fn run_sse(
     client: &Client,
     url: &str,
-    api_key: &str,
+    session_token: &str,
     tx: &broadcast::Sender<AsymChannelEvent>,
 ) -> std::result::Result<(), ()> {
     let resp = client
         .get(url)
-        .bearer_auth(api_key)
+        .bearer_auth(session_token)
         .send()
         .await
         .map_err(|_| ())?;
@@ -400,7 +506,7 @@ mod tests {
         let channel = HttpAsymChannel {
             client: Client::new(),
             base_url: format!("http://127.0.0.1:{port}"),
-            api_key: "test-token".to_owned(),
+            session_token: "test-token".to_owned(),
             device_node_id: unbill_model::NodeId::new("1".repeat(64)),
             events,
         };

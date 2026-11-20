@@ -49,6 +49,10 @@ and the Tauri desktop app builds through the Tauri manifest in `crates/unbill-ta
 
 The Docker server can be pulled from GHCR or built locally from the repository Dockerfile.
 The example deployment includes Compose configuration for a persistent server volume.
+New installations ask the user to register a device-local account. Upgraded
+databases create the ordinary `admin` account with password `admin` and access
+to existing ledgers; users can change that password after login. Server
+deployments no longer set `API_KEY` and use account session tokens instead.
 
 ## Nix
 

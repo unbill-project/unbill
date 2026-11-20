@@ -19,6 +19,8 @@ Existing flat-file data is left untouched and is not automatically imported.
 It runs the Iroh endpoint accept loop for peer sync and join requests.
 It serves the local RPC socket so CLI, TUI, and other local clients can issue commands
 without touching storage directly.
+Trusted local maintenance subcommands delete accounts, reset account passwords from stdin,
+and revoke account-to-ledger grants. They are not exposed through RPC.
 
 The device layer prints `listening on: <node_id>` to stdout
 inside `accept_loop` after the Iroh endpoint binds, without waiting for relay registration.

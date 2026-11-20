@@ -12,6 +12,9 @@ core.refines:
 
 `unbill-tauri` wires the desktop shell to `UnbillConsole`
 and hosts the Leptos desktop frontend.
+Its commands expose account registration, login, session resume and logout,
+password change, and local ledger sharing to the native UI. The native UI
+shows ledger screens only after authentication.
 Release bundles use this shell on Linux and Windows; macOS releases use the Swift Catalyst app.
 It exposes async commands and frontend-ready DTOs.
 It does not add business logic.

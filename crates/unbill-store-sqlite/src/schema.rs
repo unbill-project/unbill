@@ -41,3 +41,23 @@ diesel::table! {
 }
 diesel::joinable!(ledger_archives -> ledgers (ledger_id));
 diesel::allow_tables_to_appear_in_same_query!(ledgers, ledger_archives);
+
+diesel::table! {
+    accounts (name) {
+        name -> Text,
+        password_hash -> Text,
+    }
+}
+diesel::table! {
+    account_ledgers (account_name, ledger_id) {
+        account_name -> Text,
+        ledger_id -> Text,
+    }
+}
+diesel::table! {
+    account_sessions (token_hash) {
+        token_hash -> Text,
+        account_name -> Text,
+    }
+}
+diesel::allow_tables_to_appear_in_same_query!(accounts, account_ledgers, account_sessions);

@@ -29,6 +29,55 @@ pub struct UnbillConsole {
 // sirno:witness:console-service:end
 
 impl UnbillConsole {
+    async fn refresh_authorized_ledgers(&self) -> Result<()> {
+        let metas = self.channel.list_ledgers().await?;
+        let mut fresh = HashMap::new();
+        for meta in metas {
+            let mut doc = LedgerDoc::empty();
+            if sync_doc(&*self.channel, meta.ledger_id, &mut doc)
+                .await
+                .is_ok()
+                && !doc.is_empty()
+            {
+                fresh.insert(meta.ledger_id, doc);
+            }
+        }
+        *self.cache.lock().await = fresh;
+        Ok(())
+    }
+
+    pub async fn register_account(&self, name: &str, password: &str) -> Result<()> {
+        self.channel.register(name, password).await
+    }
+    pub async fn login(&self, name: &str, password: &str) -> Result<String> {
+        let token = self.channel.login(name, password).await?;
+        self.refresh_authorized_ledgers().await?;
+        Ok(token)
+    }
+    pub async fn resume_session(&self, token: &str) -> Result<String> {
+        let name = self.channel.resume_session(token).await?;
+        self.refresh_authorized_ledgers().await?;
+        Ok(name)
+    }
+    pub async fn logout(&self) -> Result<()> {
+        self.channel.logout().await?;
+        self.cache.lock().await.clear();
+        Ok(())
+    }
+    pub async fn change_password(&self, old: &str, new: &str) -> Result<()> {
+        self.channel.change_password(old, new).await?;
+        self.cache.lock().await.clear();
+        Ok(())
+    }
+    pub async fn list_accounts(&self) -> Result<Vec<String>> {
+        self.channel.list_accounts().await
+    }
+    pub async fn current_account(&self) -> Result<String> {
+        self.channel.current_account().await
+    }
+    pub async fn share_ledger(&self, id: LedgerId, name: &str) -> Result<()> {
+        self.channel.share_ledger(id, name).await
+    }
     // sirno:witness:console-service:begin
     /// Wire the console to a channel, prime the ledger cache, and start the
     /// event bridge.
@@ -622,6 +671,16 @@ impl UnbillConsole {
     /// Falls back to a full sync from the device if the cache is cold.
     // sirno:witness:console-service:begin
     async fn take_doc(&self, ledger_id: LedgerId) -> Result<LedgerDoc> {
+        if !self
+            .channel
+            .list_ledgers()
+            .await?
+            .iter()
+            .any(|meta| meta.ledger_id == ledger_id)
+        {
+            self.cache.lock().await.remove(&ledger_id);
+            return Err(UnbillError::LedgerNotFound(ledger_id.to_string()));
+        }
         if let Some(doc) = self.cache.lock().await.remove(&ledger_id) {
             return Ok(doc);
         }

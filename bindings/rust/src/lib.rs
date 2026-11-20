@@ -542,6 +542,46 @@ impl Console {
 // sirno:witness:rust-bindings:end
 
 impl Console {
+    pub fn register_account(&self, name: String, password: String) -> Result<(), ConsoleError> {
+        self.rt
+            .block_on(self.inner.register_account(&name, &password))
+            .map_err(err)
+    }
+    pub fn login_account(&self, name: String, password: String) -> Result<String, ConsoleError> {
+        self.rt
+            .block_on(self.inner.login(&name, &password))
+            .map_err(err)
+    }
+    pub fn resume_account(&self, token: String) -> Result<String, ConsoleError> {
+        self.rt
+            .block_on(self.inner.resume_session(&token))
+            .map_err(err)
+    }
+    pub fn current_account(&self) -> Result<String, ConsoleError> {
+        self.rt.block_on(self.inner.current_account()).map_err(err)
+    }
+    pub fn logout_account(&self) -> Result<(), ConsoleError> {
+        self.rt.block_on(self.inner.logout()).map_err(err)
+    }
+    pub fn change_account_password(&self, old: String, new: String) -> Result<(), ConsoleError> {
+        self.rt
+            .block_on(self.inner.change_password(&old, &new))
+            .map_err(err)
+    }
+    pub fn list_accounts(&self) -> Result<Vec<String>, ConsoleError> {
+        self.rt.block_on(self.inner.list_accounts()).map_err(err)
+    }
+    pub fn share_ledger(
+        &self,
+        ledger_id: String,
+        account_name: String,
+    ) -> Result<(), ConsoleError> {
+        let id = LedgerId::from_string(&ledger_id).map_err(err)?;
+        self.rt
+            .block_on(self.inner.share_ledger(id, &account_name))
+            .map_err(err)
+    }
+
     pub fn service_build_info(&self) -> Result<ConsoleBuildInfo, ConsoleError> {
         self.rt
             .block_on(self.inner.service_build_info())

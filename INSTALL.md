@@ -224,6 +224,9 @@ ______________________________________________________________________
 ## Server (Docker)
 
 The relay server is available as a Docker image on GHCR.
+Register an account in the browser after the server starts. The server no longer
+uses `API_KEY`. If this is an upgrade from an older database, log in as `admin`
+with password `admin`, then change the password in the account menu.
 
 ```sh
 docker pull ghcr.io/unbill-project/unbill-server:latest

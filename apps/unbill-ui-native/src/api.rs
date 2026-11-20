@@ -168,6 +168,44 @@ pub async fn bootstrap_app() -> Result<AppBootstrap, String> {
     invoke("bootstrap_app", &()).await
 }
 
+pub async fn account_status() -> Result<String, String> {
+    invoke("account_status", &()).await
+}
+pub async fn register_account(name: &str, password: &str) -> Result<(), String> {
+    invoke(
+        "register_account",
+        &serde_json::json!({"name":name,"password":password}),
+    )
+    .await
+}
+pub async fn login_account(name: &str, password: &str) -> Result<String, String> {
+    invoke(
+        "login_account",
+        &serde_json::json!({"name":name,"password":password}),
+    )
+    .await
+}
+pub async fn resume_account(token: &str) -> Result<String, String> {
+    invoke("resume_account", &serde_json::json!({"token":token})).await
+}
+pub async fn logout_account() -> Result<(), String> {
+    invoke("logout_account", &()).await
+}
+pub async fn change_account_password(old: &str, new: &str) -> Result<(), String> {
+    invoke(
+        "change_account_password",
+        &serde_json::json!({"oldPassword":old,"newPassword":new}),
+    )
+    .await
+}
+pub async fn share_ledger(ledger_id: &str, account_name: &str) -> Result<(), String> {
+    invoke(
+        "share_ledger",
+        &serde_json::json!({"ledgerId":ledger_id,"accountName":account_name}),
+    )
+    .await
+}
+
 pub async fn open_about_link(section_id: &str) -> Result<(), String> {
     invoke(
         "open_about_link",

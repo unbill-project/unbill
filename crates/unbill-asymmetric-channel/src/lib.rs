@@ -51,6 +51,31 @@ impl<T> MaybeSync for T {}
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait AsymChannel: MaybeSend + MaybeSync {
+    async fn register(&self, _name: &str, _password: &str) -> Result<()> {
+        Err(unbill_model::UnbillError::NotAuthorized)
+    }
+    /// Log in and return a persistent bearer session token.
+    async fn login(&self, _name: &str, _password: &str) -> Result<String> {
+        Err(unbill_model::UnbillError::NotAuthorized)
+    }
+    async fn resume_session(&self, _token: &str) -> Result<String> {
+        Err(unbill_model::UnbillError::NotAuthorized)
+    }
+    async fn current_account(&self) -> Result<String> {
+        Err(unbill_model::UnbillError::NotAuthorized)
+    }
+    async fn logout(&self) -> Result<()> {
+        Err(unbill_model::UnbillError::NotAuthorized)
+    }
+    async fn change_password(&self, _old: &str, _new: &str) -> Result<()> {
+        Err(unbill_model::UnbillError::NotAuthorized)
+    }
+    async fn list_accounts(&self) -> Result<Vec<String>> {
+        Err(unbill_model::UnbillError::NotAuthorized)
+    }
+    async fn share_ledger(&self, _ledger_id: LedgerId, _account_name: &str) -> Result<()> {
+        Err(unbill_model::UnbillError::NotAuthorized)
+    }
     // --- Identity ---
 
     /// Return the device's node ID.

@@ -32,6 +32,11 @@ pub struct Cli {
 
 #[derive(clap::Subcommand)]
 pub enum Command {
+    /// Register, log in, switch, or maintain this device's account.
+    Account {
+        #[command(subcommand)]
+        sub: AccountCmd,
+    },
     /// Read about Unbill, its contributors, and the project without a daemon.
     About,
     /// View embedded licenses and third-party notices without a daemon.
@@ -74,6 +79,25 @@ pub enum Command {
 }
 
 #[derive(clap::Subcommand)]
+pub enum AccountCmd {
+    Register {
+        name: String,
+        password: String,
+    },
+    Login {
+        name: String,
+        password: String,
+    },
+    Logout,
+    Show,
+    List,
+    ChangePassword {
+        old_password: String,
+        new_password: String,
+    },
+}
+
+#[derive(clap::Subcommand)]
 pub enum DeviceCmd {
     /// Print this device's ID and data directory.
     Show,
@@ -83,6 +107,11 @@ pub enum DeviceCmd {
 
 #[derive(clap::Subcommand)]
 pub enum LedgerCmd {
+    /// Give an existing account on this device access to a ledger.
+    Share {
+        ledger_id: String,
+        account_name: String,
+    },
     /// Create a new ledger with a name and ISO 4217 currency code (e.g. USD).
     Create {
         name: String,
@@ -274,7 +303,51 @@ async fn run() -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("cannot connect to unbill-daemon: {e}"))?;
     let svc = UnbillConsole::open(channel).await;
 
+    if !matches!(&cli.command, Command::Account { .. } | Command::Init)
+        && svc.current_account().await.is_err()
+    {
+        bail!(
+            "log in first with `unbill-cli account login <name> <password>` or register an account"
+        );
+    }
+
     match cli.command {
+        Command::Account { sub } => match sub {
+            AccountCmd::Register { name, password } => {
+                svc.register_account(&name, &password).await?;
+                let _ = svc.login(&name, &password).await?;
+                println!("registered and logged in as {name}");
+                Ok(())
+            }
+            AccountCmd::Login { name, password } => {
+                let _ = svc.login(&name, &password).await?;
+                println!("logged in as {name}");
+                Ok(())
+            }
+            AccountCmd::Logout => {
+                svc.logout().await?;
+                println!("logged out");
+                Ok(())
+            }
+            AccountCmd::Show => {
+                println!("{}", svc.current_account().await?);
+                Ok(())
+            }
+            AccountCmd::List => {
+                for name in svc.list_accounts().await? {
+                    println!("{name}");
+                }
+                Ok(())
+            }
+            AccountCmd::ChangePassword {
+                old_password,
+                new_password,
+            } => {
+                svc.change_password(&old_password, &new_password).await?;
+                println!("password changed; log in again");
+                Ok(())
+            }
+        },
         Command::About => about::write(&mut std::io::stdout().lock(), json),
         Command::Licenses { software, all } => licenses::write(
             &mut std::io::stdout().lock(),
@@ -288,6 +361,16 @@ async fn run() -> anyhow::Result<()> {
             DeviceCmd::Ble => commands::device_ble(&svc, json).await,
         },
         Command::Ledger { sub } => match sub {
+            LedgerCmd::Share {
+                ledger_id,
+                account_name,
+            } => {
+                let id = unbill_console::model::LedgerId::from_string(&ledger_id)
+                    .map_err(|e| anyhow::anyhow!("invalid ledger ID: {e}"))?;
+                svc.share_ledger(id, &account_name).await?;
+                println!("shared with {account_name}");
+                Ok(())
+            }
             LedgerCmd::Create { name, currency } => {
                 commands::ledger_create(&svc, name, currency, json).await
             }

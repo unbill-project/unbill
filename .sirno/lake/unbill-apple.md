@@ -11,6 +11,9 @@ core.refines:
 ---
 
 `unbill-apple` is the native SwiftUI frontend for Apple platforms.
+An account gate registers, logs in, and resumes a stored session before showing
+ledger screens. The account control changes passwords and logs out; Ledger
+Settings shares a ledger with an existing local account.
 It supplies the macOS release app, replacing the Tauri macOS bundle in the release pipeline.
 Tauri continues to supply the Linux and Windows desktop bundles.
 It targets iPhone and iPad as one universal build and macOS through Mac Catalyst.

@@ -56,7 +56,7 @@ COPY docker/Caddyfile     /etc/caddy/Caddyfile
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Required:  API_KEY         — bearer token enforced by unbill-server
+# Account registration and login issue persistent bearer sessions.
 # Optional:  PORT            — internal server port (default 8080)
 # Optional:  UNBILL_DATA_DIR — override ledger storage path (mount a volume here)
 ENV UNBILL_DATA_DIR=/data

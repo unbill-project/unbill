@@ -270,6 +270,85 @@ async fn bootstrap_app(state: State<'_, AppState>) -> std::result::Result<AppBoo
 }
 
 #[tauri::command]
+async fn account_status(state: State<'_, AppState>) -> std::result::Result<String, String> {
+    state
+        .service
+        .current_account()
+        .await
+        .map_err(stringify_error)
+}
+
+#[tauri::command]
+async fn register_account(
+    name: String,
+    password: String,
+    state: State<'_, AppState>,
+) -> std::result::Result<(), String> {
+    state
+        .service
+        .register_account(&name, &password)
+        .await
+        .map_err(stringify_error)
+}
+
+#[tauri::command]
+async fn login_account(
+    name: String,
+    password: String,
+    state: State<'_, AppState>,
+) -> std::result::Result<String, String> {
+    state
+        .service
+        .login(&name, &password)
+        .await
+        .map_err(stringify_error)
+}
+
+#[tauri::command]
+async fn resume_account(
+    token: String,
+    state: State<'_, AppState>,
+) -> std::result::Result<String, String> {
+    state
+        .service
+        .resume_session(&token)
+        .await
+        .map_err(stringify_error)
+}
+
+#[tauri::command]
+async fn logout_account(state: State<'_, AppState>) -> std::result::Result<(), String> {
+    state.service.logout().await.map_err(stringify_error)
+}
+
+#[tauri::command]
+async fn change_account_password(
+    old_password: String,
+    new_password: String,
+    state: State<'_, AppState>,
+) -> std::result::Result<(), String> {
+    state
+        .service
+        .change_password(&old_password, &new_password)
+        .await
+        .map_err(stringify_error)
+}
+
+#[tauri::command]
+async fn share_ledger(
+    ledger_id: String,
+    account_name: String,
+    state: State<'_, AppState>,
+) -> std::result::Result<(), String> {
+    let id = LedgerId::from_string(&ledger_id).map_err(stringify_error)?;
+    state
+        .service
+        .share_ledger(id, &account_name)
+        .await
+        .map_err(stringify_error)
+}
+
+#[tauri::command]
 async fn create_ledger(
     input: CreateLedgerInput,
     state: State<'_, AppState>,
@@ -1112,6 +1191,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_about_link,
             bootstrap_app,
+            account_status,
+            register_account,
+            login_account,
+            resume_account,
+            logout_account,
+            change_account_password,
+            share_ledger,
             ble_peer_indicators,
             create_ledger,
             load_ledger_detail,

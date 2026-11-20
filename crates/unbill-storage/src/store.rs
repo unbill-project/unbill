@@ -9,10 +9,34 @@ use unbill_model::LedgerDoc;
 
 pub type StorageResult<T> = std::result::Result<T, StorageError>;
 
+/// Device-local account identity. Password hashes are PHC encoded Argon2id strings.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AccountRecord {
+    pub name: String,
+    pub password_hash: String,
+}
+
 // sirno:witness:unbill-storage:begin
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 pub trait LedgerStore: Send + Sync {
+    async fn create_account(&self, name: &str, password_hash: &str) -> StorageResult<()>;
+    async fn get_account(&self, name: &str) -> StorageResult<Option<AccountRecord>>;
+    async fn list_accounts(&self) -> StorageResult<Vec<String>>;
+    async fn set_account_password(&self, name: &str, password_hash: &str) -> StorageResult<()>;
+    async fn delete_account(&self, name: &str) -> StorageResult<()>;
+    /// Tokens are random bearer secrets; storage keeps only their SHA-256 digests.
+    async fn create_session(&self, token_hash: &str, account_name: &str) -> StorageResult<()>;
+    async fn resolve_session(&self, token_hash: &str) -> StorageResult<Option<String>>;
+    async fn delete_session(&self, token_hash: &str) -> StorageResult<()>;
+    async fn grant_ledger(&self, account_name: &str, ledger_id: LedgerId) -> StorageResult<()>;
+    async fn revoke_ledger(&self, account_name: &str, ledger_id: LedgerId) -> StorageResult<()>;
+    async fn account_has_ledger(
+        &self,
+        account_name: &str,
+        ledger_id: LedgerId,
+    ) -> StorageResult<bool>;
+    async fn list_account_ledgers(&self, account_name: &str) -> StorageResult<Vec<LedgerId>>;
     /// Create or update the per-ledger metadata cache.
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> StorageResult<()>;
     async fn list_ledgers(&self) -> StorageResult<Vec<LedgerMeta>>;

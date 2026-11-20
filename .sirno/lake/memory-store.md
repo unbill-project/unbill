@@ -14,6 +14,8 @@ core.refines:
 It is not intended for production use.
 
 The store holds ledger data, a typed invitation map, and an optional secret key behind a mutex.
+It also holds local account password hashes, session digests, and account-to-ledger grants
+for permission-aware tests. Password changes remove that account's sessions.
 All metadata operations use the same typed interface as the SQLite backend.
 Invitation consumption removes and returns one entry atomically.
 All operations are synchronous under that lock and do no I/O.

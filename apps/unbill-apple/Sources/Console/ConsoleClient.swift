@@ -9,6 +9,14 @@ struct BlePeerConnections {
 }
 
 protocol ConsoleClient {
+    func currentAccount() async throws -> String
+    func registerAccount(name: String, password: String) async throws
+    func loginAccount(name: String, password: String) async throws -> String
+    func resumeAccount(token: String) async throws -> String
+    func logoutAccount() async throws
+    func changeAccountPassword(old: String, new: String) async throws
+    func listAccounts() async throws -> [String]
+    func shareLedger(ledgerID: String, accountName: String) async throws
     func serviceBuildInfo() async throws -> ConsoleBuildInfo
     func supportedCurrencies() async -> [String]
     func ledgers() async throws -> [LedgerSummary]

@@ -85,13 +85,20 @@ impl AppState {
 // Entry point
 // ---------------------------------------------------------------------------
 
+pub enum ExitReason {
+    Quit,
+    SwitchAccount,
+    ChangePassword,
+}
+
 pub async fn run(
     terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
     svc: Arc<UnbillConsole>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<ExitReason> {
     // sirno:witness:unbill-tui:begin
     let (sync_result_tx, mut sync_result_rx) = mpsc::unbounded_channel::<Result<(), String>>();
     let mut state = AppState::new(sync_result_tx);
+    let mut exit_reason = ExitReason::Quit;
     let mut events = EventStream::new();
     let mut tick = interval(Duration::from_millis(16));
     let mut svc_events = svc.subscribe();
@@ -159,6 +166,16 @@ pub async fn run(
             Some(Ok(ev)) = events.next() => {
                 match ev {
                     Event::Key(key) => {
+                        if key.code == KeyCode::Char('l') && key.modifiers.contains(KeyModifiers::CONTROL) {
+                            exit_reason = ExitReason::SwitchAccount;
+                            state.should_quit = true;
+                            continue;
+                        }
+                        if key.code == KeyCode::Char('p') && key.modifiers.contains(KeyModifiers::CONTROL) {
+                            exit_reason = ExitReason::ChangePassword;
+                            state.should_quit = true;
+                            continue;
+                        }
                         handle_key(key, &mut state, &svc).await;
                     }
                     Event::Resize(_, _) => {}
@@ -168,7 +185,7 @@ pub async fn run(
         }
     }
 
-    Ok(())
+    Ok(exit_reason)
     // sirno:witness:unbill-tui:end
 }
 
@@ -285,6 +302,11 @@ async fn handle_ledger_key(key: KeyEvent, state: &mut AppState, svc: &Arc<Unbill
         }
         KeyCode::Char('u') => {
             open_settings_popup(TopTab::Ledger, state, svc).await;
+        }
+        KeyCode::Char('s') => {
+            if let Some(id) = state.current_ledger_id() {
+                state.popup = Some(Box::new(crate::popup::share::SharePopup::new(id)));
+            }
         }
         KeyCode::Char('S') => {
             open_settings_popup(TopTab::Device, state, svc).await;
@@ -660,6 +682,15 @@ async fn try_confirm_editor(state: &mut AppState, svc: &Arc<UnbillConsole>) {
 
 async fn execute_action(action: PopupAction, state: &mut AppState, svc: &Arc<UnbillConsole>) {
     match action {
+        PopupAction::ShareLedger {
+            ledger_id,
+            account_name,
+        } => {
+            state.status_message = Some(match svc.share_ledger(ledger_id, &account_name).await {
+                Ok(()) => format!("Shared ledger with {account_name}"),
+                Err(error) => error.to_string(),
+            });
+        }
         PopupAction::RenameLedger { ledger_id, name } => {
             match svc.rename_ledger(ledger_id, &name).await {
                 Ok(()) => {

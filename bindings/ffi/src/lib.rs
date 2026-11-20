@@ -717,6 +717,41 @@ impl Console {
 
 #[uniffi::export]
 impl Console {
+    pub fn register_account(&self, name: String, password: String) -> Result<(), ConsoleError> {
+        self.inner
+            .register_account(name, password)
+            .map_err(Into::into)
+    }
+    pub fn login_account(&self, name: String, password: String) -> Result<String, ConsoleError> {
+        self.inner.login_account(name, password).map_err(Into::into)
+    }
+    pub fn resume_account(&self, token: String) -> Result<String, ConsoleError> {
+        self.inner.resume_account(token).map_err(Into::into)
+    }
+    pub fn current_account(&self) -> Result<String, ConsoleError> {
+        self.inner.current_account().map_err(Into::into)
+    }
+    pub fn logout_account(&self) -> Result<(), ConsoleError> {
+        self.inner.logout_account().map_err(Into::into)
+    }
+    pub fn change_account_password(&self, old: String, new: String) -> Result<(), ConsoleError> {
+        self.inner
+            .change_account_password(old, new)
+            .map_err(Into::into)
+    }
+    pub fn list_accounts(&self) -> Result<Vec<String>, ConsoleError> {
+        self.inner.list_accounts().map_err(Into::into)
+    }
+    pub fn share_ledger(
+        &self,
+        ledger_id: String,
+        account_name: String,
+    ) -> Result<(), ConsoleError> {
+        self.inner
+            .share_ledger(ledger_id, account_name)
+            .map_err(Into::into)
+    }
+
     pub fn service_build_info(&self) -> Result<ConsoleBuildInfo, ConsoleError> {
         self.inner
             .service_build_info()

@@ -76,6 +76,10 @@ for setup and app refresh instructions.
 Prebuilt binaries for all platforms are attached to each
 [GitHub release](https://github.com/unbill-project/unbill/releases/latest).
 
+On first launch, register a device-local account. Existing databases upgrade
+with the ordinary `admin` account and password `admin`; change that password
+after logging in.
+
 <!-- sirno:witness:distribution-and-release:end -->
 
 ## How It Works

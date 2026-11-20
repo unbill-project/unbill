@@ -10,7 +10,7 @@ use unbill_event::ServiceEvent;
 
 use unbill_model::{Invitation, LedgerDoc};
 use unbill_model::{LedgerId, LedgerMeta, NodeId, SecretKey, StorageError, Timestamp};
-use unbill_storage::{LedgerStore, StorageResult as Result};
+use unbill_storage::{AccountRecord, LedgerStore, StorageResult as Result};
 
 // sirno:witness:memory-store:begin
 pub struct InMemoryStore {
@@ -37,6 +37,9 @@ impl Default for InMemoryStore {
 
 #[derive(Default)]
 struct Inner {
+    accounts: HashMap<String, String>,
+    sessions: HashMap<String, String>,
+    grants: HashMap<String, Vec<LedgerId>>,
     ledgers: HashMap<String, StoredLedger>,
     invitations: HashMap<String, Invitation>,
     archived: HashMap<String, bool>,
@@ -64,6 +67,113 @@ fn metadata(doc: &LedgerDoc, updated_at: Timestamp) -> Result<LedgerMeta> {
 
 #[async_trait]
 impl LedgerStore for InMemoryStore {
+    async fn create_account(&self, name: &str, password_hash: &str) -> Result<()> {
+        let mut inner = self.lock_inner();
+        if inner.accounts.contains_key(name) {
+            return Err(
+                std::io::Error::new(std::io::ErrorKind::AlreadyExists, "account exists").into(),
+            );
+        }
+        inner
+            .accounts
+            .insert(name.to_owned(), password_hash.to_owned());
+        Ok(())
+    }
+    async fn get_account(&self, name: &str) -> Result<Option<AccountRecord>> {
+        Ok(self
+            .lock_inner()
+            .accounts
+            .get(name)
+            .map(|hash| AccountRecord {
+                name: name.to_owned(),
+                password_hash: hash.clone(),
+            }))
+    }
+    async fn list_accounts(&self) -> Result<Vec<String>> {
+        let mut names: Vec<_> = self.lock_inner().accounts.keys().cloned().collect();
+        names.sort();
+        Ok(names)
+    }
+    async fn set_account_password(&self, name: &str, password_hash: &str) -> Result<()> {
+        let mut inner = self.lock_inner();
+        let Some(hash) = inner.accounts.get_mut(name) else {
+            return Err(
+                std::io::Error::new(std::io::ErrorKind::NotFound, "account not found").into(),
+            );
+        };
+        *hash = password_hash.to_owned();
+        inner.sessions.retain(|_, account| account != name);
+        Ok(())
+    }
+    async fn delete_account(&self, name: &str) -> Result<()> {
+        let mut inner = self.lock_inner();
+        inner.accounts.remove(name);
+        inner.sessions.retain(|_, account| account != name);
+        inner.grants.remove(name);
+        Ok(())
+    }
+    async fn create_session(&self, token_hash: &str, account_name: &str) -> Result<()> {
+        let mut inner = self.lock_inner();
+        if !inner.accounts.contains_key(account_name) {
+            return Err(StorageError::Unauthorized);
+        }
+        inner
+            .sessions
+            .insert(token_hash.to_owned(), account_name.to_owned());
+        Ok(())
+    }
+    async fn resolve_session(&self, token_hash: &str) -> Result<Option<String>> {
+        Ok(self.lock_inner().sessions.get(token_hash).cloned())
+    }
+    async fn delete_session(&self, token_hash: &str) -> Result<()> {
+        self.lock_inner().sessions.remove(token_hash);
+        Ok(())
+    }
+    async fn grant_ledger(&self, account_name: &str, ledger_id: LedgerId) -> Result<()> {
+        let changed = {
+            let mut inner = self.lock_inner();
+            if !inner.accounts.contains_key(account_name) {
+                return Err(StorageError::Unauthorized);
+            }
+            let grants = inner.grants.entry(account_name.to_owned()).or_default();
+            if grants.contains(&ledger_id) {
+                false
+            } else {
+                grants.push(ledger_id);
+                true
+            }
+        };
+        if changed {
+            let _ = self.events.send(ServiceEvent::LedgerUpdated {
+                ledger_id: ledger_id.to_string(),
+            });
+        }
+        Ok(())
+    }
+    async fn revoke_ledger(&self, account_name: &str, ledger_id: LedgerId) -> Result<()> {
+        if let Some(grants) = self.lock_inner().grants.get_mut(account_name) {
+            grants.retain(|id| *id != ledger_id);
+        }
+        let _ = self.events.send(ServiceEvent::LedgerUpdated {
+            ledger_id: ledger_id.to_string(),
+        });
+        Ok(())
+    }
+    async fn account_has_ledger(&self, account_name: &str, ledger_id: LedgerId) -> Result<bool> {
+        Ok(self
+            .lock_inner()
+            .grants
+            .get(account_name)
+            .is_some_and(|grants| grants.contains(&ledger_id)))
+    }
+    async fn list_account_ledgers(&self, account_name: &str) -> Result<Vec<LedgerId>> {
+        Ok(self
+            .lock_inner()
+            .grants
+            .get(account_name)
+            .cloned()
+            .unwrap_or_default())
+    }
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
         let mut inner = self.lock_inner();
         let id = meta.ledger_id.to_string();

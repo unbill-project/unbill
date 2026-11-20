@@ -21,6 +21,12 @@ It is not aware of the `AsymChannel` trait.
 `LocalAsymChannel` wraps it,
 while RPC and HTTP server code call the same methods directly.
 
+`UnbillDevice` owns device-local account registration and authentication.
+`AccountView` is its account-scoped ledger API. The caller must obtain an
+account name from a verified session before constructing a view for external
+requests; the constructor itself trusts its in-process caller. See
+`device-accounts` for grants and session lifecycle.
+
 One `UnbillDevice` instance exists per device process.
 It holds the store and endpoint exclusively.
 The symmetric endpoint is bound eagerly in `open`.

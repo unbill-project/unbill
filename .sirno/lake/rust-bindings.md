@@ -12,6 +12,10 @@ The unbill Cargo package lives in bindings/rust. It owns the public Console API 
 The public interface preserves the existing Console names, string identifiers, data shapes, synchronous operations, and asynchronous sync_once and observe_ble methods. Console owns its Tokio runtime; synchronous calls and final Console release occur outside async runtime contexts, and callbacks forward work before invoking synchronous Console methods.
 
 Construction selects either an in-process SQLite device or an existing daemon through RPC. Mobile targets omit RPC at compilation. Storage ownership, runtime tasks, projections, and subscriptions retain their existing behavior.
+Account methods register, log in, resume and revoke sessions, change passwords,
+and share a ledger with an existing local account. A new console authenticates
+before using ledger operations. In-process callers persist and resume their
+own token; RPC clients use a local session file.
 
 unbill-console remains the underlying orchestration library. bindings/ffi contains unbill-ffi, which adapts the unbill interface through UniFFI records, errors, callbacks, and thin forwarding methods. Business operations and projection assembly live only in the Rust binding. The Python package remains under bindings/python.
 The Rust package forwards the model's Garde-backed field validators and shared

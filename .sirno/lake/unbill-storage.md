@@ -14,6 +14,7 @@ core.refines:
 It stores whole-ledger Automerge snapshots,
 lightweight ledger metadata,
 and device-local metadata.
+It also stores device-local accounts, per-ledger grants, and hashed sessions.
 
 ```mermaid
 flowchart TB
