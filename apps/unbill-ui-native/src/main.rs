@@ -121,13 +121,13 @@ fn Root() -> impl IntoView {
                 view! {
                     <app::App />
                     <div class="account-toolbar">
-                        <button type="button" on:click=move |_| account_menu.update(|open| *open = !*open)>{move || account_name.get()}</button>
+                        <button type="button" class="account-trigger" aria-expanded=move || account_menu.get().to_string() on:click=move |_| account_menu.update(|open| *open = !*open)>{move || account_name.get()}</button>
                         {move || account_menu.get().then(|| view! {
                             <div class="account-menu">
-                                <label>"Current password"<input type="password" prop:value=move || old_password.get() on:input=move |ev| old_password.set(event_target_value(&ev)) /></label>
-                                <label>"New password"<input type="password" prop:value=move || new_password.get() on:input=move |ev| new_password.set(event_target_value(&ev)) /></label>
-                                <button type="button" on:click=change_password>"Change password"</button>
-                                <button type="button" on:click=logout>"Log out"</button>
+                                <label>"Current password"<input class="ui-input" type="password" prop:value=move || old_password.get() on:input=move |ev| old_password.set(event_target_value(&ev)) /></label>
+                                <label>"New password"<input class="ui-input" type="password" prop:value=move || new_password.get() on:input=move |ev| new_password.set(event_target_value(&ev)) /></label>
+                                <button type="button" class="action-button action-button-primary action-button-block" on:click=change_password>"Change password"</button>
+                                <button type="button" class="action-button action-button-quiet action-button-block" on:click=logout>"Log out"</button>
                             </div>
                         })}
                     </div>
@@ -139,8 +139,10 @@ fn Root() -> impl IntoView {
                         <label>"Account name"<input class="ui-input" type="text" prop:value=move || name.get() on:input=move |ev| name.set(event_target_value(&ev)) /></label>
                         <label>"Password"<input class="ui-input" type="password" prop:value=move || password.get() on:input=move |ev| password.set(event_target_value(&ev)) /></label>
                         {move || error.get().map(|message| view! { <p class="form-error">{message}</p> })}
-                        <button type="button" on:click=move |_| authenticate(false)>"Log in"</button>
-                        <button type="button" on:click=move |_| authenticate(true)>"Register"</button>
+                        <div class="login-actions">
+                            <button type="button" class="action-button action-button-primary action-button-block" on:click=move |_| authenticate(false)>"Log in"</button>
+                            <button type="button" class="action-button action-button-secondary action-button-block" on:click=move |_| authenticate(true)>"Register"</button>
+                        </div>
                     </div></main>
                 }.into_any()
             }

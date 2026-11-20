@@ -136,12 +136,19 @@
   border: 0;
 }
 
-.icon-button:hover,
-.action-button:hover,
-.tab-button:hover,
+.icon-button:not(:disabled):hover,
+.action-button-quiet:not(:disabled):hover,
+.tab-button:not(:disabled):hover,
 .list-row:hover {
   border-color: var(--line-strong);
   background: var(--bg-muted);
+}
+
+.icon-button:focus-visible,
+.action-button:focus-visible,
+.tab-button:focus-visible {
+  outline: 2px solid var(--bg-accent);
+  outline-offset: 2px;
 }
 
 .action-button {
@@ -159,9 +166,23 @@
   color: var(--text-inverse);
 }
 
+.action-button-primary:not(:disabled):hover,
+.icon-button.action-button-primary:not(:disabled):hover {
+  border-color: var(--bg-accent);
+  background: color-mix(in srgb, var(--bg-accent) 88%, var(--text-strong));
+  color: var(--text-inverse);
+}
+
 .action-button-secondary {
   border-color: var(--accent-secondary-border);
   background: var(--bg-accent-soft);
+  color: var(--accent-text);
+}
+
+.action-button-secondary:not(:disabled):hover,
+.icon-button.action-button-secondary:not(:disabled):hover {
+  border-color: var(--accent-border);
+  background: var(--accent-selected);
   color: var(--accent-text);
 }
 
@@ -634,6 +655,12 @@
 .tab-button-active {
   border-color: var(--accent-border);
   background: var(--bg-accent-soft);
+  color: var(--accent-text);
+}
+
+.tab-button-active:not(:disabled):hover {
+  border-color: var(--accent-border);
+  background: var(--accent-selected);
   color: var(--accent-text);
 }
 

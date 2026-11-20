@@ -205,30 +205,63 @@ button {
 }
 .account-toolbar {
   position: fixed;
-  right: 1rem;
-  bottom: 1rem;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
   z-index: 1000;
-  font: inherit;
 }
-.account-toolbar button, .account-menu input {
-  font: inherit;
-  padding: .45rem .65rem;
-  border: 1px solid var(--border, #aaa);
-  border-radius: .4rem;
-  background: var(--surface, #fff);
-  color: inherit;
+
+.account-trigger {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  font-size: 0.88rem;
+  font-weight: 600;
 }
+
+.account-trigger::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 9px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.account-trigger:hover,
+.account-trigger[aria-expanded="true"] {
+  border-color: var(--line-strong);
+  background: var(--bg-muted);
+}
+
+.account-trigger:focus-visible {
+  outline: 2px solid var(--bg-accent);
+  outline-offset: 2px;
+}
+
 .account-menu {
   position: absolute;
   right: 0;
-  bottom: 2.8rem;
+  bottom: calc(100% + 8px);
   display: grid;
-  gap: .6rem;
-  width: 16rem;
-  padding: .8rem;
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #aaa);
-  border-radius: .5rem;
-  box-shadow: 0 4px 18px #0002;
+  gap: 10px;
+  width: min(260px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-overlay);
 }
-.account-menu label { display: grid; gap: .25rem; }
+
+.account-menu label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-body);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
