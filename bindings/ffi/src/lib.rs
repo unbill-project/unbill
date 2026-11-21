@@ -972,11 +972,21 @@ mod tests {
     use std::sync::mpsc;
     use std::time::Duration;
 
+    fn login_test_account(console: &Console) -> String {
+        console
+            .register_account("test-owner".into(), "test-password".into())
+            .unwrap();
+        console
+            .login_account("test-owner".into(), "test-password".into())
+            .unwrap()
+    }
+
     #[test]
     fn foreign_operations_use_the_native_console_and_preserve_nested_values() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().to_str().unwrap().to_owned();
         let console = Console::open_in_process(path.clone()).unwrap();
+        let token = login_test_account(&console);
         #[cfg(not(any(
             target_os = "android",
             all(target_os = "ios", not(target_abi = "macabi"))
@@ -1043,6 +1053,7 @@ mod tests {
 
         // Rust consumers can reopen the exact data created through the adapter.
         let native = unbill::Console::open_in_process(path).unwrap();
+        native.resume_account(token).unwrap();
         assert_eq!(
             native.ledger_detail(ledger.ledger_id).unwrap().summary.name,
             "Renamed"
@@ -1060,6 +1071,7 @@ mod tests {
         }
         let dir = tempfile::tempdir().unwrap();
         let console = Console::open_in_process(dir.path().to_str().unwrap().to_owned()).unwrap();
+        login_test_account(&console);
         let ledger = console
             .create_ledger("Events".into(), "USD".into())
             .unwrap();

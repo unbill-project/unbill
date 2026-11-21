@@ -37,6 +37,8 @@ class NativeBindingsTests(unittest.TestCase):
             with mock.patch.dict(os.environ, {"UNBILL_SOCKET": directory + "/missing.sock"}):
                 console = unbill.Console.open_in_process(directory)
                 try:
+                    console.register_account("test-owner", "test-password")
+                    token = console.login_account("test-owner", "test-password")
                     device_id = console.device_id()
                     self.assertEqual(
                         console.service_build_info().version,
@@ -50,6 +52,7 @@ class NativeBindingsTests(unittest.TestCase):
 
                 reopened = unbill.Console.open_in_process(directory)
                 try:
+                    self.assertEqual(reopened.resume_account(token), "test-owner")
                     self.assertEqual(reopened.device_id(), device_id)
                     self.assertEqual(
                         reopened.ledger_detail(ledger.ledger_id).summary.name,
@@ -72,6 +75,8 @@ class NativeBindingsTests(unittest.TestCase):
         self.check_operations_and_observer(console)
 
     def check_operations_and_observer(self, console):
+        console.register_account("test-owner", "test-password")
+        console.login_account("test-owner", "test-password")
         events = queue.Queue()
 
         class Observer(unbill.ConsoleObserver):

@@ -35,6 +35,8 @@ import unbill
 
 console = unbill.Console.open_in_process("./unbill-data")
 try:
+    console.register_account("owner", "choose-a-password")
+    session = console.login_account("owner", "choose-a-password")
     ledger = console.create_ledger("Household", "USD")
     detail = console.ledger_detail(ledger.ledger_id)
     print(detail.summary.name)
@@ -51,6 +53,8 @@ console = unbill.Console.open_rpc(unbill.default_data_directory())
 The daemon must already be running. Both constructors expose the same console
 operations. Only one process can own a data directory at a time; release an
 in-process console before opening that directory elsewhere.
+After reopening an in-process console, call `resume_account(session)` before
+accessing ledgers. An RPC console resumes its saved local session automatically.
 
 Most console methods block. From `asyncio`, call them with `asyncio.to_thread`;
 `sync_once` is awaitable directly. Errors raise `unbill.ConsoleError`. Observer
