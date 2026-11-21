@@ -507,6 +507,7 @@ mod tests {
             client: Client::new(),
             base_url: format!("http://127.0.0.1:{port}"),
             session_token: "test-token".to_owned(),
+            account_name: "test-owner".to_owned(),
             device_node_id: unbill_model::NodeId::new("1".repeat(64)),
             events,
         };
