@@ -589,19 +589,17 @@ impl StoreServer {
         bytes: Vec<u8>,
     ) -> DeviceResult<Option<Vec<u8>>> {
         let name = name.to_owned();
-        let result = self
-            .account_call(move |store| async move {
-                if !store.account_has_ledger(&name, id).await? {
-                    return Err(StorageError::Unauthorized);
-                }
-                Ok(Self::do_asym_sync(&*store, &id.to_string(), bytes).await)
-            })
-            .await
-            .map_err(|error| match error {
-                StorageError::Unauthorized => UnbillError::NotAuthorized,
-                other => UnbillError::Storage(other),
-            })?;
-        result
+        self.account_call(move |store| async move {
+            if !store.account_has_ledger(&name, id).await? {
+                return Err(StorageError::Unauthorized);
+            }
+            Ok(Self::do_asym_sync(&*store, &id.to_string(), bytes).await)
+        })
+        .await
+        .map_err(|error| match error {
+            StorageError::Unauthorized => UnbillError::NotAuthorized,
+            other => UnbillError::Storage(other),
+        })?
     }
 
     pub async fn account_create_invitation(
@@ -611,19 +609,17 @@ impl StoreServer {
         device_id: NodeId,
     ) -> DeviceResult<String> {
         let name = name.to_owned();
-        let result = self
-            .account_call(move |store| async move {
-                if !store.account_has_ledger(&name, id).await? {
-                    return Err(StorageError::Unauthorized);
-                }
-                Ok(Self::do_create_invitation(&*store, id, device_id).await)
-            })
-            .await
-            .map_err(|error| match error {
-                StorageError::Unauthorized => UnbillError::NotAuthorized,
-                other => UnbillError::Storage(other),
-            })?;
-        result
+        self.account_call(move |store| async move {
+            if !store.account_has_ledger(&name, id).await? {
+                return Err(StorageError::Unauthorized);
+            }
+            Ok(Self::do_create_invitation(&*store, id, device_id).await)
+        })
+        .await
+        .map_err(|error| match error {
+            StorageError::Unauthorized => UnbillError::NotAuthorized,
+            other => UnbillError::Storage(other),
+        })?
     }
 
     pub async fn share_account_ledger(

@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
     }
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).is_some_and(|arg| arg == "account") {
-        return maintain_account(&args[2..]).await;
+        return maintain_account(args.get(2..).unwrap_or_default()).await;
     }
     // sirno:witness:unbill-daemon:begin
     tracing_subscriber::fmt()

@@ -67,11 +67,9 @@ fn Root() -> impl IntoView {
             return;
         }
         spawn_local(async move {
-            if register {
-                if let Err(e) = api::register_account(&account, &secret).await {
-                    error.set(Some(e));
-                    return;
-                }
+            if register && let Err(e) = api::register_account(&account, &secret).await {
+                error.set(Some(e));
+                return;
             }
             match api::login_account(&account, &secret).await {
                 Ok(token) => {

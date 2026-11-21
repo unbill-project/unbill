@@ -557,16 +557,15 @@ impl RpcAsymChannel {
             .map_err(|e| std::io::Error::other(e.to_string()))?;
         let device_node_id = NodeId::new(id_str);
         let session_path = path.with_extension("session");
-        if let Ok(token) = std::fs::read_to_string(&session_path) {
-            if client
+        if let Ok(token) = std::fs::read_to_string(&session_path)
+            && client
                 .resume_session(tarpc::context::current(), token.trim().to_owned())
                 .await
                 .ok()
                 .and_then(std::result::Result::ok)
                 .is_none()
-            {
-                let _ = std::fs::remove_file(&session_path);
-            }
+        {
+            let _ = std::fs::remove_file(&session_path);
         }
 
         let (tx, _) = broadcast::channel(256);

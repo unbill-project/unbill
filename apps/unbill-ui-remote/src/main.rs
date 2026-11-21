@@ -91,11 +91,10 @@ fn Root() -> impl IntoView {
         }
         spawn_local(async move {
             let base = server_base_url();
-            if register {
-                if let Err(e) = HttpAsymChannel::register_at(&base, &name, &password).await {
-                    error.set(Some(e.to_string()));
-                    return;
-                }
+            if register && let Err(e) = HttpAsymChannel::register_at(&base, &name, &password).await
+            {
+                error.set(Some(e.to_string()));
+                return;
             }
             match HttpAsymChannel::login_at(&base, &name, &password).await {
                 Ok(token) => match init_service(token.clone()).await {
