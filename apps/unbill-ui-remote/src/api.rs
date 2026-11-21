@@ -377,7 +377,7 @@ pub async fn rename_ledger(ledger_id: &str, name: String) -> Result<(), String> 
 
 pub async fn rename_device(ledger_id: &str, node_id: &str, name: String) -> Result<(), String> {
     let svc = get_service()?;
-    let node = node_id.parse::<NodeId>().map_err(|e| e.to_string())?;
+    let node = NodeId::new(node_id.to_owned());
     let label = unbill_console::model::DeviceLabel::new(name).map_err(|e| e.to_string())?;
     svc.set_device_label(parse_ledger_id(ledger_id)?, node, label)
         .await

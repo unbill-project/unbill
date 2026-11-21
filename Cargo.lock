@@ -9354,7 +9354,6 @@ dependencies = [
  "async-trait",
  "automerge",
  "directories",
- "serde_json",
  "tokio",
  "tracing",
  "unbill-event",
