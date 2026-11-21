@@ -67,7 +67,15 @@ async fn old_database(
     let token = invitation.token.clone();
     drop(store);
     let mut conn = connection(root);
-    conn.revert_last_migration(MIGRATIONS).unwrap();
+    // Return to the schema before ledger archives, even when newer migrations
+    // (such as accounts) have been added after it.
+    while count(
+        &mut conn,
+        "SELECT count(*) AS count FROM __diesel_schema_migrations WHERE version >= '00000000000003'",
+    ) > 0
+    {
+        conn.revert_last_migration(MIGRATIONS).unwrap();
+    }
     (id, bytes(&mut conn), key, token)
 }
 
