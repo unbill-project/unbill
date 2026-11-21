@@ -821,10 +821,7 @@ mod tests {
             .register_account("test-owner", "test-password")
             .await
             .unwrap();
-        console
-            .login_account("test-owner", "test-password")
-            .await
-            .unwrap();
+        console.login("test-owner", "test-password").await.unwrap();
         console
     }
 
