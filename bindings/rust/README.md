@@ -1,32 +1,65 @@
 # Unbill Rust bindings
 
-The `unbill` Cargo package exposes the same `Console` interface as the Python and
-Swift bindings. Calls go directly to the shared Rust implementation. This crate
-does not depend on UniFFI; `../ffi` adapts this crate for foreign languages.
+The `unbill` Cargo package (currently `0.0.10`) exposes the same `Console`
+interface as the Python and Swift bindings. Calls go directly to the shared
+Rust implementation. This crate does not depend on UniFFI; `../ffi` adapts this
+crate for foreign languages.
 
-For local development, add a path dependency on this directory:
+Add the published crate from crates.io:
+
+```toml
+[dependencies]
+unbill = "0.0.10"
+```
+
+For local development inside a checkout, use a path dependency instead:
 
 ```toml
 [dependencies]
 unbill = { path = "/path/to/unbill/bindings/rust" }
 ```
 
-Open an embedded SQLite device:
+Open an embedded SQLite device, create a ledger and participants, then preview
+and save a bill. Amounts are integer minor units (for USD, cents); share weights
+are relative portions. Reuse the same bill ID for preview and save so rounding
+is consistent:
 
 ```rust,no_run
-use unbill::{Console, ConsoleError};
+use unbill::{Console, ConsoleBillDraft, ConsoleError, ConsoleShareInput, new_bill_id};
 
 fn main() -> Result<(), ConsoleError> {
     let console = Console::open_in_process("./household-data".into())?;
     console.register_account("alice".into(), "a private password".into())?;
     let _session = console.login_account("alice".into(), "a private password".into())?;
     let ledger = console.create_ledger("Household".into(), "USD".into())?;
-    let person = console.create_user(ledger.ledger_id.clone(), "Alice".into())?;
-    let detail = console.ledger_detail(ledger.ledger_id)?;
-    println!("{}: {}", detail.summary.name, person.display_name);
+    let alice = console.create_user(ledger.ledger_id.clone(), "Alice".into())?;
+    let bob = console.create_user(ledger.ledger_id.clone(), "Bob".into())?;
+
+    let amount_cents = 4_200;
+    let payers = vec![ConsoleShareInput { user_id: alice.user_id.clone(), shares: 1 }];
+    let payees = vec![
+        ConsoleShareInput { user_id: alice.user_id.clone(), shares: 1 },
+        ConsoleShareInput { user_id: bob.user_id, shares: 1 },
+    ];
+    let bill_id = new_bill_id();
+    let _preview = console.preview_bill_split(
+        amount_cents, payers.clone(), payees.clone(), bill_id.clone(),
+    )?;
+    console.save_bill(
+        ledger.ledger_id,
+        amount_cents,
+        "Dinner".into(),
+        payers,
+        payees,
+        ConsoleBillDraft { bill_id, prev_bill_ids: vec![] },
+    )?;
     Ok(())
 }
 ```
+
+This example uses `ConsoleBillDraft`, `ConsoleShareInput`, and `new_bill_id`;
+`save_bill` returns the saved bill ID. For an amendment, put the IDs of the
+superseded bills in `prev_bill_ids`.
 
 On desktop, connect to an existing daemon with
 `Console::open_rpc(unbill::default_data_directory()?)`. RPC honors `UNBILL_SOCKET`
@@ -98,11 +131,13 @@ Cargo orders the dependency uploads. The FFI adapter and applications are exclud
 
 ### Automatic releases
 
-`.github/workflows/rust.yml` runs on `v*` tag pushes. It tests the binding and
-adapter, checks the dependency graph, and verifies all package archives before
-the publishing job runs. The tag must equal `v` followed by every selected
-library's version (for example, `v0.0.9`). Ordinary CI calls the same verification
-workflow; manual dispatch also verifies without publishing.
+`.github/workflows/rust.yml` verifies packages on `v*` tag pushes, on
+`release/crates-v*` branches, through reusable workflow calls, and on manual
+dispatch. It tests the binding and adapter, checks the dependency graph, and
+verifies all package archives before a publishing job runs. A release ref must
+match every selected library's version: for the current `0.0.10` workspace, use
+`v0.0.10` (or `release/crates-v0.0.10`). Manual dispatch and reusable workflow
+calls verify without publishing.
 
 Set the `CARGO_REGISTRY_TOKEN` GitHub Actions secret on the repository or its
 `crates-io` environment. The crates.io token needs publish access to `unbill` and
@@ -111,8 +146,10 @@ the first release. Confirm those names are available or owned by the publishing
 account. Only the publishing step receives the token. Missing credentials fail
 the release with a setup message.
 
-After merging the workflow and configuring the secret, the next matching version
-tag publishes the Rust libraries alongside the existing Python release. Local
-`cargo release` continues to create the version tag without uploading to crates.io.
-To exercise the same version check locally without uploading, run
-`python3 bindings/rust/package.py --tag v0.0.9` with the current workspace version.
+After merging the workflow and configuring the secret, pushing a matching tag or
+release branch to GitHub publishes the Rust libraries alongside the existing
+Python release. Creating a local tag with `cargo release` does not upload to
+crates.io by itself. To run the local version check for this workspace without
+uploading, use `python3 bindings/rust/package.py --tag v0.0.10`. The helper
+requires a clean checkout by default; add `--allow-dirty` only when intentionally
+checking uncommitted changes.
