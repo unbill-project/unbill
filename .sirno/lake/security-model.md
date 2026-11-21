@@ -14,6 +14,10 @@ Each device identity is a `NodeId` derived from Ed25519 key material.
 
 Authorization is ledger-scoped.
 A device may sync a ledger when its `NodeId` is listed in that ledger's device set.
+Within one device, an authenticated account may access a ledger only while a
+local grant exists. External RPC and HTTP entry points resolve a bearer session
+to the account name before creating `AccountView`; a client-supplied account
+name is never an authorization source. See `device-accounts`.
 
 Outbound network traffic is limited to peer discovery, relay fallback,
 and direct sync traffic.

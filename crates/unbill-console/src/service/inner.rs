@@ -28,7 +28,128 @@ pub struct UnbillConsole {
 }
 // sirno:witness:console-service:end
 
+/// Values needed to render a ledger row without repeated channel reads.
+pub struct LedgerOverview {
+    pub meta: LedgerMeta,
+    pub users: Vec<crate::model::User>,
+    pub bills: EffectiveBills,
+    pub devices: Vec<Device>,
+}
+
+impl LedgerOverview {
+    fn from_doc(meta: LedgerMeta, doc: &LedgerDoc) -> Result<Self> {
+        let ledger = doc.get_ledger()?;
+        let bills = EffectiveBills::from_bills(&ledger.bills);
+        Ok(Self::from_ledger(meta, &ledger, bills))
+    }
+
+    fn from_ledger(meta: LedgerMeta, ledger: &crate::model::Ledger, bills: EffectiveBills) -> Self {
+        Self {
+            meta,
+            users: ledger.users.clone(),
+            bills,
+            devices: ledger.devices.clone(),
+        }
+    }
+}
+
+/// Values needed to render a ledger detail from one authorized document read.
+pub struct LedgerDetailSnapshot {
+    pub overview: LedgerOverview,
+    pub conflicts: Vec<ConflictGroup>,
+    pub settlement: settlement::Settlement,
+    pub emoji_fingerprint: String,
+}
+
 impl UnbillConsole {
+    pub async fn ledger_overviews(&self) -> Result<Vec<LedgerOverview>> {
+        let metas = self.channel.list_ledgers().await?;
+        let mut overviews = Vec::with_capacity(metas.len());
+        for meta in metas {
+            let id = meta.ledger_id;
+            let doc = self.take_doc_authorized(id).await?;
+            let result = LedgerOverview::from_doc(meta, &doc);
+            self.put_doc(id, doc).await;
+            overviews.push(result?);
+        }
+        Ok(overviews)
+    }
+
+    pub async fn ledger_detail_snapshot(
+        &self,
+        ledger_id: LedgerId,
+    ) -> Result<LedgerDetailSnapshot> {
+        let meta = self
+            .channel
+            .list_ledgers()
+            .await?
+            .into_iter()
+            .find(|meta| meta.ledger_id == ledger_id)
+            .ok_or_else(|| UnbillError::LedgerNotFound(ledger_id.to_string()))?;
+        let mut doc = self.take_doc_authorized(ledger_id).await?;
+        let result = (|| {
+            let ledger = doc.get_ledger()?;
+            let bills = EffectiveBills::from_bills(&ledger.bills);
+            Ok(LedgerDetailSnapshot {
+                overview: LedgerOverview::from_ledger(meta, &ledger, bills),
+                conflicts: conflict::detect(&ledger.bills),
+                settlement: settlement::compute_settlement(&ledger),
+                emoji_fingerprint: crate::fingerprint::sha256_to_emojis(&doc.state_hash()),
+            })
+        })();
+        self.put_doc(ledger_id, doc).await;
+        result
+    }
+
+    async fn refresh_authorized_ledgers(&self) -> Result<()> {
+        let metas = self.channel.list_ledgers().await?;
+        let mut fresh = HashMap::new();
+        for meta in metas {
+            let mut doc = LedgerDoc::empty();
+            if sync_doc(&*self.channel, meta.ledger_id, &mut doc)
+                .await
+                .is_ok()
+                && !doc.is_empty()
+            {
+                fresh.insert(meta.ledger_id, doc);
+            }
+        }
+        *self.cache.lock().await = fresh;
+        Ok(())
+    }
+
+    pub async fn register_account(&self, name: &str, password: &str) -> Result<()> {
+        self.channel.register(name, password).await
+    }
+    pub async fn login(&self, name: &str, password: &str) -> Result<String> {
+        let token = self.channel.login(name, password).await?;
+        self.refresh_authorized_ledgers().await?;
+        Ok(token)
+    }
+    pub async fn resume_session(&self, token: &str) -> Result<String> {
+        let name = self.channel.resume_session(token).await?;
+        self.refresh_authorized_ledgers().await?;
+        Ok(name)
+    }
+    pub async fn logout(&self) -> Result<()> {
+        self.channel.logout().await?;
+        self.cache.lock().await.clear();
+        Ok(())
+    }
+    pub async fn change_password(&self, old: &str, new: &str) -> Result<()> {
+        self.channel.change_password(old, new).await?;
+        self.cache.lock().await.clear();
+        Ok(())
+    }
+    pub async fn list_accounts(&self) -> Result<Vec<String>> {
+        self.channel.list_accounts().await
+    }
+    pub async fn current_account(&self) -> Result<String> {
+        self.channel.current_account().await
+    }
+    pub async fn share_ledger(&self, id: LedgerId, name: &str) -> Result<()> {
+        self.channel.share_ledger(id, name).await
+    }
     // sirno:witness:console-service:begin
     /// Wire the console to a channel, prime the ledger cache, and start the
     /// event bridge.
@@ -622,6 +743,21 @@ impl UnbillConsole {
     /// Falls back to a full sync from the device if the cache is cold.
     // sirno:witness:console-service:begin
     async fn take_doc(&self, ledger_id: LedgerId) -> Result<LedgerDoc> {
+        if !self
+            .channel
+            .list_ledgers()
+            .await?
+            .iter()
+            .any(|meta| meta.ledger_id == ledger_id)
+        {
+            self.cache.lock().await.remove(&ledger_id);
+            return Err(UnbillError::LedgerNotFound(ledger_id.to_string()));
+        }
+        self.take_doc_authorized(ledger_id).await
+    }
+
+    /// The caller has already checked the ledger in the channel's current grant list.
+    async fn take_doc_authorized(&self, ledger_id: LedgerId) -> Result<LedgerDoc> {
         if let Some(doc) = self.cache.lock().await.remove(&ledger_id) {
             return Ok(doc);
         }
@@ -701,6 +837,7 @@ mod tests {
         events: broadcast::Sender<AsymChannelEvent>,
         ble: Mutex<unbill_model::BleSnapshot>,
         ble_reads: std::sync::atomic::AtomicUsize,
+        ledger_reads: std::sync::atomic::AtomicUsize,
     }
 
     impl MockAsymChannel {
@@ -718,6 +855,7 @@ mod tests {
                     peers: Vec::new(),
                 }),
                 ble_reads: std::sync::atomic::AtomicUsize::new(0),
+                ledger_reads: std::sync::atomic::AtomicUsize::new(0),
             })
         }
     }
@@ -772,6 +910,8 @@ mod tests {
         }
 
         async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
+            self.ledger_reads
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             Ok(self.store.list_ledgers().await?)
         }
         async fn set_ledger_archived(&self, ledger_id: LedgerId, archived: bool) -> Result<()> {
@@ -839,6 +979,32 @@ mod tests {
             .await
             .unwrap();
         }
+    }
+
+    #[tokio::test]
+    async fn ledger_projections_check_grants_once_per_request() {
+        use std::sync::atomic::Ordering;
+
+        let channel = MockAsymChannel::new(mem_store()).await;
+        let svc = UnbillConsole::open(channel.clone()).await;
+        let id = svc
+            .create_ledger(NewLedger {
+                name: "Projection".into(),
+                currency: usd(),
+            })
+            .await
+            .unwrap();
+
+        channel.ledger_reads.store(0, Ordering::SeqCst);
+        let overviews = svc.ledger_overviews().await.unwrap();
+        assert_eq!(overviews.len(), 1);
+        assert_eq!(overviews[0].meta.ledger_id, id);
+        assert_eq!(channel.ledger_reads.load(Ordering::SeqCst), 1);
+
+        channel.ledger_reads.store(0, Ordering::SeqCst);
+        let detail = svc.ledger_detail_snapshot(id).await.unwrap();
+        assert_eq!(detail.overview.meta.ledger_id, id);
+        assert_eq!(channel.ledger_reads.load(Ordering::SeqCst), 1);
     }
 
     #[tokio::test]

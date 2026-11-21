@@ -4,12 +4,16 @@ mod notifications;
 mod schema;
 mod transaction;
 
+use argon2::{Argon2, PasswordHasher, password_hash::SaltString};
 use async_trait::async_trait;
 use diesel::prelude::*;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use meta::MetaJson;
 use rand::TryRng as _;
-use schema::{device_identity, ledger_archives, ledgers, pending_invitations};
+use schema::{
+    account_ledgers, account_sessions, accounts, device_identity, ledger_archives, ledgers,
+    pending_invitations,
+};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -18,7 +22,7 @@ use tokio::sync::broadcast;
 use unbill_event::ServiceEvent;
 use unbill_model::{Invitation, LedgerId, Timestamp};
 use unbill_model::{LedgerDoc, LedgerMeta, NodeId, SecretKey, StorageError};
-use unbill_storage::{LedgerStore, StorageResult as Result};
+use unbill_storage::{AccountRecord, LedgerStore, StorageResult as Result};
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
 
@@ -79,8 +83,29 @@ impl SqliteStore {
                 .ok_or_else(|| io_error("database path is not UTF-8"))?;
             let mut connection = SqliteConnection::establish(path).map_err(io_error)?;
             transaction::configure(&mut connection)?;
+            let upgrading = diesel::select(diesel::dsl::sql::<diesel::sql_types::Bool>(
+                "EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='ledgers') AND NOT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='accounts')",
+            ))
+            .get_result::<bool>(&mut connection)
+            .map_err(io_error)?;
             transaction::write(&mut connection, |conn| {
                 conn.run_pending_migrations(MIGRATIONS).map_err(io_error)?;
+                if upgrading {
+                    let has_accounts = diesel::select(diesel::dsl::exists(accounts::table.select(accounts::name)))
+                        .get_result::<bool>(conn).map_err(io_error)?;
+                    if !has_accounts {
+                        let mut salt_bytes = [0u8; 16];
+                        rand::rngs::SysRng.try_fill_bytes(&mut salt_bytes).map_err(io_error)?;
+                        let salt = SaltString::encode_b64(&salt_bytes).map_err(io_error)?;
+                        let hash = Argon2::default().hash_password(b"admin", &salt)
+                            .map_err(io_error)?.to_string();
+                        diesel::insert_into(accounts::table)
+                            .values((accounts::name.eq("admin"), accounts::password_hash.eq(hash)))
+                            .execute(conn).map_err(io_error)?;
+                        diesel::sql_query("INSERT INTO account_ledgers(account_name, ledger_id) SELECT 'admin', id FROM ledgers")
+                            .execute(conn).map_err(io_error)?;
+                    }
+                }
                 Ok(())
             })?;
             let mut observer = SqliteConnection::establish(path).map_err(io_error)?;
@@ -128,6 +153,172 @@ impl Drop for SqliteStore {
 
 #[async_trait]
 impl LedgerStore for SqliteStore {
+    async fn create_account(&self, name: &str, password_hash: &str) -> Result<()> {
+        let (name, hash) = (name.to_owned(), password_hash.to_owned());
+        self.run(move |conn| {
+            diesel::insert_into(accounts::table)
+                .values((accounts::name.eq(name), accounts::password_hash.eq(hash)))
+                .execute(conn)
+                .map_err(io_error)?;
+            Ok(())
+        })
+        .await
+    }
+    async fn get_account(&self, name: &str) -> Result<Option<AccountRecord>> {
+        let name = name.to_owned();
+        self.run(move |conn| {
+            accounts::table
+                .find(&name)
+                .select(accounts::password_hash)
+                .first::<String>(conn)
+                .optional()
+                .map_err(io_error)
+                .map(|hash| {
+                    hash.map(|password_hash| AccountRecord {
+                        name,
+                        password_hash,
+                    })
+                })
+        })
+        .await
+    }
+    async fn list_accounts(&self) -> Result<Vec<String>> {
+        self.run(|conn| {
+            accounts::table
+                .select(accounts::name)
+                .order(accounts::name)
+                .load::<String>(conn)
+                .map_err(io_error)
+        })
+        .await
+    }
+    async fn set_account_password(&self, name: &str, password_hash: &str) -> Result<()> {
+        let (name, hash) = (name.to_owned(), password_hash.to_owned());
+        self.run(move |conn| {
+            transaction::write(conn, |conn| {
+                let changed = diesel::update(accounts::table.find(&name))
+                    .set(accounts::password_hash.eq(hash))
+                    .execute(conn)
+                    .map_err(io_error)?;
+                if changed == 0 {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        "account not found",
+                    )
+                    .into());
+                }
+                diesel::delete(
+                    account_sessions::table.filter(account_sessions::account_name.eq(&name)),
+                )
+                .execute(conn)
+                .map_err(io_error)?;
+                Ok(())
+            })
+        })
+        .await
+    }
+    async fn delete_account(&self, name: &str) -> Result<()> {
+        let name = name.to_owned();
+        self.run(move |conn| {
+            diesel::delete(accounts::table.find(name))
+                .execute(conn)
+                .map_err(io_error)?;
+            Ok(())
+        })
+        .await
+    }
+    async fn create_session(&self, token_hash: &str, account_name: &str) -> Result<()> {
+        let (token_hash, account_name) = (token_hash.to_owned(), account_name.to_owned());
+        self.run(move |conn| {
+            diesel::insert_into(account_sessions::table)
+                .values((
+                    account_sessions::token_hash.eq(token_hash),
+                    account_sessions::account_name.eq(account_name),
+                ))
+                .execute(conn)
+                .map_err(io_error)?;
+            Ok(())
+        })
+        .await
+    }
+    async fn resolve_session(&self, token_hash: &str) -> Result<Option<String>> {
+        let hash = token_hash.to_owned();
+        self.run(move |conn| {
+            account_sessions::table
+                .find(hash)
+                .select(account_sessions::account_name)
+                .first::<String>(conn)
+                .optional()
+                .map_err(io_error)
+        })
+        .await
+    }
+    async fn delete_session(&self, token_hash: &str) -> Result<()> {
+        let hash = token_hash.to_owned();
+        self.run(move |conn| {
+            diesel::delete(account_sessions::table.find(hash))
+                .execute(conn)
+                .map_err(io_error)?;
+            Ok(())
+        })
+        .await
+    }
+    async fn grant_ledger(&self, account_name: &str, ledger_id: LedgerId) -> Result<()> {
+        let (name, id) = (account_name.to_owned(), ledger_id.to_string());
+        let events = self.events.clone();
+        self.run(move |conn| {
+            let changed = diesel::insert_into(account_ledgers::table)
+                .values((
+                    account_ledgers::account_name.eq(name),
+                    account_ledgers::ledger_id.eq(&id),
+                ))
+                .on_conflict_do_nothing()
+                .execute(conn)
+                .map_err(io_error)?;
+            if changed > 0 {
+                let _ = events.send(ServiceEvent::LedgerUpdated { ledger_id: id });
+            }
+            Ok(())
+        })
+        .await
+    }
+    async fn revoke_ledger(&self, account_name: &str, ledger_id: LedgerId) -> Result<()> {
+        let (name, id) = (account_name.to_owned(), ledger_id.to_string());
+        let events = self.events.clone();
+        self.run(move |conn| {
+            let changed = diesel::delete(account_ledgers::table.find((name, id.clone())))
+                .execute(conn)
+                .map_err(io_error)?;
+            if changed > 0 {
+                let _ = events.send(ServiceEvent::LedgerUpdated { ledger_id: id });
+            }
+            Ok(())
+        })
+        .await
+    }
+    async fn account_has_ledger(&self, account_name: &str, ledger_id: LedgerId) -> Result<bool> {
+        let (name, id) = (account_name.to_owned(), ledger_id.to_string());
+        self.run(move |conn| {
+            diesel::select(diesel::dsl::exists(account_ledgers::table.find((name, id))))
+                .get_result::<bool>(conn)
+                .map_err(io_error)
+        })
+        .await
+    }
+    async fn list_account_ledgers(&self, account_name: &str) -> Result<Vec<LedgerId>> {
+        let name = account_name.to_owned();
+        self.run(move |conn| {
+            account_ledgers::table
+                .filter(account_ledgers::account_name.eq(name))
+                .select(account_ledgers::ledger_id)
+                .load::<String>(conn)
+                .map_err(io_error)?
+                .into_iter()
+                .map(|id| LedgerId::from_string(&id).map_err(serialization))
+                .collect()
+        })
+        .await
+    }
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
         let mut meta = meta.clone();
         let events = self.events.clone();

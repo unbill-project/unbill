@@ -34,6 +34,7 @@ tower-http.workspace = true
 serde.workspace = true
 
 [dev-dependencies]
+sha2 = "0.11"
 unbill-symmetric-channel = { path = "../../crates/unbill-symmetric-channel", features = ["test-helpers"] }
 automerge.workspace = true
 serde_json.workspace = true

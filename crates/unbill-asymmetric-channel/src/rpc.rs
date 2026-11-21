@@ -8,6 +8,8 @@ use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
+#[cfg(feature = "local")]
+use crate::local::LocalAsymChannel;
 use async_trait::async_trait;
 use futures_util::StreamExt as _;
 use interprocess::local_socket::tokio::prelude::*;
@@ -17,6 +19,8 @@ use tarpc::server::{BaseChannel, Channel as _};
 use tarpc::tokio_serde::formats::Json;
 use tokio::sync::broadcast;
 use tokio_util::codec::LengthDelimitedCodec;
+#[cfg(feature = "local")]
+use unbill_device::{AccountView, UnbillDevice};
 use unbill_model::error::{Result, UnbillError};
 use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
 
@@ -71,6 +75,17 @@ impl WireLedgerMeta {
 
 #[tarpc::service]
 pub trait AsymChannelService {
+    async fn register(name: String, password: String) -> std::result::Result<(), String>;
+    async fn login(name: String, password: String) -> std::result::Result<String, String>;
+    async fn resume_session(token: String) -> std::result::Result<String, String>;
+    async fn current_account() -> std::result::Result<String, String>;
+    async fn logout() -> std::result::Result<(), String>;
+    async fn change_password(old: String, new: String) -> std::result::Result<(), String>;
+    async fn list_accounts() -> std::result::Result<Vec<String>, String>;
+    async fn share_ledger(
+        ledger_id: LedgerId,
+        account_name: String,
+    ) -> std::result::Result<(), String>;
     async fn get_device_id() -> String;
     async fn build_info() -> std::result::Result<unbill_build_info::BuildInfo, String>;
     async fn ble_snapshot() -> std::result::Result<unbill_model::BleSnapshot, String>;
@@ -130,27 +145,159 @@ impl From<WireEvent> for AsymChannelEvent {
 // ---------------------------------------------------------------------------
 
 // sirno:witness:asymmetric-channel:begin
-struct AsymChannelServiceServer<C: AsymChannel> {
-    channel: Arc<C>,
+#[cfg(feature = "local")]
+struct AsymChannelServiceServer {
+    channel: Arc<LocalAsymChannel>,
+    session: Arc<Mutex<Option<String>>>,
     /// Per-connection event queue populated by a background subscriber task.
     /// Only push and take run under the lock, so the Vec can be reused after poisoning.
     event_queue: Arc<Mutex<Vec<WireEvent>>>,
 }
 
-impl<C: AsymChannel> Clone for AsymChannelServiceServer<C> {
+#[cfg(feature = "local")]
+impl Clone for AsymChannelServiceServer {
     fn clone(&self) -> Self {
         Self {
             channel: Arc::clone(&self.channel),
+            session: Arc::clone(&self.session),
             event_queue: Arc::clone(&self.event_queue),
         }
     }
 }
 
-impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
+#[cfg(feature = "local")]
+impl AsymChannelServiceServer {
+    fn device(&self) -> &Arc<UnbillDevice> {
+        self.channel.service()
+    }
+    async fn view(&self) -> std::result::Result<AccountView, String> {
+        let token = self
+            .session
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+            .ok_or_else(|| "not authorized".to_owned())?;
+        self.device()
+            .session_view(&token)
+            .await
+            .map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(feature = "local")]
+impl AsymChannelService for AsymChannelServiceServer {
+    async fn register(
+        self,
+        _ctx: tarpc::context::Context,
+        name: String,
+        password: String,
+    ) -> std::result::Result<(), String> {
+        self.device()
+            .register(&name, &password)
+            .await
+            .map_err(|e| e.to_string())
+    }
+    async fn login(
+        self,
+        _ctx: tarpc::context::Context,
+        name: String,
+        password: String,
+    ) -> std::result::Result<String, String> {
+        let token = self
+            .device()
+            .login(&name, &password)
+            .await
+            .map_err(|e| e.to_string())?;
+        let previous = self
+            .session
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .replace(token.clone());
+        if let Some(previous) = previous {
+            self.device()
+                .logout(&previous)
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(token)
+    }
+    async fn resume_session(
+        self,
+        _ctx: tarpc::context::Context,
+        token: String,
+    ) -> std::result::Result<String, String> {
+        let name = self
+            .device()
+            .session_account(&token)
+            .await
+            .map_err(|e| e.to_string())?;
+        *self.session.lock().unwrap_or_else(PoisonError::into_inner) = Some(token);
+        Ok(name)
+    }
+    async fn current_account(
+        self,
+        _ctx: tarpc::context::Context,
+    ) -> std::result::Result<String, String> {
+        Ok(self.view().await?.account_name().to_owned())
+    }
+    async fn logout(self, _ctx: tarpc::context::Context) -> std::result::Result<(), String> {
+        let token = self
+            .session
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .ok_or_else(|| "not authorized".to_owned())?;
+        self.device()
+            .logout(&token)
+            .await
+            .map_err(|e| e.to_string())
+    }
+    async fn change_password(
+        self,
+        _ctx: tarpc::context::Context,
+        old: String,
+        new: String,
+    ) -> std::result::Result<(), String> {
+        let token = self
+            .session
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+            .ok_or_else(|| "not authorized".to_owned())?;
+        self.device()
+            .change_password(&token, &old, &new)
+            .await
+            .map_err(|e| e.to_string())?;
+        *self.session.lock().unwrap_or_else(PoisonError::into_inner) = None;
+        Ok(())
+    }
+    async fn list_accounts(
+        self,
+        _ctx: tarpc::context::Context,
+    ) -> std::result::Result<Vec<String>, String> {
+        self.view()
+            .await?
+            .list_accounts()
+            .await
+            .map_err(|e| e.to_string())
+    }
+    async fn share_ledger(
+        self,
+        _ctx: tarpc::context::Context,
+        id: LedgerId,
+        name: String,
+    ) -> std::result::Result<(), String> {
+        self.view()
+            .await?
+            .share_ledger(id, &name)
+            .await
+            .map_err(|e| e.to_string())
+    }
     async fn ble_snapshot(
         self,
         _ctx: tarpc::context::Context,
     ) -> std::result::Result<unbill_model::BleSnapshot, String> {
+        self.view().await?;
         self.channel.ble_snapshot().await.map_err(|e| e.to_string())
     }
 
@@ -170,7 +317,8 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
         _ctx: tarpc::context::Context,
         ledger_id: LedgerId,
     ) -> std::result::Result<String, String> {
-        self.channel
+        self.view()
+            .await?
             .create_invitation(ledger_id)
             .await
             .map_err(|e| e.to_string())
@@ -182,8 +330,9 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
         url: String,
         label: unbill_model::DeviceLabel,
     ) -> std::result::Result<(), String> {
-        self.channel
-            .join_ledger(url, label)
+        self.view()
+            .await?
+            .join_ledger(&url, label)
             .await
             .map_err(|e| e.to_string())
     }
@@ -193,7 +342,8 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
         _ctx: tarpc::context::Context,
         peer: NodeId,
     ) -> std::result::Result<(), String> {
-        self.channel
+        self.view().await?;
+        self.device()
             .trigger_peer_sync(peer)
             .await
             .map_err(|e| e.to_string())
@@ -205,7 +355,8 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
         ledger_id: LedgerId,
         bytes: Vec<u8>,
     ) -> std::result::Result<Option<Vec<u8>>, String> {
-        self.channel
+        self.view()
+            .await?
             .asym_sync(ledger_id, bytes)
             .await
             .map_err(|e| e.to_string())
@@ -215,7 +366,8 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
         self,
         _ctx: tarpc::context::Context,
     ) -> std::result::Result<Vec<WireLedgerMeta>, String> {
-        self.channel
+        self.view()
+            .await?
             .list_ledgers()
             .await
             .map(|v| v.iter().map(WireLedgerMeta::from_meta).collect())
@@ -228,7 +380,8 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
         meta: WireLedgerMeta,
     ) -> std::result::Result<(), String> {
         let meta = meta.into_meta().map_err(|e| e.to_string())?;
-        self.channel
+        self.view()
+            .await?
             .save_ledger_meta(&meta)
             .await
             .map_err(|e| e.to_string())
@@ -240,28 +393,44 @@ impl<C: AsymChannel> AsymChannelService for AsymChannelServiceServer<C> {
         ledger_id: LedgerId,
         archived: bool,
     ) -> std::result::Result<(), String> {
-        self.channel
+        self.view()
+            .await?
             .set_ledger_archived(ledger_id, archived)
             .await
             .map_err(|e| e.to_string())
     }
 
     async fn poll_events(self, _ctx: tarpc::context::Context) -> Vec<WireEvent> {
+        let Ok(view) = self.view().await else {
+            return Vec::new();
+        };
+        let ids: Vec<_> = match view.list_ledgers().await {
+            Ok(metas) => metas.into_iter().map(|meta| meta.ledger_id).collect(),
+            Err(_) => return Vec::new(),
+        };
         let mut queue = self
             .event_queue
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
         std::mem::take(&mut *queue)
+            .into_iter()
+            .filter(|event| match event {
+                WireEvent::LedgerUpdated { ledger_id } => ids.contains(ledger_id),
+                WireEvent::BleSnapshotChanged => true,
+            })
+            .collect()
     }
 }
 
 /// Binds a local socket at `path`, removing any stale file first.
 /// Deletes the socket file on drop.
+#[cfg(feature = "local")]
 struct LocalSocketGuard {
     listener: LocalSocketListener,
     path: std::path::PathBuf,
 }
 
+#[cfg(feature = "local")]
 impl LocalSocketGuard {
     fn bind(path: &Path) -> std::io::Result<Self> {
         // Remove stale socket from a previous run.
@@ -279,6 +448,7 @@ impl LocalSocketGuard {
     }
 }
 
+#[cfg(feature = "local")]
 impl Drop for LocalSocketGuard {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.path);
@@ -287,10 +457,8 @@ impl Drop for LocalSocketGuard {
 
 /// Serve an `AsymChannel` over tarpc on the given local socket path.
 /// Each accepted connection gets its own event queue and subscriber task.
-pub async fn serve<C>(channel: Arc<C>, path: &Path) -> std::io::Result<()>
-where
-    C: AsymChannel + 'static,
-{
+#[cfg(feature = "local")]
+pub async fn serve(channel: Arc<LocalAsymChannel>, path: &Path) -> std::io::Result<()> {
     let guard = LocalSocketGuard::bind(path)?;
 
     loop {
@@ -327,6 +495,7 @@ where
         );
         let server = AsymChannelServiceServer {
             channel,
+            session: Arc::new(Mutex::new(None)),
             event_queue: queue,
         };
         tokio::spawn(
@@ -348,11 +517,30 @@ where
 /// Polls `poll_events` in a background task to feed the broadcast channel.
 pub struct RpcAsymChannel {
     client: AsymChannelServiceClient,
+    session_path: std::path::PathBuf,
     device_node_id: NodeId,
     events: broadcast::Sender<AsymChannelEvent>,
 }
 
 impl RpcAsymChannel {
+    fn save_session(&self, token: &str) -> std::io::Result<()> {
+        use std::io::Write as _;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt as _;
+            options.mode(0o600);
+        }
+        let mut file = options.open(&self.session_path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+        }
+        file.write_all(token.as_bytes())
+    }
+
     pub async fn connect(path: &Path) -> std::io::Result<Arc<Self>> {
         let name = path.to_fs_name::<GenericFilePath>()?;
         let stream = LocalSocketStream::connect(name).await?;
@@ -368,10 +556,22 @@ impl RpcAsymChannel {
             .await
             .map_err(|e| std::io::Error::other(e.to_string()))?;
         let device_node_id = NodeId::new(id_str);
+        let session_path = path.with_extension("session");
+        if let Ok(token) = std::fs::read_to_string(&session_path)
+            && client
+                .resume_session(tarpc::context::current(), token.trim().to_owned())
+                .await
+                .ok()
+                .and_then(std::result::Result::ok)
+                .is_none()
+        {
+            let _ = std::fs::remove_file(&session_path);
+        }
 
         let (tx, _) = broadcast::channel(256);
         let rpc = Arc::new(Self {
             client: client.clone(),
+            session_path,
             device_node_id,
             events: tx,
         });
@@ -395,6 +595,82 @@ impl RpcAsymChannel {
 
 #[async_trait]
 impl AsymChannel for RpcAsymChannel {
+    async fn register(&self, name: &str, password: &str) -> Result<()> {
+        self.client
+            .register(
+                tarpc::context::current(),
+                name.to_owned(),
+                password.to_owned(),
+            )
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)
+    }
+    async fn login(&self, name: &str, password: &str) -> Result<String> {
+        let token = self
+            .client
+            .login(
+                tarpc::context::current(),
+                name.to_owned(),
+                password.to_owned(),
+            )
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)?;
+        self.save_session(&token)
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
+        Ok(token)
+    }
+    async fn resume_session(&self, token: &str) -> Result<String> {
+        let name = self
+            .client
+            .resume_session(tarpc::context::current(), token.to_owned())
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)?;
+        self.save_session(token)
+            .map_err(|e| UnbillError::Network(e.to_string()))?;
+        Ok(name)
+    }
+    async fn current_account(&self) -> Result<String> {
+        self.client
+            .current_account(tarpc::context::current())
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)
+    }
+    async fn logout(&self) -> Result<()> {
+        self.client
+            .logout(tarpc::context::current())
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)?;
+        let _ = std::fs::remove_file(&self.session_path);
+        Ok(())
+    }
+    async fn change_password(&self, old: &str, new: &str) -> Result<()> {
+        self.client
+            .change_password(tarpc::context::current(), old.to_owned(), new.to_owned())
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)?;
+        let _ = std::fs::remove_file(&self.session_path);
+        Ok(())
+    }
+    async fn list_accounts(&self) -> Result<Vec<String>> {
+        self.client
+            .list_accounts(tarpc::context::current())
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)
+    }
+    async fn share_ledger(&self, id: LedgerId, name: &str) -> Result<()> {
+        self.client
+            .share_ledger(tarpc::context::current(), id, name.to_owned())
+            .await
+            .map_err(|e| UnbillError::Network(e.to_string()))?
+            .map_err(UnbillError::Network)
+    }
     async fn ble_snapshot(&self) -> Result<unbill_model::BleSnapshot> {
         self.client
             .ble_snapshot(tarpc::context::current())

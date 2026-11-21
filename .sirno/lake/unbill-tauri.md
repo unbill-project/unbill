@@ -12,6 +12,9 @@ core.refines:
 
 `unbill-tauri` wires the desktop shell to `UnbillConsole`
 and hosts the Leptos desktop frontend.
+Its commands expose account registration, login, session resume and logout,
+password change, and local ledger sharing to the native UI. The native UI
+shows ledger screens only after authentication.
 Release bundles use this shell on Linux and Windows; macOS releases use the Swift Catalyst app.
 It exposes async commands and frontend-ready DTOs.
 It does not add business logic.
@@ -71,6 +74,9 @@ existing IP transports without BLE.
 
 The command layer maps service state into frontend DTOs.
 Bootstrap data includes known peer devices across local ledgers.
+Bootstrap maps one console ledger-overview batch into ledger summaries, unique users,
+and known devices. Ledger detail maps one authorized console snapshot into its DTO
+instead of issuing separate console reads for each section.
 Ledger summaries include user display names so the frontend can show them
 without loading full ledger detail.
 Ledger detail includes the local device and authorized peers for that ledger.

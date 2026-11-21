@@ -7,6 +7,7 @@ use crate::components::{
 };
 use crate::components::{LedgerFingerprint, OpenSourceLicenses};
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 use unbill_model::validation;
 
 // sirno:witness:unbill-ui-remote:begin
@@ -366,6 +367,8 @@ pub fn SettingsPopup(
 ) -> impl IntoView {
     // sirno:witness:unbill-ui-remote:end
     let theme_mode = RwSignal::new(load_theme());
+    let share_target = RwSignal::new(String::new());
+    let share_feedback = RwSignal::new(None::<String>);
     let sidebar_class = if mobile_in_content {
         "settings-sidebar settings-sidebar-hidden"
     } else {
@@ -518,6 +521,8 @@ pub fn SettingsPopup(
                         view! {
                             <div class="settings-grid">
                                 {if let Some(detail) = ledger_detail.clone() {
+                                    let rename_id = detail.summary.ledger_id.clone();
+                                    let share_id = detail.summary.ledger_id.clone();
                                     view! {
                                         // sirno:witness:ui-shared-model:begin
                                         <SectionCard title=detail.summary.name.clone()>
@@ -530,7 +535,7 @@ pub fn SettingsPopup(
                                         <SectionCard title="Ledger Actions".to_owned()>
                                             <div class="stack-gap">
                                                 {
-                                                    let id = detail.summary.ledger_id.clone();
+                                                    let id = rename_id.clone();
                                                     let name = detail.summary.name.clone();
                                                     view! {
                                                         <ActionButton label="Rename Ledger" tone=ButtonTone::Quiet disabled=cloning_ledger.into() on_press=Callback::new(move |_| on_rename_ledger.run((id.clone(), name.clone()))) />
@@ -548,6 +553,29 @@ pub fn SettingsPopup(
                                                 }
                                                 // sirno:witness:ledger-clone:end
                                                 <p class="row-meta">"Archiving hides this ledger on this device. Its data and syncing are retained."</p>
+                                            </div>
+                                        </SectionCard>
+                                        <SectionCard title="Share with an account".to_owned()>
+                                            <div class="stack-gap">
+                                                <input class="ui-input" type="text" placeholder="Existing account name"
+                                                    prop:value=move || share_target.get()
+                                                    on:input=move |ev| share_target.set(event_target_value(&ev)) />
+                                                {
+                                                    let id = share_id.clone();
+                                                    view! { <ActionButton label="Share".to_owned() tone=ButtonTone::Secondary
+                                                        on_press=Callback::new(move |_| {
+                                                            let target = share_target.get_untracked().trim().to_owned();
+                                                            if target.is_empty() { share_feedback.set(Some("Enter an account name.".to_owned())); return; }
+                                                            let id = id.clone();
+                                                            spawn_local(async move {
+                                                                match api::share_ledger(&id, &target).await {
+                                                                    Ok(()) => share_feedback.set(Some(format!("Shared with {target}"))),
+                                                                    Err(e) => share_feedback.set(Some(e)),
+                                                                }
+                                                            });
+                                                        }) /> }
+                                                }
+                                                {move || share_feedback.get().map(|message| view! { <p class="row-meta">{message}</p> })}
                                             </div>
                                         </SectionCard>
                                         <SectionCard title="Users".to_owned()>

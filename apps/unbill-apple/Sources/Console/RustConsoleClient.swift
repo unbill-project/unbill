@@ -24,6 +24,23 @@ actor RustConsoleClient: ConsoleClient {
         #endif
     }
 
+    func currentAccount() async throws -> String { try console.currentAccount() }
+    func registerAccount(name: String, password: String) async throws {
+        try console.registerAccount(name: name, password: password)
+    }
+    func loginAccount(name: String, password: String) async throws -> String {
+        try console.loginAccount(name: name, password: password)
+    }
+    func resumeAccount(token: String) async throws -> String { try console.resumeAccount(token: token) }
+    func logoutAccount() async throws { try console.logoutAccount() }
+    func changeAccountPassword(old: String, new: String) async throws {
+        try console.changeAccountPassword(old: old, new: new)
+    }
+    func listAccounts() async throws -> [String] { try console.listAccounts() }
+    func shareLedger(ledgerID: String, accountName: String) async throws {
+        try console.shareLedger(ledgerId: ledgerID, accountName: accountName)
+    }
+
     func serviceBuildInfo() async throws -> ConsoleBuildInfo {
         try console.serviceBuildInfo()
     }

@@ -13,6 +13,7 @@ pub mod create_ledger;
 pub mod invite;
 pub mod rename_ledger;
 pub mod settings;
+pub mod share;
 
 pub type BlePeerIndicators = (Vec<String>, Vec<String>);
 
@@ -46,6 +47,10 @@ pub enum PopupOutcome {
 /// Describes the service mutation to perform after a popup confirms.
 #[allow(dead_code)]
 pub enum PopupAction {
+    ShareLedger {
+        ledger_id: LedgerId,
+        account_name: String,
+    },
     CreateLedger {
         name: String,
         currency: String,

@@ -29,6 +29,28 @@ fn get_service() -> Result<Arc<UnbillConsole>, String> {
     })
 }
 
+pub async fn logout() -> Result<(), String> {
+    let service = get_service()?;
+    service.logout().await.map_err(|e| e.to_string())?;
+    SERVICE.with(|cell| *cell.borrow_mut() = None);
+    Ok(())
+}
+
+pub async fn change_password(old: &str, new: &str) -> Result<(), String> {
+    get_service()?
+        .change_password(old, new)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn share_ledger(id: &str, account_name: &str) -> Result<(), String> {
+    let id = LedgerId::from_string(id).map_err(|e| e.to_string())?;
+    get_service()?
+        .share_ledger(id, account_name)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 // ---------------------------------------------------------------------------
 // DTOs
 // ---------------------------------------------------------------------------
@@ -355,7 +377,7 @@ pub async fn rename_ledger(ledger_id: &str, name: String) -> Result<(), String> 
 
 pub async fn rename_device(ledger_id: &str, node_id: &str, name: String) -> Result<(), String> {
     let svc = get_service()?;
-    let node = node_id.parse::<NodeId>().map_err(|e| e.to_string())?;
+    let node = NodeId::new(node_id.to_owned());
     let label = unbill_console::model::DeviceLabel::new(name).map_err(|e| e.to_string())?;
     svc.set_device_label(parse_ledger_id(ledger_id)?, node, label)
         .await
@@ -794,7 +816,13 @@ mod tests {
         )
         .await
         .unwrap();
-        UnbillConsole::open(channel as Arc<dyn AsymChannel>).await
+        let console = UnbillConsole::open(channel as Arc<dyn AsymChannel>).await;
+        console
+            .register_account("test-owner", "test-password")
+            .await
+            .unwrap();
+        console.login("test-owner", "test-password").await.unwrap();
+        console
     }
 
     #[test]

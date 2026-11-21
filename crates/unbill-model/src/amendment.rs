@@ -9,6 +9,21 @@ pub struct EffectiveBills(pub Vec<Bill>);
 // sirno:witness:bill-amendment:end
 
 impl EffectiveBills {
+    /// Project effective bills from an already hydrated ledger bill list.
+    pub fn from_bills(bills: &[Bill]) -> Self {
+        let superseded: std::collections::HashSet<_> = bills
+            .iter()
+            .flat_map(|bill| bill.prev.iter().copied())
+            .collect();
+        Self(
+            bills
+                .iter()
+                .filter(|bill| !superseded.contains(&bill.id))
+                .cloned()
+                .collect(),
+        )
+    }
+
     pub fn iter(&self) -> std::slice::Iter<'_, Bill> {
         self.0.iter()
     }

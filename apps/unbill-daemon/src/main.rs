@@ -18,6 +18,10 @@ async fn main() -> Result<()> {
         );
         return Ok(());
     }
+    let args: Vec<String> = std::env::args().collect();
+    if args.get(1).is_some_and(|arg| arg == "account") {
+        return maintain_account(args.get(2..).unwrap_or_default()).await;
+    }
     // sirno:witness:unbill-daemon:begin
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -65,6 +69,42 @@ async fn main() -> Result<()> {
     }
     // sirno:witness:unbill-daemon:end
 
+    Ok(())
+}
+
+async fn maintain_account(args: &[String]) -> Result<()> {
+    use anyhow::{Context as _, bail};
+    let data_dir = UNBILL_PATH.ensure_data_dir()?;
+    let store = Arc::new(
+        SqliteStore::open(data_dir)
+            .await
+            .context("stop unbill-daemon before running account maintenance")?,
+    );
+    let device = unbill_device::UnbillDevice::open(
+        Arc::clone(&store) as Arc<dyn unbill_storage::LedgerStore>
+    )
+    .await?;
+    match args {
+        [action, name] if action == "delete" => device.delete_account(name).await?,
+        [action, name] if action == "reset-password" => {
+            use std::io::Write as _;
+            print!("New password for {name}: ");
+            std::io::stdout().flush()?;
+            let mut password = String::new();
+            std::io::stdin().read_line(&mut password)?;
+            device
+                .reset_account_password(name, password.trim_end())
+                .await?;
+        }
+        [action, name, id] if action == "revoke" => {
+            let id = unbill_model::LedgerId::from_string(id)
+                .map_err(|e| anyhow::anyhow!("invalid ledger ID: {e}"))?;
+            device.revoke_account_ledger(name, id).await?;
+        }
+        _ => bail!(
+            "usage: unbill-daemon account delete NAME | reset-password NAME | revoke NAME LEDGER_ID"
+        ),
+    }
     Ok(())
 }
 

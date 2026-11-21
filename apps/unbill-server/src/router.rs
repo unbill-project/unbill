@@ -4,7 +4,7 @@ use std::sync::Arc;
 use axum::{
     Json, Router,
     body::Bytes,
-    extract::{Path, Request, State},
+    extract::{Extension, Path, Request, State},
     http::{HeaderMap, StatusCode},
     middleware::{self, Next},
     response::sse::{Event, KeepAlive, Sse},
@@ -25,7 +25,26 @@ use unbill_model::{Currency, LedgerId, LedgerMeta, NodeId, Timestamp};
 
 pub struct AppState {
     pub service: Arc<UnbillDevice>,
-    pub api_key: String,
+}
+
+#[derive(Deserialize)]
+struct Credentials {
+    name: String,
+    password: String,
+}
+#[derive(Deserialize)]
+struct PasswordChange {
+    old_password: String,
+    new_password: String,
+}
+#[derive(Deserialize)]
+struct ShareBody {
+    account_name: String,
+}
+#[derive(Serialize)]
+struct SessionJson {
+    token: String,
+    account_name: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -70,17 +89,25 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/ledgers/{id}/archive", put(set_ledger_archived))
         .route("/ledgers/{id}/sync", post(sync_ledger))
         .route("/ledgers/{id}/invitations", post(create_invitation))
+        .route("/ledgers/{id}/share", post(share_ledger))
         .route("/ledgers/join", post(join_ledger))
+        .route("/accounts", get(list_accounts))
+        .route("/accounts/me", get(get_account_name))
+        .route("/accounts/logout", post(logout))
+        .route("/accounts/password", put(change_password))
         .route("/peers/{node_id}/sync", post(sync_with_peer))
         .route("/events", get(stream_events))
         .route("/device/id", get(get_device_id))
         .route("/device/ble", get(get_ble_snapshot))
         .route("/build-info", get(get_build_info))
         .layer(middleware::from_fn_with_state(state.clone(), auth))
-        .with_state(state);
+        .with_state(state.clone());
 
     Router::new()
         .nest("/api/v1", protected)
+        .route("/api/v1/accounts/register", post(register))
+        .route("/api/v1/accounts/login", post(login))
+        .with_state(state)
         .layer(TraceLayer::new_for_http())
     // sirno:witness:server-http-api:end
 }
@@ -93,20 +120,22 @@ pub fn build_router(state: Arc<AppState>) -> Router {
 async fn auth(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    req: Request,
+    mut req: Request,
     next: Next,
 ) -> Response {
-    let authorized = headers
+    let token = headers
         .get("Authorization")
         .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .map(|token| token == state.api_key)
-        .unwrap_or(false);
-
-    if authorized {
-        next.run(req).await
-    } else {
-        StatusCode::UNAUTHORIZED.into_response()
+        .and_then(|v| v.strip_prefix("Bearer "));
+    let Some(token) = token else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    match state.service.session_account(token).await {
+        Ok(name) => {
+            req.extensions_mut().insert(name);
+            next.run(req).await
+        }
+        Err(_) => StatusCode::UNAUTHORIZED.into_response(),
     }
 }
 // sirno:witness:security-model:end
@@ -116,8 +145,109 @@ async fn auth(
 // ---------------------------------------------------------------------------
 
 // sirno:witness:server-http-api:begin
-async fn list_ledgers(State(state): State<Arc<AppState>>) -> Response {
-    match state.service.store().list_ledgers().await {
+async fn register(State(state): State<Arc<AppState>>, Json(body): Json<Credentials>) -> Response {
+    match state.service.register(&body.name, &body.password).await {
+        Ok(()) => StatusCode::CREATED.into_response(),
+        Err(unbill_model::UnbillError::Validation(e)) => {
+            (StatusCode::BAD_REQUEST, e).into_response()
+        }
+        Err(e) => (StatusCode::CONFLICT, e.to_string()).into_response(),
+    }
+}
+
+async fn login(State(state): State<Arc<AppState>>, Json(body): Json<Credentials>) -> Response {
+    match state.service.login(&body.name, &body.password).await {
+        Ok(token) => Json(SessionJson {
+            token,
+            account_name: body.name,
+        })
+        .into_response(),
+        Err(_) => StatusCode::UNAUTHORIZED.into_response(),
+    }
+}
+
+async fn logout(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
+    let Some(token) = headers
+        .get("authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+    else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    match state.service.logout(token).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn change_password(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(body): Json<PasswordChange>,
+) -> Response {
+    let Some(token) = headers
+        .get("authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+    else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    match state
+        .service
+        .change_password(token, &body.old_password, &body.new_password)
+        .await
+    {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(unbill_model::UnbillError::NotAuthorized) => StatusCode::UNAUTHORIZED.into_response(),
+        Err(e) => (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
+    }
+}
+
+async fn list_accounts(
+    State(state): State<Arc<AppState>>,
+    Extension(name): Extension<String>,
+) -> Response {
+    match state.service.account_view(&name).await {
+        Ok(view) => match view.list_accounts().await {
+            Ok(names) => Json(names).into_response(),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        },
+        Err(_) => StatusCode::UNAUTHORIZED.into_response(),
+    }
+}
+
+async fn get_account_name(Extension(name): Extension<String>) -> Json<String> {
+    Json(name)
+}
+
+async fn share_ledger(
+    State(state): State<Arc<AppState>>,
+    Extension(name): Extension<String>,
+    Path(id): Path<String>,
+    Json(body): Json<ShareBody>,
+) -> Response {
+    let Ok(id) = LedgerId::from_string(&id) else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
+    let Ok(view) = state.service.account_view(&name).await else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    match view.share_ledger(id, &body.account_name).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(unbill_model::UnbillError::NotAuthorized) => StatusCode::FORBIDDEN.into_response(),
+        Err(unbill_model::UnbillError::UserNotFound(_)) => StatusCode::NOT_FOUND.into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn list_ledgers(
+    State(state): State<Arc<AppState>>,
+    Extension(name): Extension<String>,
+) -> Response {
+    let Ok(view) = state.service.account_view(&name).await else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    match view.list_ledgers().await {
         Ok(metas) => {
             let json: Vec<MetaJson> = metas.into_iter().map(meta_to_json).collect();
             Json(json).into_response()
@@ -133,6 +263,7 @@ struct ArchiveBody {
 
 async fn set_ledger_archived(
     State(state): State<Arc<AppState>>,
+    Extension(name): Extension<String>,
     Path(id): Path<String>,
     Json(body): Json<ArchiveBody>,
 ) -> Response {
@@ -140,22 +271,24 @@ async fn set_ledger_archived(
         Ok(id) => id,
         Err(e) => return (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
     };
-    match state
-        .service
-        .store()
-        .set_ledger_archived(ledger_id, body.archived)
-        .await
-    {
+    let Ok(view) = state.service.account_view(&name).await else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    match view.set_ledger_archived(ledger_id, body.archived).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
-        Err(unbill_model::StorageError::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => {
+        Err(unbill_model::UnbillError::Storage(unbill_model::StorageError::Io(e)))
+            if e.kind() == std::io::ErrorKind::NotFound =>
+        {
             (StatusCode::NOT_FOUND, e.to_string()).into_response()
         }
+        Err(unbill_model::UnbillError::NotAuthorized) => StatusCode::FORBIDDEN.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
 
 async fn save_ledger_meta(
     State(state): State<Arc<AppState>>,
+    Extension(name): Extension<String>,
     Path(id): Path<String>,
     Json(body): Json<MetaJson>,
 ) -> Response {
@@ -185,8 +318,12 @@ async fn save_ledger_meta(
         updated_at: Timestamp::from_millis(body.updated_at_ms),
     };
 
-    match state.service.store().save_ledger_meta(&meta).await {
+    let Ok(view) = state.service.account_view(&name).await else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    match view.save_ledger_meta(&meta).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(unbill_model::UnbillError::NotAuthorized) => StatusCode::FORBIDDEN.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
@@ -194,6 +331,7 @@ async fn save_ledger_meta(
 /// `POST /ledgers/{id}/sync` — Automerge delta sync endpoint.
 async fn sync_ledger(
     State(state): State<Arc<AppState>>,
+    Extension(name): Extension<String>,
     Path(id): Path<String>,
     body: Bytes,
 ) -> Response {
@@ -201,7 +339,10 @@ async fn sync_ledger(
         Ok(id) => id,
         Err(e) => return (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
     };
-    match state.service.asym_sync(ledger_id, body.to_vec()).await {
+    let Ok(view) = state.service.account_view(&name).await else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    match view.asym_sync(ledger_id, body.to_vec()).await {
         Ok(Some(resp)) => (
             StatusCode::OK,
             [("content-type", "application/octet-stream")],
@@ -212,6 +353,7 @@ async fn sync_ledger(
         Err(unbill_model::UnbillError::Automerge(e)) => {
             (StatusCode::BAD_REQUEST, e).into_response()
         }
+        Err(unbill_model::UnbillError::NotAuthorized) => StatusCode::FORBIDDEN.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
@@ -236,20 +378,35 @@ async fn get_device_id(State(state): State<Arc<AppState>>) -> Response {
 }
 
 /// `POST /ledgers/{id}/invitations` — Create a join invitation for a ledger.
-async fn create_invitation(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Response {
+async fn create_invitation(
+    State(state): State<Arc<AppState>>,
+    Extension(name): Extension<String>,
+    Path(id): Path<String>,
+) -> Response {
     let ledger_id = match LedgerId::from_string(&id) {
         Ok(id) => id,
         Err(e) => return (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
     };
-    match state.service.create_invitation(ledger_id).await {
+    let Ok(view) = state.service.account_view(&name).await else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    match view.create_invitation(ledger_id).await {
         Ok(url) => (StatusCode::CREATED, Json(InvitationJson { url })).into_response(),
+        Err(unbill_model::UnbillError::NotAuthorized) => StatusCode::FORBIDDEN.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
 
 /// `POST /ledgers/join` — Join a ledger hosted by another device.
-async fn join_ledger(State(state): State<Arc<AppState>>, Json(body): Json<JoinBody>) -> Response {
-    match state.service.join_ledger(&body.url, body.label).await {
+async fn join_ledger(
+    State(state): State<Arc<AppState>>,
+    Extension(name): Extension<String>,
+    Json(body): Json<JoinBody>,
+) -> Response {
+    let Ok(view) = state.service.account_view(&name).await else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    match view.join_ledger(&body.url, body.label).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
@@ -258,6 +415,7 @@ async fn join_ledger(State(state): State<Arc<AppState>>, Json(body): Json<JoinBo
 /// `POST /peers/{node_id}/sync` — Trigger a P2P Iroh sync with the given peer.
 async fn sync_with_peer(
     State(state): State<Arc<AppState>>,
+    Extension(_name): Extension<String>,
     Path(node_id): Path<String>,
 ) -> Response {
     let peer = NodeId::new(node_id);
@@ -268,8 +426,23 @@ async fn sync_with_peer(
 }
 
 /// `GET /events` — SSE stream of device events.
-async fn stream_events(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let rx = state.service.subscribe();
+async fn stream_events(
+    State(state): State<Arc<AppState>>,
+    Extension(name): Extension<String>,
+    headers: HeaderMap,
+) -> Response {
+    let Ok(view) = state.service.account_view(&name).await else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    let Some(token) = headers
+        .get("authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+    else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    let token = token.to_owned();
+    let rx = view.subscribe();
     let stream = BroadcastStream::new(rx).filter_map(|result| match result.ok()? {
         ServiceEvent::LedgerUpdated { ledger_id } => {
             let data = serde_json::json!({
@@ -286,7 +459,25 @@ async fn stream_events(State(state): State<Arc<AppState>>) -> impl IntoResponse 
             Event::default().data(serde_json::json!({"type": "BleSnapshotChanged"}).to_string()),
         )
     });
-    Sse::new(stream.merge(ble)).keep_alive(KeepAlive::default())
+    let service = Arc::clone(&state.service);
+    let authenticated = stream
+        .merge(ble)
+        .then(move |event| {
+            let service = Arc::clone(&service);
+            let token = token.clone();
+            let name = name.clone();
+            async move {
+                if service.session_account(&token).await.ok().as_deref() == Some(name.as_str()) {
+                    Some(event)
+                } else {
+                    None
+                }
+            }
+        })
+        .filter_map(|event| event);
+    Sse::new(authenticated)
+        .keep_alive(KeepAlive::default())
+        .into_response()
 }
 
 // ---------------------------------------------------------------------------
@@ -318,17 +509,26 @@ mod tests {
 
     use super::*;
 
-    const API_KEY: &str = "secret";
+    const API_KEY: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+    async fn create_test_session(store: &unbill_store_sqlite::SqliteStore) {
+        use sha2::{Digest, Sha256};
+        use unbill_storage::LedgerStore as _;
+        store.create_account("test", "test-only").await.unwrap();
+        let digest: String = Sha256::digest(API_KEY.as_bytes())
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        store.create_session(&digest, "test").await.unwrap();
+    }
 
     async fn make_app(dir: &std::path::Path) -> Router {
         use unbill_device::UnbillDevice;
         use unbill_store_sqlite::SqliteStore;
         let store = Arc::new(SqliteStore::open(dir.to_path_buf()).await.unwrap());
+        create_test_session(&store).await;
         let device = UnbillDevice::open(store).await.unwrap();
-        let state = Arc::new(AppState {
-            service: device,
-            api_key: API_KEY.to_owned(),
-        });
+        let state = Arc::new(AppState { service: device });
         build_router(state)
     }
 
@@ -476,6 +676,93 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     }
 
+    #[tokio::test]
+    async fn account_token_cannot_select_another_accounts_ledgers() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = make_app(dir.path()).await;
+        let id = "00000000000000000000000001";
+        let meta = serde_json::json!({
+            "ledger_id": id, "name": "Private", "currency": "USD",
+            "created_at_ms": 1000, "updated_at_ms": 1000
+        });
+        assert_eq!(
+            app.clone()
+                .oneshot(auth_put(
+                    &format!("/api/v1/ledgers/{id}/meta"),
+                    "application/json",
+                    serde_json::to_vec(&meta).unwrap()
+                ))
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::NO_CONTENT
+        );
+
+        let credentials = serde_json::json!({"name":"bob","password":"bob password"});
+        let register = Request::builder()
+            .method("POST")
+            .uri("/api/v1/accounts/register")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_vec(&credentials).unwrap()))
+            .unwrap();
+        assert_eq!(
+            app.clone().oneshot(register).await.unwrap().status(),
+            StatusCode::CREATED
+        );
+        let login = Request::builder()
+            .method("POST")
+            .uri("/api/v1/accounts/login")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_vec(&credentials).unwrap()))
+            .unwrap();
+        let response = app.clone().oneshot(login).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let session: serde_json::Value =
+            serde_json::from_slice(&body_bytes(response).await).unwrap();
+        let token = session["token"].as_str().unwrap();
+        let list = Request::builder()
+            .uri("/api/v1/ledgers?account_name=test")
+            .header("authorization", format!("Bearer {token}"))
+            .body(Body::empty())
+            .unwrap();
+        let response = app.clone().oneshot(list).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&body_bytes(response).await).unwrap(),
+            serde_json::json!([])
+        );
+        let invite = Request::builder()
+            .method("POST")
+            .uri(format!("/api/v1/ledgers/{id}/invitations"))
+            .header("authorization", format!("Bearer {token}"))
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(
+            app.clone().oneshot(invite).await.unwrap().status(),
+            StatusCode::FORBIDDEN
+        );
+        let share = Request::builder()
+            .method("POST")
+            .uri(format!("/api/v1/ledgers/{id}/share"))
+            .header("authorization", format!("Bearer {API_KEY}"))
+            .header("content-type", "application/json")
+            .body(Body::from(br#"{"account_name":"bob"}"#.to_vec()))
+            .unwrap();
+        assert_eq!(
+            app.clone().oneshot(share).await.unwrap().status(),
+            StatusCode::NO_CONTENT
+        );
+        let list = Request::builder()
+            .uri("/api/v1/ledgers")
+            .header("authorization", format!("Bearer {token}"))
+            .body(Body::empty())
+            .unwrap();
+        let response = app.oneshot(list).await.unwrap();
+        let ledgers: serde_json::Value =
+            serde_json::from_slice(&body_bytes(response).await).unwrap();
+        assert_eq!(ledgers.as_array().unwrap().len(), 1);
+    }
+
     // --- list ledgers -------------------------------------------------------
 
     #[tokio::test]
@@ -538,7 +825,7 @@ mod tests {
                 .await
                 .unwrap()
                 .status(),
-            StatusCode::NOT_FOUND
+            StatusCode::FORBIDDEN
         );
         let meta = br#"{"ledger_id":"00000000000000000000000001","name":"Trip","currency":"USD","created_at_ms":1000,"updated_at_ms":2000}"#;
         assert_eq!(
@@ -605,6 +892,15 @@ mod tests {
     async fn test_sync_invalid_body_returns_400() {
         let dir = tempfile::tempdir().unwrap();
         let app = make_app(dir.path()).await;
+        let meta = br#"{"ledger_id":"00000000000000000000000001","name":"Trip","currency":"USD","created_at_ms":1000,"updated_at_ms":2000}"#;
+        app.clone()
+            .oneshot(auth_put(
+                "/api/v1/ledgers/00000000000000000000000001/meta",
+                "application/json",
+                meta.to_vec(),
+            ))
+            .await
+            .unwrap();
         let resp = app
             .oneshot(auth_post(
                 "/api/v1/ledgers/00000000000000000000000001/sync",
@@ -624,13 +920,13 @@ mod tests {
 
         let dir = tempfile::tempdir().unwrap();
         let store = Arc::new(SqliteStore::open(dir.path().to_path_buf()).await.unwrap());
+        create_test_session(&store).await;
         let device = UnbillDevice::open(Arc::clone(&store) as Arc<dyn unbill_storage::LedgerStore>)
             .await
             .unwrap();
         let app = {
             let state = Arc::new(AppState {
                 service: Arc::clone(&device),
-                api_key: API_KEY.to_owned(),
             });
             build_router(state)
         };
@@ -647,6 +943,7 @@ mod tests {
         )
         .unwrap();
         store.save_ledger(&id_str, &mut server_doc).await.unwrap();
+        store.grant_ledger("test", ledger_id).await.unwrap();
 
         let mut client_doc = LedgerDoc::empty();
         let mut sync_state = automerge::sync::State::new();

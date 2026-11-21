@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use tokio::sync::Mutex;
 use tokio::sync::broadcast;
 use unbill_device::ServiceEvent;
 use unbill_device::UnbillDevice;
@@ -15,6 +16,7 @@ use crate::{AsymChannel, AsymChannelEvent};
 // sirno:witness:asymmetric-channel:begin
 pub struct LocalAsymChannel {
     service: Arc<UnbillDevice>,
+    session: Arc<Mutex<Option<String>>>,
     build_info: unbill_build_info::BuildInfo,
     events: broadcast::Sender<AsymChannelEvent>,
 }
@@ -54,6 +56,7 @@ impl LocalAsymChannel {
 
         Ok(Arc::new(Self {
             service,
+            session: Arc::new(Mutex::new(None)),
             events,
             build_info,
         }))
@@ -66,10 +69,70 @@ impl LocalAsymChannel {
     pub async fn accept_loop(&self) -> Result<()> {
         self.service.accept_loop().await
     }
+
+    async fn view(&self) -> Result<unbill_device::AccountView> {
+        let token = self
+            .session
+            .lock()
+            .await
+            .clone()
+            .ok_or(UnbillError::NotAuthorized)?;
+        self.service.session_view(&token).await
+    }
 }
 
 #[async_trait]
 impl AsymChannel for LocalAsymChannel {
+    async fn register(&self, name: &str, password: &str) -> Result<()> {
+        self.service.register(name, password).await
+    }
+    async fn login(&self, name: &str, password: &str) -> Result<String> {
+        let token = self.service.login(name, password).await?;
+        if let Some(previous) = self.session.lock().await.replace(token.clone()) {
+            self.service.logout(&previous).await?;
+        }
+        Ok(token)
+    }
+    async fn resume_session(&self, token: &str) -> Result<String> {
+        let name = self.service.session_account(token).await?;
+        *self.session.lock().await = Some(token.to_owned());
+        Ok(name)
+    }
+    async fn current_account(&self) -> Result<String> {
+        let token = self
+            .session
+            .lock()
+            .await
+            .clone()
+            .ok_or(UnbillError::NotAuthorized)?;
+        self.service.session_account(&token).await
+    }
+    async fn logout(&self) -> Result<()> {
+        let token = self
+            .session
+            .lock()
+            .await
+            .take()
+            .ok_or(UnbillError::NotAuthorized)?;
+        self.service.logout(&token).await
+    }
+    async fn change_password(&self, old: &str, new: &str) -> Result<()> {
+        let token = self
+            .session
+            .lock()
+            .await
+            .clone()
+            .ok_or(UnbillError::NotAuthorized)?;
+        self.service.change_password(&token, old, new).await?;
+        *self.session.lock().await = None;
+        Ok(())
+    }
+    async fn list_accounts(&self) -> Result<Vec<String>> {
+        self.view().await?.list_accounts().await
+    }
+    async fn share_ledger(&self, id: LedgerId, name: &str) -> Result<()> {
+        self.view().await?.share_ledger(id, name).await
+    }
     fn device_id(&self) -> NodeId {
         self.service.device_id()
     }
@@ -83,47 +146,68 @@ impl AsymChannel for LocalAsymChannel {
     }
 
     async fn create_invitation(&self, ledger_id: LedgerId) -> Result<String> {
-        self.service.create_invitation(ledger_id).await
+        self.view().await?.create_invitation(ledger_id).await
     }
 
     async fn join_ledger(&self, url: String, label: unbill_model::DeviceLabel) -> Result<()> {
-        self.service.join_ledger(&url, label).await
+        self.view().await?.join_ledger(&url, label).await
     }
 
     async fn trigger_peer_sync(&self, peer: NodeId) -> Result<()> {
+        self.view().await?;
         self.service.trigger_peer_sync(peer).await
     }
 
     async fn asym_sync(&self, ledger_id: LedgerId, bytes: Vec<u8>) -> Result<Option<Vec<u8>>> {
-        self.service.asym_sync(ledger_id, bytes).await
+        self.view().await?.asym_sync(ledger_id, bytes).await
     }
 
     async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
-        self.service
-            .store()
-            .list_ledgers()
-            .await
-            .map_err(UnbillError::Storage)
+        self.view().await?.list_ledgers().await
     }
 
     async fn set_ledger_archived(&self, ledger_id: LedgerId, archived: bool) -> Result<()> {
-        Ok(self
-            .service
-            .store()
+        self.view()
+            .await?
             .set_ledger_archived(ledger_id, archived)
-            .await?)
+            .await
     }
 
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
-        self.service
-            .store()
-            .save_ledger_meta(meta)
-            .await
-            .map_err(UnbillError::Storage)
+        self.view().await?.save_ledger_meta(meta).await
     }
 
     fn subscribe_to_server(&self) -> broadcast::Receiver<AsymChannelEvent> {
-        self.events.subscribe()
+        let mut source = self.events.subscribe();
+        let (filtered, receiver) = broadcast::channel(256);
+        let service = Arc::clone(&self.service);
+        let session = Arc::clone(&self.session);
+        tokio::spawn(async move {
+            loop {
+                let event = match source.recv().await {
+                    Ok(event) => event,
+                    Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(broadcast::error::RecvError::Closed) => break,
+                };
+                let Some(token) = session.lock().await.clone() else {
+                    continue;
+                };
+                let Ok(view) = service.session_view(&token).await else {
+                    continue;
+                };
+                let allowed = match &event {
+                    AsymChannelEvent::LedgerUpdated { ledger_id } => view
+                        .list_ledgers()
+                        .await
+                        .is_ok_and(|metas| metas.iter().any(|meta| meta.ledger_id == *ledger_id)),
+                    AsymChannelEvent::BleSnapshotChanged => true,
+                };
+                if allowed && filtered.send(event).is_err() {
+                    break;
+                }
+            }
+        });
+        receiver
     }
 }
 // sirno:witness:asymmetric-channel:end

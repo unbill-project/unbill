@@ -8,6 +8,7 @@
 // preventing interleaving within this actor. Backends enforce cross-process safety.
 
 use std::sync::Arc;
+use std::{future::Future, pin::Pin};
 
 use tokio::sync::{broadcast, mpsc, oneshot};
 use tracing::warn;
@@ -19,10 +20,14 @@ use unbill_model::{
 
 use unbill_model::LedgerDoc;
 
-use crate::{LedgerStore, StorageResult};
+use crate::{AccountRecord, LedgerStore, StorageResult};
+
+type StoreAction =
+    Box<dyn FnOnce(Arc<dyn LedgerStore>) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send>;
 
 // sirno:witness:unbill-storage:begin
 enum StoreCommand {
+    Account(StoreAction),
     RefreshEvents {
         events: broadcast::Sender<ServiceEvent>,
     },
@@ -142,6 +147,7 @@ impl StoreServer {
     async fn run(store: Arc<dyn LedgerStore>, mut rx: mpsc::Receiver<StoreCommand>) {
         while let Some(cmd) = rx.recv().await {
             match cmd {
+                StoreCommand::Account(action) => action(Arc::clone(&store)).await,
                 StoreCommand::RefreshEvents { events } => {
                     match store.list_ledgers().await {
                         Ok(ledgers) => {
@@ -385,8 +391,14 @@ impl StoreServer {
         let Some(mut doc) = store.load_ledger(ledger_id).await? else {
             return Ok(None);
         };
-        doc.add_device(device, Timestamp::now()?)?;
-        store.save_ledger(ledger_id, &mut doc).await?;
+        if !doc
+            .list_devices()?
+            .iter()
+            .any(|existing| existing.node_id == device.node_id)
+        {
+            doc.add_device(device, Timestamp::now()?)?;
+            store.save_ledger(ledger_id, &mut doc).await?;
+        }
         Ok(Some(doc.save()))
     }
 
@@ -413,24 +425,225 @@ impl StoreServer {
     ) -> DeviceResult<()> {
         let mut doc = LedgerDoc::from_bytes(&doc_bytes)?;
         let ledger = doc.get_ledger()?;
-        let meta = LedgerMeta {
-            archived: false,
-            ledger_id: ledger.ledger_id,
-            name: ledger.name.clone(),
-            currency: ledger.currency,
-            created_at: ledger.created_at,
-            updated_at: Timestamp::now()?,
-        };
-        store.save_ledger_meta(&meta).await?;
-        store
-            .save_ledger(&meta.ledger_id.to_string(), &mut doc)
-            .await?;
+        let id = ledger.ledger_id.to_string();
+        if let Some(mut current) = store.load_ledger(&id).await? {
+            current.merge(&mut doc)?;
+            doc = current;
+        }
+        store.save_ledger(&id, &mut doc).await?;
         Ok(())
     }
 
     // -----------------------------------------------------------------------
     // Public individual methods
     // -----------------------------------------------------------------------
+
+    async fn account_call<T, F, Fut>(&self, operation: F) -> StorageResult<T>
+    where
+        T: Send + 'static,
+        F: FnOnce(Arc<dyn LedgerStore>) -> Fut + Send + 'static,
+        Fut: Future<Output = StorageResult<T>> + Send + 'static,
+    {
+        let (tx, rx) = oneshot::channel();
+        self.tx
+            .send(StoreCommand::Account(Box::new(move |store| {
+                Box::pin(async move {
+                    if tx.send(operation(store).await).is_err() {
+                        warn!("account operation reply dropped (caller cancelled)");
+                    }
+                })
+            })))
+            .await
+            .map_err(|_| StorageError::ChannelClosed)?;
+        rx.await.map_err(|_| StorageError::ChannelClosed)?
+    }
+
+    pub async fn create_account(&self, name: &str, password_hash: &str) -> StorageResult<()> {
+        let (name, hash) = (name.to_owned(), password_hash.to_owned());
+        self.account_call(move |store| async move { store.create_account(&name, &hash).await })
+            .await
+    }
+    pub async fn get_account(&self, name: &str) -> StorageResult<Option<AccountRecord>> {
+        let name = name.to_owned();
+        self.account_call(move |store| async move { store.get_account(&name).await })
+            .await
+    }
+    pub async fn list_accounts(&self) -> StorageResult<Vec<String>> {
+        self.account_call(|store| async move { store.list_accounts().await })
+            .await
+    }
+    pub async fn set_account_password(&self, name: &str, password_hash: &str) -> StorageResult<()> {
+        let (name, hash) = (name.to_owned(), password_hash.to_owned());
+        self.account_call(
+            move |store| async move { store.set_account_password(&name, &hash).await },
+        )
+        .await
+    }
+    pub async fn delete_account(&self, name: &str) -> StorageResult<()> {
+        let name = name.to_owned();
+        self.account_call(move |store| async move { store.delete_account(&name).await })
+            .await
+    }
+    pub async fn create_session(&self, token_hash: &str, account_name: &str) -> StorageResult<()> {
+        let (hash, name) = (token_hash.to_owned(), account_name.to_owned());
+        self.account_call(move |store| async move { store.create_session(&hash, &name).await })
+            .await
+    }
+    pub async fn resolve_session(&self, token_hash: &str) -> StorageResult<Option<String>> {
+        let hash = token_hash.to_owned();
+        self.account_call(move |store| async move { store.resolve_session(&hash).await })
+            .await
+    }
+    pub async fn delete_session(&self, token_hash: &str) -> StorageResult<()> {
+        let hash = token_hash.to_owned();
+        self.account_call(move |store| async move { store.delete_session(&hash).await })
+            .await
+    }
+    pub async fn grant_ledger(&self, name: &str, id: LedgerId) -> StorageResult<()> {
+        let name = name.to_owned();
+        self.account_call(move |store| async move { store.grant_ledger(&name, id).await })
+            .await
+    }
+    pub async fn revoke_ledger(&self, name: &str, id: LedgerId) -> StorageResult<()> {
+        let name = name.to_owned();
+        self.account_call(move |store| async move { store.revoke_ledger(&name, id).await })
+            .await
+    }
+    pub async fn account_has_ledger(&self, name: &str, id: LedgerId) -> StorageResult<bool> {
+        let name = name.to_owned();
+        self.account_call(move |store| async move { store.account_has_ledger(&name, id).await })
+            .await
+    }
+    pub async fn list_account_ledgers(&self, name: &str) -> StorageResult<Vec<LedgerId>> {
+        let name = name.to_owned();
+        self.account_call(move |store| async move { store.list_account_ledgers(&name).await })
+            .await
+    }
+
+    pub async fn list_account_ledger_metas(&self, name: &str) -> StorageResult<Vec<LedgerMeta>> {
+        let name = name.to_owned();
+        self.account_call(move |store| async move {
+            if store.get_account(&name).await?.is_none() {
+                return Err(StorageError::Unauthorized);
+            }
+            let ids = store.list_account_ledgers(&name).await?;
+            Ok(store
+                .list_ledgers()
+                .await?
+                .into_iter()
+                .filter(|meta| ids.contains(&meta.ledger_id))
+                .collect())
+        })
+        .await
+    }
+
+    /// Serialize the grant check with metadata creation/update so two accounts
+    /// cannot both claim a new ledger ID during a concurrent first write.
+    pub async fn save_account_ledger_meta(
+        &self,
+        name: &str,
+        meta: &LedgerMeta,
+    ) -> StorageResult<()> {
+        let (name, meta) = (name.to_owned(), meta.clone());
+        self.account_call(move |store| async move {
+            if store.get_account(&name).await?.is_none() {
+                return Err(StorageError::Unauthorized);
+            }
+            let existing = store
+                .list_ledgers()
+                .await?
+                .iter()
+                .any(|row| row.ledger_id == meta.ledger_id);
+            if existing && !store.account_has_ledger(&name, meta.ledger_id).await? {
+                return Err(StorageError::Unauthorized);
+            }
+            store.save_ledger_meta(&meta).await?;
+            if !existing {
+                store.grant_ledger(&name, meta.ledger_id).await?;
+            }
+            Ok(())
+        })
+        .await
+    }
+
+    pub async fn set_account_ledger_archived(
+        &self,
+        name: &str,
+        id: LedgerId,
+        archived: bool,
+    ) -> StorageResult<()> {
+        let name = name.to_owned();
+        self.account_call(move |store| async move {
+            if !store.account_has_ledger(&name, id).await? {
+                return Err(StorageError::Unauthorized);
+            }
+            store.set_ledger_archived(id, archived).await
+        })
+        .await
+    }
+
+    pub async fn account_asym_sync(
+        &self,
+        name: &str,
+        id: LedgerId,
+        bytes: Vec<u8>,
+    ) -> DeviceResult<Option<Vec<u8>>> {
+        let name = name.to_owned();
+        self.account_call(move |store| async move {
+            if !store.account_has_ledger(&name, id).await? {
+                return Err(StorageError::Unauthorized);
+            }
+            Ok(Self::do_asym_sync(&*store, &id.to_string(), bytes).await)
+        })
+        .await
+        .map_err(|error| match error {
+            StorageError::Unauthorized => UnbillError::NotAuthorized,
+            other => UnbillError::Storage(other),
+        })?
+    }
+
+    pub async fn account_create_invitation(
+        &self,
+        name: &str,
+        id: LedgerId,
+        device_id: NodeId,
+    ) -> DeviceResult<String> {
+        let name = name.to_owned();
+        self.account_call(move |store| async move {
+            if !store.account_has_ledger(&name, id).await? {
+                return Err(StorageError::Unauthorized);
+            }
+            Ok(Self::do_create_invitation(&*store, id, device_id).await)
+        })
+        .await
+        .map_err(|error| match error {
+            StorageError::Unauthorized => UnbillError::NotAuthorized,
+            other => UnbillError::Storage(other),
+        })?
+    }
+
+    pub async fn share_account_ledger(
+        &self,
+        source: &str,
+        target: &str,
+        id: LedgerId,
+    ) -> StorageResult<()> {
+        let (source, target) = (source.to_owned(), target.to_owned());
+        self.account_call(move |store| async move {
+            if !store.account_has_ledger(&source, id).await? {
+                return Err(StorageError::Unauthorized);
+            }
+            if store.get_account(&target).await?.is_none() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "target account not found",
+                )
+                .into());
+            }
+            store.grant_ledger(&target, id).await
+        })
+        .await
+    }
 
     pub async fn save_ledger_meta(&self, meta: &LedgerMeta) -> StorageResult<()> {
         let (tx, rx) = oneshot::channel();

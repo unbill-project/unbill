@@ -18,6 +18,7 @@ It includes the device secret key,
 ledger metadata caches,
 pending invitation tokens,
 runtime UI state,
+device-local accounts, account-ledger grants, session digests,
 and other machine-specific metadata.
 
 Shared and local state are stored separately.

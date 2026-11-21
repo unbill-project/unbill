@@ -18,8 +18,8 @@ for size limits and inline error messages.
 
 Startup resolves the server base URL from `UNBILL_SERVER_URL`
 or the browser same-origin URL.
-The app accepts an API key,
-stores the key in browser local storage for later silent reconnect,
+The app registers or logs into a device-local account,
+stores the session token in browser local storage for later silent reconnect,
 opens `HttpAsymChannel`,
 and then opens `UnbillConsole` over that channel.
 

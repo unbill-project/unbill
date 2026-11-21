@@ -42,6 +42,8 @@ inside Python, with no separate daemon:
 import unbill
 
 console = unbill.Console.open_in_process("./household-data")
+console.register_account("owner", "choose-a-password")
+console.login_account("owner", "choose-a-password")
 ledger = console.create_ledger("Household", "USD")
 detail = console.ledger_detail(ledger.ledger_id)
 print(detail)

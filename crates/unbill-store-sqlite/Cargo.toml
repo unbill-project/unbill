@@ -17,6 +17,7 @@ diesel_migrations = { version = "2.3", features = ["sqlite"] }
 libsqlite3-sys = { version = "0.35", features = ["bundled"] }
 iroh.workspace = true
 rand.workspace = true
+argon2 = "0.5"
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true

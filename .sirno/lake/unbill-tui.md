@@ -11,6 +11,10 @@ core.refines:
 ---
 
 `unbill-tui` is a keyboard-driven terminal frontend.
+It prompts for account registration or login before the full-screen UI when no
+session is saved. Ctrl+L switches accounts, Ctrl+P changes the current password,
+and the ledger pane's `s` key shares the selected ledger with an existing
+account. The RPC session file survives client restarts.
 It follows the shared UI model but is always a three-column layout.
 There is no compact mode and no mouse support.
 

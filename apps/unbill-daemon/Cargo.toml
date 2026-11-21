@@ -19,6 +19,7 @@ build-info.workspace = true
 unbill-build-info = { path = "../../crates/unbill-build-info" }
 unbill-asymmetric-channel = { path = "../../crates/unbill-asymmetric-channel", features = ["local", "rpc"] }
 unbill-device = { path = "../../crates/unbill-device" }
+unbill-model = { path = "../../crates/unbill-model" }
 unbill-storage = { path = "../../crates/unbill-storage" }
 unbill-store-sqlite = { path = "../../crates/unbill-store-sqlite" }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }

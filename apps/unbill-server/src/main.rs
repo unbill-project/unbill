@@ -25,7 +25,6 @@ async fn main() -> Result<()> {
         unbill_build_info::BuildInfo::from(crate::compiled_build_info())
     );
 
-    let api_key = std::env::var("API_KEY").context("API_KEY must be set")?;
     let port: u16 = std::env::var("PORT")
         .unwrap_or_else(|_| "8080".to_owned())
         .parse()
@@ -53,10 +52,7 @@ async fn main() -> Result<()> {
         }
     });
 
-    let state = Arc::new(AppState {
-        service: device,
-        api_key,
-    });
+    let state = Arc::new(AppState { service: device });
     let router = build_router(state);
 
     let addr = format!("0.0.0.0:{port}");

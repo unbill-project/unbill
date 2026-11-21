@@ -22,6 +22,9 @@ jobs:
         with:
           key: sirno
       - name: Install sirno
+        # Keep Unbill's compiler flags out of the Sirno build.
+        env:
+          RUSTFLAGS: ""
         run: cargo install --git https://github.com/LighghtEeloo/sirno --rev bf379b6b095ab67430e8146c919f2dfbdb1dd4e1 sirno --locked
       - name: Lake check
         run: sirno lake check --mode review

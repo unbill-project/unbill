@@ -18,6 +18,9 @@ unbill-symmetric-channel = { path = "../unbill-symmetric-channel", version = "0.
 automerge.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
+argon2 = "0.5"
+rand.workspace = true
+sha2 = "0.11"
 tokio = { workspace = true, features = ["sync", "rt"] }
 
 [dev-dependencies]

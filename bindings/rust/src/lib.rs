@@ -13,6 +13,8 @@
 //!
 //! ```no_run
 //! let console = unbill::Console::open_in_process("./household-data".into())?;
+//! console.register_account("owner".into(), "choose-a-password".into())?;
+//! let _session = console.login_account("owner".into(), "choose-a-password".into())?;
 //! let ledger = console.create_ledger("Household".into(), "USD".into())?;
 //! let detail = console.ledger_detail(ledger.ledger_id)?;
 //! assert_eq!(detail.summary.name, "Household");
@@ -542,6 +544,46 @@ impl Console {
 // sirno:witness:rust-bindings:end
 
 impl Console {
+    pub fn register_account(&self, name: String, password: String) -> Result<(), ConsoleError> {
+        self.rt
+            .block_on(self.inner.register_account(&name, &password))
+            .map_err(err)
+    }
+    pub fn login_account(&self, name: String, password: String) -> Result<String, ConsoleError> {
+        self.rt
+            .block_on(self.inner.login(&name, &password))
+            .map_err(err)
+    }
+    pub fn resume_account(&self, token: String) -> Result<String, ConsoleError> {
+        self.rt
+            .block_on(self.inner.resume_session(&token))
+            .map_err(err)
+    }
+    pub fn current_account(&self) -> Result<String, ConsoleError> {
+        self.rt.block_on(self.inner.current_account()).map_err(err)
+    }
+    pub fn logout_account(&self) -> Result<(), ConsoleError> {
+        self.rt.block_on(self.inner.logout()).map_err(err)
+    }
+    pub fn change_account_password(&self, old: String, new: String) -> Result<(), ConsoleError> {
+        self.rt
+            .block_on(self.inner.change_password(&old, &new))
+            .map_err(err)
+    }
+    pub fn list_accounts(&self) -> Result<Vec<String>, ConsoleError> {
+        self.rt.block_on(self.inner.list_accounts()).map_err(err)
+    }
+    pub fn share_ledger(
+        &self,
+        ledger_id: String,
+        account_name: String,
+    ) -> Result<(), ConsoleError> {
+        let id = LedgerId::from_string(&ledger_id).map_err(err)?;
+        self.rt
+            .block_on(self.inner.share_ledger(id, &account_name))
+            .map_err(err)
+    }
+
     pub fn service_build_info(&self) -> Result<ConsoleBuildInfo, ConsoleError> {
         self.rt
             .block_on(self.inner.service_build_info())
@@ -1137,6 +1179,15 @@ fn parse_bill_id(v: &str) -> Result<BillId, ConsoleError> {
 
 #[cfg(test)]
 mod tests {
+    fn login_test_account(console: &Console) -> String {
+        console
+            .register_account("test-owner".into(), "test-password".into())
+            .unwrap();
+        console
+            .login_account("test-owner".into(), "test-password".into())
+            .unwrap()
+    }
+
     #[test]
     fn ble_observer_receives_initial_snapshot_and_releases_on_cancel() {
         struct Observer(std::sync::mpsc::Sender<ConsoleBleSnapshot>);
@@ -1287,6 +1338,7 @@ mod tests {
     fn rename_device_changes_the_selected_ledgers_shared_name() {
         let dir = tempfile::tempdir().unwrap();
         let console = Console::open_in_process(dir.path().to_str().unwrap().to_owned()).unwrap();
+        login_test_account(&console);
         let first = console.create_ledger("Home".into(), "USD".into()).unwrap();
         let second = console.create_ledger("Trip".into(), "USD".into()).unwrap();
         let node_id = console.device_id();
@@ -1328,6 +1380,8 @@ mod tests {
         let path = dir.path().to_str().unwrap().to_owned();
         let first = Console::open_rpc(path.clone()).unwrap();
         let second = Console::open_rpc(path.clone()).unwrap();
+        let token = login_test_account(&first);
+        second.resume_account(token).unwrap();
         let service = first.service_build_info().unwrap();
         assert_eq!(service.version, "test-daemon");
         assert_eq!(service.built_at_utc, "2025-01-01T00:00:00Z");
@@ -1354,6 +1408,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().to_str().unwrap().to_owned();
         let first = Console::open_in_process(path.clone()).unwrap();
+        let token = login_test_account(&first);
         assert_eq!(
             first.service_build_info().unwrap().version,
             client_build_info().version
@@ -1364,6 +1419,7 @@ mod tests {
         ));
         drop(first);
         let reopened = Console::open_in_process(path).unwrap();
+        reopened.resume_account(token).unwrap();
         assert!(reopened.bootstrap().unwrap().ledgers.is_empty());
     }
 
@@ -1373,6 +1429,7 @@ mod tests {
     ) {
         let path = root.to_str().unwrap().to_owned();
         let console = open(path.clone()).unwrap();
+        let token = login_test_account(&console);
         let device_id = console.device_id();
         let ledger = console
             .create_ledger("Shared dinner".into(), "USD".into())
@@ -1523,6 +1580,7 @@ mod tests {
         drop(console);
 
         let console = open(path).unwrap();
+        console.resume_account(token).unwrap();
         assert_eq!(console.device_id(), device_id);
         let detail = console.ledger_detail(ledger.ledger_id).unwrap();
         assert_eq!(detail.summary.name, "Shared dinner");
