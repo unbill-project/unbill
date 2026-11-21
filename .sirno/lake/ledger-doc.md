@@ -37,6 +37,8 @@ Reads return typed domain values.
 Writes reconcile typed ledgers.
 Effective bills are a projection over stored bills,
 not a separate persisted table.
+`EffectiveBills::from_bills` can project from an already hydrated bill list,
+so callers that also need the full ledger do not hydrate the document twice.
 
 `LedgerDoc::state_hash` returns a 32-byte SHA-256 fingerprint of the current
 CRDT state. It hashes the concatenated raw 32-byte Automerge change hashes

@@ -68,7 +68,7 @@ fingerprint = "sha256:d389ffd982f9d4c968fa3395c3a4c57fc06aa9c17cdf7083f497125e3d
 "core.refines" = ["bill-amendment"]
 
 [entries.console-service]
-fingerprint = "sha256:8f6bcfc3ddf93face75fa84eb0d9ead33fb59b52f08d9b857c9a976754027a6c"
+fingerprint = "sha256:3b9ac91262e5096489e7b5309b4b7917f898161b32f816a4ca6528a842e8f088"
 "core.belongs" = ["unbill-console"]
 "core.refines" = ["unbill-console"]
 
@@ -217,7 +217,7 @@ fingerprint = "sha256:5bb93412dcd09b11360f9c6e3d63ded176dad32191bb057efd71a8c100
 ]
 
 [entries.ledger-doc]
-fingerprint = "sha256:4f4bb163361991a38009b550632e82f97bcfecda09c081f7176865549c668dfe"
+fingerprint = "sha256:4cbe46c2093c5e6a53a9736e04bbee26b38f55af76f1b4207cf0a33799b3471e"
 "core.belongs" = [
     "storage",
     "unbill-console",
@@ -377,7 +377,7 @@ fingerprint = "sha256:21f99201ac2c1172357b0564069ba200d88c62b2de8a0e52b79c619a0e
 "core.belongs" = ["workspace-layout"]
 
 [entries.unbill-model]
-fingerprint = "sha256:cd19cc65b0bf5f500c556cc7c6b54df1e06d2624e7893d7b42fddce0b89fa6a2"
+fingerprint = "sha256:3673167bdfca9d367c0bf480feb7cf103ae632ecd6a8a82ceb0e9ef04a933613"
 "core.belongs" = ["workspace-layout"]
 "core.refines" = ["data-model"]
 

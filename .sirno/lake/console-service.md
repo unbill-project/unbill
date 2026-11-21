@@ -78,6 +78,8 @@ then projects users, effective bills, and devices from each authorized cached do
 `ledger_detail_snapshot` checks the target ledger once and derives the overview,
 conflicts, settlement, and fingerprint from one document read. A cold cache still
 syncs the document from the device; later requests recheck grants.
+Overview and detail projections calculate effective bills from the first
+hydrated ledger instead of hydrating the document again.
 
 Mutations obtain their timestamp before taking a document from the cache,
 then reuse that timestamp when updating ledger metadata.

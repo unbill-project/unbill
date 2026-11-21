@@ -39,7 +39,7 @@ pub struct LedgerOverview {
 impl LedgerOverview {
     fn from_doc(meta: LedgerMeta, doc: &LedgerDoc) -> Result<Self> {
         let ledger = doc.get_ledger()?;
-        let bills = doc.list_bills()?;
+        let bills = EffectiveBills::from_bills(&ledger.bills);
         Ok(Self::from_ledger(meta, &ledger, bills))
     }
 
@@ -89,7 +89,7 @@ impl UnbillConsole {
         let mut doc = self.take_doc_authorized(ledger_id).await?;
         let result = (|| {
             let ledger = doc.get_ledger()?;
-            let bills = doc.list_bills()?;
+            let bills = EffectiveBills::from_bills(&ledger.bills);
             Ok(LedgerDetailSnapshot {
                 overview: LedgerOverview::from_ledger(meta, &ledger, bills),
                 conflicts: conflict::detect(&ledger.bills),

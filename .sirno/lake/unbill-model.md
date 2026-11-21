@@ -40,6 +40,8 @@ Token generation returns the system RNG error to its caller when secure randomne
 Callers decide how to handle that failure.
 
 `EffectiveBills` is a thin wrapper over the vector of bills left after supersession filtering.
+Its `from_bills` projection accepts an already hydrated bill slice, letting
+summary and detail callers reuse a typed ledger without another Automerge read.
 
 `BleSnapshot` and its typed state, peer phase, and link-path records carry
 process-local transport observations across console boundaries. They are not

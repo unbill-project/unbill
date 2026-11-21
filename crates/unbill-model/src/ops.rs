@@ -115,18 +115,7 @@ pub(super) fn list_all_bills(doc: &AutoCommit) -> Result<Vec<Bill>> {
 /// bill's `prev`.
 pub(super) fn list_bills(doc: &AutoCommit) -> Result<EffectiveBills> {
     let ledger = get_ledger(doc)?;
-    let superseded: std::collections::HashSet<BillId> = ledger
-        .bills
-        .iter()
-        .flat_map(|b| b.prev.iter().copied())
-        .collect();
-    Ok(EffectiveBills(
-        ledger
-            .bills
-            .into_iter()
-            .filter(|b| !superseded.contains(&b.id))
-            .collect(),
-    ))
+    Ok(EffectiveBills::from_bills(&ledger.bills))
 }
 
 // ---------------------------------------------------------------------------
