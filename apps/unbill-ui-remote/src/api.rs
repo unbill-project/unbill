@@ -816,7 +816,16 @@ mod tests {
         )
         .await
         .unwrap();
-        UnbillConsole::open(channel as Arc<dyn AsymChannel>).await
+        let console = UnbillConsole::open(channel as Arc<dyn AsymChannel>).await;
+        console
+            .register_account("test-owner", "test-password")
+            .await
+            .unwrap();
+        console
+            .login_account("test-owner", "test-password")
+            .await
+            .unwrap();
+        console
     }
 
     #[test]
