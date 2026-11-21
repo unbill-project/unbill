@@ -74,6 +74,9 @@ existing IP transports without BLE.
 
 The command layer maps service state into frontend DTOs.
 Bootstrap data includes known peer devices across local ledgers.
+Bootstrap maps one console ledger-overview batch into ledger summaries, unique users,
+and known devices. Ledger detail maps one authorized console snapshot into its DTO
+instead of issuing separate console reads for each section.
 Ledger summaries include user display names so the frontend can show them
 without loading full ledger detail.
 Ledger detail includes the local device and authorized peers for that ledger.

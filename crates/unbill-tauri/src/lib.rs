@@ -14,7 +14,7 @@ use unbill_console::error::{Result, UnbillError};
 use unbill_console::model::{
     BillId, Currency, LedgerId, NewBill, NewLedger, NewUser, NewUserName, NodeId, Share, UserId,
 };
-use unbill_console::service::UnbillConsole;
+use unbill_console::service::{LedgerOverview, UnbillConsole};
 #[cfg(mobile)]
 use unbill_store_sqlite::SqliteStore;
 
@@ -647,24 +647,19 @@ async fn sync_once(
 // sirno:witness:unbill-tauri:end
 
 // sirno:witness:unbill-ui-native:begin
-async fn load_ledgers(service: &Arc<UnbillConsole>) -> Result<Vec<LedgerSummaryDto>> {
-    let metas = service.list_ledgers().await?;
-    let mut summaries = Vec::with_capacity(metas.len());
-    for meta in metas {
-        summaries.push(summarize_ledger(service, meta).await?);
-    }
-    Ok(summaries)
-}
-
 async fn bootstrap_app_inner(service: &Arc<UnbillConsole>) -> Result<AppBootstrapDto> {
-    let ledgers = load_ledgers(service).await?;
-    let all_users = service
-        .list_all_users()
-        .await?
-        .into_iter()
-        .map(UserDto::from)
-        .collect();
-    let devices = load_sync_devices(service).await?;
+    let overviews = service.ledger_overviews().await?;
+    let ledgers = overviews.iter().map(summarize_ledger).collect();
+    let mut seen_users = std::collections::HashSet::new();
+    let mut all_users = Vec::new();
+    for overview in &overviews {
+        for user in &overview.users {
+            if seen_users.insert(user.user_id) {
+                all_users.push(UserDto::from(user.clone()));
+            }
+        }
+    }
+    let devices = sync_devices_from_overviews(service, &overviews);
 
     Ok(AppBootstrapDto {
         client_build: unbill_build_info::BuildInfo::from(crate::compiled_build_info()),
@@ -712,18 +707,18 @@ async fn add_user_inner(service: &Arc<UnbillConsole>, input: AddUserInput) -> Re
     Ok(UserDto::from(added_user))
 }
 
-async fn load_sync_devices(service: &Arc<UnbillConsole>) -> Result<Vec<SyncDeviceDto>> {
+fn sync_devices_from_overviews(
+    service: &Arc<UnbillConsole>,
+    overviews: &[LedgerOverview],
+) -> Vec<SyncDeviceDto> {
     let local_node_id = service.device_id().to_string();
     let mut by_node_id = BTreeMap::<String, SyncDeviceDto>::new();
 
-    let mut metas = service.list_ledgers().await?;
-    metas.sort_by_key(|meta| meta.ledger_id);
-    for meta in metas {
-        let ledger_id = meta.ledger_id;
-        let ledger_name = meta.name.clone();
-        for device in
-            load_sync_devices_for_ledger(service, ledger_id, &ledger_name, &local_node_id, false)
-                .await?
+    let mut ordered = overviews.iter().collect::<Vec<_>>();
+    ordered.sort_by_key(|overview| overview.meta.ledger_id);
+    for overview in ordered {
+        let ledger_name = &overview.meta.name;
+        for device in sync_devices_for_ledger(&overview.devices, ledger_name, &local_node_id, false)
         {
             let entry = by_node_id
                 .entry(device.node_id.clone())
@@ -732,7 +727,7 @@ async fn load_sync_devices(service: &Arc<UnbillConsole>) -> Result<Vec<SyncDevic
                     label: device.label,
                     ledger_names: Vec::new(),
                 });
-            if !entry.ledger_names.iter().any(|name| name == &ledger_name) {
+            if !entry.ledger_names.iter().any(|name| name == ledger_name) {
                 entry.ledger_names.push(ledger_name.clone());
             }
         }
@@ -745,20 +740,17 @@ async fn load_sync_devices(service: &Arc<UnbillConsole>) -> Result<Vec<SyncDevic
             .cmp(&right.label.to_lowercase())
             .then_with(|| left.node_id.cmp(&right.node_id))
     });
-    Ok(devices)
+    devices
 }
 
-async fn load_sync_devices_for_ledger(
-    service: &Arc<UnbillConsole>,
-    ledger_id: LedgerId,
+fn sync_devices_for_ledger(
+    ledger_devices: &[unbill_console::model::Device],
     ledger_name: &str,
     local_node_id: &str,
     include_local: bool,
-) -> Result<Vec<SyncDeviceDto>> {
-    let mut devices = service
-        .list_devices(ledger_id)
-        .await?
-        .into_iter()
+) -> Vec<SyncDeviceDto> {
+    let mut devices = ledger_devices
+        .iter()
         .filter_map(|device| {
             let node_id = device.node_id.to_string();
             if !include_local && node_id == local_node_id {
@@ -779,37 +771,33 @@ async fn load_sync_devices_for_ledger(
             .cmp(&right.label.to_lowercase())
             .then_with(|| left.node_id.cmp(&right.node_id))
     });
-    Ok(devices)
+    devices
 }
 
 async fn load_ledger_detail_inner(
     service: &Arc<UnbillConsole>,
     ledger_id: LedgerId,
 ) -> Result<LedgerDetailDto> {
-    let meta = service
-        .list_ledgers()
-        .await?
-        .into_iter()
-        .find(|item| item.ledger_id == ledger_id)
-        .ok_or_else(|| UnbillError::LedgerNotFound(ledger_id.to_string()))?;
-
-    let summary = summarize_ledger(service, meta).await?;
+    let snapshot = service.ledger_detail_snapshot(ledger_id).await?;
+    let summary = summarize_ledger(&snapshot.overview);
     let local_node_id = service.device_id().to_string();
-    let devices =
-        load_sync_devices_for_ledger(service, ledger_id, &summary.name, &local_node_id, true)
-            .await?;
-    let users = service.list_users(ledger_id).await?;
-    let bills = service.list_bills(ledger_id).await?;
-    let conflicts = service.detect_conflicts(ledger_id).await?;
+    let devices = sync_devices_for_ledger(
+        &snapshot.overview.devices,
+        &summary.name,
+        &local_node_id,
+        true,
+    );
+    let users = snapshot.overview.users;
+    let bills = snapshot.overview.bills;
+    let conflicts = snapshot.conflicts;
 
     let user_name_lookup: std::collections::HashMap<UserId, String> = users
         .iter()
         .map(|u| (u.user_id, u.display_name.clone()))
         .collect();
 
-    let settlement = service
-        .settle_ledger(ledger_id)
-        .await?
+    let settlement = snapshot
+        .settlement
         .transactions
         .into_iter()
         .map(|t| TransactionDto {
@@ -830,7 +818,7 @@ async fn load_ledger_detail_inner(
     let conflict_dtos = map_conflicts_from(conflicts, &user_name_lookup);
 
     Ok(LedgerDetailDto {
-        emoji_fingerprint: service.ledger_emojis(ledger_id).await?,
+        emoji_fingerprint: snapshot.emoji_fingerprint,
         summary,
         users: user_dtos,
         devices,
@@ -895,27 +883,31 @@ async fn resolve_conflict_inner(
     Ok(merge_id.to_string())
 }
 
-async fn summarize_ledger(
-    service: &Arc<UnbillConsole>,
-    meta: unbill_console::model::LedgerMeta,
-) -> Result<LedgerSummaryDto> {
-    let users = service.list_users(meta.ledger_id).await?;
-    let bills = service.list_bills(meta.ledger_id).await?;
-    let latest_bill_at_ms = bills.iter().map(|bill| bill.created_at.as_millis()).max();
+fn summarize_ledger(overview: &LedgerOverview) -> LedgerSummaryDto {
+    let meta = &overview.meta;
+    let latest_bill_at_ms = overview
+        .bills
+        .iter()
+        .map(|bill| bill.created_at.as_millis())
+        .max();
 
-    let user_names = users.iter().map(|u| u.display_name.clone()).collect();
+    let user_names = overview
+        .users
+        .iter()
+        .map(|u| u.display_name.clone())
+        .collect();
 
-    Ok(LedgerSummaryDto {
+    LedgerSummaryDto {
         archived: meta.archived,
         ledger_id: meta.ledger_id.to_string(),
-        name: meta.name,
+        name: meta.name.clone(),
         currency: meta.currency.code().to_owned(),
         created_at_ms: meta.created_at.as_millis(),
         updated_at_ms: meta.updated_at.as_millis(),
-        user_count: users.len(),
+        user_count: overview.users.len(),
         user_names,
         latest_bill_at_ms,
-    })
+    }
 }
 
 fn map_bills_from(
@@ -1241,6 +1233,8 @@ mod tests {
         )
         .await
         .unwrap();
+        channel.register("test", "test-password").await.unwrap();
+        channel.login("test", "test-password").await.unwrap();
         UnbillConsole::open(channel as Arc<dyn AsymChannel>).await
     }
 

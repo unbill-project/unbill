@@ -68,7 +68,7 @@ fingerprint = "sha256:d389ffd982f9d4c968fa3395c3a4c57fc06aa9c17cdf7083f497125e3d
 "core.refines" = ["bill-amendment"]
 
 [entries.console-service]
-fingerprint = "sha256:2e8ddee9b866d3f197840b454248fe3377efd04eb40a2bfa480d9c2a818c730a"
+fingerprint = "sha256:8f6bcfc3ddf93face75fa84eb0d9ead33fb59b52f08d9b857c9a976754027a6c"
 "core.belongs" = ["unbill-console"]
 "core.refines" = ["unbill-console"]
 
@@ -395,7 +395,7 @@ fingerprint = "sha256:fe8950d878bf624fef48170d370ab22b70fcfb42a5c9a408bb00b2df5d
 "core.refines" = ["shared-and-local-state"]
 
 [entries.unbill-tauri]
-fingerprint = "sha256:2233bb651e6352be44ffedf644b55361ed55cf2e18aca56923879c075fde3716"
+fingerprint = "sha256:c18065c725201204ea55bca99ea29fe9b1c1f2bc678a733081d8d6633713e9ac"
 "core.belongs" = [
     "applications",
     "frontend-ui",

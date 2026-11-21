@@ -4,5 +4,5 @@ mod inner;
 
 pub use crate::conflict::ConflictGroup;
 pub use crate::settlement::{BillSplit, Settlement, Transaction as SettlementTransaction};
-pub use inner::UnbillConsole;
+pub use inner::{LedgerDetailSnapshot, LedgerOverview, UnbillConsole};
 pub use unbill_event::ServiceEvent;
