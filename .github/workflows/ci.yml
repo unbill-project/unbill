@@ -78,6 +78,8 @@ jobs:
         run: |
           cargo fetch --locked
           cargo test --workspace --exclude unbill-tauri
+      - name: Test device profiling reports
+        run: python3 -m unittest discover -s tools/device-profile -p 'test_*.py'
 
   rust-package:
     name: Rust package

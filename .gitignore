@@ -49,3 +49,6 @@ liblib.rlib
 
 # sirno misty lake
 unbill-docs
+
+# Profiling report helpers
+/tools/device-profile/__pycache__/

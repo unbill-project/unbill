@@ -9263,6 +9263,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "unbill-device-profile"
+version = "0.0.10"
+dependencies = [
+ "anyhow",
+ "argon2",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "unbill-device",
+ "unbill-model",
+ "unbill-storage",
+ "unbill-store-memory",
+ "unbill-store-sqlite",
+]
+
+[[package]]
 name = "unbill-event"
 version = "0.0.10"
 
@@ -9305,6 +9322,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "thiserror 2.0.21",
+ "tracing",
  "ulid",
  "unbill-model-verified",
  "web-time",

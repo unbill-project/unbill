@@ -19,6 +19,12 @@ use crate::protocol::{Hello, HelloAck, SyncDone, SyncFrame, SyncMsg, read_msg, w
 /// Finish outbound data and wait until the peer has consumed the sync session.
 /// New receivers finish their writer after persistence; old v1 receivers finish
 /// it when their protocol loop returns. Do not close QUIC before this barrier.
+#[tracing::instrument(
+    name = "peer.finish_sync_session",
+    target = "unbill::profile",
+    level = "trace",
+    skip_all
+)]
 pub async fn finish_sync_session<R, W>(reader: &mut R, writer: &mut W) -> Result<()>
 where
     R: AsyncRead + Unpin,
@@ -66,6 +72,12 @@ struct LedgerSyncState {
 /// Ledger documents are loaded from the store at the start of the session and
 /// held in memory only for its duration. Nothing is cached between sessions.
 // sirno:witness:symmetric-channel:begin
+#[tracing::instrument(
+    name = "peer.run_sync_session",
+    target = "unbill::profile",
+    level = "trace",
+    skip_all
+)]
 pub async fn run_sync_session<R, W>(
     is_initiator: bool,
     peer_node_id: NodeId,

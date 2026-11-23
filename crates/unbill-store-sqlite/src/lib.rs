@@ -72,6 +72,12 @@ impl SqliteStore {
     /// Open `root/unbill.sqlite3`, applying embedded migrations.
     /// Acquires `root/unbill.lock` on desktop; Android and non-Catalyst iOS skip it.
     /// A competing desktop owner returns an I/O WouldBlock error.
+    #[tracing::instrument(
+        name = "sqlite.open",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn open(root: PathBuf) -> Result<Self> {
         let (database, observer, cursor) = tokio::task::spawn_blocking(move || {
             std::fs::create_dir_all(&root)?;
@@ -136,8 +142,17 @@ impl SqliteStore {
         operation: impl FnOnce(&mut SqliteConnection) -> Result<T> + Send + 'static,
     ) -> Result<T> {
         let database = Arc::clone(&self.database);
+        let parent = tracing::Span::current();
+        let scheduled = tracing::trace_span!(target: "unbill::profile", "sqlite.blocking_queue");
         tokio::task::spawn_blocking(move || {
-            let mut connection = database.connection.lock().map_err(io_error)?;
+            drop(scheduled);
+            let _parent = parent.enter();
+            let lock = tracing::trace_span!(target: "unbill::profile", "sqlite.mutex_wait");
+            let connection = database.connection.lock().map_err(io_error);
+            drop(lock);
+            let mut connection = connection?;
+            let _execute =
+                tracing::trace_span!(target: "unbill::profile", "sqlite.execute").entered();
             operation(&mut connection)
         })
         .await
@@ -153,6 +168,12 @@ impl Drop for SqliteStore {
 
 #[async_trait]
 impl LedgerStore for SqliteStore {
+    #[tracing::instrument(
+        name = "sqlite.create_account",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn create_account(&self, name: &str, password_hash: &str) -> Result<()> {
         let (name, hash) = (name.to_owned(), password_hash.to_owned());
         self.run(move |conn| {
@@ -164,6 +185,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.get_account",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn get_account(&self, name: &str) -> Result<Option<AccountRecord>> {
         let name = name.to_owned();
         self.run(move |conn| {
@@ -182,6 +209,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.list_accounts",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn list_accounts(&self) -> Result<Vec<String>> {
         self.run(|conn| {
             accounts::table
@@ -192,6 +225,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.set_account_password",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn set_account_password(&self, name: &str, password_hash: &str) -> Result<()> {
         let (name, hash) = (name.to_owned(), password_hash.to_owned());
         self.run(move |conn| {
@@ -217,6 +256,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.delete_account",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn delete_account(&self, name: &str) -> Result<()> {
         let name = name.to_owned();
         self.run(move |conn| {
@@ -227,6 +272,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.create_session",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn create_session(&self, token_hash: &str, account_name: &str) -> Result<()> {
         let (token_hash, account_name) = (token_hash.to_owned(), account_name.to_owned());
         self.run(move |conn| {
@@ -241,6 +292,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.resolve_session",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn resolve_session(&self, token_hash: &str) -> Result<Option<String>> {
         let hash = token_hash.to_owned();
         self.run(move |conn| {
@@ -253,6 +310,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.delete_session",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn delete_session(&self, token_hash: &str) -> Result<()> {
         let hash = token_hash.to_owned();
         self.run(move |conn| {
@@ -263,6 +326,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.grant_ledger",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn grant_ledger(&self, account_name: &str, ledger_id: LedgerId) -> Result<()> {
         let (name, id) = (account_name.to_owned(), ledger_id.to_string());
         let events = self.events.clone();
@@ -282,6 +351,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.revoke_ledger",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn revoke_ledger(&self, account_name: &str, ledger_id: LedgerId) -> Result<()> {
         let (name, id) = (account_name.to_owned(), ledger_id.to_string());
         let events = self.events.clone();
@@ -296,6 +371,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.account_has_ledger",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn account_has_ledger(&self, account_name: &str, ledger_id: LedgerId) -> Result<bool> {
         let (name, id) = (account_name.to_owned(), ledger_id.to_string());
         self.run(move |conn| {
@@ -305,6 +386,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.list_account_ledgers",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn list_account_ledgers(&self, account_name: &str) -> Result<Vec<LedgerId>> {
         let name = account_name.to_owned();
         self.run(move |conn| {
@@ -319,6 +406,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.save_ledger_meta",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
         let mut meta = meta.clone();
         let events = self.events.clone();
@@ -352,6 +445,12 @@ impl LedgerStore for SqliteStore {
         .await
     }
 
+    #[tracing::instrument(
+        name = "sqlite.set_ledger_archived",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn set_ledger_archived(&self, ledger_id: LedgerId, archived: bool) -> Result<()> {
         let id = ledger_id.to_string();
         let events = self.events.clone();
@@ -385,6 +484,12 @@ impl LedgerStore for SqliteStore {
         .await
     }
 
+    #[tracing::instrument(
+        name = "sqlite.list_ledgers",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
         self.run(|conn| {
             let rows = ledgers::table
@@ -409,6 +514,12 @@ impl LedgerStore for SqliteStore {
         .await
     }
 
+    #[tracing::instrument(
+        name = "sqlite.load_ledger",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn load_ledger(&self, ledger_id: &str) -> Result<Option<LedgerDoc>> {
         let id = ledger_id.to_owned();
         let bytes = self
@@ -427,6 +538,12 @@ impl LedgerStore for SqliteStore {
             .transpose()
     }
 
+    #[tracing::instrument(
+        name = "sqlite.save_ledger",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn save_ledger(&self, ledger_id: &str, doc: &mut LedgerDoc) -> Result<()> {
         let id = ledger_id.to_owned();
         let bytes = doc.save();
@@ -498,6 +615,12 @@ impl LedgerStore for SqliteStore {
         self.events.subscribe()
     }
 
+    #[tracing::instrument(
+        name = "sqlite.list_pending_invitations",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn list_pending_invitations(&self) -> Result<Vec<Invitation>> {
         self.run(|conn| {
             pending_invitations::table
@@ -509,6 +632,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.create_invitation",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn create_invitation(
         &self,
         ledger_id: LedgerId,
@@ -535,6 +664,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.consume_invitation",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn consume_invitation(&self, token: &str) -> Result<Option<Invitation>> {
         let token = token.to_owned();
         let events = self.events.clone();
@@ -558,6 +693,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.create_secret_key",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn create_secret_key(&self) -> Result<()> {
         let events = self.events.clone();
         self.run(move |conn| {
@@ -581,6 +722,12 @@ impl LedgerStore for SqliteStore {
         })
         .await
     }
+    #[tracing::instrument(
+        name = "sqlite.is_device_initialized",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn is_device_initialized(&self) -> Result<bool> {
         self.run(|conn| {
             diesel::select(diesel::dsl::exists(device_identity::table.find(1)))
@@ -590,6 +737,12 @@ impl LedgerStore for SqliteStore {
         .await
     }
 
+    #[tracing::instrument(
+        name = "sqlite.get_device_id",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn get_device_id(&self) -> Result<NodeId> {
         let secret = self.get_secret_key().await?;
         Ok(NodeId::new(
@@ -599,6 +752,12 @@ impl LedgerStore for SqliteStore {
         ))
     }
 
+    #[tracing::instrument(
+        name = "sqlite.get_secret_key",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn get_secret_key(&self) -> Result<SecretKey> {
         let bytes = self
             .run(|conn| {
@@ -692,6 +851,12 @@ mod ownership_tests {
     use super::*;
 
     #[tokio::test]
+    #[tracing::instrument(
+        name = "sqlite.cancelled_caller_keeps_lock_until_blocking_operation_finishes",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn cancelled_caller_keeps_lock_until_blocking_operation_finishes() {
         let dir = tempfile::tempdir().unwrap();
         let store = Arc::new(SqliteStore::open(dir.path().into()).await.unwrap());

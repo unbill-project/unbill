@@ -56,6 +56,9 @@ pub(crate) fn spawn(
             let connection = Arc::clone(&connection);
             let result = tokio::task::spawn_blocking(move || {
                 let mut connection = connection.lock().map_err(io_error)?;
+                let _poll =
+                    tracing::trace_span!(target: "unbill::profile", "sqlite.notification_poll")
+                        .entered();
                 changes(&mut connection, cursor)
             })
             .await;

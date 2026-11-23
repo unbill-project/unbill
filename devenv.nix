@@ -140,6 +140,7 @@ in
   packages = [
     pkgs.cargo-tauri
     pkgs.cargo-release
+    pkgs.python3 # Device runtime profiling suite and release helpers.
     pkgs.trunk
     pkgs.llvmPackages.bintools
     pkgs.prek

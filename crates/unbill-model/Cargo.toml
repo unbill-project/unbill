@@ -11,6 +11,7 @@ homepage.workspace = true
 test-helpers = []
 
 [dependencies]
+tracing.workspace = true
 unbill-model-verified = { path = "verified", version = "0.0.10", features = ["thiserror"] }
 garde.workspace = true
 thiserror.workspace = true
