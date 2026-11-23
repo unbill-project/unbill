@@ -32,6 +32,12 @@ impl LedgerDoc {
     }
 
     /// Load a ledger document from stored bytes.
+    #[tracing::instrument(
+        name = "crdt.from_bytes",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let doc = automerge::AutoCommit::load(bytes)
             .map_err(|e| UnbillError::Automerge(e.to_string()))?;
@@ -80,6 +86,12 @@ impl LedgerDoc {
     }
 
     /// Serialize the full document to bytes for storage.
+    #[tracing::instrument(
+        name = "crdt.save",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub fn save(&mut self) -> Vec<u8> {
         self.doc.save()
     }
@@ -196,6 +208,12 @@ impl LedgerDoc {
         ops::set_device_label(&mut self.doc, node_id, label)
     }
 
+    #[tracing::instrument(
+        name = "crdt.list_devices",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub fn list_devices(&self) -> Result<Vec<Device>> {
         ops::list_devices(&self.doc)
     }
@@ -204,6 +222,12 @@ impl LedgerDoc {
 
     // sirno:witness:sync-behavior:begin
     /// Merge all changes from `other` into this document.
+    #[tracing::instrument(
+        name = "crdt.merge",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub fn merge(&mut self, other: &mut LedgerDoc) -> Result<()> {
         self.doc
             .merge(&mut other.doc)
@@ -211,6 +235,12 @@ impl LedgerDoc {
         Ok(())
     }
 
+    #[tracing::instrument(
+        name = "crdt.generate_sync_message",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub fn generate_sync_message(
         &mut self,
         sync_state: &mut automerge::sync::State,
@@ -219,6 +249,12 @@ impl LedgerDoc {
         self.doc.sync().generate_sync_message(sync_state)
     }
 
+    #[tracing::instrument(
+        name = "crdt.receive_sync_message",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub fn receive_sync_message(
         &mut self,
         sync_state: &mut automerge::sync::State,

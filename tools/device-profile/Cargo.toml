@@ -1,0 +1,24 @@
+[package]
+name = "unbill-device-profile"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Standalone UnbillDevice runtime profiling workloads and trace collector."
+publish = false
+
+[features]
+# Opt in only for CI/headless comparisons; ordinary runs use the production BLE path.
+headless = ["unbill-device/test-helpers"]
+
+[dependencies]
+unbill-device = { path = "../../crates/unbill-device" }
+unbill-model = { path = "../../crates/unbill-model" }
+unbill-storage = { path = "../../crates/unbill-storage" }
+unbill-store-memory = { path = "../../crates/unbill-store-memory" }
+unbill-store-sqlite = { path = "../../crates/unbill-store-sqlite" }
+argon2 = "0.5"
+anyhow.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "signal"] }

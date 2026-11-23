@@ -14,7 +14,7 @@ pub use unbill_storage::StoreServer;
 
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{broadcast, watch};
-use tracing::warn;
+use tracing::{Instrument as _, warn};
 use unbill_model::error::{Result, UnbillError};
 use unbill_model::{LedgerId, LedgerMeta, NodeId, StorageError, Timestamp};
 use unbill_symmetric_channel::{
@@ -37,6 +37,12 @@ pub struct AccountView {
     account_name: String,
 }
 
+#[tracing::instrument(
+    name = "device.password_hash",
+    target = "unbill::profile",
+    level = "trace",
+    skip_all
+)]
 fn password_hash(password: &str) -> Result<String> {
     let mut bytes = [0u8; 16];
     rand::rngs::SysRng
@@ -71,6 +77,12 @@ fn validate_account_name(name: &str) -> Result<()> {
 }
 
 impl UnbillDevice {
+    #[tracing::instrument(
+        name = "device.register",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn register(&self, name: &str, password: &str) -> Result<()> {
         validate_account_name(name)?;
         if password.is_empty() {
@@ -82,6 +94,12 @@ impl UnbillDevice {
         Ok(())
     }
 
+    #[tracing::instrument(
+        name = "device.login",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn login(&self, name: &str, password: &str) -> Result<String> {
         let account = self
             .server
@@ -104,6 +122,12 @@ impl UnbillDevice {
         Ok(token)
     }
 
+    #[tracing::instrument(
+        name = "device.session_account",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn session_account(&self, token: &str) -> Result<String> {
         if token.len() != 64 || !token.bytes().all(|b| b.is_ascii_hexdigit()) {
             return Err(UnbillError::NotAuthorized);
@@ -114,11 +138,23 @@ impl UnbillDevice {
             .ok_or(UnbillError::NotAuthorized)
     }
 
+    #[tracing::instrument(
+        name = "device.logout",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn logout(&self, token: &str) -> Result<()> {
         self.server.delete_session(&session_digest(token)).await?;
         Ok(())
     }
 
+    #[tracing::instrument(
+        name = "device.change_password",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn change_password(
         &self,
         token: &str,
@@ -146,10 +182,22 @@ impl UnbillDevice {
     }
 
     /// Trusted local maintenance entry points; never expose them on RPC or HTTP.
+    #[tracing::instrument(
+        name = "device.delete_account",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn delete_account(&self, name: &str) -> Result<()> {
         self.server.delete_account(name).await?;
         Ok(())
     }
+    #[tracing::instrument(
+        name = "device.reset_account_password",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn reset_account_password(&self, name: &str, new_password: &str) -> Result<()> {
         if new_password.is_empty() {
             return Err(UnbillError::Validation("password cannot be empty".into()));
@@ -159,11 +207,23 @@ impl UnbillDevice {
             .await?;
         Ok(())
     }
+    #[tracing::instrument(
+        name = "device.revoke_account_ledger",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn revoke_account_ledger(&self, name: &str, id: LedgerId) -> Result<()> {
         self.server.revoke_ledger(name, id).await?;
         Ok(())
     }
 
+    #[tracing::instrument(
+        name = "device.account_view",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn account_view(self: &Arc<Self>, account_name: &str) -> Result<AccountView> {
         if self.server.get_account(account_name).await?.is_none() {
             return Err(UnbillError::NotAuthorized);
@@ -174,10 +234,22 @@ impl UnbillDevice {
         })
     }
 
+    #[tracing::instrument(
+        name = "device.session_view",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn session_view(self: &Arc<Self>, token: &str) -> Result<AccountView> {
         let name = self.session_account(token).await?;
         self.account_view(&name).await
     }
+    #[tracing::instrument(
+        name = "device.open",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn open(raw_store: Arc<dyn unbill_storage::LedgerStore>) -> Result<Arc<Self>> {
         // Init methods run on the raw store before wrapping in StoreServer.
         raw_store.create_secret_key().await?;
@@ -216,21 +288,26 @@ impl UnbillDevice {
                     }
                 }
                 let Some(device) = weak.upgrade() else { break };
-                if refresh_known {
-                    match device.collect_peers().await {
-                        Ok(peers) => {
-                            known = peers;
-                            refresh_known = false;
+                let closed = async {
+                    if refresh_known {
+                        match device.collect_peers().await {
+                            Ok(peers) => {
+                                known = peers;
+                                refresh_known = false;
+                            }
+                            Err(error) => warn!(%error, "could not refresh known BLE peers"),
                         }
-                        Err(error) => warn!(%error, "could not refresh known BLE peers"),
                     }
+                    let mut snapshot = device.endpoint.ble_snapshot();
+                    snapshot.discovered_node_ids = device
+                        .endpoint
+                        .ble_discovered_node_ids(&known, &snapshot.peers);
+                    let closed = matches!(snapshot.state, unbill_model::BleState::Closed);
+                    device.publish_ble(snapshot);
+                    closed
                 }
-                let mut snapshot = device.endpoint.ble_snapshot();
-                snapshot.discovered_node_ids = device
-                    .endpoint
-                    .ble_discovered_node_ids(&known, &snapshot.peers);
-                let closed = matches!(snapshot.state, unbill_model::BleState::Closed);
-                device.publish_ble(snapshot);
+                .instrument(tracing::trace_span!(target: "unbill::profile", "device.ble_poll"))
+                .await;
                 if closed {
                     break;
                 }
@@ -262,6 +339,12 @@ impl UnbillDevice {
         });
     }
 
+    #[tracing::instrument(
+        name = "device.close",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn close(&self) {
         self.endpoint.close().await;
         self.publish_ble(self.endpoint.ble_snapshot());
@@ -272,6 +355,12 @@ impl UnbillDevice {
     }
 
     /// Join with this device's shared name in the target ledger.
+    #[tracing::instrument(
+        name = "device.join_ledger",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     async fn join_ledger(&self, url: &str, label: unbill_model::DeviceLabel) -> Result<()> {
         let (ledger_id, host, token) = parse_join_url(url)?;
         let mut conn = self.endpoint.connect_bi_join(host.clone()).await?;
@@ -304,11 +393,23 @@ impl UnbillDevice {
     }
 
     /// Collect all unique peer NodeIds across all ledgers, excluding this device.
+    #[tracing::instrument(
+        name = "device.collect_peers",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn collect_peers(&self) -> Result<Vec<NodeId>> {
         self.server.collect_peers(self.device_id.clone()).await
     }
 
     /// Dial `peer` and run the full sync exchange for all shared ledgers.
+    #[tracing::instrument(
+        name = "device.trigger_peer_sync",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn trigger_peer_sync(&self, peer: NodeId) -> Result<()> {
         let mut conn = self.endpoint.connect_bi_sync(peer.clone()).await?;
         let result = async {
@@ -361,6 +462,9 @@ impl UnbillDevice {
                         ))),
                     }
                 }
+                .instrument(
+                    tracing::trace_span!(target: "unbill::profile", "device.incoming_session"),
+                )
                 .await;
                 if let Err(e) = &result {
                     warn!("connection handler error: {e:#}");
@@ -378,6 +482,12 @@ impl AccountView {
         &self.account_name
     }
 
+    #[tracing::instrument(
+        name = "account.list_ledgers",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn list_ledgers(&self) -> Result<Vec<LedgerMeta>> {
         self.device
             .server
@@ -386,6 +496,12 @@ impl AccountView {
             .map_err(account_storage_error)
     }
 
+    #[tracing::instrument(
+        name = "account.save_ledger_meta",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn save_ledger_meta(&self, meta: &LedgerMeta) -> Result<()> {
         self.device
             .server
@@ -394,6 +510,12 @@ impl AccountView {
             .map_err(account_storage_error)
     }
 
+    #[tracing::instrument(
+        name = "account.set_ledger_archived",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn set_ledger_archived(&self, id: LedgerId, archived: bool) -> Result<()> {
         self.device
             .server
@@ -402,6 +524,12 @@ impl AccountView {
             .map_err(account_storage_error)
     }
 
+    #[tracing::instrument(
+        name = "account.asym_sync",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn asym_sync(&self, id: LedgerId, bytes: Vec<u8>) -> Result<Option<Vec<u8>>> {
         self.device
             .server
@@ -409,6 +537,12 @@ impl AccountView {
             .await
     }
 
+    #[tracing::instrument(
+        name = "account.create_invitation",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn create_invitation(&self, id: LedgerId) -> Result<String> {
         self.device
             .server
@@ -416,6 +550,12 @@ impl AccountView {
             .await
     }
 
+    #[tracing::instrument(
+        name = "account.join_ledger",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn join_ledger(&self, url: &str, label: unbill_model::DeviceLabel) -> Result<()> {
         if self
             .device
@@ -437,6 +577,12 @@ impl AccountView {
         Ok(())
     }
 
+    #[tracing::instrument(
+        name = "account.share_ledger",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn share_ledger(&self, id: LedgerId, target_name: &str) -> Result<()> {
         match self
             .device
@@ -451,6 +597,12 @@ impl AccountView {
         }
     }
 
+    #[tracing::instrument(
+        name = "account.list_accounts",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn list_accounts(&self) -> Result<Vec<String>> {
         if self
             .device

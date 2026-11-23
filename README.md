@@ -199,3 +199,8 @@ Unbill is licensed under either Apache-2.0 or MIT, at your option.
 See [LICENSE](LICENSE),
 [LICENSE-APACHE](LICENSE-APACHE),
 and [LICENSE-MIT](LICENSE-MIT).
+
+## Device runtime profiling
+
+Run direct UnbillDevice workloads and inspect timing, queueing, CPU and memory
+reports with the [device profiling suite](tools/device-profile/README.md).

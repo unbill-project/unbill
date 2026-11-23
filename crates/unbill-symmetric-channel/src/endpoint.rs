@@ -104,6 +104,12 @@ pub struct UnbillEndpoint {
 
 impl UnbillEndpoint {
     /// Bind a new Iroh endpoint using the given device secret key.
+    #[tracing::instrument(
+        name = "peer.bind",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn bind(key: &SecretKey) -> Result<Self> {
         let enable_ble = !cfg!(any(test, feature = "test-helpers"));
         let mut relay_urls: Vec<iroh::RelayUrl> = Vec::new();
@@ -330,6 +336,12 @@ impl UnbillEndpoint {
     // Initiator: connect for join protocol
     // -----------------------------------------------------------------------
 
+    #[tracing::instrument(
+        name = "peer.connect_bi_join",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn connect_bi_join(&self, host: NodeId) -> Result<ConnectedBi> {
         let conn = self
             .inner
@@ -352,6 +364,12 @@ impl UnbillEndpoint {
     // Initiator: connect for sync protocol
     // -----------------------------------------------------------------------
 
+    #[tracing::instrument(
+        name = "peer.connect_bi_sync",
+        target = "unbill::profile",
+        level = "trace",
+        skip_all
+    )]
     pub async fn connect_bi_sync(&self, peer: NodeId) -> Result<ConnectedBi> {
         let conn = self
             .inner

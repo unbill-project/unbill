@@ -1,0 +1,56 @@
+name: Device runtime profile
+
+on:
+  workflow_dispatch:
+    inputs:
+      ledgers:
+        description: Fixture ledgers per capture
+        default: '10'
+        type: string
+      bills:
+        description: Bills per fixture ledger
+        default: '10'
+        type: string
+      iterations:
+        description: Iterations per worker
+        default: '20'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: device-profile
+      - name: Test capture and report handling
+        run: |
+          cargo test --locked -p unbill-device-profile --features headless
+          python3 -m unittest discover -s tools/device-profile -p 'test_*.py'
+      - name: Profile direct device workloads
+        env:
+          PROFILE_LEDGERS: ${{ inputs.ledgers }}
+          PROFILE_BILLS: ${{ inputs.bills }}
+          PROFILE_ITERATIONS: ${{ inputs.iterations }}
+        run: |
+          python3 tools/device-profile/suite.py --headless \
+            --output target/profiles/ci \
+            --ledgers "$PROFILE_LEDGERS" --bills "$PROFILE_BILLS" \
+            --iterations "$PROFILE_ITERATIONS"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: device-runtime-profile
+          path: |
+            target/profiles/ci/index.html
+            target/profiles/ci/*.log
+            target/profiles/ci/*/*.json
+            target/profiles/ci/*/*.jsonl
+            target/profiles/ci/*/report.html
+          if-no-files-found: warn

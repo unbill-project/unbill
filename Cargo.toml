@@ -2,6 +2,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "tools/device-profile",
     "crates/unbill-about",
     "crates/unbill-build-info",
     "crates/unbill-license",
@@ -127,3 +128,10 @@ opt-level = "z"  # Optimize for size.
 [profile.release.package.unbill-cli]
 strip = true  # Automatically strip symbols from the binary.
 opt-level = "z"  # Optimize for size.
+
+# Keep optimized code and symbols for CPU sampling; do not alter release artifacts.
+[profile.profiling]
+inherits = "release"
+lto = "thin"
+debug = 1
+strip = false
